@@ -102,6 +102,9 @@ export async function registerAccount(
   if (accounts.find(a => a.email.toLowerCase() === email.toLowerCase())) {
     return { success: false, error: 'Email sudah terdaftar. Gunakan email lain atau login.' };
   }
+  if (accounts.find(a => a.name.toLowerCase() === name.toLowerCase())) {
+    return { success: false, error: 'Nama ini sudah digunakan oleh pengguna lain. Harap gunakan nama lengkap yang unik.' };
+  }
   const passwordHash = await hashPassword(password);
   const newAccount: UserAccount = {
     id: crypto.randomUUID(),

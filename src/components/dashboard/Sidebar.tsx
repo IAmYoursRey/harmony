@@ -14,13 +14,14 @@ interface SidebarProps {
 
 export function Sidebar({ active, onSelect, mobileOpen, onCloseMobile }: SidebarProps) {
   const { t } = useI18n();
-  const { currentUser } = useAuth();
+  const { currentUser, logout } = useAuth();
   
   // Filter nav items based on role
   const visibleNavItems = navItems.filter(item => {
-    if (item.id === 'dev-dashboard') return currentUser?.role === 'dev';
-    if (item.id === 'teacher') return currentUser?.role === 'teacher' || currentUser?.role === 'dev';
-    return true; // All other items visible to all roles
+    if (item.roles && currentUser) {
+      return item.roles.includes(currentUser.role);
+    }
+    return true; // Visible to everyone if no roles are specified
   });
   return (
     <>
@@ -103,13 +104,16 @@ export function Sidebar({ active, onSelect, mobileOpen, onCloseMobile }: Sidebar
               </div>
             </div>
           </div>
-          <Link
-            to="/"
-            className="mt-2 flex items-center gap-2 rounded-xl px-3 py-2.5 text-sm font-medium text-ink-500 transition-colors hover:bg-brand-50 hover:text-brand-600 dark:text-slate-400 dark:hover:bg-brand-950/40"
+          <button
+            onClick={() => {
+              logout();
+              onCloseMobile();
+            }}
+            className="mt-2 flex w-full items-center gap-2 rounded-xl px-3 py-2.5 text-sm font-medium text-ink-500 transition-colors hover:bg-brand-50 hover:text-brand-600 dark:text-slate-400 dark:hover:bg-brand-950/40"
           >
             <LogOut className="h-4 w-4" />
-            {t('sidebar.back_site')}
-          </Link>
+            Keluar (Logout)
+          </button>
         </div>
       </aside>
     </>

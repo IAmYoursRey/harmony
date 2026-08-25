@@ -18,7 +18,7 @@ export function Navbar() {
   const [scrolled, setScrolled] = useState(false);
   const [open, setOpen] = useState(false);
   const { theme, toggle } = useTheme();
-  const { t } = useI18n();
+  const { t, lang, setLang } = useI18n();
   const navigate = useNavigate();
 
   useEffect(() => {
@@ -60,6 +60,13 @@ export function Navbar() {
         <div className="hidden items-center gap-3 md:flex">
           <ThemePicker />
           <button
+            onClick={() => setLang(lang === 'id' ? 'en' : 'id')}
+            className="flex h-10 w-10 items-center justify-center rounded-full text-sm font-bold text-ink-600 transition-colors hover:bg-brand-50 dark:text-slate-300 dark:hover:bg-slate-800"
+            aria-label="Toggle language"
+          >
+            {lang === 'id' ? 'ID' : 'EN'}
+          </button>
+          <button
             onClick={toggle}
             className="flex h-10 w-10 items-center justify-center rounded-full text-ink-600 transition-colors hover:bg-brand-50 dark:text-slate-300 dark:hover:bg-slate-800"
             aria-label="Toggle dark mode"
@@ -83,6 +90,13 @@ export function Navbar() {
 
         <div className="flex items-center gap-2 md:hidden">
           <ThemePicker />
+          <button
+            onClick={() => setLang(lang === 'id' ? 'en' : 'id')}
+            className="flex h-10 w-10 items-center justify-center rounded-lg text-sm font-bold text-ink-700 transition-colors hover:bg-brand-50 dark:text-slate-300 dark:hover:bg-slate-800"
+            aria-label="Toggle language"
+          >
+            {lang === 'id' ? 'ID' : 'EN'}
+          </button>
           <button
             onClick={toggle}
             className="flex h-10 w-10 items-center justify-center rounded-lg text-ink-700 transition-colors hover:bg-brand-50 dark:text-slate-300 dark:hover:bg-slate-800"

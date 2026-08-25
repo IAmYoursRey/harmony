@@ -21,10 +21,10 @@ export interface TopicScore {
 export interface UserProfile {
   userId: string;
   gender: Gender;
-  grade: '10' | '11' | '12'; // e.g. "10", "11", "12"
+  grade: 'X' | 'XI' | 'XII'; // e.g. "X", "XI", "XII"
   classSection: string;      // e.g. "1", "IPA 2"
   schoolId: string;
-  supervisedClasses?: { grade: '10' | '11' | '12'; section: string }[]; // Only for teachers
+  supervisedClasses?: { grade: 'X' | 'XI' | 'XII'; section: string }[]; // Only for teachers
   dateOfBirth?: string;
   topicScores: Record<string, TopicScore>;
   totalPoints: number;
@@ -72,11 +72,11 @@ export function getProfile(userId: string): UserProfile | undefined {
 export function createProfile(
   userId: string,
   gender: Gender,
-  grade: '10' | '11' | '12',
+  grade: 'X' | 'XI' | 'XII',
   classSection: string,
   schoolId: string,
   dateOfBirth?: string,
-  supervisedClasses?: { grade: '10' | '11' | '12'; section: string }[]
+  supervisedClasses?: { grade: 'X' | 'XI' | 'XII'; section: string }[]
 ): UserProfile {
   const newProfile: UserProfile = {
     userId,

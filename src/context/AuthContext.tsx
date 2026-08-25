@@ -1,5 +1,7 @@
-// src/context/AuthContext.tsx
 // Global authentication state. API keys dibaca dari .env — tidak disimpan di browser.
+
+import { useSchool } from '@/context/SchoolContext';
+import { schoolData } from '@/data/schools';
 
 import { createContext, useContext, useEffect, useState, type ReactNode } from 'react';
 import {
@@ -31,7 +33,7 @@ interface AuthContextValue {
     password: string,
     role: 'student' | 'teacher' | 'dev',
     gender: Gender,
-    grade: '10' | '11' | '12',
+    grade: 'X' | 'XI' | 'XII',
     classSection: string,
     schoolId?: string,
     dateOfBirth?: string
@@ -48,6 +50,34 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [currentUser, setCurrentUser] = useState<UserAccount | null>(null);
   const [currentProfile, setCurrentProfile] = useState<UserProfile | null>(null);
   const [isLoading, setIsLoading] = useState(true);
+  
+  const { setSelection, clearSelection } = useSchool();
+
+  // Sync profile school to SchoolContext
+  useEffect(() => {
+    if (currentProfile?.schoolId && currentProfile.schoolId !== 'unknown') {
+      let foundProv = '';
+      let foundReg = '';
+      let foundSchool = null;
+      for (const p of schoolData) {
+        for (const r of p.regencies) {
+          const s = r.schools.find(x => x.id === currentProfile.schoolId);
+          if (s) {
+            foundProv = p.id;
+            foundReg = r.id;
+            foundSchool = s;
+            break;
+          }
+        }
+        if (foundSchool) break;
+      }
+      if (foundSchool) {
+        setSelection(foundSchool, foundProv, foundReg);
+      }
+    } else {
+      clearSelection();
+    }
+  }, [currentProfile, setSelection, clearSelection]);
 
   // Restore session on mount
   useEffect(() => {
@@ -77,7 +107,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     password: string,
     role: 'student' | 'teacher' | 'dev',
     gender: Gender,
-    grade: '10' | '11' | '12',
+    grade: 'X' | 'XI' | 'XII',
     classSection: string,
     schoolId = 'unknown',
     dateOfBirth?: string

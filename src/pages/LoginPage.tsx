@@ -10,6 +10,7 @@ import { Logo } from '@/components/Logo';
 import { useToast } from '@/context/ToastContext';
 import { ThemePicker } from '@/components/ThemePicker';
 import { useAuth } from '@/context/AuthContext';
+import { useEffect } from 'react';
 
 type Mode = 'role-select' | 'login' | 'register';
 type Role = 'student' | 'teacher';
@@ -18,11 +19,18 @@ type Gender = 'male' | 'female' | 'other';
 export default function LoginPage() {
   const navigate = useNavigate();
   const { show } = useToast();
-  const { login, register } = useAuth();
+  const { login, register, currentUser } = useAuth();
 
   const [mode, setMode] = useState<Mode>('role-select');
   const [role, setRole] = useState<Role>('student');
   const [loading, setLoading] = useState(false);
+
+  // Auto redirect if already logged in
+  useEffect(() => {
+    if (currentUser) {
+      navigate('/app');
+    }
+  }, [currentUser, navigate]);
 
   // Login fields
   const [loginEmail, setLoginEmail] = useState('');
@@ -35,7 +43,7 @@ export default function LoginPage() {
   const [regPassword, setRegPassword] = useState('');
   const [regConfirm, setRegConfirm] = useState('');
   const [regGender, setRegGender] = useState<Gender>('male');
-  const [regGrade, setRegGrade] = useState<'10' | '11' | '12'>('10');
+  const [regGrade, setRegGrade] = useState<'X' | 'XI' | 'XII'>('X');
   const [regSection, setRegSection] = useState('');
   const [regDob, setRegDob] = useState('');
   const [showRegPw, setShowRegPw] = useState(false);
@@ -266,25 +274,27 @@ export default function LoginPage() {
                     <label className="text-xs font-bold text-ink-700 dark:text-slate-300">Tingkat Kelas <span className="text-red-500">*</span></label>
                     <div className="relative">
                       <School className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-ink-400" />
-                      <select value={regGrade} onChange={e => setRegGrade(e.target.value as '10' | '11' | '12')}
+                      <select value={regGrade} onChange={e => setRegGrade(e.target.value as 'X' | 'XI' | 'XII')}
                         className="w-full rounded-xl border border-brand-100 bg-white/70 py-2.5 pl-10 pr-3 text-sm outline-none focus:border-brand-300 focus:ring-2 focus:ring-brand-100 dark:border-slate-700 dark:bg-slate-800/70 dark:text-white">
-                        <option value="10">Kelas 10</option>
-                        <option value="11">Kelas 11</option>
-                        <option value="12">Kelas 12</option>
+                        <option value="X">Kelas X</option>
+                        <option value="XI">Kelas XI</option>
+                        <option value="XII">Kelas XII</option>
                       </select>
                     </div>
                   </div>
                 </div>
 
                 {/* Section (Ruang/Nomor) */}
+                {activeTab === 'student' && (
                 <div className="space-y-1">
-                  <label className="text-xs font-bold text-ink-700 dark:text-slate-300">Ruang/No. Kelas (Contoh: "1" atau "IPA 1") <span className="text-red-500">*</span></label>
+                  <label className="text-xs font-bold text-ink-700 dark:text-slate-300">Ruang/No. Kelas (Contoh: "1") <span className="text-red-500">*</span></label>
                   <div className="relative">
                     <School className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-ink-400" />
-                    <input type="text" value={regSection} onChange={e => setRegSection(e.target.value)} placeholder='1'
+                    <input type="number" min="1" value={regSection} onChange={e => setRegSection(e.target.value)} placeholder='1'
                       className="w-full rounded-xl border border-brand-100 bg-white/70 py-2.5 pl-10 pr-4 text-sm outline-none focus:border-brand-300 focus:ring-2 focus:ring-brand-100 dark:border-slate-700 dark:bg-slate-800/70 dark:text-white" />
                   </div>
                 </div>
+                )}
 
                 {/* Date of birth optional */}
                 <div className="space-y-1">

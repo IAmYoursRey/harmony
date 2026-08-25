@@ -11,3 +11,5 @@ export const supabase = createClient(supabaseUrl, supabaseAnonKey, {
     detectSessionInUrl: false
   }
 });
+
+export const isSupabaseConfigured = Boolean(import.meta.env.VITE_SUPABASE_URL);

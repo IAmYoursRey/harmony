@@ -21,16 +21,44 @@ import {
 import { Link } from 'react-router-dom';
 import { LineChart, RadarChart, DonutChart, Sparkline, ProgressRing } from '@/components/dashboard/Charts';
 import { TeamSection } from '@/components/TeamSection';
-import { LeaderboardView } from './views/LeaderboardView';
-import { SchoolLocationSelector } from '@/components/SchoolLocationSelector';
+import { LeaderboardView } from './views/AnalyticsViews';
 import { useSchool } from '@/context/SchoolContext';
 import { useI18n } from '@/context/I18nContext';
 import { useAuth } from '@/context/AuthContext';
 
 function getDashboardData(userId: string, baseScore: number) {
   const seed = userId + baseScore;
-  const p = (str: string, max: number) => Math.floor(pseudoRandomScore(seed + str, 0) / 100 * max);
+  const p = (str: string, max: number) => baseScore === 0 ? 0 : Math.floor(pseudoRandomScore(seed + str, 0) / 100 * max);
   
+  if (baseScore === 0) {
+    return {
+      weeklyLearning: [
+        { label: 'Mon', value: 0 }, { label: 'Tue', value: 0 }, { label: 'Wed', value: 0 },
+        { label: 'Thu', value: 0 }, { label: 'Fri', value: 0 }, { label: 'Sat', value: 0 }, { label: 'Sun', value: 0 },
+      ],
+      radarData: [
+        { label: 'Earthquake', value: 0 }, { label: 'Flood', value: 0 }, { label: 'Tsunami', value: 0 },
+        { label: 'Volcano', value: 0 }, { label: 'Landslide', value: 0 }, { label: 'Fire', value: 0 },
+      ],
+      donutData: [
+        { label: 'Prepared', value: 0, color: 'hsl(var(--brand-600))' },
+        { label: 'In Progress', value: 0, color: 'hsl(var(--brand-400))' },
+        { label: 'Needs Work', value: 100, color: 'hsl(var(--brand-100))' },
+      ],
+      sparkData: [0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+      stats: [
+        { icon: BookOpen, label: 'Modules Completed', value: '0', sub: 'No activity yet', color: 'from-brand-500 to-brand-700', bg: 'bg-brand-100 text-brand-600 dark:bg-slate-800 dark:text-brand-400' },
+        { icon: TrendingUp, label: 'Learning Progress', value: '0%', sub: 'Not started', color: 'from-brand-500 to-brand-600', bg: 'bg-brand-100 text-brand-600 dark:bg-brand-900/40 dark:text-brand-400' },
+        { icon: Shield, label: 'Risk Awareness', value: '0%', sub: 'No data', color: 'from-brand-500 to-brand-600', bg: 'bg-brand-100 text-brand-600 dark:bg-brand-900/40 dark:text-brand-400' },
+      ],
+      activities: [
+        { icon: Mountain, title: 'Earthquake Simulation', status: '0%', accent: 'text-brand-600 bg-brand-100 dark:bg-brand-900/40 dark:text-brand-400' },
+        { icon: CloudRain, title: 'Flood Module', status: 'Pending', accent: 'text-brand-600 bg-brand-100 dark:bg-brand-900/40 dark:text-brand-400' },
+      ],
+      badges: []
+    };
+  }
+
   return {
     weeklyLearning: [
       { label: 'Mon', value: p('w1', 100) },
@@ -124,7 +152,7 @@ function WelcomeIllustration() {
   );
 }
 
-import { pseudoRandomScore } from './views/SchoolResilienceIndexView';
+import { pseudoRandomScore } from './views/AnalyticsViews';
 
 export function DashboardView() {
   const { selection } = useSchool();
@@ -218,9 +246,6 @@ export function DashboardView() {
           </Link>
         </div>
       </div>
-
-      {/* ── School Location Selector ─────────────────────────────────────── */}
-      <SchoolLocationSelector />
 
       {/* ── Score Improvement Card ─────────────────────────────────────────── */}
       <div className="glass rounded-2xl p-5 dark:bg-slate-900/60">

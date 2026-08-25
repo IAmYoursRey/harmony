@@ -1,4 +1,4 @@
-import { createContext, useContext, useState, type ReactNode } from 'react';
+import { createContext, useContext, useState, useCallback, type ReactNode } from 'react';
 import type { School } from '@/data/schools';
 import { getProvinceName, getRegencyName } from '@/data/schools';
 
@@ -19,15 +19,15 @@ const SchoolContext = createContext<SchoolContextValue | null>(null);
 export function SchoolProvider({ children }: { children: ReactNode }) {
   const [selection, setSel] = useState<SchoolSelection | null>(null);
 
-  const setSelection = (school: School, provinceId: string, regencyId: string) => {
+  const setSelection = useCallback((school: School, provinceId: string, regencyId: string) => {
     setSel({
       school,
       provinceName: getProvinceName(provinceId),
       regencyName: getRegencyName(provinceId, regencyId),
     });
-  };
+  }, []);
 
-  const clearSelection = () => setSel(null);
+  const clearSelection = useCallback(() => setSel(null), []);
 
   return (
     <SchoolContext.Provider value={{ selection, setSelection, clearSelection }}>

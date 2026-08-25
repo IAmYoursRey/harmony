@@ -10,16 +10,17 @@ const LandingPage = lazy(() => import('@/pages/LandingPage'));
 const LoginPage = lazy(() => import('@/pages/LoginPage'));
 const SchoolSelectionPage = lazy(() => import('@/pages/SchoolSelectionPage'));
 const DashboardView = lazy(() => import('@/components/dashboard/DashboardView'));
-const AILearningView = lazy(() => import('@/components/dashboard/views/AILearningView'));
-const GeoRiskMapView = lazy(() => import('@/components/dashboard/views/GeoRiskMapView'));
-const DigitalTwinView = lazy(() => import('@/components/dashboard/views/DigitalTwinView'));
-const DisasterSimulationView = lazy(() => import('@/components/dashboard/views/DisasterSimulationView'));
-const GSSView = lazy(() => import('@/components/dashboard/views/GSSView'));
-const SchoolResilienceIndexView = lazy(() => import('@/components/dashboard/views/SchoolResilienceIndexView'));
-const SurveyAnalyticsView = lazy(() => import('@/components/dashboard/views/SurveyAnalyticsView'));
-const ProfileView = lazy(() => import('@/components/dashboard/views/ProfileView'));
-const TeacherDashboardView = lazy(() => import('@/components/dashboard/views/TeacherDashboardView'));
-const DevDashboardView = lazy(() => import('@/components/dashboard/views/DevDashboardView'));
+const AILearningView = lazy(() => import('@/components/dashboard/views/LearningViews').then(m => ({ default: m.AILearningView })));
+const DisasterSimulationView = lazy(() => import('@/components/dashboard/views/LearningViews').then(m => ({ default: m.DisasterSimulationView })));
+const GeoRiskMapView = lazy(() => import('@/components/dashboard/views/SpatialViews').then(m => ({ default: m.GeoRiskMapView })));
+const DigitalTwinView = lazy(() => import('@/components/dashboard/views/SpatialViews').then(m => ({ default: m.DigitalTwinView })));
+const GSSView = lazy(() => import('@/components/dashboard/views/AnalyticsViews').then(m => ({ default: m.GSSView })));
+const SchoolResilienceIndexView = lazy(() => import('@/components/dashboard/views/AnalyticsViews').then(m => ({ default: m.SchoolResilienceIndexView })));
+const SurveyAnalyticsView = lazy(() => import('@/components/dashboard/views/AnalyticsViews').then(m => ({ default: m.SurveyAnalyticsView })));
+const LeaderboardView = lazy(() => import('@/components/dashboard/views/AnalyticsViews').then(m => ({ default: m.LeaderboardView })));
+const ProfileView = lazy(() => import('@/components/dashboard/views/RoleDashboards').then(m => ({ default: m.ProfileView })));
+const TeacherDashboardView = lazy(() => import('@/components/dashboard/views/RoleDashboards').then(m => ({ default: m.TeacherDashboardView })));
+const DevDashboardView = lazy(() => import('@/components/dashboard/views/RoleDashboards').then(m => ({ default: m.DevDashboardView })));
 
 export default function App() {
   return (

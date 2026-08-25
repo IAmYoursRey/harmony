@@ -1,4 +1,4 @@
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
@@ -17,6 +17,8 @@ import {
 import { Logo } from '@/components/Logo';
 import { useToast } from '@/context/ToastContext';
 import { useSchool } from '@/context/SchoolContext';
+import { useAuth } from '@/context/AuthContext';
+import { updateProfile } from '@/data/userProfiles';
 import { ThemePicker } from '@/components/ThemePicker';
 import { useI18n } from '@/context/I18nContext';
 import {
@@ -36,9 +38,17 @@ export default function SchoolSelectionPage() {
   const navigate = useNavigate();
   const { show } = useToast();
   const { setSelection } = useSchool();
+  const { currentUser, currentProfile, refreshProfile } = useAuth();
   const { t } = useI18n();
 
   const [step, setStep] = useState<Step>(1);
+
+  // Lock school if already set
+  useEffect(() => {
+    if (currentUser?.role !== 'dev' && currentProfile?.schoolId && currentProfile.schoolId !== 'unknown') {
+      navigate('/app');
+    }
+  }, [currentUser, currentProfile, navigate]);
   const [provinceId, setProvinceId] = useState('');
   const [regencyId, setRegencyId] = useState('');
   const [school, setSchool] = useState<School | null>(null);
@@ -67,7 +77,16 @@ export default function SchoolSelectionPage() {
 
   const handleConfirm = () => {
     if (!school || !provinceId || !regencyId) return;
+    
+    // Save to global context
     setSelection(school, provinceId, regencyId);
+    
+    // Persist to user profile
+    if (currentUser) {
+      updateProfile(currentUser.id, { schoolId: school.id });
+      refreshProfile();
+    }
+
     show(`Sekolah ${school.name} berhasil dipilih!`, 'success');
     navigate('/app');
   };
