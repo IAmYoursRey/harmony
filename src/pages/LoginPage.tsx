@@ -285,7 +285,7 @@ export default function LoginPage() {
                 </div>
 
                 {/* Section (Ruang/Nomor) */}
-                {activeTab === 'student' && (
+                {role === 'student' && (
                 <div className="space-y-1">
                   <label className="text-xs font-bold text-ink-700 dark:text-slate-300">Ruang/No. Kelas (Contoh: "1") <span className="text-red-500">*</span></label>
                   <div className="relative">
