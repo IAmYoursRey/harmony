@@ -8,6 +8,7 @@ import {
   type UserAccount,
   authenticateAccount,
   registerAccount,
+  updateAccount,
   getSession,
   saveSession,
   clearSession,
@@ -17,6 +18,7 @@ import {
   type Gender,
   getProfile,
   createProfile,
+  updateProfile,
 } from '@/data/userProfiles';
 
 // -- Context types -------------------------------------------------------------
@@ -40,6 +42,8 @@ interface AuthContextValue {
   ) => Promise<{ success: boolean; error?: string }>;
   logout: () => void;
   refreshProfile: () => void;
+  updateUserAccount: (updates: { name?: string; email?: string; password?: string }) => Promise<{ success: boolean; error?: string }>;
+  updateUserProfile: (updates: Partial<UserProfile>) => void;
 }
 
 const AuthContext = createContext<AuthContextValue | null>(null);
@@ -136,6 +140,22 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   };
 
+  const updateUserAccount = async (updates: { name?: string; email?: string; password?: string }) => {
+    if (!currentUser) return { success: false, error: 'Not logged in' };
+    const result = await updateAccount(currentUser.id, updates);
+    if (result.success && result.account) {
+      saveSession(result.account);
+      setCurrentUser(result.account);
+    }
+    return result;
+  };
+
+  const updateUserProfile = (updates: Partial<UserProfile>) => {
+    if (!currentUser) return;
+    updateProfile(currentUser.id, updates);
+    refreshProfile();
+  };
+
   return (
     <AuthContext.Provider
       value={{
@@ -146,6 +166,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         register,
         logout,
         refreshProfile,
+        updateUserAccount,
+        updateUserProfile,
       }}
     >
       {children}

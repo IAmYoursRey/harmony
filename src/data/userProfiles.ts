@@ -26,7 +26,10 @@ export interface UserProfile {
   schoolId: string;
   supervisedClasses?: { grade: 'X' | 'XI' | 'XII'; section: string }[]; // Only for teachers
   dateOfBirth?: string;
+  phone?: string;
+  avatar?: string;
   topicScores: Record<string, TopicScore>;
+  masteredConcepts?: string[];
   totalPoints: number;
   badges: string[];
   lastUpdated: string;
@@ -96,11 +99,23 @@ export function createProfile(
   return newProfile;
 }
 
-export function updateProfile(userId: string, updates: Partial<Omit<UserProfile, 'userId'>>): void {
-  const profiles = getAllProfiles().map(p =>
-    p.userId === userId ? { ...p, ...updates, lastUpdated: new Date().toISOString() } : p
-  );
-  saveAllProfiles(profiles);
+export function updateProfile(userId: string, updates: Partial<Omit<UserProfile, 'userId'>> & {
+  totalPoints?: number;
+  badges?: string[];
+  phone?: string;
+  avatar?: string;
+}): void {
+  const profiles = getAllProfiles();
+  const index = profiles.findIndex(p => p.userId === userId);
+  
+  if (index !== -1) {
+    profiles[index] = {
+      ...profiles[index],
+      ...updates,
+      lastUpdated: new Date().toISOString()
+    };
+    saveAllProfiles(profiles);
+  }
 }
 
 // -- Topic score helpers -------------------------------------------------------
@@ -112,19 +127,19 @@ export function updateProfile(userId: string, updates: Partial<Omit<UserProfile,
  */
 export function recordQuizSession(
   userId: string,
-  topic: string,
-  sessionScore: number,       // 0-100
-  weakSubTopics: string[],
-  strongSubTopics: string[],
+  topicLabel: string,
+  totalScore: number,
+  weak: string[],
+  strong: string[],
   pointsEarned: number
 ): { levelUp: boolean; newLevel: DisasterLevel; badge?: string } {
   const profile = getProfile(userId);
   if (!profile) return { levelUp: false, newLevel: 'pemula' };
 
-  const existing: TopicScore = profile.topicScores[topic] ?? createInitialTopicScore();
+  const existing: TopicScore = profile.topicScores[topicLabel] ?? createInitialTopicScore();
 
   const newTotalAttempts = existing.totalAttempts + 1;
-  const newTotalScore = existing.totalScore + sessionScore;
+  const newTotalScore = existing.totalScore + totalScore;
   const newAverage = Math.round(newTotalScore / newTotalAttempts);
 
   let newLevel = existing.currentLevel;
@@ -138,12 +153,12 @@ export function recordQuizSession(
       newLevel = 'menengah';
       levelUp = true;
       sessionsAtLevel = 0;
-      badge = `?? Lulus Level Pemula - ${topic}`;
+      badge = `?? Lulus Level Pemula - ${topicLabel}`;
     } else if (existing.currentLevel === 'menengah') {
       newLevel = 'mahir';
       levelUp = true;
       sessionsAtLevel = 0;
-      badge = `?? Lulus Level Menengah - ${topic}`;
+      badge = `?? Lulus Level Menengah - ${topicLabel}`;
     }
   }
 
@@ -155,14 +170,14 @@ export function recordQuizSession(
     lastAttempt: new Date().toISOString(),
     sessionsAtCurrentLevel: sessionsAtLevel,
     isFirstAttempt: false,
-    weakTopics: weakSubTopics,
-    strongTopics: strongSubTopics,
+    weakTopics: weak,
+    strongTopics: strong,
   };
 
   const newBadges = badge ? [...profile.badges, badge] : profile.badges;
 
   updateProfile(userId, {
-    topicScores: { ...profile.topicScores, [topic]: updatedScore },
+    topicScores: { ...profile.topicScores, [topicLabel]: updatedScore },
     totalPoints: profile.totalPoints + pointsEarned,
     badges: newBadges,
   });
@@ -191,4 +206,20 @@ Topik & level kemampuan: ${levels}.
 ${strong.length > 0 ? `Topik yang sudah dikuasai dengan baik: ${strong.join(', ')}.` : ''}
 ${weak.length > 0 ? `Topik yang masih perlu ditingkatkan: ${weak.join(', ')}.` : ''}
   `.trim();
+}
+
+/**
+ * Records newly mastered concepts from smart simulation
+ */
+export function recordSmartSimulationAnswers(userId: string, newMastered: string[], pointsEarned: number) {
+  const profile = getProfile(userId);
+  if (!profile) return;
+
+  const currentMastered = profile.masteredConcepts || [];
+  const updatedMastered = Array.from(new Set([...currentMastered, ...newMastered]));
+
+  updateProfile(userId, {
+    masteredConcepts: updatedMastered,
+    totalPoints: profile.totalPoints + pointsEarned
+  });
 }

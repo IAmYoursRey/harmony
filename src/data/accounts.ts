@@ -45,6 +45,39 @@ export function getAccountById(id: string): UserAccount | undefined {
   return getAllAccounts().find(a => a.id === id);
 }
 
+export async function updateAccount(
+  id: string,
+  updates: { name?: string; email?: string; password?: string }
+): Promise<{ success: boolean; error?: string; account?: UserAccount }> {
+  try {
+    const accounts = getAllAccounts();
+    const index = accounts.findIndex(a => a.id === id);
+    if (index === -1) {
+      return { success: false, error: 'Account not found' };
+    }
+    
+    const account = accounts[index];
+    
+    if (updates.name) account.name = updates.name;
+    if (updates.email) {
+      // Check if email already in use
+      if (accounts.some(a => a.id !== id && a.email.toLowerCase() === updates.email!.toLowerCase())) {
+        return { success: false, error: 'Email already exists' };
+      }
+      account.email = updates.email;
+    }
+    if (updates.password && updates.password.trim() !== '') {
+      account.passwordHash = await hashPassword(updates.password);
+    }
+    
+    accounts[index] = account;
+    saveAllAccounts(accounts);
+    return { success: true, account };
+  } catch (err: any) {
+    return { success: false, error: err.message };
+  }
+}
+
 // ── Inisialisasi Akun Dev & Tim ───────────────────────────────────────────────────
 export async function ensureDevAccount(): Promise<void> {
   const accounts = getAllAccounts();
@@ -131,11 +164,6 @@ export async function authenticateAccount(
     return { success: false, error: 'Kata sandi salah. Silakan coba lagi.' };
   }
   return { success: true, account };
-}
-
-export function updateAccount(id: string, updates: Partial<Omit<UserAccount, 'id' | 'createdAt'>>): void {
-  const accounts = getAllAccounts().map(a => a.id === id ? { ...a, ...updates } : a);
-  saveAllAccounts(accounts);
 }
 
 export function deleteAccount(id: string): void {

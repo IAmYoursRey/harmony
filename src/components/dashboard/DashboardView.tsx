@@ -23,6 +23,7 @@ import { LineChart, RadarChart, DonutChart, Sparkline, ProgressRing } from '@/co
 import { TeamSection } from '@/components/TeamSection';
 import { LeaderboardView } from './views/AnalyticsViews';
 import { useSchool } from '@/context/SchoolContext';
+import { realSchoolsMojokerto } from '@/data/realSchoolsMojokerto';
 import { useI18n } from '@/context/I18nContext';
 import { useAuth } from '@/context/AuthContext';
 
@@ -43,7 +44,7 @@ function getDashboardData(userId: string, baseScore: number) {
       donutData: [
         { label: 'Prepared', value: 0, color: 'hsl(var(--brand-600))' },
         { label: 'In Progress', value: 0, color: 'hsl(var(--brand-400))' },
-        { label: 'Needs Work', value: 100, color: 'hsl(var(--brand-100))' },
+        { label: 'Needs Work', value: 0, color: 'hsl(var(--brand-100))' },
       ],
       sparkData: [0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
       stats: [
@@ -163,9 +164,10 @@ export function DashboardView() {
   const baseOffset = schoolRisk === 'Low' ? 20 : schoolRisk === 'Moderate' ? 10 : 0;
   
   const uid = currentUser?.id || 'default';
-  // If they have points in their profile, compute from that. Otherwise use pseudo-random seeded by user ID.
-  const currentScore = currentProfile?.totalPoints ? Math.min(100, Math.floor(currentProfile.totalPoints / 100) + baseOffset) : Math.floor(pseudoRandomScore(uid + 'gss', baseOffset));
-  const previousScore = Math.max(0, currentScore - Math.floor(pseudoRandomScore(uid + 'prev', 0) / 4));
+  // If they have points, compute from that. Otherwise use 0.
+  const hasPoints = currentProfile && currentProfile.totalPoints > 0;
+  const currentScore = hasPoints ? Math.min(100, Math.floor(currentProfile.totalPoints / 100) + baseOffset) : 0;
+  const previousScore = hasPoints ? Math.max(0, currentScore - Math.floor(pseudoRandomScore(uid + 'prev', 0) / 4)) : 0;
   const improvement = currentScore - previousScore;
   const improvementPct = previousScore > 0 ? Math.round((improvement / previousScore) * 100) : 0;
 
@@ -193,7 +195,7 @@ export function DashboardView() {
                 {currentUser?.name || 'Pengguna'}
               </h2>
               <p className="mt-1 text-sm text-brand-200">
-                {currentUser?.role === 'teacher' ? 'Guru' : t('dashboard.student')} · {currentProfile?.schoolId || 'SMA Negeri 1 Ngoro'}
+                {currentUser?.role === 'dev' ? t('role.dev') : currentUser?.role === 'teacher' ? t('role.teacher') : t('role.student')} • {currentProfile?.schoolId && currentProfile.schoolId !== 'unknown' ? (realSchoolsMojokerto.find(s => s.id === currentProfile.schoolId)?.name || currentProfile.schoolId) : t('school.unknown', 'Belum Memilih Sekolah')}
               </p>
 
               {/* Score badges */}
@@ -223,7 +225,7 @@ export function DashboardView() {
                   <Shield className="h-5 w-5 text-brand-300" />
                   <div>
                     <p className="text-[10px] uppercase tracking-wider text-brand-200">{t('dashboard.preparedness')}</p>
-                    <p className="font-display text-lg font-extrabold">Highly Resilient</p>
+                    <p className="font-display text-lg font-extrabold">{hasPoints ? t('dashboard.highly_resilient', 'Highly Resilient') : t('dashboard.not_started', 'Belum Dimulai')}</p>
                   </div>
                 </div>
               </div>

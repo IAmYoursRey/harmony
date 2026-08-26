@@ -62,7 +62,8 @@ export function SmartReadinessIndex({ result }: { result: ReadinessResult }) {
   const { t } = useI18n();
   const style = categoryStyles[result.category];
   const circumference = 2 * Math.PI * 70;
-  const offset = circumference - (result.score / 100) * circumference;
+  const safeScore = isNaN(result.score) ? 0 : result.score;
+  const offset = circumference - (safeScore / 100) * circumference;
 
   const translateCategory = (cat: ReadinessCategory) => {
     switch (cat) {

@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect, useCallback } from 'react';
-import { Bot, SendHorizonal, BookOpen, Zap, Waves, Flame, Wind, AlertTriangle, Trophy, Star, BarChart3, ChevronRight, RotateCcw, CheckCircle, XCircle, Loader2, PenLine, MessageSquare, Award, TrendingUp, Lock, Mountain, CloudRain, Trees, Play, CheckCircle2, ArrowRight, ArrowLeft, Clock, AlertCircle, Compass, CornerDownRight, HelpCircle, FileText, Heart, Shield, MapPin, type LucideIcon } from 'lucide-react';
+import { Bot, SendHorizonal, BookOpen, Zap, Waves, Flame, Wind, AlertTriangle, Trophy, Star, BarChart3, ChevronRight, RotateCcw, CheckCircle, XCircle, Loader2, PenLine, MessageSquare, Award, TrendingUp, Lock, Mountain, CloudRain, Trees, Play, CheckCircle2, ArrowRight, ArrowLeft, Clock, AlertCircle, Compass, CornerDownRight, HelpCircle, FileText, Heart, Shield, MapPin, Sparkles, type LucideIcon } from 'lucide-react';
 import { useAuth } from '@/context/AuthContext';
 import { getProfile, buildAISummary, recordQuizSession, createInitialTopicScore } from '@/data/userProfiles';
 import { askChatbotAI, generateQuizQuestions, evaluateQuizAnswers, type QuizQuestion, type QuizEvaluation, type QuizDifficulty } from '@/services/geminiService';
@@ -7,6 +7,10 @@ import { LogoSpinner } from '@/components/ui/LogoSpinner';
 import { Link } from 'react-router-dom';
 import { Donut } from '@/components/dashboard/Charts';
 import { useI18n } from '@/context/I18nContext';
+import { recordSmartSimulationAnswers } from '@/data/userProfiles';
+import { generateSmartSimulationQuestions } from '@/services/geminiService';
+import { useSchool } from '@/context/SchoolContext';
+import { findSchool } from '@/data/schools';
 
 
 // --- Merged from AILearningView.tsx ---
@@ -43,6 +47,7 @@ type QuizPhase = 'topic-select' | 'loading' | 'answering' | 'evaluating' | 'resu
 
 export function AILearningView() {
   const { currentUser, currentProfile, refreshProfile } = useAuth();
+  const { t, locale } = useI18n();
   const isQuizReady = Boolean(import.meta.env.VITE_GEMINI_QUIZ_KEY || import.meta.env.VITE_GEMINI_API_KEY);
   const isChatReady = Boolean(import.meta.env.VITE_GEMINI_CHAT_KEY || import.meta.env.VITE_GEMINI_API_KEY);
   const activeTab = useRef<'chat' | 'quiz'>('chat');
@@ -201,7 +206,7 @@ export function AILearningView() {
           {!isChatReady && (
             <div className="flex items-center gap-2 bg-amber-50 dark:bg-amber-500/10 border-b border-amber-200 dark:border-amber-500/20 px-4 py-2 text-xs text-amber-700 dark:text-amber-300">
               <Lock className="h-3.5 w-3.5 shrink-0" />
-              Kunci API GeoBot belum diisi. Isi <strong>VITE_GEMINI_CHAT_KEY</strong> di file <strong>.env</strong> lalu restart server.
+              {t('learning.geobot_api_missing', 'Kunci API GeoBot belum diisi. Isi VITE_GEMINI_CHAT_KEY di file .env lalu restart server.')}
             </div>
           )}
           <div className="flex-1 overflow-y-auto px-4 py-4 space-y-4">
@@ -269,7 +274,7 @@ export function AILearningView() {
           {!isQuizReady && (
             <div className="flex items-center gap-2 rounded-xl bg-amber-50 dark:bg-amber-500/10 border border-amber-200 dark:border-amber-500/20 px-4 py-3 text-xs text-amber-700 dark:text-amber-300">
               <Lock className="h-3.5 w-3.5 shrink-0" />
-              Kunci API Soal AI belum diisi. Soal menggunakan data demo. Isi <strong>VITE_GEMINI_QUIZ_KEY</strong> di file <strong>.env</strong> lalu restart server.
+              {t('learning.quiz_api_missing', 'Kunci API Soal AI belum diisi. Soal menggunakan data demo. Isi VITE_GEMINI_QUIZ_KEY di file .env lalu restart server.')}
             </div>
           )}
 
@@ -283,26 +288,26 @@ export function AILearningView() {
                 </p>
               </div>
               <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
-                {TOPICS.map(t => {
-                  const Icon = t.icon;
-                  const topicScore = profile?.topicScores?.[t.label];
+                {TOPICS.map(topicItem => {
+                  const Icon = topicItem.icon;
+                  const topicScore = profile?.topicScores?.[topicItem.label];
                   const level = topicScore?.currentLevel;
                   const avg = topicScore?.averageScore;
                   return (
-                    <button key={t.id} onClick={() => startQuiz(t.id)}
-                      className={`group flex flex-col items-start gap-2 rounded-2xl border ${t.border} ${t.bg} p-4 text-left transition-all hover:shadow-glass hover:-translate-y-0.5`}>
-                      <Icon className={`h-6 w-6 ${t.color}`} />
-                      <p className="font-display text-sm font-bold text-ink-900 dark:text-white leading-tight">{t.label}</p>
+                    <button key={topicItem.id} onClick={() => startQuiz(topicItem.id)}
+                      className={`group flex flex-col items-start gap-2 rounded-2xl border ${topicItem.border} ${topicItem.bg} p-4 text-left transition-all hover:shadow-glass hover:-translate-y-0.5`}>
+                      <Icon className={`h-6 w-6 ${topicItem.color}`} />
+                      <p className="font-display text-sm font-bold text-ink-900 dark:text-white leading-tight">{topicItem.label}</p>
                       {level ? (
                         <div className="flex flex-col gap-1 w-full">
-                          <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full border ${LEVEL_COLORS[level]} w-fit`}>{level}</span>
+                           <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full border ${LEVEL_COLORS[level]} w-fit`}>{level}</span>
                           <div className="w-full h-1 bg-black/10 rounded-full">
                             <div className="h-1 rounded-full bg-brand-500" style={{ width: `${avg ?? 0}%` }} />
                           </div>
                           <p className="text-[10px] text-ink-400">Rata-rata: {avg}%</p>
                         </div>
                       ) : (
-                        <span className="text-[10px] font-semibold text-ink-400">Belum pernah diuji</span>
+                        <span className="text-[10px] font-semibold text-ink-400">{t('learning.not_tested_yet', 'Belum pernah diuji')}</span>
                       )}
                     </button>
                   );
@@ -418,7 +423,7 @@ export function AILearningView() {
                 <ChevronRight className="h-4 w-4" /> Kumpulkan & Nilai Jawaban
               </button>
               {questions.some(q => !(answers[q.id] ?? '').trim()) && (
-                <p className="text-center text-xs text-ink-400">Jawab semua soal terlebih dahulu sebelum mengumpulkan.</p>
+                <p className="text-center text-xs text-ink-400">{t('learning.answer_all_questions', 'Jawab semua soal terlebih dahulu sebelum mengumpulkan.')}</p>
               )}
             </div>
           )}
@@ -746,24 +751,76 @@ const learningMaterials = [
 export function DisasterSimulationView() {
   const { t, locale } = useI18n();
   const [activeTab, setActiveTab] = useState<'sim' | 'materi' | 'panduan'>('sim');
+  const { currentProfile, refreshProfile } = useAuth();
+  const { selection } = useSchool();
+  const activeSchool = currentProfile?.schoolId && currentProfile.schoolId !== 'unknown' 
+    ? findSchool(currentProfile.schoolId) 
+    : selection?.school;
 
   // Simulation execution state
-  const [phase, setPhase] = useState<'select' | 'sim' | 'result'>('select');
-  const [selectedType, setSelectedType] = useState<DisasterType | null>(null);
+  const [phase, setPhase] = useState<'select' | 'sim' | 'result' | 'loading_smart'>('select');
+  const [selectedType, setSelectedType] = useState<DisasterType | 'smart' | null>(null);
   const [stepIdx, setStepIdx] = useState(0);
   const [answers, setAnswers] = useState<boolean[]>([]);
   const [feedback, setFeedback] = useState<string | null>(null);
   const [picked, setPicked] = useState<number | null>(null);
+  const [smartSteps, setSmartSteps] = useState<SimStep[]>([]);
+  const [smartMastered, setSmartMastered] = useState<string[]>([]);
 
   // Materials state
   const [selectedMaterialIdx, setSelectedMaterialIdx] = useState(0);
 
-  const startSim = (type: DisasterType) => {
+  const startSim = (type: DisasterType | 'smart') => {
     setSelectedType(type);
     setStepIdx(0);
     setAnswers([]);
     setFeedback(null);
     setPicked(null);
+    setSmartSteps([]);
+    setSmartMastered([]);
+    
+    if (type === 'smart') {
+      startSmartSim();
+    } else {
+      setPhase('sim');
+    }
+  };
+
+  const startSmartSim = async () => {
+    setPhase('loading_smart');
+    const schoolRisk = activeSchool ? {
+      earthquake: activeSchool.earthquake,
+      flood: activeSchool.flood,
+      tsunami: activeSchool.tsunami,
+      landslide: activeSchool.landslide,
+      volcano: activeSchool.volcanic,
+      fire: 30, // Default static probability
+    } : { earthquake: 20, flood: 20, tsunami: 20, landslide: 20, volcano: 20, fire: 20 };
+    
+    const qs = await generateSmartSimulationQuestions({
+      schoolRisk,
+      masteredConcepts: currentProfile?.masteredConcepts || [],
+      mode: 'learning',
+      count: 10
+    });
+
+    const mappedSteps: SimStep[] = qs.map((q, idx) => {
+      // Shuffle options and attach correct boolean
+      const options = (q.options || []).map(opt => ({
+        text: opt,
+        correct: opt.startsWith(q.correctOption || 'A'),
+        feedback: opt.startsWith(q.correctOption || 'A') ? 'Benar!' : `Salah. Jawaban tepat adalah ${q.correctOption}.`,
+        subTopic: q.subTopic
+      })).sort(() => Math.random() - 0.5);
+
+      return {
+        title: `Skenario Cerdas ${idx + 1} · ${q.subTopic}`,
+        instruction: q.question,
+        options
+      };
+    });
+
+    setSmartSteps(mappedSteps);
     setPhase('sim');
   };
 
@@ -774,23 +831,34 @@ export function DisasterSimulationView() {
     setAnswers([]);
     setFeedback(null);
     setPicked(null);
+    setSmartSteps([]);
+    setSmartMastered([]);
   };
 
-  const pickOption = (correct: boolean, feedbackText: string, idx: number) => {
+  const pickOption = (correct: boolean, feedbackText: string, idx: number, subTopic?: string) => {
     if (feedback !== null) return;
     setPicked(idx);
     setFeedback(feedbackText);
     setAnswers((a) => [...a, correct]);
+    if (correct && subTopic && selectedType === 'smart') {
+      setSmartMastered((prev) => [...prev, subTopic]);
+    }
   };
 
   const nextStep = () => {
-    const steps = selectedType ? simSteps[selectedType] : [];
+    const steps = selectedType === 'smart' ? smartSteps : (selectedType ? simSteps[selectedType] : []);
     if (stepIdx + 1 < steps.length) {
       setStepIdx(stepIdx + 1);
       setFeedback(null);
       setPicked(null);
     } else {
       setPhase('result');
+      if (selectedType === 'smart' && currentProfile) {
+        const scoreEarned = Math.round((answers.filter(Boolean).length / answers.length) * 100) || 0;
+        const pointsEarned = Math.round(scoreEarned * 0.5);
+        recordSmartSimulationAnswers(currentProfile.id, smartMastered, pointsEarned);
+        refreshProfile();
+      }
     }
   };
 
@@ -855,28 +923,60 @@ export function DisasterSimulationView() {
       {activeTab === 'sim' && (
         <div className="space-y-6">
           {phase === 'select' && (
-            <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
-              {disasterOptions.map((d) => (
-                <div key={d.id} className="glass rounded-2xl p-5 hover:shadow-glass transition-all group flex flex-col justify-between">
-                  <div>
-                    <span
-                      className={`flex h-12 w-12 items-center justify-center rounded-xl bg-gradient-to-br ${d.accent} text-white shadow-md transition-transform group-hover:scale-105`}
-                    >
-                      <d.icon className="h-6 w-6" strokeWidth={2} />
-                    </span>
-                    <h3 className="mt-4 font-display text-lg font-bold text-ink-900 dark:text-white">{d.label}</h3>
-                    <p className="text-[10px] font-semibold text-brand-600 dark:text-brand-400">{d.difficulty}</p>
-                    <p className="mt-2 text-xs text-ink-500 dark:text-slate-400 leading-relaxed">{d.desc}</p>
+            <>
+              <div 
+                onClick={() => startSim('smart')}
+                className="glass relative cursor-pointer overflow-hidden rounded-2xl border border-brand-200 bg-gradient-to-r from-brand-50 to-white p-6 shadow-glow transition-all hover:-translate-y-1 hover:shadow-glass-lg dark:border-brand-500/20 dark:from-brand-900/40 dark:to-slate-900"
+              >
+                <div className="absolute -right-12 -top-12 h-32 w-32 rounded-full bg-brand-500/20 blur-3xl" />
+                <div className="flex items-center gap-4">
+                  <div className="flex h-14 w-14 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-brand-500 to-brand-700 text-white shadow-md">
+                    <Sparkles className="h-7 w-7" />
                   </div>
-                  <button
-                    onClick={() => startSim(d.id)}
-                    className="mt-5 flex w-full items-center justify-center gap-2 rounded-xl bg-brand-600 py-2.5 text-xs font-bold text-white hover:bg-brand-700 transition-colors shadow-glow"
-                  >
-                    <Play className="h-3 w-3 fill-white" />
-                    Mulai Simulasi
-                  </button>
+                  <div>
+                    <h3 className="font-display text-lg font-bold text-ink-900 dark:text-white">Smart Mix AI Simulation</h3>
+                    <p className="mt-1 max-w-xl text-sm leading-relaxed text-ink-500 dark:text-slate-400">
+                      AI akan menyusun 10 skenario bencana cerdas secara spesifik khusus untuk sekolah Anda. Topik yang sudah Anda kuasai tidak akan diulang!
+                    </p>
+                  </div>
+                  <ChevronRight className="ml-auto h-6 w-6 text-brand-500" />
                 </div>
-              ))}
+              </div>
+
+              <h4 className="font-display text-base font-bold text-ink-900 dark:text-white">Atau Pilih Skenario Manual:</h4>
+              <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
+                {disasterOptions.map((d) => (
+                  <div key={d.id} className="glass rounded-2xl p-5 hover:shadow-glass transition-all group flex flex-col justify-between">
+                    <div>
+                      <span
+                        className={`flex h-12 w-12 items-center justify-center rounded-xl bg-gradient-to-br ${d.accent} text-white shadow-md transition-transform group-hover:scale-105`}
+                      >
+                        <d.icon className="h-6 w-6" strokeWidth={2} />
+                      </span>
+                      <h3 className="mt-4 font-display text-lg font-bold text-ink-900 dark:text-white">{d.label}</h3>
+                      <p className="text-[10px] font-semibold text-brand-600 dark:text-brand-400">{d.difficulty}</p>
+                      <p className="mt-2 text-xs text-ink-500 dark:text-slate-400 leading-relaxed">{d.desc}</p>
+                    </div>
+                    <button
+                      onClick={() => startSim(d.id)}
+                      className="mt-5 flex w-full items-center justify-center gap-2 rounded-xl bg-brand-600 py-2.5 text-xs font-bold text-white hover:bg-brand-700 transition-colors shadow-glow"
+                    >
+                      <Play className="h-3 w-3 fill-white" />
+                      Mulai Manual
+                    </button>
+                  </div>
+                ))}
+              </div>
+            </>
+          )}
+
+          {phase === 'loading_smart' && (
+            <div className="flex flex-col items-center justify-center py-24 gap-4">
+              <LogoSpinner size="lg" />
+              <div className="text-center">
+                <p className="font-display font-bold text-ink-900 dark:text-white">Menyusun Skenario AI Spesifik...</p>
+                <p className="text-sm text-ink-500 dark:text-slate-400 mt-1">Mengukur risiko sekolah dan riwayat belajar Anda</p>
+              </div>
             </div>
           )}
 
@@ -886,16 +986,20 @@ export function DisasterSimulationView() {
               <div className="glass rounded-2xl p-5 dark:bg-slate-900/60">
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-3">
-                    <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-gradient-to-br from-brand-500 to-brand-600 text-white">
+                    <span className={`flex h-10 w-10 items-center justify-center rounded-xl bg-gradient-to-br text-white ${selectedType === 'smart' ? 'from-indigo-500 to-purple-600' : 'from-brand-500 to-brand-600'}`}>
+                      {selectedType === 'smart' && <Sparkles className="h-5 w-5" />}
                       {selectedType === 'earthquake' && <Mountain className="h-5 w-5" />}
                       {selectedType === 'flood' && <CloudRain className="h-5 w-5" />}
                       {selectedType === 'tsunami' && <Waves className="h-5 w-5" />}
+                      {selectedType === 'landslide' && <Trees className="h-5 w-5" />}
+                      {selectedType === 'volcano' && <Flame className="h-5 w-5" />}
+                      {selectedType === 'fire' && <Flame className="h-5 w-5" />}
                     </span>
                     <div>
                       <h3 className="font-display text-sm font-bold text-ink-900 dark:text-white">
-                        Simulasi {disasterOptions.find(d => d.id === selectedType)?.label}
+                        {selectedType === 'smart' ? 'Smart Mix AI Simulation' : `Simulasi ${disasterOptions.find(d => d.id === selectedType)?.label}`}
                       </h3>
-                      <p className="text-[10px] text-ink-500">Langkah {stepIdx + 1} dari {simSteps[selectedType].length}</p>
+                      <p className="text-[10px] text-ink-500">Langkah {stepIdx + 1} dari {(selectedType === 'smart' ? smartSteps : simSteps[selectedType]).length}</p>
                     </div>
                   </div>
                   <button
@@ -906,11 +1010,11 @@ export function DisasterSimulationView() {
                   </button>
                 </div>
                 <div className="mt-4 flex items-center gap-2">
-                  {simSteps[selectedType].map((_, i) => (
+                  {(selectedType === 'smart' ? smartSteps : simSteps[selectedType]).map((_, i) => (
                     <div
                       key={i}
                       className={`h-1.5 flex-1 rounded-full transition-all ${
-                        i < stepIdx ? 'bg-brand-500' : i === stepIdx ? 'bg-brand-600' : 'bg-brand-100 dark:bg-slate-800'
+                        i < stepIdx ? (selectedType === 'smart' ? 'bg-indigo-500' : 'bg-brand-500') : i === stepIdx ? (selectedType === 'smart' ? 'bg-indigo-600' : 'bg-brand-600') : 'bg-brand-100 dark:bg-slate-800'
                       }`}
                     />
                   ))}
@@ -918,65 +1022,73 @@ export function DisasterSimulationView() {
               </div>
 
               {/* Step detail */}
-              <div className="glass rounded-2xl p-6 space-y-4">
-                <h4 className="font-display text-base font-bold text-brand-600">
-                  {simSteps[selectedType][stepIdx].title}
-                </h4>
-                <p className="text-sm font-bold text-ink-900 dark:text-white leading-relaxed">
-                  {simSteps[selectedType][stepIdx].instruction}
-                </p>
-
-                <div className="grid gap-3 pt-2">
-                  {simSteps[selectedType][stepIdx].options.map((opt, i) => {
-                    const isPicked = picked === i;
-                    const showResult = feedback !== null;
-                    return (
-                      <button
-                        key={i}
-                        disabled={showResult}
-                        onClick={() => pickOption(opt.correct, opt.feedback, i)}
-                        className={`flex items-center gap-3 w-full p-4 rounded-xl border text-left text-xs font-semibold transition-all ${
-                          showResult
-                            ? isPicked
-                              ? opt.correct
-                                ? 'border-emerald-500 bg-emerald-50 text-emerald-800 dark:bg-emerald-950/20 dark:text-emerald-400'
-                                : 'border-red-500 bg-red-50 text-red-800 dark:bg-red-950/20 dark:text-red-400'
-                              : opt.correct
-                                ? 'border-emerald-300 bg-emerald-50/50 text-emerald-700 dark:bg-emerald-950/10'
-                                : 'border-brand-50 bg-white/40 text-ink-400 dark:border-slate-800 dark:bg-slate-900/40'
-                            : 'border-brand-100 bg-white hover:border-brand-300 hover:bg-brand-50/60 dark:border-slate-700 dark:bg-slate-800 dark:hover:border-slate-600'
-                        }`}
-                      >
-                        <span className={`flex h-6 w-6 shrink-0 items-center justify-center rounded-full text-[10px] font-extrabold ${
-                          showResult && isPicked
-                            ? opt.correct
-                              ? 'bg-emerald-500 text-white'
-                              : 'bg-red-500 text-white'
-                            : 'bg-brand-100 text-brand-700 dark:bg-slate-700 dark:text-brand-400'
-                        }`}>
-                          {String.fromCharCode(65 + i)}
-                        </span>
-                        {opt.text}
-                      </button>
-                    );
-                  })}
-                </div>
-
-                {/* Feedback Panel */}
-                {feedback && (
-                  <div className="p-4 rounded-xl border border-brand-100 bg-brand-50/40 dark:border-slate-800 dark:bg-slate-900/40 mt-4">
-                    <p className="text-xs text-ink-700 dark:text-slate-300 leading-relaxed font-semibold">
-                      {feedback}
+              {(() => {
+                const step = selectedType === 'smart' ? smartSteps[stepIdx] : simSteps[selectedType][stepIdx];
+                if (!step) return null;
+                return (
+                  <div className="glass rounded-2xl p-6 space-y-4">
+                    <h4 className="font-display text-base font-bold text-brand-600">
+                      {step.title}
+                    </h4>
+                    <p className="text-sm font-bold text-ink-900 dark:text-white leading-relaxed">
+                      {step.instruction}
                     </p>
-                    <button
-                      onClick={nextStep}
-                      className="mt-4 flex items-center justify-center gap-1.5 rounded-xl bg-brand-600 px-5 py-2.5 text-xs font-bold text-white hover:bg-brand-700 shadow-glow transition-all"
-                    >
-                      {stepIdx + 1 < simSteps[selectedType].length ? 'Langkah Selanjutnya' : 'Lihat Hasil'} &rarr;
-                    </button>
+
+                    <div className="grid gap-3 pt-2">
+                      {step.options.map((opt, i) => {
+                        const isPicked = picked === i;
+                        const showResult = feedback !== null;
+                        const st = (opt as any).subTopic;
+                        return (
+                          <button
+                            key={i}
+                            disabled={showResult}
+                            onClick={() => pickOption(opt.correct, opt.feedback, i, st)}
+                            className={`flex items-center gap-3 w-full p-4 rounded-xl border text-left text-xs font-semibold transition-all ${
+                              showResult
+                                ? isPicked
+                                  ? opt.correct
+                                    ? 'border-emerald-500 bg-emerald-50 text-emerald-800 dark:bg-emerald-950/20 dark:text-emerald-400'
+                                    : 'border-red-500 bg-red-50 text-red-800 dark:bg-red-950/20 dark:text-red-400'
+                                  : opt.correct
+                                    ? 'border-emerald-300 bg-emerald-50/50 text-emerald-700 dark:bg-emerald-950/10'
+                                    : 'border-brand-50 bg-white/40 text-ink-400 dark:border-slate-800 dark:bg-slate-900/40'
+                                : 'border-brand-100 bg-white hover:border-brand-300 hover:bg-brand-50/60 dark:border-slate-700 dark:bg-slate-800 dark:hover:border-slate-600'
+                            }`}
+                          >
+                            <span className={`flex h-6 w-6 shrink-0 items-center justify-center rounded-full text-[10px] font-extrabold ${
+                              showResult && isPicked
+                                ? opt.correct
+                                  ? 'bg-emerald-500 text-white'
+                                  : 'bg-red-500 text-white'
+                                : 'bg-brand-100 text-brand-700 dark:bg-slate-700 dark:text-brand-400'
+                            }`}>
+                              {String.fromCharCode(65 + i)}
+                            </span>
+                            {opt.text}
+                          </button>
+                        );
+                      })}
+                    </div>
+
+                    {/* Feedback Panel */}
+                    {feedback && (
+                      <div className="p-4 rounded-xl border border-brand-100 bg-brand-50/40 dark:border-slate-800 dark:bg-slate-900/40 mt-4">
+                        <p className="text-xs text-ink-700 dark:text-slate-300 leading-relaxed font-semibold">
+                          {feedback}
+                        </p>
+                        <button
+                          onClick={nextStep}
+                          className="mt-4 flex items-center justify-center gap-1.5 rounded-xl bg-brand-600 px-5 py-2.5 text-xs font-bold text-white hover:bg-brand-700 shadow-glow transition-all"
+                        >
+                          {stepIdx + 1 < (selectedType === 'smart' ? smartSteps : simSteps[selectedType]).length ? 'Langkah Selanjutnya' : 'Lihat Hasil'} &rarr;
+                        </button>
+                      </div>
+                    )}
                   </div>
-                )}
-              </div>
+                );
+              })()}
+
             </div>
           )}
 

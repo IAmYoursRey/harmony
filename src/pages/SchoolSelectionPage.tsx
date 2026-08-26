@@ -120,7 +120,13 @@ export default function SchoolSelectionPage() {
               onClick={() => navigate('/')}
               className="inline-flex items-center gap-1.5 text-sm font-medium text-ink-600 transition-colors hover:text-brand-600 dark:text-slate-400 dark:hover:text-brand-400"
             >
-              {t('login.back')} <ArrowRight className="h-4 w-4" />
+              {t('login.back')}
+            </button>
+            <button
+              onClick={() => navigate('/app')}
+              className="inline-flex items-center gap-1.5 text-sm font-medium text-brand-600 transition-colors hover:text-brand-700 dark:text-brand-400 dark:hover:text-brand-300"
+            >
+              Lewati (Nanti Saja) <ArrowRight className="h-4 w-4" />
             </button>
           </div>
         </div>

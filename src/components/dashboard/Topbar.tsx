@@ -1,8 +1,9 @@
-import { Menu, Search, Bell, ChevronDown, Sun, Moon } from 'lucide-react';
+import { Menu, Search, Bell, ChevronDown, Sun, Moon, Globe } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { useTheme } from '@/context/ThemeContext';
 import { ThemePicker } from '@/components/ThemePicker';
 import { useAuth } from '@/context/AuthContext';
+import { useI18n } from '@/context/I18nContext';
 
 interface TopbarProps {
   onOpenMobile: () => void;
@@ -12,6 +13,7 @@ interface TopbarProps {
 export function Topbar({ onOpenMobile, title }: TopbarProps) {
   const { theme, toggle } = useTheme();
   const { currentUser } = useAuth();
+  const { lang, setLang } = useI18n();
   const navigate = useNavigate();
 
   // Format the name nicely (e.g. "Raihan A.")
@@ -47,6 +49,16 @@ export function Topbar({ onOpenMobile, title }: TopbarProps) {
 
       {/* Theme picker */}
       <ThemePicker />
+
+      {/* Language toggle */}
+      <button
+        onClick={() => setLang(lang === 'id' ? 'en' : 'id')}
+        className="flex h-10 items-center justify-center gap-1.5 rounded-full px-3 text-sm font-bold text-ink-600 transition-colors hover:bg-brand-50 dark:text-slate-300 dark:hover:bg-slate-800"
+        aria-label="Toggle language"
+      >
+        <Globe className="h-4 w-4" />
+        <span className="uppercase">{lang}</span>
+      </button>
 
       {/* Dark mode toggle */}
       <button

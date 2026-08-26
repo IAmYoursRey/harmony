@@ -7,6 +7,8 @@ import { useAuth } from '@/context/AuthContext';
 import { findSchool, type School } from '@/data/schools';
 import { supabase, isSupabaseConfigured } from '@/lib/supabase';
 import { useToast } from '@/context/ToastContext';
+import { realSchoolsMojokerto } from '@/data/realSchoolsMojokerto';
+import { useI18n } from '@/context/I18nContext';
 
 
 // --- Merged from GeoRiskMapView.tsx ---
@@ -90,11 +92,16 @@ function createIcon(color: string, emoji: string) {
 }
 
 export function GeoRiskMapView() {
-  const { selection } = useSchool();
+  const { currentProfile } = useAuth();
+  const { t } = useI18n();
   const mapRef = useRef<L.Map | null>(null);
   const containerRef = useRef<HTMLDivElement>(null);
 
-  const school = selection?.school;
+  const school = useMemo(() => {
+    if (!currentProfile?.schoolId || currentProfile.schoolId === 'unknown') return null;
+    return realSchoolsMojokerto.find(s => s.id === currentProfile.schoolId) || null;
+  }, [currentProfile?.schoolId]);
+
   const schoolLat = school?.lat ?? -7.5669;
   const schoolLng = school?.lng ?? 112.4084;
   const schoolName = school?.name ?? 'SMA Negeri 1 Ngoro';
@@ -159,7 +166,7 @@ export function GeoRiskMapView() {
       .bindPopup(
         `<div style="font-family:Inter,sans-serif;min-width:180px;">
           <strong style="font-size:13px;color:#1e293b;">${schoolName}</strong><br/>
-          <span style="font-size:11px;color:#64748b;">${selection?.regencyName ?? 'Ngoro'}, ${selection?.provinceName ?? 'East Java'}</span><br/>
+          <span style="font-size:11px;color:#64748b;">${school?.regency ?? 'Mojokerto'}, ${school?.province ?? 'Jawa Timur'}</span><br/>
           <span style="font-size:11px;font-weight:600;color:hsl(var(--brand-500));">Risk: ${schoolRisk}</span><br/>
           <span style="font-size:10px;color:#94a3b8;">${schoolLat.toFixed(4)}°, ${schoolLng.toFixed(4)}°</span>
         </div>`
@@ -259,7 +266,7 @@ export function GeoRiskMapView() {
       .bindPopup(
         `<div style="font-family:Inter,sans-serif;"><strong style="color:hsl(var(--brand-400));">🏠 Shelter</strong><br/><span style="font-size:11px;color:#64748b;">Ngoro Community Hall (Balai Desa)</span></div>`
       );
-  }, [schoolLat, schoolLng, schoolName, schoolRisk, selection]);
+  }, [schoolLat, schoolLng, schoolName, schoolRisk, school?.regency, school?.province]);
 
   return (
     <div className="space-y-6">
@@ -322,7 +329,7 @@ export function GeoRiskMapView() {
             <div className="rounded-xl bg-brand-50/60 p-4 dark:bg-slate-800/60">
               <p className="font-display text-sm font-bold text-ink-900 dark:text-white">{schoolName}</p>
               <p className="mt-0.5 text-xs text-ink-500 dark:text-slate-400">
-                {selection?.regencyName ?? 'Ngoro'}, {selection?.provinceName ?? 'East Java'}
+                {school?.regency ?? 'Mojokerto'}, {school?.province ?? 'Jawa Timur'}
               </p>
               <div className="mt-3 flex items-center gap-2">
                 <span className={`rounded-full px-3 py-1 text-xs font-bold ${
@@ -475,6 +482,7 @@ export function DigitalTwinView() {
   const { selection } = useSchool();
   const { currentProfile } = useAuth();
   const { show } = useToast();
+  const { t } = useI18n();
   
   const activeSchool = useMemo(() => {
     if (selection?.school) return selection.school;
@@ -484,7 +492,7 @@ export function DigitalTwinView() {
     return null;
   }, [selection, currentProfile]);
 
-  const [role, setRole] = useState<'teacher' | 'student'>('teacher'); 
+  const role = currentProfile?.role === 'student' ? 'student' : 'teacher';
   const [rooms, setRooms] = useState<Room[]>([]);
   const [selected, setSelected] = useState<Room | null>(null);
   const [simRunning, setSimRunning] = useState(false);
@@ -694,9 +702,9 @@ export function DigitalTwinView() {
       <div className="flex h-[80vh] items-center justify-center">
         <div className="text-center">
           <Box className="mx-auto h-12 w-12 text-ink-300 dark:text-slate-600 mb-4" />
-          <h2 className="text-lg font-bold text-ink-900 dark:text-white mb-2">Belum Memilih Sekolah</h2>
+          <h2 className="text-lg font-bold text-ink-900 dark:text-white mb-2">{t('school.unknown', 'Belum Memilih Sekolah')}</h2>
           <p className="text-sm text-ink-500 dark:text-slate-400 max-w-sm mx-auto">
-            Fitur Kembaran Digital membutuhkan data sekolah Anda. Silakan hubungi Dev untuk mengatur sekolah Anda.
+            {t('spatial.digital_twin_requires_school', 'Fitur Kembaran Digital membutuhkan data sekolah Anda. Silakan hubungi Dev untuk mengatur sekolah Anda.')}
           </p>
         </div>
       </div>
@@ -723,12 +731,6 @@ export function DigitalTwinView() {
           </div>
           <div className="flex flex-col gap-2">
             <button
-              onClick={() => setRole(r => r === 'teacher' ? 'student' : 'teacher')}
-              className="text-xs bg-white/20 hover:bg-white/30 px-3 py-1.5 rounded-full transition-colors font-bold"
-            >
-              Mode Pengguna: {role === 'teacher' ? '🔧 Guru (Editor Denah)' : '📖 Siswa (Viewer)'}
-            </button>
-            <button
               onClick={() => setSimRunning((s) => !s)}
               className="inline-flex items-center justify-center gap-2 rounded-full bg-white px-5 py-2.5 text-xs font-bold text-brand-700 shadow-glass transition-all hover:-translate-y-0.5 hover:shadow-glow"
             >
@@ -742,8 +744,8 @@ export function DigitalTwinView() {
       {rooms.length === 0 && role === 'student' ? (
         <Card className="text-center py-12">
           <Box className="mx-auto h-12 w-12 text-ink-300 dark:text-slate-600 mb-4" />
-          <h3 className="font-display text-lg font-bold text-ink-900 dark:text-white">Denah Belum Tersedia</h3>
-          <p className="text-sm text-ink-500 dark:text-slate-400">Silakan hubungi admin sekolah untuk mengunggah atau mengatur denah.</p>
+          <h3 className="font-display text-lg font-bold text-ink-900 dark:text-white">{t('spatial.floorplan_unavailable', 'Denah Belum Tersedia')}</h3>
+          <p className="text-sm text-ink-500 dark:text-slate-400">{t('spatial.contact_admin_floorplan', 'Silakan hubungi admin sekolah untuk mengunggah atau mengatur denah.')}</p>
         </Card>
       ) : (
         <div className="grid gap-6 lg:grid-cols-3">
@@ -835,9 +837,9 @@ export function DigitalTwinView() {
                       >
                         {room.type === 'exit' || room.type === 'assembly' ? (
                           <circle
-                            cx={room.x + room.w/2}
-                            cy={room.y + room.h/2}
-                            r={room.w/2}
+                            cx={(room.x || 0) + (room.w || 0)/2}
+                            cy={(room.y || 0) + (room.h || 0)/2}
+                            r={(room.w || 0)/2}
                             fill={color}
                             fillOpacity={isSelected ? 0.4 : 0.2}
                             stroke={color}
@@ -845,10 +847,10 @@ export function DigitalTwinView() {
                           />
                         ) : (
                           <rect
-                            x={room.x}
-                            y={room.y}
-                            width={room.w}
-                            height={room.h}
+                            x={room.x || 0}
+                            y={room.y || 0}
+                            width={room.w || 0}
+                            height={room.h || 0}
                             rx="6"
                             fill={color}
                             fillOpacity={isSelected ? 0.35 : 0.15}

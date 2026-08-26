@@ -100,7 +100,7 @@ export function Sidebar({ active, onSelect, mobileOpen, onCloseMobile }: Sidebar
               </span>
               <div className="min-w-0">
                 <p className="truncate text-xs font-bold text-ink-900 dark:text-white">{currentUser?.name || 'Pengguna'}</p>
-                <p className="truncate text-[11px] text-ink-500 dark:text-slate-400 uppercase tracking-wider">{currentUser?.role || 'Guest'}</p>
+                <p className="truncate text-[11px] text-ink-500 dark:text-slate-400 uppercase tracking-wider">{currentUser?.role === 'dev' ? t('role.dev', 'Pengembang') : currentUser?.role === 'teacher' ? t('role.teacher', 'Guru') : t('role.student', 'Peserta Didik')}</p>
               </div>
             </div>
           </div>

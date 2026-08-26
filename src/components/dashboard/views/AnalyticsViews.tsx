@@ -1,4 +1,4 @@
-import { Gauge, Brain, Target, Timer, CalendarCheck, TrendingUp, Trophy, Zap, Award, ShieldCheck, Users, CloudLightning, Route, GraduationCap, AlertTriangle, CheckCircle2, Sparkles, Download, BarChart3, PieChart as PieIcon, FileText, ArrowUpRight, Shield, Lightbulb, Medal, MapPin, School, Map, type LucideIcon } from 'lucide-react';
+import { Gauge, Brain, Target, Timer, CalendarCheck, TrendingUp, Trophy, Zap, Award, ShieldCheck, Users, CloudLightning, Route, GraduationCap, AlertTriangle, CheckCircle2, Sparkles, Download, BarChart3, PieChart as PieIcon, FileText, ArrowUpRight, Shield, Lightbulb, Medal, MapPin, School, Map, X, Activity, type LucideIcon } from 'lucide-react';
 import { Donut, RadarChart, Sparkline, BarChart, GroupedBarChart, PieChart, DonutChart } from '@/components/dashboard/Charts';
 import { SmartReadinessIndex, calculateReadinessIndex } from '@/components/SmartReadinessIndex';
 import { motion } from 'framer-motion';
@@ -46,6 +46,22 @@ function Card({ children, className = '' }: { children: React.ReactNode; classNa
 }
 
 export function GSSView() {
+  const { currentProfile } = useAuth();
+  const { t } = useI18n();
+  const hasPoints = currentProfile && currentProfile.totalPoints > 0;
+
+  const displayScore = hasPoints ? 86 : 0;
+  const displayHistory = hasPoints ? scoreHistory : [0];
+  const displayMetrics = hasPoints ? metrics : metrics.map(m => ({ ...m, value: 0 }));
+  const displayMilestones = hasPoints ? milestones : milestones.map(ms => ({ ...ms, done: false }));
+  const displayReadiness = hasPoints ? readinessResult : calculateReadinessIndex({
+    knowledge: 0,
+    decisionAccuracy: 0,
+    evacuationTime: 0,
+    learningConsistency: 0,
+    improvement: 0,
+  });
+
   return (
     <div className="space-y-6">
       {/* Header */}
@@ -67,7 +83,7 @@ export function GSSView() {
       </div>
 
       {/* Smart Readiness Index */}
-      <SmartReadinessIndex result={readinessResult} />
+      <SmartReadinessIndex result={displayReadiness} />
 
       {/* Radar + metric list */}
       <div className="grid gap-6 lg:grid-cols-3">
@@ -75,11 +91,11 @@ export function GSSView() {
           <h3 className="mb-4 font-display text-base font-bold text-ink-900 dark:text-white">Score Breakdown</h3>
           <div className="flex flex-col items-center gap-6 sm:flex-row sm:justify-around">
             <RadarChart
-              data={metrics.map((m) => ({ label: m.label.split(' ')[0], value: m.value }))}
+              data={displayMetrics.map((m) => ({ label: m.label.split(' ')[0], value: m.value }))}
               size={260}
             />
             <div className="space-y-3">
-              {metrics.map((m) => (
+              {displayMetrics.map((m) => (
                 <div key={m.label} className="flex items-center gap-3">
                   <span
                     className="flex h-9 w-9 items-center justify-center rounded-lg text-white"
@@ -102,12 +118,12 @@ export function GSSView() {
 
         <Card className="flex flex-col items-center text-center">
           <h3 className="mb-4 font-display text-base font-bold text-ink-900 dark:text-white">Overall GSS</h3>
-          <Donut value={86} size={170} stroke={15} label="86" sublabel="GeoSense Score" />
+          <Donut value={displayScore} size={170} stroke={15} label={displayScore.toString()} sublabel="GeoSense Score" />
           <div className="mt-4 flex items-center gap-2 rounded-full bg-brand-50 px-3 py-1.5 text-xs font-semibold text-brand-700 dark:bg-brand-950/30">
-            <TrendingUp className="h-3.5 w-3.5" /> +24 points this month
+            <TrendingUp className="h-3.5 w-3.5" /> {hasPoints ? '+24 points this month' : t('dashboard.no_score_yet', 'Belum ada skor')}
           </div>
           <p className="mt-3 text-xs text-ink-500 dark:text-slate-400">
-            Level 4 · Resilient — top 10% in your region
+            {hasPoints ? 'Level 4 · Resilient — top 10% in your region' : t('dashboard.not_started', 'Belum Dimulai')}
           </p>
         </Card>
       </div>
@@ -118,21 +134,21 @@ export function GSSView() {
           <h3 className="mb-4 font-display text-base font-bold text-ink-900 dark:text-white">Score History</h3>
           <div className="mb-3 flex items-end justify-between">
             <div>
-              <p className="font-display text-2xl font-extrabold text-ink-900 dark:text-white">86</p>
-              <p className="text-xs text-ink-500 dark:text-slate-400">Current score · up from 62</p>
+              <p className="font-display text-2xl font-extrabold text-ink-900 dark:text-white">{displayScore}</p>
+              <p className="text-xs text-ink-500 dark:text-slate-400">{hasPoints ? 'Current score · up from 62' : t('dashboard.no_score_data', 'Belum ada data skor')}</p>
             </div>
             <span className="rounded-full bg-brand-50 px-2.5 py-1 text-xs font-semibold text-brand-700 dark:bg-brand-950/30">
-              +38%
+              {hasPoints ? '+38%' : '0%'}
             </span>
           </div>
-          <Sparkline data={scoreHistory} height={80} />
+          <Sparkline data={displayHistory} height={80} />
           <p className="mt-2 text-xs text-ink-400 dark:text-slate-500">Last 12 weeks</p>
         </Card>
 
         <Card>
           <h3 className="mb-4 font-display text-base font-bold text-ink-900 dark:text-white">Milestones</h3>
           <div className="space-y-3">
-            {milestones.map((ms) => (
+            {displayMilestones.map((ms) => (
               <div key={ms.label} className="flex items-center gap-3">
                 <span
                   className={`flex h-9 w-9 items-center justify-center rounded-lg ${
@@ -272,7 +288,7 @@ export function SchoolResilienceIndexView() {
                 cx="80" cy="80" r="70" fill="none" stroke="url(#resilGrad)" strokeWidth="12" strokeLinecap="round"
                 strokeDasharray={2 * Math.PI * 70}
                 initial={{ strokeDashoffset: 2 * Math.PI * 70 }}
-                animate={{ strokeDashoffset: 2 * Math.PI * 70 - (overallCategory.score / 100) * 2 * Math.PI * 70 }}
+                animate={{ strokeDashoffset: 2 * Math.PI * 70 - ((isNaN(overallCategory.score) ? 0 : overallCategory.score) / 100) * 2 * Math.PI * 70 }}
                 transition={{ duration: 1.2, ease: 'easeOut' }}
               />
               <defs>
@@ -646,6 +662,8 @@ export function LeaderboardView() {
   const { currentProfile, currentUser } = useAuth();
   const [activeTab, setActiveTab] = useState<Tab>('school');
 
+  const [selectedUser, setSelectedUser] = useState<string | null>(null);
+
   const leaderboardData = useMemo(() => {
     const profiles = getAllProfiles();
     const accounts = getAllAccounts();
@@ -681,9 +699,13 @@ export function LeaderboardView() {
       return {
         id: p.userId,
         name: acc?.name || 'Pengguna',
+        avatar: p.avatar,
         totalPoints: p.totalPoints,
         schoolName: s?.name || p.schoolId,
-        isCurrentUser: p.userId === currentProfile?.userId
+        isCurrentUser: p.userId === currentProfile?.userId,
+        grade: p.grade,
+        classSection: p.classSection,
+        badges: p.badges || []
       };
     });
 
@@ -692,6 +714,7 @@ export function LeaderboardView() {
   }, [activeTab, currentProfile]);
 
   return (
+    <>
     <div className="glass rounded-2xl p-5 dark:bg-slate-900/60 mt-6 animate-fade-up">
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between mb-6 gap-4">
         <div>
@@ -741,16 +764,17 @@ export function LeaderboardView() {
 
       <div className="space-y-3">
         {leaderboardData.length === 0 ? (
-          <div className="py-8 text-center text-sm text-ink-500">
-            Belum ada data untuk kategori ini.
+          <div className="py-8 text-center text-sm font-medium text-ink-500 dark:text-slate-400">
+            {t('survey.no_data', 'Belum ada data untuk kategori ini.')}
           </div>
         ) : (
           leaderboardData.map((user, index) => (
-            <div
+            <button
               key={user.id}
-              className={`flex items-center gap-4 p-3 rounded-xl border transition-all ${
+              onClick={() => setSelectedUser(user.id)}
+              className={`w-full text-left flex items-center gap-4 p-3 rounded-xl border transition-all ${
                 user.isCurrentUser
-                  ? 'border-brand-500 bg-brand-50/50 dark:border-brand-500/50 dark:bg-brand-900/20 shadow-sm'
+                  ? 'border-brand-500 bg-brand-50/50 dark:border-brand-500/50 dark:bg-brand-900/20 shadow-sm hover:bg-brand-50 dark:hover:bg-brand-900/40'
                   : 'border-brand-100/50 bg-white/40 dark:border-slate-800 dark:bg-slate-800/40 hover:bg-white/80 dark:hover:bg-slate-800/80'
               }`}
             >
@@ -761,8 +785,12 @@ export function LeaderboardView() {
                  <span className="font-bold text-ink-400 dark:text-slate-500">#{index + 1}</span>}
               </div>
               
-              <div className="h-10 w-10 shrink-0 rounded-full bg-gradient-to-br from-brand-100 to-brand-200 dark:from-slate-700 dark:to-slate-800 flex items-center justify-center font-bold text-brand-700 dark:text-brand-300">
-                {user.name.substring(0, 2).toUpperCase()}
+              <div className="h-10 w-10 shrink-0 overflow-hidden rounded-full bg-gradient-to-br from-brand-100 to-brand-200 dark:from-slate-700 dark:to-slate-800 flex items-center justify-center font-bold text-brand-700 dark:text-brand-300">
+                {user.avatar ? (
+                  <img src={user.avatar} alt={user.name} className="h-full w-full object-cover" />
+                ) : (
+                  user.name.substring(0, 2).toUpperCase()
+                )}
               </div>
 
               <div className="flex-1 min-w-0">
@@ -786,11 +814,155 @@ export function LeaderboardView() {
                   {user.totalPoints} <span className="text-xs font-medium text-ink-500">pts</span>
                 </p>
               </div>
-            </div>
+            </button>
           ))
         )}
       </div>
     </div>
+    
+    {/* Public Profile Modal */}
+    {selectedUser && (
+      <LeaderboardProfileModal 
+        userId={selectedUser} 
+        onClose={() => setSelectedUser(null)} 
+        leaderboardData={leaderboardData}
+      />
+    )}
+    </>
+  );
+}
+
+function LeaderboardProfileModal({ userId, onClose, leaderboardData }: { userId: string, onClose: () => void, leaderboardData: any[] }) {
+  const user = leaderboardData.find(u => u.id === userId);
+  
+  if (!user) return null;
+  
+  const initials = user.name.split(' ').map((n: string) => n[0]).slice(0, 2).join('').toUpperCase();
+  
+  // Mock activity data
+  const mockActivity = [60, 65, 55, 75, 80, 72, 90].map((val, i) => ({
+    day: ['Sen', 'Sel', 'Rab', 'Kam', 'Jum', 'Sab', 'Min'][i],
+    score: Math.min(100, Math.max(0, val + (user.totalPoints % 20) - 10)) // deterministic variation
+  }));
+  
+  // Mock radar data based on total points
+  const radarData = [
+    { subject: 'Pengetahuan', A: Math.min(100, 40 + (user.totalPoints % 60)) },
+    { subject: 'Respons', A: Math.min(100, 50 + (user.totalPoints % 50)) },
+    { subject: 'Logika', A: Math.min(100, 60 + (user.totalPoints % 40)) },
+    { subject: 'Persiapan', A: Math.min(100, 30 + (user.totalPoints % 70)) },
+    { subject: 'Konsistensi', A: Math.min(100, 70 + (user.totalPoints % 30)) },
+  ];
+
+  return (
+    <div className="fixed inset-0 z-[100] flex items-center justify-center bg-ink-900/40 p-4 backdrop-blur-sm sm:p-6" onClick={onClose}>
+      <div 
+        className="relative w-full max-w-md overflow-hidden rounded-3xl bg-white shadow-2xl dark:bg-slate-900 animate-in fade-in zoom-in-95 duration-200"
+        onClick={e => e.stopPropagation()}
+      >
+        {/* Cover Photo */}
+        <div className="h-32 bg-gradient-to-br from-brand-500 to-brand-700 relative">
+          <div className="absolute inset-0 bg-grid-pattern bg-[size:24px_24px] opacity-20" />
+          <button 
+            onClick={onClose}
+            className="absolute top-4 right-4 h-8 w-8 bg-black/20 hover:bg-black/40 rounded-full flex items-center justify-center text-white transition-colors backdrop-blur-sm"
+          >
+            <X className="h-4 w-4" />
+          </button>
+        </div>
+        
+        <div className="px-6 pb-6 pt-0 relative">
+          {/* Avatar */}
+          <div className="flex justify-between items-end -mt-12 mb-4 relative z-10">
+            <div className="h-24 w-24 rounded-full border-4 border-white dark:border-slate-900 bg-gradient-to-br from-brand-100 to-brand-300 dark:from-slate-700 dark:to-slate-800 shadow-sm flex items-center justify-center overflow-hidden">
+              {user.avatar ? (
+                <img src={user.avatar} alt={user.name} className="h-full w-full object-cover" />
+              ) : (
+                <span className="text-2xl font-bold text-brand-700 dark:text-brand-300">{initials}</span>
+              )}
+            </div>
+            
+            <div className="pb-2">
+              <span className="inline-flex items-center gap-1.5 rounded-full bg-amber-100 px-3 py-1 text-xs font-bold text-amber-700 dark:bg-amber-500/20 dark:text-amber-400">
+                <Trophy className="h-3.5 w-3.5" /> {user.totalPoints} PTS
+              </span>
+            </div>
+          </div>
+          
+          {/* Info */}
+          <div>
+            <h2 className="text-xl font-bold text-ink-900 dark:text-white flex items-center gap-2">
+              {user.name}
+              {user.totalPoints >= 1000 && <BadgeCheck />}
+            </h2>
+            <div className="mt-1 flex flex-wrap gap-2 text-sm text-ink-500 dark:text-slate-400">
+              <span className="flex items-center gap-1"><School className="h-3.5 w-3.5" /> {user.schoolName}</span>
+              <span className="flex items-center gap-1">&bull; Kelas {user.grade} {user.classSection}</span>
+            </div>
+          </div>
+          
+          <div className="mt-6 border-t border-brand-50 pt-6 dark:border-slate-800 space-y-6">
+            
+            {/* Radar & Stats */}
+            <div className="grid grid-cols-2 gap-4">
+              <div className="h-32 bg-slate-50 dark:bg-slate-800/50 rounded-xl flex flex-col items-center justify-center p-2 relative overflow-hidden">
+                <p className="absolute top-2 left-3 text-[10px] font-bold text-ink-400 uppercase tracking-wider">Skill Radar</p>
+                <div className="w-full h-full mt-4">
+                  <ResponsiveContainer width="100%" height="100%">
+                    <RechartsRadarChart cx="50%" cy="50%" outerRadius="60%" data={radarData}>
+                      <PolarGrid stroke="currentColor" className="text-brand-200 dark:text-slate-700" />
+                      <Radar name="Skor" dataKey="A" stroke="hsl(var(--brand-500))" fill="hsl(var(--brand-500))" fillOpacity={0.4} />
+                    </RechartsRadarChart>
+                  </ResponsiveContainer>
+                </div>
+              </div>
+              
+              <div className="space-y-3">
+                <div className="bg-brand-50 dark:bg-brand-500/10 p-3 rounded-xl">
+                  <p className="text-[10px] font-bold text-brand-600 dark:text-brand-400 uppercase tracking-wider mb-1">Status</p>
+                  <p className="text-sm font-semibold text-ink-900 dark:text-white flex items-center gap-1.5">
+                    <Activity className="h-4 w-4 text-brand-500" /> Aktif Belajar
+                  </p>
+                </div>
+                
+                <div className="bg-slate-50 dark:bg-slate-800/50 p-3 rounded-xl">
+                  <p className="text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-1">Badges</p>
+                  <div className="flex gap-1.5 flex-wrap">
+                    <div className="h-6 w-6 rounded-full bg-amber-100 flex items-center justify-center" title="Pemula"><Shield className="h-3 w-3 text-amber-600" /></div>
+                    {user.totalPoints >= 500 && <div className="h-6 w-6 rounded-full bg-blue-100 flex items-center justify-center" title="Konsisten"><Award className="h-3 w-3 text-blue-600" /></div>}
+                    {user.totalPoints >= 1000 && <div className="h-6 w-6 rounded-full bg-brand-100 flex items-center justify-center" title="Master"><Target className="h-3 w-3 text-brand-600" /></div>}
+                  </div>
+                </div>
+              </div>
+            </div>
+            
+            {/* Chart */}
+            <div>
+              <p className="text-xs font-bold text-ink-900 dark:text-white mb-3 flex items-center gap-1.5">
+                <TrendingUp className="h-4 w-4 text-brand-500" /> Aktivitas 7 Hari Terakhir
+              </p>
+              <div className="h-24">
+                <Sparkline data={mockActivity.map(d => d.score)} color="hsl(var(--brand-500))" />
+              </div>
+              <div className="flex justify-between mt-2 text-[10px] text-ink-400 dark:text-slate-500 font-medium px-2">
+                {mockActivity.map(d => <span key={d.day}>{d.day}</span>)}
+              </div>
+            </div>
+            
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// BadgeCheck icon since it's missing from import sometimes, inline it just in case
+function BadgeCheck() {
+  return (
+    <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" className="text-brand-500">
+      <path d="M3.85 8.62a4 4 0 0 1 4.78-4.77 4 4 0 0 1 6.74 0 4 4 0 0 1 4.78 4.78 4 4 0 0 1 0 6.74 4 4 0 0 1-4.77 4.78 4 4 0 0 1-6.75 0 4 4 0 0 1-4.78-4.77 4 4 0 0 1 0-6.76Z" />
+      <path d="m9 12 2 2 4-4" />
+    </svg>
   );
 }
 

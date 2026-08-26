@@ -10,12 +10,14 @@ interface LineChartProps {
 
 export function LineChart({ data, height = 160, color = 'hsl(var(--brand-600))' }: LineChartProps) {
   const width = 320;
-  const max = Math.max(...data.map((d) => d.value)) * 1.15;
+  const rawMax = Math.max(...data.map((d) => d.value));
+  const max = (rawMax === -Infinity || isNaN(rawMax) || rawMax === 0) ? 100 : rawMax * 1.15;
   const min = 0;
-  const step = width / (data.length - 1);
+  const step = data.length > 1 ? width / (data.length - 1) : width;
   const points = data.map((d, i) => {
-    const x = i * step;
-    const y = height - ((d.value - min) / (max - min)) * (height - 20) - 10;
+    const x = data.length === 1 ? width / 2 : i * step;
+    const safeValue = isNaN(d.value) ? 0 : d.value;
+    const y = height - ((safeValue - min) / (max - min)) * (height - 20) - 10;
     return [x, y] as const;
   });
   const path = points.map(([x, y], i) => `${i === 0 ? 'M' : 'L'}${x},${y}`).join(' ');
@@ -54,10 +56,11 @@ interface BarChartProps {
 }
 
 export function BarChart({ data, max, height = 140 }: BarChartProps) {
-  const maxVal = max ?? Math.max(...data.map((d) => d.value));
+  const rawMax = max ?? Math.max(...data.map((d) => d.value));
+  const maxVal = (rawMax === -Infinity || isNaN(rawMax) || rawMax === 0) ? 100 : rawMax;
   const barWidth = 28;
   const gap = 14;
-  const totalWidth = data.length * (barWidth + gap);
+  const totalWidth = Math.max(1, data.length * (barWidth + gap));
 
   return (
     <svg role="img" aria-label="Chart visualization" viewBox={`0 0 ${totalWidth} ${height + 24}`} className="w-full" preserveAspectRatio="xMidYMid meet">
@@ -68,7 +71,8 @@ export function BarChart({ data, max, height = 140 }: BarChartProps) {
         </linearGradient>
       </defs>
       {data.map((d, i) => {
-        const h = (d.value / maxVal) * height;
+        const safeValue = isNaN(d.value) ? 0 : d.value;
+        const h = (safeValue / maxVal) * height;
         const x = i * (barWidth + gap);
         const y = height - h;
         return (
@@ -117,8 +121,10 @@ export function GroupedBarChart({ data, height = 160 }: GroupedBarChartProps) {
       </defs>
       {data.map((d, i) => {
         const x = i * (groupWidth + gap);
-        const preH = (d.pre / maxVal) * height;
-        const postH = (d.post / maxVal) * height;
+        const preSafe = isNaN(d.pre) ? 0 : d.pre;
+        const postSafe = isNaN(d.post) ? 0 : d.post;
+        const preH = (preSafe / maxVal) * height;
+        const postH = (postSafe / maxVal) * height;
         return (
           <g key={d.label}>
             <rect x={x} y={height - preH} width={barW} height={preH} rx="5" fill="url(#preG)" />
@@ -142,9 +148,12 @@ interface DonutProps {
 }
 
 export function Donut({ value, size = 140, stroke = 12, label, sublabel }: DonutProps) {
-  const radius = (size - stroke) / 2;
+  const safeSize = isNaN(size) ? 140 : size;
+  const safeStroke = isNaN(stroke) ? 12 : stroke;
+  const radius = Math.max(0, (safeSize - safeStroke) / 2);
   const circ = 2 * Math.PI * radius;
-  const offset = circ - (value / 100) * circ;
+  const safeValue = isNaN(value) ? 0 : value;
+  const offset = isNaN(circ) ? 0 : circ - (safeValue / 100) * circ;
 
   return (
     <div className="relative inline-flex items-center justify-center">
@@ -182,14 +191,17 @@ interface PieChartProps {
 }
 
 export function PieChart({ data, size = 180 }: PieChartProps) {
-  const total = data.reduce((s, d) => s + d.value, 0);
-  const radius = size / 2 - 6;
-  const cx = size / 2;
-  const cy = size / 2;
+  const safeSize = isNaN(size) ? 180 : size;
+  const total = data.reduce((s, d) => s + (isNaN(d.value) ? 0 : d.value), 0);
+  const safeTotal = total || 1;
+  const radius = Math.max(0, safeSize / 2 - 6);
+  const cx = safeSize / 2;
+  const cy = safeSize / 2;
   let angle = -90;
 
   const slices = data.map((d) => {
-    const pct = d.value / total;
+    const safeValue = isNaN(d.value) ? 0 : d.value;
+    const pct = safeValue / safeTotal;
     const startAngle = angle;
     const endAngle = angle + pct * 360;
     angle = endAngle;
@@ -242,12 +254,14 @@ interface SparklineProps {
 export function Sparkline({ data, width = 240, height = 60, color = 'hsl(var(--brand-600))' }: SparklineProps) {
   const max = Math.max(...data);
   const min = Math.min(...data);
-  const range = max - min || 1;
-  const step = width / (data.length - 1);
+  const range = (max === -Infinity || max === Infinity || isNaN(max)) ? 1 : (max - min || 1);
+  const step = data.length > 1 ? width / (data.length - 1) : width;
   const points = data.map((v, i) => {
-    const x = i * step;
-    const y = height - ((v - min) / range) * (height - 8) - 4;
-    return [x, y] as const;
+    const x = data.length === 1 ? width / 2 : i * step;
+    const safeV = isNaN(v) ? 0 : v;
+    const safeMin = isNaN(min) || min === Infinity ? 0 : min;
+    const y = height - ((safeV - safeMin) / range) * (height - 8) - 4;
+    return [x, isNaN(y) ? height / 2 : y] as const;
   });
   const path = points.map(([x, y], i) => `${i === 0 ? 'M' : 'L'}${x},${y}`).join(' ');
   const area = `${path} L${width},${height} L0,${height} Z`;
@@ -286,9 +300,12 @@ export function ProgressRing({
   track = '#e0e7ff',
   label,
 }: ProgressRingProps) {
-  const radius = (size - stroke) / 2;
+  const safeSize = isNaN(size) ? 56 : size;
+  const safeStroke = isNaN(stroke) ? 6 : stroke;
+  const radius = Math.max(0, (safeSize - safeStroke) / 2);
   const circ = 2 * Math.PI * radius;
-  const offset = circ - (value / 100) * circ;
+  const safeValue = isNaN(value) ? 0 : value;
+  const offset = isNaN(circ) ? 0 : circ - (safeValue / 100) * circ;
 
   return (
     <div className="relative inline-flex items-center justify-center">
@@ -320,9 +337,10 @@ interface RadarChartProps {
 }
 
 export function RadarChart({ data, size = 240, color = 'hsl(var(--brand-600))' }: RadarChartProps) {
-  const cx = size / 2;
-  const cy = size / 2;
-  const maxRadius = size / 2 - 40;
+  const safeSize = isNaN(size) ? 240 : size;
+  const cx = safeSize / 2;
+  const cy = safeSize / 2;
+  const maxRadius = Math.max(0, safeSize / 2 - 40);
   const n = data.length;
   const angle = (i: number) => (Math.PI * 2 * i) / n - Math.PI / 2;
 
@@ -333,7 +351,8 @@ export function RadarChart({ data, size = 240, color = 'hsl(var(--brand-600))' }
 
   const polygon = data
     .map((d, i) => {
-      const r = (d.value / 100) * maxRadius;
+      const safeValue = isNaN(d.value) ? 0 : d.value;
+      const r = (safeValue / 100) * maxRadius;
       const [x, y] = pointFor(i, r);
       return `${x},${y}`;
     })
@@ -365,7 +384,8 @@ export function RadarChart({ data, size = 240, color = 'hsl(var(--brand-600))' }
       {/* data polygon */}
       <polygon points={polygon} fill="url(#radarG)" stroke={color} strokeWidth="2" />
       {data.map((d, i) => {
-        const r = (d.value / 100) * maxRadius;
+        const safeValue = isNaN(d.value) ? 0 : d.value;
+        const r = (safeValue / 100) * maxRadius;
         const [x, y] = pointFor(i, r);
         const [lx, ly] = pointFor(i, maxRadius + 18);
         return (
@@ -388,26 +408,30 @@ interface DonutChartProps {
 }
 
 export function DonutChart({ data, size = 200, stroke = 28 }: DonutChartProps) {
-  const total = data.reduce((s, d) => s + d.value, 0);
-  const radius = (size - stroke) / 2;
+  const safeSize = isNaN(size) ? 200 : size;
+  const safeStroke = isNaN(stroke) ? 28 : stroke;
+  const total = data.reduce((s, d) => s + (isNaN(d.value) ? 0 : d.value), 0);
+  const safeTotal = total || 1;
+  const radius = Math.max(0, (safeSize - safeStroke) / 2);
   const circ = 2 * Math.PI * radius;
   let accumulated = 0;
 
   return (
     <div className="flex flex-col items-center gap-4 sm:flex-row sm:items-center sm:gap-6">
-      <div className="relative" style={{ width: size, height: size }}>
-        <svg role="img" aria-label="Chart visualization" width={size} height={size} className="-rotate-90">
+      <div className="relative" style={{ width: safeSize, height: safeSize }}>
+        <svg role="img" aria-label="Chart visualization" width={safeSize} height={safeSize} className="-rotate-90">
           {data.map((d) => {
-            const fraction = d.value / total;
+            const safeValue = isNaN(d.value) ? 0 : d.value;
+            const fraction = safeValue / safeTotal;
             const dash = fraction * circ;
             const gap = circ - dash;
-            const offset = -accumulated * circ;
+            const offset = isNaN(circ) ? 0 : -accumulated * circ;
             accumulated += fraction;
             return (
               <circle
                 key={d.label}
-                cx={size / 2}
-                cy={size / 2}
+                cx={safeSize / 2}
+                cy={safeSize / 2}
                 r={radius}
                 fill="none"
                 stroke={d.color}

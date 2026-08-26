@@ -9,6 +9,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { RadarChart, Radar, PolarGrid, PolarAngleAxis, PolarRadiusAxis, ResponsiveContainer, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, LineChart, Line } from 'recharts';
 import { useI18n, type Language } from '@/context/I18nContext';
 import { useNavigate } from 'react-router-dom';
+import { realSchoolsMojokerto } from '@/data/realSchoolsMojokerto';
 import { ProgressRing } from '@/components/dashboard/Charts';
 
 
@@ -609,7 +610,7 @@ export function TeacherDashboardView() {
                 <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 pointer-events-none" />
               </div>
             ) : (
-              <span className="text-sm italic opacity-70">Belum ada kelas yang diawasi</span>
+              <span className="text-sm italic opacity-70">{t('teacher.no_classes', 'Belum ada kelas yang diawasi')}</span>
             )}
           </div>
           
@@ -668,8 +669,8 @@ export function TeacherDashboardView() {
           {/* Stats */}
           <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
             <StatCard icon={Target} label="Rata-rata Pemahaman Kelas" value={dashboardData.classAverage + '%'} sub={`${dashboardData.students.length} Siswa Terdaftar`} accent="from-brand-500 to-brand-700" />
-            <StatCard icon={Award} label="Tertinggi di Kelas" value={dashboardData.topStudent?.averageScore ? dashboardData.topStudent.averageScore + '%' : '-'} sub={dashboardData.topStudent?.name || 'Belum ada data'} accent="from-brand-500 to-brand-600" />
-            <StatCard icon={TrendingDown} label="Perlu Perhatian Khusus" value={dashboardData.lowStudent?.averageScore ? dashboardData.lowStudent.averageScore + '%' : '-'} sub={dashboardData.lowStudent?.name || 'Belum ada data'} accent="from-brand-500 to-brand-600" />
+            <StatCard icon={Award} label={t('teacher.highest_in_class', 'Tertinggi di Kelas')} value={dashboardData.topStudent?.averageScore ? dashboardData.topStudent.averageScore + '%' : '-'} sub={dashboardData.topStudent?.name || t('teacher.no_data', 'Belum ada data')} accent="from-brand-500 to-brand-600" />
+            <StatCard icon={TrendingDown} label={t('teacher.needs_attention', 'Perlu Perhatian Khusus')} value={dashboardData.lowStudent?.averageScore ? dashboardData.lowStudent.averageScore + '%' : '-'} sub={dashboardData.lowStudent?.name || t('teacher.no_data', 'Belum ada data')} accent="from-brand-500 to-brand-600" />
             <StatCard icon={Users} label="Siswa Aktif (Online)" value={dashboardData.students.filter(s => s.isOnline).length.toString()} sub="Sedang online saat ini" accent="from-brand-500 to-brand-600" />
           </div>
 
@@ -687,7 +688,7 @@ export function TeacherDashboardView() {
             
             {dashboardData.students.length === 0 ? (
               <div className="py-8 text-center text-sm text-ink-500">
-                Belum ada siswa yang mendaftar di kelas ini.
+                {t('teacher.no_students_enrolled', 'Belum ada siswa yang mendaftar di kelas ini.')}
               </div>
             ) : (
               <div className="overflow-x-auto">
@@ -878,7 +879,7 @@ export function ProfileView() {
   const { show } = useToast();
   const navigate = useNavigate();
   const { lang, setLang, t } = useI18n();
-  const { currentUser, currentProfile } = useAuth();
+  const { currentUser, currentProfile, updateUserAccount, updateUserProfile } = useAuth();
   const [editing, setEditing] = useState(false);
   
   const initialData: ProfileData = {
@@ -888,7 +889,7 @@ export function ProfileView() {
     email: currentUser?.email || 'guest@geosense.edu',
     phone: currentProfile?.phone || '-',
     password: '••••••••',
-    avatar: null,
+    avatar: currentProfile?.avatar || null,
   };
 
   const [data, setData] = useState<ProfileData>(initialData);
@@ -907,11 +908,39 @@ export function ProfileView() {
     setEditing(true);
   };
 
-  const saveChanges = () => {
-    setData(draft);
-    setEditing(false);
-    setSaved(true);
-    setTimeout(() => setSaved(false), 2500);
+  const getSchoolName = (id: string | undefined | null) => {
+    if (!id || id === 'unknown') return t('school.unknown', 'Belum Memilih Sekolah');
+    const s = realSchoolsMojokerto.find(s => s.id === id);
+    return s ? s.name : id;
+  };
+
+  const saveChanges = async () => {
+    // Save to global auth context
+    try {
+      const accountUpdates: { name?: string; password?: string } = {};
+      if (draft.fullName !== currentUser?.name) accountUpdates.name = draft.fullName;
+      if (draft.password !== '••••••••' && draft.password.trim() !== '') accountUpdates.password = draft.password;
+      
+      if (Object.keys(accountUpdates).length > 0) {
+        await updateUserAccount(accountUpdates);
+      }
+      
+      const profileUpdates: any = {};
+      if (draft.phone !== currentProfile?.phone) profileUpdates.phone = draft.phone;
+      if (draft.avatar !== currentProfile?.avatar) profileUpdates.avatar = draft.avatar;
+      
+      if (Object.keys(profileUpdates).length > 0) {
+        updateUserProfile(profileUpdates);
+      }
+      
+      setData(draft);
+      setEditing(false);
+      setSaved(true);
+      show('Profil berhasil diperbarui', 'success');
+      setTimeout(() => setSaved(false), 3000);
+    } catch (e: any) {
+      show(e.message || 'Gagal menyimpan profil', 'error');
+    }
   };
 
   const cancelEdit = () => {
@@ -925,17 +954,23 @@ export function ProfileView() {
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
-    if (!file) return;
-    const reader = new FileReader();
-    reader.onload = (ev) => {
-      const result = ev.target?.result as string;
-      if (editing) {
-        setDraft((d) => ({ ...d, avatar: result }));
-      } else {
-        setData((d) => ({ ...d, avatar: result }));
+    if (file) {
+      if (file.size > 100 * 1024) {
+        show('Ukuran gambar terlalu besar. Maksimal 100KB agar memori peramban tidak penuh.', 'error');
+        return;
       }
-    };
-    reader.readAsDataURL(file);
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        const result = reader.result as string;
+        if (editing) {
+          setDraft((d) => ({ ...d, avatar: result }));
+        } else {
+          setData((d) => ({ ...d, avatar: result }));
+          updateUserProfile({ avatar: result });
+        }
+      };
+      reader.readAsDataURL(file);
+    }
   };
 
   const current = editing ? draft : data;
@@ -979,7 +1014,7 @@ export function ProfileView() {
               </h2>
               <div className="mt-1.5 flex flex-wrap gap-2">
                 <span className="inline-flex items-center gap-1 rounded-full bg-brand-50 px-2.5 py-1 text-xs font-semibold text-brand-700 dark:bg-brand-500/20 dark:text-brand-300">
-                  {currentUser?.role === 'dev' ? 'Developer' : currentUser?.role === 'teacher' ? 'Guru' : 'Peserta Didik'}
+                  {currentUser?.role === 'dev' ? t('role.dev', 'Pengembang') : currentUser?.role === 'teacher' ? t('role.teacher', 'Guru') : t('role.student', 'Peserta Didik')}
                 </span>
                 <span className="inline-flex items-center gap-1 rounded-full bg-slate-100 px-2.5 py-1 text-xs font-medium text-slate-600 dark:bg-slate-800 dark:text-slate-300">
                   <MapPin className="h-3 w-3" /> {currentProfile?.schoolId || 'SMA Negeri 1 Mojokerto'}
@@ -1071,7 +1106,47 @@ export function ProfileView() {
             {editing ? (
               <>
                 <EditableField icon={Target} label="Full Name" value={draft.fullName} onChange={(v) => setDraft({ ...draft, fullName: v })} />
-                <EditableField icon={School} label="School" value={draft.school} onChange={(v) => setDraft({ ...draft, school: v })} />
+                
+                {currentUser?.role === 'dev' ? (
+                  <EditableField icon={School} label="School" value={draft.school} onChange={(v) => setDraft({ ...draft, school: v })} />
+                ) : draft.school === 'unknown' ? (
+                  <div className="flex flex-col rounded-xl border border-brand-50 p-3 dark:border-slate-800 bg-brand-50/50 dark:bg-slate-900/50 relative">
+                    <div className="flex items-center gap-3 justify-between">
+                      <div className="flex items-center gap-3">
+                        <span className="flex h-9 w-9 items-center justify-center rounded-lg bg-brand-100 text-brand-600 dark:bg-slate-800 dark:text-brand-400">
+                          <School className="h-4 w-4" />
+                        </span>
+                        <div>
+                          <p className="text-xs text-ink-500 dark:text-slate-400">School</p>
+                          <p className="truncate text-sm font-semibold text-amber-600 dark:text-amber-500">{t('school.unknown', 'Belum Memilih Sekolah')}</p>
+                        </div>
+                      </div>
+                      <button 
+                        onClick={() => navigate('/school-selection')} 
+                        className="bg-brand-600 text-white px-3 py-1.5 rounded-lg text-xs font-bold whitespace-nowrap hover:bg-brand-700"
+                      >
+                        Pilih
+                      </button>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="flex flex-col rounded-xl border border-brand-50 p-3 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-900/50 opacity-80 cursor-not-allowed relative group">
+                    <div className="flex items-center gap-3">
+                      <span className="flex h-9 w-9 items-center justify-center rounded-lg bg-brand-100 text-brand-600 dark:bg-slate-800 dark:text-brand-400">
+                        <School className="h-4 w-4" />
+                      </span>
+                      <div>
+                        <p className="text-xs text-ink-500 dark:text-slate-400">School</p>
+                        <p className="truncate text-sm font-semibold text-ink-900 dark:text-white">{getSchoolName(draft.school)}</p>
+                      </div>
+                    </div>
+                    {/* Tooltip */}
+                    <div className="pointer-events-none absolute left-1/2 -top-10 -translate-x-1/2 whitespace-nowrap rounded-lg bg-ink-900 px-3 py-1.5 text-[11px] font-medium text-white opacity-0 transition-opacity group-hover:opacity-100 dark:bg-slate-700">
+                      Hanya Developer yang dapat mengubah sekolah
+                    </div>
+                  </div>
+                )}
+                
                 <EditableField icon={BookOpen} label="Class" value={draft.className} onChange={(v) => setDraft({ ...draft, className: v })} />
                 <EditableField icon={Mail} label="Email" value={draft.email} onChange={(v) => setDraft({ ...draft, email: v })} />
                 <EditableField icon={Phone} label="Phone Number" value={draft.phone} onChange={(v) => setDraft({ ...draft, phone: v })} />
@@ -1083,9 +1158,24 @@ export function ProfileView() {
                   <span className="flex h-9 w-9 items-center justify-center rounded-lg bg-brand-100 text-brand-600 dark:bg-slate-800 dark:text-brand-400"><Target className="h-4 w-4" /></span>
                   <div><p className="text-xs text-ink-500 dark:text-slate-400">Full Name</p><p className="truncate text-sm font-semibold text-ink-900 dark:text-white">{data.fullName}</p></div>
                 </div>
-                <div className="flex items-center gap-3 rounded-xl border border-brand-50 p-3 dark:border-slate-800">
-                  <span className="flex h-9 w-9 items-center justify-center rounded-lg bg-brand-100 text-brand-600 dark:bg-slate-800 dark:text-brand-400"><School className="h-4 w-4" /></span>
-                  <div><p className="text-xs text-ink-500 dark:text-slate-400">School</p><p className="truncate text-sm font-semibold text-ink-900 dark:text-white">{data.school}</p></div>
+                <div className="flex items-center gap-3 rounded-xl border border-brand-50 p-3 dark:border-slate-800 justify-between">
+                  <div className="flex items-center gap-3">
+                    <span className="flex h-9 w-9 items-center justify-center rounded-lg bg-brand-100 text-brand-600 dark:bg-slate-800 dark:text-brand-400"><School className="h-4 w-4" /></span>
+                    <div>
+                      <p className="text-xs text-ink-500 dark:text-slate-400">School</p>
+                      <p className={`truncate text-sm font-semibold ${data.school === 'unknown' ? 'text-amber-600 dark:text-amber-500' : 'text-ink-900 dark:text-white'}`}>
+                        {getSchoolName(data.school)}
+                      </p>
+                    </div>
+                  </div>
+                  {data.school === 'unknown' && (
+                    <button 
+                      onClick={() => navigate('/school-selection')} 
+                      className="bg-brand-600 text-white px-3 py-1.5 rounded-lg text-xs font-bold whitespace-nowrap hover:bg-brand-700"
+                    >
+                      Pilih
+                    </button>
+                  )}
                 </div>
                 <div className="flex items-center gap-3 rounded-xl border border-brand-50 p-3 dark:border-slate-800">
                   <span className="flex h-9 w-9 items-center justify-center rounded-lg bg-brand-100 text-brand-600 dark:bg-slate-800 dark:text-brand-400"><BookOpen className="h-4 w-4" /></span>
@@ -1130,12 +1220,14 @@ export function ProfileView() {
         <Card className="lg:col-span-1">
           <h3 className="mb-4 font-display text-base font-bold text-ink-900 dark:text-white">Module Progress</h3>
           <div className="space-y-3">
-            {modules.map((m) => (
+            {modules.map((m) => {
+              const val = currentProfile?.totalPoints === 0 ? 0 : m.value;
+              return (
               <div key={m.label} className="flex items-center gap-3">
-                <ProgressRing value={m.value} size={44} stroke={4} label={`${m.value}`} />
+                <ProgressRing value={val} size={44} stroke={4} label={`${val}`} />
                 <span className="text-sm font-medium text-ink-700 dark:text-slate-300">{m.label}</span>
               </div>
-            ))}
+            )})}
           </div>
         </Card>
       </div>
@@ -1143,53 +1235,71 @@ export function ProfileView() {
       {/* Certificates */}
       <Card>
         <h3 className="mb-4 font-display text-base font-bold text-ink-900 dark:text-white">Certificates</h3>
-        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-5">
-          {certificates.map((c) => (
-            <div key={c.title} className="group flex flex-col items-center gap-2 rounded-xl border border-brand-50 p-4 text-center transition-all hover:-translate-y-1 hover:shadow-glass dark:border-slate-800">
-              <span className={`flex h-12 w-12 items-center justify-center rounded-full bg-gradient-to-br ${c.color} text-white shadow-glass transition-transform group-hover:scale-110`}>
-                <c.icon className="h-6 w-6" />
-              </span>
-              <p className="text-xs font-bold leading-tight text-ink-900 dark:text-white">{c.title}</p>
-              <p className="text-[10px] text-ink-500 dark:text-slate-400">{c.date}</p>
-            </div>
-          ))}
-        </div>
+        {currentProfile?.totalPoints === 0 ? (
+          <div className="py-8 text-center text-sm font-medium text-ink-500 dark:text-slate-400">
+            {t('profile.no_certificates', 'Belum ada sertifikat. Mulai selesaikan modul untuk mengklaim sertifikat.')}
+          </div>
+        ) : (
+          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-5">
+            {certificates.map((c) => (
+              <div key={c.title} className="group flex flex-col items-center gap-2 rounded-xl border border-brand-50 p-4 text-center transition-all hover:-translate-y-1 hover:shadow-glass dark:border-slate-800">
+                <span className={`flex h-12 w-12 items-center justify-center rounded-full bg-gradient-to-br ${c.color} text-white shadow-glass transition-transform group-hover:scale-110`}>
+                  <c.icon className="h-6 w-6" />
+                </span>
+                <p className="text-xs font-bold leading-tight text-ink-900 dark:text-white">{c.title}</p>
+                <p className="text-[10px] text-ink-500 dark:text-slate-400">{c.date}</p>
+              </div>
+            ))}
+          </div>
+        )}
       </Card>
 
       {/* History + achievements */}
       <div className="grid gap-6 lg:grid-cols-2">
         <Card>
           <h3 className="mb-4 font-display text-base font-bold text-ink-900 dark:text-white">Learning History</h3>
-          <div className="space-y-3">
-            {history.map((h) => (
-              <div key={h.title} className="group flex items-center gap-3 rounded-xl border border-brand-50 p-3 transition-colors hover:bg-brand-50/50 dark:border-slate-800 dark:hover:bg-slate-800/50">
-                <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-brand-100 text-brand-600 dark:bg-slate-800 dark:text-brand-400">
-                  <h.icon className="h-5 w-5" />
-                </span>
-                <div className="min-w-0 flex-1">
-                  <p className="truncate text-sm font-semibold text-ink-900 dark:text-white">{h.title}</p>
-                  <p className="flex items-center gap-1 text-[11px] text-ink-500 dark:text-slate-400"><Clock className="h-3 w-3" /> {h.date}</p>
+          {currentProfile?.totalPoints === 0 ? (
+            <div className="flex h-32 items-center justify-center text-sm font-medium text-ink-500 dark:text-slate-400">
+              {t('profile.no_learning_history', 'Belum ada riwayat pembelajaran.')}
+            </div>
+          ) : (
+            <div className="space-y-3">
+              {history.map((h) => (
+                <div key={h.title} className="group flex items-center gap-3 rounded-xl border border-brand-50 p-3 transition-colors hover:bg-brand-50/50 dark:border-slate-800 dark:hover:bg-slate-800/50">
+                  <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-brand-100 text-brand-600 dark:bg-slate-800 dark:text-brand-400">
+                    <h.icon className="h-5 w-5" />
+                  </span>
+                  <div className="min-w-0 flex-1">
+                    <p className="truncate text-sm font-semibold text-ink-900 dark:text-white">{h.title}</p>
+                    <p className="flex items-center gap-1 text-[11px] text-ink-500 dark:text-slate-400"><Clock className="h-3 w-3" /> {h.date}</p>
+                  </div>
+                  <span className="flex items-center gap-1.5 font-display text-sm font-bold text-brand-700 dark:text-brand-400">
+                    <CheckCircle2 className="h-4 w-4 text-brand-500" /> {h.score}
+                  </span>
                 </div>
-                <span className="flex items-center gap-1.5 font-display text-sm font-bold text-brand-700 dark:text-brand-400">
-                  <CheckCircle2 className="h-4 w-4 text-brand-500" /> {h.score}
-                </span>
-              </div>
-            ))}
-          </div>
+              ))}
+            </div>
+          )}
         </Card>
 
         <Card>
           <h3 className="mb-4 font-display text-base font-bold text-ink-900 dark:text-white">Achievements</h3>
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-            {achievements.map((b) => (
-              <div key={b.label} className="group flex flex-col items-center gap-2.5 rounded-xl p-3 text-center transition-all hover:-translate-y-1">
-                <span className={`flex h-14 w-14 items-center justify-center rounded-full bg-gradient-to-br ${b.color} text-white shadow-glass transition-transform group-hover:scale-110`}>
-                  <b.icon className="h-7 w-7" />
-                </span>
-                <span className="text-[10px] font-semibold leading-tight text-ink-600 dark:text-slate-300">{b.label}</span>
-              </div>
-            ))}
-          </div>
+          {currentProfile?.totalPoints === 0 ? (
+            <div className="flex h-32 items-center justify-center text-sm font-medium text-ink-500 dark:text-slate-400">
+              {t('profile.no_achievements', 'Belum ada pencapaian.')}
+            </div>
+          ) : (
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+              {achievements.map((b) => (
+                <div key={b.label} className="group flex flex-col items-center gap-2.5 rounded-xl p-3 text-center transition-all hover:-translate-y-1">
+                  <span className={`flex h-14 w-14 items-center justify-center rounded-full bg-gradient-to-br ${b.color} text-white shadow-glass transition-transform group-hover:scale-110`}>
+                    <b.icon className="h-7 w-7" />
+                  </span>
+                  <span className="text-[10px] font-semibold leading-tight text-ink-600 dark:text-slate-300">{b.label}</span>
+                </div>
+              ))}
+            </div>
+          )}
         </Card>
       </div>
 

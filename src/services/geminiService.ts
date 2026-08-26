@@ -147,6 +147,74 @@ Format output HARUS berupa JSON array valid (boleh dibungkus markdown \`\`\`json
   }
 }
 
+export interface SmartSimParams {
+  schoolRisk: {
+    earthquake: number;
+    flood: number;
+    tsunami: number;
+    landslide: number;
+    volcano: number;
+    fire: number;
+  };
+  masteredConcepts: string[];
+  mode: 'learning' | 'test';
+  count: number;
+}
+
+export async function generateSmartSimulationQuestions(
+  params: SmartSimParams
+): Promise<QuizQuestion[]> {
+  const apiKey = getQuizKey();
+  
+  const riskContext = Object.entries(params.schoolRisk)
+    .sort((a, b) => b[1] - a[1])
+    .map(([key, val]) => `${key}: ${val}%`)
+    .join(', ');
+
+  const masteryContext = params.masteredConcepts.length > 0 
+    ? `Konsep yang sudah dikuasai murid (HINDARI menanyakan ini lagi jika mode learning): ${params.masteredConcepts.join(', ')}`
+    : 'Murid belum menguasai konsep apapun.';
+    
+  const modeContext = params.mode === 'learning' 
+    ? 'Mode: LEARNING. Jangan gunakan konsep yang sudah dikuasai.'
+    : 'Mode: TEST. Buatkan soal yang SANGAT SULIT (HOTS). Anda boleh menggunakan konsep yang sudah dikuasai tapi buat narasinya berbeda dan lebih rumit.';
+
+  const prompt = `Buatkan ${params.count} soal pilihan ganda (MCQ A-E) Simulasi Bencana Alam.
+  
+Konteks Risiko Sekolah (Porsi soal HARUS mencerminkan bobot risiko ini, paling banyak soal untuk risiko terbesar):
+${riskContext}
+
+${masteryContext}
+${modeContext}
+
+Format output HARUS berupa JSON array valid (boleh dibungkus markdown \`\`\`json), dengan skema:
+[
+  {
+    "id": "q1",
+    "type": "mcq",
+    "question": "Skenario cerita pertanyaan di sini",
+    "options": ["A. Opsi", "B. Opsi", "C. Opsi", "D. Opsi", "E. Opsi"],
+    "correctOption": "A",
+    "subTopic": "konsep spesifik (cth: evakuasi_tsunami_gempa_susulan)"
+  }
+]`;
+
+  if (!apiKey) return getMockQuizQuestions('Campuran Bencana', params.count);
+
+  try {
+    const text = await callGemini(
+      apiKey,
+      [{ role: 'user', parts: [{ text: prompt }] }],
+      false
+    );
+    const parsed = parseJSONFromText(text);
+    return Array.isArray(parsed) ? parsed : getMockQuizQuestions('Campuran Bencana', params.count);
+  } catch (err) {
+    console.error('SmartSim AI generation error:', err);
+    return getMockQuizQuestions('Campuran Bencana', params.count);
+  }
+}
+
 export async function evaluateQuizAnswers(
   questions: QuizQuestion[],
   answers: Record<string, string>
