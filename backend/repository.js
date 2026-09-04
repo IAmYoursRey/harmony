@@ -5,7 +5,7 @@ import { fileURLToPath } from 'node:url';
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const dbPath = path.join(__dirname, 'database.json');
 
-const DEFAULT_DB = { accounts: [], profiles: [], digitalTwins: {} };
+const DEFAULT_DB = { accounts: [], profiles: [], digitalTwins: {}, surveys: [] };
 
 // Helper to safely read db
 export function readDB() {

@@ -1,11 +1,11 @@
 import { createContext, useContext, useEffect, useState, type ReactNode } from 'react';
 import { useSchool } from '@/context/SchoolContext';
 import { getSchoolById } from '@/services/schoolService';
+import { apiClient } from '@/services/apiClient';
 import {
   type UserAccount,
   authenticateAccount,
   registerAccount,
-  updateAccount,
   getToken,
   clearSession,
 } from '@/data/accounts';
@@ -16,8 +16,6 @@ import {
   createProfile,
   updateProfile,
 } from '@/data/userProfiles';
-
-const API_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:3001';
 
 interface AuthContextValue {
   currentUser: UserAccount | null;
@@ -60,17 +58,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         return;
       }
       try {
-        const res = await fetch(`${API_URL}/api/auth/me`, {
-          headers: { 'Authorization': `Bearer ${token}` }
-        });
-        if (res.ok) {
-          const data = await res.json();
-          setCurrentUser(data.account);
-          const prof = await getProfile();
-          setCurrentProfile(prof ?? null);
-        } else {
-          clearSession();
-        }
+        const data = await apiClient.get('/api/auth/me');
+        setCurrentUser(data.account);
+        const prof = await getProfile();
+        setCurrentProfile(prof ?? null);
       } catch {
         clearSession();
       } finally {
@@ -116,7 +107,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   };
 
   const updateUserAccountLocal = async (updates: { name?: string; email?: string; password?: string }) => {
-    // Stub
+    // Account update endpoint not yet implemented on backend
     return { success: false, error: 'Not implemented' };
   };
 

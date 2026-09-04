@@ -28,15 +28,15 @@ router.post('/', verifyToken, (req, res) => {
   }
 });
 
-// GET all profiles (used by leaderboard - in production this should be paginated/filtered)
-router.get('/all', (req, res) => {
+// GET all profiles (used by leaderboard — requires auth to prevent unauthenticated data scraping)
+router.get('/all', verifyToken, (req, res) => {
   const db = readDB();
   // Don't send sensitive info, just what's needed for leaderboard
   res.json({ profiles: db.profiles });
 });
 
-// GET all accounts (for names/roles in leaderboard)
-router.get('/accounts', (req, res) => {
+// GET all accounts (for names/roles in leaderboard — requires auth)
+router.get('/accounts', verifyToken, (req, res) => {
   const db = readDB();
   const safeAccounts = db.accounts.map(a => ({
     id: a.id,

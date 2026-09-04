@@ -8,6 +8,7 @@ import profileRoutes from './routes/profile.js';
 import aiRoutes from './routes/ai.js';
 import digitalTwinRoutes from './routes/digitalTwin.js';
 import schoolRoutes from './routes/schools.js';
+import surveyRoutes from './routes/surveys.js';
 
 const app = express();
 const PORT = process.env.PORT || 3001;
@@ -20,6 +21,7 @@ app.use('/api/profile', profileRoutes);
 app.use('/api/ai', aiRoutes);
 app.use('/api/digital-twin', digitalTwinRoutes);
 app.use('/api/schools', schoolRoutes);
+app.use('/api/surveys', surveyRoutes);
 
 app.listen(PORT, () => {
   console.log(`GeoSense Backend listening at http://localhost:${PORT}`);

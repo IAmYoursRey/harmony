@@ -5,8 +5,7 @@ import { Navigation, Waves, Mountain, Trees, Flame, Shield, Route, Home, Sparkle
 import { useSchool } from '@/context/SchoolContext';
 import { useAuth } from '@/context/AuthContext';
 import { type School } from '@/data/schools';
-import { getToken } from '@/data/accounts';
-const API_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:3001';
+import { apiClient } from '@/services/apiClient';
 import { useToast } from '@/context/ToastContext';
 import { useI18n } from '@/context/I18nContext';
 
@@ -532,19 +531,13 @@ export function DigitalTwinView() {
     const fetchFloorPlan = async () => {
       setLoading(true);
       try {
-        const token = getToken();
-        const res = await fetch(`${API_URL}/api/digital-twin/${activeSchool.id}`, {
-          headers: { ...(token ? { 'Authorization': `Bearer ${token}` } : {}) }
-        });
-        if (res.ok) {
-          const { data } = await res.json();
-          if (data) {
-            setMapImage(data.mapImage || null);
-            setNodes(data.nodes || []);
-            setEdges(data.edges || []);
-            setLoading(false);
-            return;
-          }
+        const { data } = await apiClient.get(`/api/digital-twin/${activeSchool.id}`);
+        if (data) {
+          setMapImage(data.mapImage || null);
+          setNodes(data.nodes || []);
+          setEdges(data.edges || []);
+          setLoading(false);
+          return;
         } else {
           setMapImage(null);
           setNodes([]);
@@ -618,18 +611,7 @@ export function DigitalTwinView() {
     if (!activeSchool) return;
     setSaving(true);
     try {
-      const token = getToken();
-      const res = await fetch(`${API_URL}/api/digital-twin/${activeSchool.id}`, {
-        method: 'POST',
-        headers: { 
-          'Content-Type': 'application/json',
-          ...(token ? { 'Authorization': `Bearer ${token}` } : {})
-        },
-        body: JSON.stringify({ mapImage, nodes, edges })
-      });
-      
-      if (!res.ok) throw new Error('Failed to save to server');
-      
+      await apiClient.post(`/api/digital-twin/${activeSchool.id}`, { mapImage, nodes, edges });
       show('Data Digital Twin disimpan ke server', 'success');
       setIsEditing(false);
     } catch (err) {

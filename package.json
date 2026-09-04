@@ -1,6 +1,7 @@
 {
   "name": "geosense-workspace",
   "private": true,
+  "type": "module",
   "workspaces": [
     "frontend",
     "backend"
