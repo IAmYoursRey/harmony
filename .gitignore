@@ -7,7 +7,8 @@ pnpm-debug.log*
 lerna-debug.log*
 
 node_modules
-
+dist
+dist-ssr
 *.local
 
 .vscode/*
@@ -22,4 +23,7 @@ node_modules
 
 # AI Agent & Scratch Files
 .agents/
+scratch/
 
+# Secrets
+.env
