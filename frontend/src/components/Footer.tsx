@@ -25,7 +25,7 @@ const columns = [
       { label: 'nav.ai-learning', to: '/app/ai-learning' },
       { label: 'nav.geo-risk-map', to: '/app/geo-risk-map' },
       { label: 'nav.digital-twin', to: '/app/digital-twin' },
-      { label: 'nav.disasterQuestion', to: '/app/disasterQuestion' },
+      { label: 'nav.simulation', to: '/app/simulation' },
     ],
   },
   {
