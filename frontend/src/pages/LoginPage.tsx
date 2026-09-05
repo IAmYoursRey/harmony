@@ -173,22 +173,22 @@ export default function LoginPage() {
                   </span>
                 </div>
 
-                {[{ label: 'Email', value: loginEmail, set: setLoginEmail, type: 'email', icon: Mail, placeholder: 'email@geosense.edu' },
-                ].map(({ label, value, set, type, icon: Icon, placeholder }) => (
+                {[{ id: 'login-email', label: 'Email', value: loginEmail, set: setLoginEmail, type: 'email', icon: Mail, placeholder: 'email@geosense.edu' },
+                ].map(({ id, label, value, set, type, icon: Icon, placeholder }) => (
                   <div key={label} className="space-y-1.5">
-                    <label className="text-sm font-medium text-ink-700 dark:text-slate-300">{label}</label>
+                    <label htmlFor={id} className="text-sm font-medium text-ink-700 dark:text-slate-300">{label}</label>
                     <div className="relative">
                       <Icon className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-ink-400" />
-                      <input type={type} value={value} onChange={e => set(e.target.value)} placeholder={placeholder}
+                      <input id={id} name={id} type={type} value={value} onChange={e => set(e.target.value)} placeholder={placeholder}
                         className="w-full rounded-xl border border-brand-100 bg-white/70 py-3 pl-10 pr-4 text-sm outline-none focus:border-brand-300 focus:ring-2 focus:ring-brand-100 dark:border-slate-700 dark:bg-slate-800/70 dark:text-white" />
                     </div>
                   </div>
                 ))}
                 <div className="space-y-1.5">
-                  <label className="text-sm font-medium text-ink-700 dark:text-slate-300">Kata Sandi</label>
+                  <label htmlFor="login-password" className="text-sm font-medium text-ink-700 dark:text-slate-300">Kata Sandi</label>
                   <div className="relative">
                     <Lock className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-ink-400" />
-                    <input type={showLoginPw ? 'text' : 'password'} value={loginPassword} onChange={e => setLoginPassword(e.target.value)} placeholder="••••••••"
+                    <input id="login-password" name="login-password" type={showLoginPw ? 'text' : 'password'} value={loginPassword} onChange={e => setLoginPassword(e.target.value)} placeholder="••••••••"
                       className="w-full rounded-xl border border-brand-100 bg-white/70 py-3 pl-10 pr-12 text-sm outline-none focus:border-brand-300 focus:ring-2 focus:ring-brand-100 dark:border-slate-700 dark:bg-slate-800/70 dark:text-white" />
                     <button type="button" onClick={() => setShowLoginPw(s => !s)} className="absolute right-3 top-1/2 -translate-y-1/2 text-ink-400 hover:text-ink-600">
                       {showLoginPw ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
@@ -220,28 +220,28 @@ export default function LoginPage() {
 
                 {/* Name */}
                 <div className="space-y-1">
-                  <label className="text-xs font-bold text-ink-700 dark:text-slate-300">Nama Lengkap <span className="text-red-500">*</span></label>
+                  <label htmlFor="reg-name" className="text-xs font-bold text-ink-700 dark:text-slate-300">Nama Lengkap <span className="text-red-500">*</span></label>
                   <div className="relative">
                     <User className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-ink-400" />
-                    <input value={regName} onChange={e => setRegName(e.target.value)} placeholder="Nama lengkap Anda"
+                    <input id="reg-name" name="reg-name" value={regName} onChange={e => setRegName(e.target.value)} placeholder="Nama lengkap Anda"
                       className="w-full rounded-xl border border-brand-100 bg-white/70 py-2.5 pl-10 pr-4 text-sm outline-none focus:border-brand-300 focus:ring-2 focus:ring-brand-100 dark:border-slate-700 dark:bg-slate-800/70 dark:text-white" />
                   </div>
                 </div>
                 {/* Email */}
                 <div className="space-y-1">
-                  <label className="text-xs font-bold text-ink-700 dark:text-slate-300">Email <span className="text-red-500">*</span></label>
+                  <label htmlFor="reg-email" className="text-xs font-bold text-ink-700 dark:text-slate-300">Email <span className="text-red-500">*</span></label>
                   <div className="relative">
                     <Mail className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-ink-400" />
-                    <input type="email" value={regEmail} onChange={e => setRegEmail(e.target.value)} placeholder="email@geosense.edu"
+                    <input id="reg-email" name="reg-email" type="email" value={regEmail} onChange={e => setRegEmail(e.target.value)} placeholder="email@geosense.edu"
                       className="w-full rounded-xl border border-brand-100 bg-white/70 py-2.5 pl-10 pr-4 text-sm outline-none focus:border-brand-300 focus:ring-2 focus:ring-brand-100 dark:border-slate-700 dark:bg-slate-800/70 dark:text-white" />
                   </div>
                 </div>
                 {/* Password */}
                 <div className="space-y-1">
-                  <label className="text-xs font-bold text-ink-700 dark:text-slate-300">Kata Sandi <span className="text-red-500">*</span></label>
+                  <label htmlFor="reg-password" className="text-xs font-bold text-ink-700 dark:text-slate-300">Kata Sandi <span className="text-red-500">*</span></label>
                   <div className="relative">
                     <Lock className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-ink-400" />
-                    <input type={showRegPw ? 'text' : 'password'} value={regPassword} onChange={e => setRegPassword(e.target.value)} placeholder="Min. 6 karakter"
+                    <input id="reg-password" name="reg-password" type={showRegPw ? 'text' : 'password'} value={regPassword} onChange={e => setRegPassword(e.target.value)} placeholder="Min. 6 karakter"
                       className="w-full rounded-xl border border-brand-100 bg-white/70 py-2.5 pl-10 pr-12 text-sm outline-none focus:border-brand-300 focus:ring-2 focus:ring-brand-100 dark:border-slate-700 dark:bg-slate-800/70 dark:text-white" />
                     <button type="button" onClick={() => setShowRegPw(s => !s)} className="absolute right-3 top-1/2 -translate-y-1/2 text-ink-400">
                       {showRegPw ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
@@ -250,10 +250,10 @@ export default function LoginPage() {
                 </div>
                 {/* Confirm */}
                 <div className="space-y-1">
-                  <label className="text-xs font-bold text-ink-700 dark:text-slate-300">Konfirmasi Kata Sandi <span className="text-red-500">*</span></label>
+                  <label htmlFor="reg-confirm" className="text-xs font-bold text-ink-700 dark:text-slate-300">Konfirmasi Kata Sandi <span className="text-red-500">*</span></label>
                   <div className="relative">
                     <Lock className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-ink-400" />
-                    <input type="password" value={regConfirm} onChange={e => setRegConfirm(e.target.value)} placeholder="Ulangi kata sandi"
+                    <input id="reg-confirm" name="reg-confirm" type="password" value={regConfirm} onChange={e => setRegConfirm(e.target.value)} placeholder="Ulangi kata sandi"
                       className={`w-full rounded-xl border bg-white/70 py-2.5 pl-10 pr-4 text-sm outline-none focus:ring-2 dark:bg-slate-800/70 dark:text-white ${regConfirm && regPassword !== regConfirm ? 'border-red-400 focus:ring-red-100' : 'border-brand-100 focus:border-brand-300 focus:ring-brand-100 dark:border-slate-700'}`} />
                   </div>
                 </div>
@@ -261,8 +261,8 @@ export default function LoginPage() {
                 {/* Gender + Grade/Section */}
                 <div className="grid grid-cols-2 gap-3">
                   <div className="space-y-1">
-                    <label className="text-xs font-bold text-ink-700 dark:text-slate-300">Jenis Kelamin</label>
-                    <select value={regGender} onChange={e => setRegGender(e.target.value as Gender)}
+                    <label htmlFor="reg-gender" className="text-xs font-bold text-ink-700 dark:text-slate-300">Jenis Kelamin</label>
+                    <select id="reg-gender" name="reg-gender" value={regGender} onChange={e => setRegGender(e.target.value as Gender)}
                       className="w-full rounded-xl border border-brand-100 bg-white/70 py-2.5 px-3 text-sm outline-none focus:border-brand-300 focus:ring-2 focus:ring-brand-100 dark:border-slate-700 dark:bg-slate-800/70 dark:text-white">
                       <option value="male">Laki-laki</option>
                       <option value="female">Perempuan</option>
@@ -271,10 +271,10 @@ export default function LoginPage() {
                   </div>
                   
                   <div className="space-y-1">
-                    <label className="text-xs font-bold text-ink-700 dark:text-slate-300">Tingkat Kelas <span className="text-red-500">*</span></label>
+                    <label htmlFor="reg-grade" className="text-xs font-bold text-ink-700 dark:text-slate-300">Tingkat Kelas <span className="text-red-500">*</span></label>
                     <div className="relative">
                       <School className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-ink-400" />
-                      <select value={regGrade} onChange={e => setRegGrade(e.target.value as 'X' | 'XI' | 'XII')}
+                      <select id="reg-grade" name="reg-grade" value={regGrade} onChange={e => setRegGrade(e.target.value as 'X' | 'XI' | 'XII')}
                         className="w-full rounded-xl border border-brand-100 bg-white/70 py-2.5 pl-10 pr-3 text-sm outline-none focus:border-brand-300 focus:ring-2 focus:ring-brand-100 dark:border-slate-700 dark:bg-slate-800/70 dark:text-white">
                         <option value="X">Kelas X</option>
                         <option value="XI">Kelas XI</option>
@@ -287,10 +287,10 @@ export default function LoginPage() {
                 {/* Section (Ruang/Nomor) */}
                 {role === 'student' && (
                 <div className="space-y-1">
-                  <label className="text-xs font-bold text-ink-700 dark:text-slate-300">Ruang/No. Kelas (Contoh: "1") <span className="text-red-500">*</span></label>
+                  <label htmlFor="reg-section" className="text-xs font-bold text-ink-700 dark:text-slate-300">Ruang/No. Kelas (Contoh: "1") <span className="text-red-500">*</span></label>
                   <div className="relative">
                     <School className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-ink-400" />
-                    <input type="number" min="1" value={regSection} onChange={e => setRegSection(e.target.value)} placeholder='1'
+                    <input id="reg-section" name="reg-section" type="number" min="1" value={regSection} onChange={e => setRegSection(e.target.value)} placeholder='1'
                       className="w-full rounded-xl border border-brand-100 bg-white/70 py-2.5 pl-10 pr-4 text-sm outline-none focus:border-brand-300 focus:ring-2 focus:ring-brand-100 dark:border-slate-700 dark:bg-slate-800/70 dark:text-white" />
                   </div>
                 </div>
@@ -298,10 +298,10 @@ export default function LoginPage() {
 
                 {/* Date of birth optional */}
                 <div className="space-y-1">
-                  <label className="text-xs font-bold text-ink-700 dark:text-slate-300">Tanggal Lahir <span className="text-ink-400 font-normal">(opsional)</span></label>
+                  <label htmlFor="reg-dob" className="text-xs font-bold text-ink-700 dark:text-slate-300">Tanggal Lahir <span className="text-ink-400 font-normal">(opsional)</span></label>
                   <div className="relative">
                     <Calendar className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-ink-400" />
-                    <input type="date" value={regDob} onChange={e => setRegDob(e.target.value)}
+                    <input id="reg-dob" name="reg-dob" type="date" value={regDob} onChange={e => setRegDob(e.target.value)}
                       className="w-full rounded-xl border border-brand-100 bg-white/70 py-2.5 pl-10 pr-4 text-sm outline-none focus:border-brand-300 focus:ring-2 focus:ring-brand-100 dark:border-slate-700 dark:bg-slate-800/70 dark:text-white" />
                   </div>
                 </div>
