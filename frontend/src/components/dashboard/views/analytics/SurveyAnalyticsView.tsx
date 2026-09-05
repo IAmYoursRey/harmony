@@ -86,7 +86,7 @@ export function SurveyAnalyticsView() {
         <div className="relative flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
           <div>
             <div className="inline-flex items-center gap-1.5 rounded-full bg-white/15 px-3 py-1 text-xs font-semibold backdrop-blur-sm">
-              <BarChart3 className="h-3.5 w-3.5" /> {t('nav.survey')}
+              <BarChart3 aria-hidden="true" className="h-3.5 w-3.5" /> <span>{t('nav.survey')}</span>
             </div>
             <h2 className="mt-3 font-display text-2xl font-extrabold tracking-tight sm:text-3xl">
               {t('survey.header.title')}
@@ -96,7 +96,7 @@ export function SurveyAnalyticsView() {
             </p>
           </div>
           <button onClick={() => show(t('survey.header.download_msg'), 'info')} className="inline-flex items-center gap-2 rounded-full bg-white px-6 py-3 text-sm font-semibold text-brand-700 shadow-glass transition-all hover:-translate-y-0.5 hover:shadow-glow">
-            <Download className="h-4 w-4" /> {t('survey.header.download')}
+            <Download aria-hidden="true" className="h-4 w-4" /> <span>{t('survey.header.download')}</span>
           </button>
         </div>
       </div>
@@ -108,10 +108,10 @@ export function SurveyAnalyticsView() {
       ) : !hasData ? (
         /* Empty state — no survey data submitted yet */
         <div className="glass rounded-2xl p-8 text-center dark:bg-slate-900/60">
-          <BarChart3 className="mx-auto h-12 w-12 text-brand-300 dark:text-brand-700 mb-4" />
-          <h3 className="text-lg font-bold text-ink-900 dark:text-white mb-2">{t('survey.empty.title') || 'Belum Ada Data Survei'}</h3>
+          <BarChart3 aria-hidden="true" className="mx-auto h-12 w-12 text-brand-300 dark:text-brand-700 mb-4" />
+          <h3 className="text-lg font-bold text-ink-900 dark:text-white mb-2">{t('survey.empty.title', 'Belum Ada Data Survei')}</h3>
           <p className="text-sm text-ink-500 dark:text-slate-400">
-            {t('survey.empty.desc') || 'Survei akan tersedia setelah siswa mengumpulkan respons untuk sekolah ini.'}
+            {t('survey.empty.desc', 'Survei akan tersedia setelah siswa mengumpulkan respons untuk sekolah ini.')}
           </p>
         </div>
       ) : (

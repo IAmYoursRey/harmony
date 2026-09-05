@@ -75,12 +75,13 @@ export function Sidebar({ active, onSelect, mobileOpen, onCloseMobile }: Sidebar
                     }`}
                   >
                     <item.icon
+                      aria-hidden="true"
                       className={`h-[18px] w-[18px] ${
                         isActive ? 'text-white' : 'text-brand-500 group-hover:text-brand-600 dark:text-slate-400'
                       }`}
                       strokeWidth={2}
                     />
-                    {t(`nav.${item.id}`)}
+                    <span>{t(`nav.${item.id}`)}</span>
                     {isActive && (
                       <span className="ml-auto h-1.5 w-1.5 rounded-full bg-white/80" />
                     )}

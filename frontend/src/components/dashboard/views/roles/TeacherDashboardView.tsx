@@ -83,9 +83,10 @@ export function TeacherDashboardView() {
     const load = async () => {
       setLoadingData(true);
       try {
-        const selected = currentProfile?.supervisedClasses?.[selectedClassIdx];
+        const teacherClasses = classes.filter(c => c.teacherId === currentUser?.id);
+        const selected = teacherClasses[selectedClassIdx];
         if (selected) {
-          const qs = `?grade=${selected.grade}&classSection=${selected.section}`;
+          const qs = `?classId=${selected.id}`;
           const res = await apiClient.get('/api/analytics/class' + qs);
           if (!cancelled && res.success) {
             setAnalyticsData(res.data);
@@ -97,10 +98,17 @@ export function TeacherDashboardView() {
         if (!cancelled) setLoadingData(false);
       }
     };
-    load();
-    fetchUsersAndClasses();
+    if (classes.length > 0) {
+      load();
+    } else {
+      setLoadingData(false);
+    }
     return () => { cancelled = true; };
-  }, [selectedClassIdx, currentProfile]);
+  }, [selectedClassIdx, currentUser?.id, classes]);
+
+  useEffect(() => {
+    fetchUsersAndClasses();
+  }, []);
 
   const fetchUsersAndClasses = async () => {
     try {
@@ -115,8 +123,8 @@ export function TeacherDashboardView() {
     }
   };
 
-  const supervisedClasses = currentProfile?.supervisedClasses || [];
-  const selectedClass = supervisedClasses[selectedClassIdx];
+  const teacherClasses = classes.filter(c => c.teacherId === currentUser?.id);
+  const selectedClass = teacherClasses[selectedClassIdx];
 
   const handleAddClass = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -129,10 +137,6 @@ export function TeacherDashboardView() {
         academicYear: newAcademicYear
       });
       if (res.success) {
-        // Also update supervisedClasses for backwards compatibility
-        const updated = [...supervisedClasses, { grade: newGrade, section: newSection }];
-        await updateProfile({ supervisedClasses: updated });
-        refreshProfile();
         setIsAddingClass(false);
         setNewClassName('');
         setNewSection('');
@@ -229,7 +233,7 @@ export function TeacherDashboardView() {
         <div className="relative flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
           <div>
             <div className="inline-flex items-center gap-1.5 rounded-full bg-white/15 px-3 py-1 text-xs font-semibold backdrop-blur-sm">
-              <GraduationCap className="h-3.5 w-3.5" /> {t('nav.teacher')}
+              <GraduationCap aria-hidden="true" className="h-3.5 w-3.5" /> <span>{t('nav.teacher')}</span>
             </div>
             <h2 className="mt-3 font-display text-2xl font-extrabold tracking-tight sm:text-3xl">
               {t('teacher.header.title')}
@@ -302,7 +306,7 @@ export function TeacherDashboardView() {
             )}
           </AnimatePresence>
 
-          {classes.length === 0 ? (
+          {teacherClasses.length === 0 ? (
             <div className="flex flex-col items-center justify-center min-h-[300px] text-center bg-slate-50 dark:bg-slate-900/50 rounded-2xl border border-slate-200 dark:border-slate-800">
               <School className="h-12 w-12 text-slate-300 mb-4" />
               <h3 className="text-lg font-bold text-ink-900 dark:text-white">Belum ada Class</h3>
@@ -311,7 +315,7 @@ export function TeacherDashboardView() {
             </div>
           ) : (
             <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4">
-              {classes.map(c => (
+              {teacherClasses.map(c => (
                 <Card key={c.id} className="border-t-4 border-t-brand-500">
                   <h4 className="font-bold text-lg dark:text-white">{c.name}</h4>
                   <div className="mt-2 space-y-1 text-sm text-ink-600 dark:text-slate-300">
@@ -450,7 +454,7 @@ export function TeacherDashboardView() {
             <div className="flex items-center justify-between mb-4">
               <h3 className="font-display text-base font-bold text-ink-900 dark:text-white flex items-center gap-2">
                 <Users className="h-4 w-4 text-brand-600" /> 
-                Daftar Siswa — Kelas {selectedClass.grade} Ruang {selectedClass.section}
+                Daftar Siswa — {selectedClass.name} (Kelas {selectedClass.grade} Ruang {selectedClass.section})
               </h3>
               <button onClick={() => setLocale(locale === 'id' ? 'en' : 'id')} className="flex items-center gap-2 p-2 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors" title={t('dashboard.language')}>
                 <Globe className="w-4 h-4 text-slate-500" />
