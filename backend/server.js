@@ -39,13 +39,14 @@ app.use('/api/analytics', analyticsRoutes);
 app.use('/api/classes', classesRoutes);
 
 app.get('/api/debug', async (req, res) => {
-  const hasDb = !!process.env.DATABASE_URL;
+  const dbUrl = process.env.DATABASE_URL || process.env.POSTGRES_URL;
+  const hasDb = !!dbUrl;
   let dbResult = 'skipped';
   if (hasDb) {
     try {
       const { Pool } = await import('pg');
       const pool = new Pool({
-        connectionString: process.env.DATABASE_URL,
+        connectionString: dbUrl,
         ssl: { rejectUnauthorized: false },
         connectionTimeoutMillis: 3000,
         queryTimeout: 3000
@@ -65,7 +66,8 @@ app.get('/api/debug', async (req, res) => {
     vercel: process.env.VERCEL,
     node_env: process.env.NODE_ENV,
     hasDb,
-    dbResult
+    dbResult,
+    hasPostgresUrl: !!process.env.POSTGRES_URL
   });
 });
 

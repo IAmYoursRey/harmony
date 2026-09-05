@@ -28,9 +28,11 @@ import dns from 'node:dns';
 // Fix for Node 18+ IPv6 preference which causes timeouts on Vercel with databases like Supabase
 dns.setDefaultResultOrder('ipv4first');
 
+const dbUrl = process.env.DATABASE_URL || process.env.POSTGRES_URL;
+
 // PostgreSQL configuration optimized for Serverless
-const pool = process.env.DATABASE_URL ? new pg.Pool({
-  connectionString: process.env.DATABASE_URL,
+const pool = dbUrl ? new pg.Pool({
+  connectionString: dbUrl,
   ssl: { rejectUnauthorized: false },
   max: 3, // Prevent connection exhaustion across multiple serverless instances
   idleTimeoutMillis: 5000,
@@ -79,7 +81,7 @@ async function initPg() {
 export async function readDB() {
   if (isVercel) {
     if (!pool) {
-      throw new Error('[CRITICAL] DATABASE_URL is not configured for production persistence.');
+      throw new Error('[CRITICAL] DATABASE_URL or POSTGRES_URL is not configured for production persistence.');
     }
     await initPg();
     try {
@@ -113,7 +115,7 @@ export async function writeDB(db) {
   
   if (isVercel) {
     if (!pool) {
-      throw new Error('[CRITICAL] DATABASE_URL is not configured for production persistence.');
+      throw new Error('[CRITICAL] DATABASE_URL or POSTGRES_URL is not configured for production persistence.');
     }
     await initPg();
     try {
