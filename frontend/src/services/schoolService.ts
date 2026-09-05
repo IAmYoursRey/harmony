@@ -30,6 +30,10 @@ export async function searchSchools(query: string): Promise<SearchSchoolResult[]
 }
 
 export async function getSchoolById(id: string): Promise<School | undefined> {
+  // Legacy mock IDs start with 'sch-', they don't exist in the real 215k dataset.
+  // We return undefined immediately to prevent 404 errors polluting the console.
+  if (!id || id.startsWith('sch-') || id === 'unknown') return undefined;
+  
   try {
     const data = await apiClient.get(`/api/schools/${id}`);
     return data.school;
