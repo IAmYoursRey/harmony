@@ -32,7 +32,7 @@ router.get('/health', (req, res) => {
 });
 
 router.post('/generate', verifyToken, async (req, res) => {
-  const { contents, jsonMode, type } = req.body;
+  const { contents, jsonMode, type, systemInstruction } = req.body;
   
   if (!type || !['quiz', 'chat', 'chatbot'].includes(type)) {
     return res.status(400).json({ success: false, error: 'Missing or invalid required field: type (must be quiz, chat, or chatbot)' });
@@ -54,6 +54,9 @@ router.post('/generate', verifyToken, async (req, res) => {
     };
     if (jsonMode) {
       config.responseMimeType = 'application/json';
+    }
+    if (systemInstruction) {
+      config.systemInstruction = systemInstruction;
     }
 
     console.log(`[AI] feature=${type} keyConfigured=true`);

@@ -49,10 +49,15 @@ export function normalizeAIResponse(rawResponse: any): string {
 async function callGemini(
   contents: object[],
   type: 'quiz' | 'chat' | 'chatbot',
-  jsonMode = false
+  jsonMode = false,
+  systemInstruction?: string
 ): Promise<string> {
   try {
-    const response = await apiClient.post('/api/ai/generate', { contents, type, jsonMode });
+    const payload: any = { contents, type, jsonMode };
+    if (systemInstruction) {
+      payload.systemInstruction = systemInstruction;
+    }
+    const response = await apiClient.post('/api/ai/generate', payload);
     let rawText = '';
     if (response && response.success && response.data) {
       rawText = response.data.text ?? '';
@@ -326,11 +331,11 @@ Jawab dengan bahasa yang ramah, ringkas, mudah dipahami siswa sekolah, dan eduka
 
   const contents = [
     ...history,
-    { role: 'user', parts: [{ text: `${systemContext}\n\nPesan siswa: ${userMessage}` }] },
+    { role: 'user', parts: [{ text: userMessage }] },
   ];
 
   try {
-    return await callGemini(contents, 'chatbot', false);
+    return await callGemini(contents, 'chatbot', false, systemContext);
   } catch (err) {
     console.error('ChatbotAI error:', err);
     return 'Maaf, ada kendala koneksi dengan GeoBot. Silakan coba sesaat lagi.';
