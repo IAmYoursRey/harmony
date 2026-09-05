@@ -3,7 +3,18 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
-const dbPath = path.join(__dirname, 'database.json');
+const isVercel = process.env.VERCEL === '1' || process.env.NODE_ENV === 'production';
+const sourceDbPath = path.join(__dirname, 'database.json');
+const dbPath = isVercel ? '/tmp/database.json' : sourceDbPath;
+
+// In Vercel, if /tmp/database.json doesn't exist yet, copy it from source
+if (isVercel && !fs.existsSync(dbPath) && fs.existsSync(sourceDbPath)) {
+  try {
+    fs.copyFileSync(sourceDbPath, dbPath);
+  } catch (err) {
+    console.error('Failed to initialize /tmp/database.json from source', err);
+  }
+}
 
 const DEFAULT_DB = {
   accounts: [],
