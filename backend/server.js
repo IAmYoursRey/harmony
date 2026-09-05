@@ -38,6 +38,37 @@ app.use('/api/users', usersRoutes);
 app.use('/api/analytics', analyticsRoutes);
 app.use('/api/classes', classesRoutes);
 
+app.get('/api/debug', async (req, res) => {
+  const hasDb = !!process.env.DATABASE_URL;
+  let dbResult = 'skipped';
+  if (hasDb) {
+    try {
+      const { Pool } = await import('pg');
+      const pool = new Pool({
+        connectionString: process.env.DATABASE_URL,
+        ssl: { rejectUnauthorized: false },
+        connectionTimeoutMillis: 3000,
+        queryTimeout: 3000
+      });
+      const start = Date.now();
+      const result = await Promise.race([
+        pool.query('SELECT 1 as val'),
+        new Promise((_, r) => setTimeout(() => r(new Error('timeout')), 4000))
+      ]);
+      dbResult = `success in ${Date.now()-start}ms`;
+    } catch(e) {
+      dbResult = `error: ${e.message}`;
+    }
+  }
+  res.json({
+    ok: true,
+    vercel: process.env.VERCEL,
+    node_env: process.env.NODE_ENV,
+    hasDb,
+    dbResult
+  });
+});
+
 app.use((err, req, res, next) => {
   console.error('[SERVER ERROR]', err.message);
   res.status(503).json({ error: 'Service temporarily unavailable. Please verify backend configurations.' });
