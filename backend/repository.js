@@ -26,7 +26,9 @@ const DEFAULT_DB = {
 // PostgreSQL configuration
 const pool = process.env.DATABASE_URL ? new pg.Pool({
   connectionString: process.env.DATABASE_URL,
-  ssl: { rejectUnauthorized: false }
+  ssl: { rejectUnauthorized: false },
+  connectionTimeoutMillis: 5000,
+  queryTimeout: 5000
 }) : null;
 
 // Ensure table exists on startup if using Postgres
