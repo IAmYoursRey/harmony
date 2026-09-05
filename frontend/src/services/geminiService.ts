@@ -9,8 +9,13 @@ async function callGemini(
   jsonMode = false
 ): Promise<string> {
   try {
-    const data = await apiClient.post('/api/ai/generate', { contents, jsonMode });
-    return data.text ?? '';
+    const response = await apiClient.post('/api/ai/generate', { contents, jsonMode });
+    // The backend now returns { success: true, data: { text: ... } }
+    if (response && response.success && response.data) {
+      return response.data.text ?? '';
+    }
+    // Fallback if structured differently (though our new backend standard uses the above)
+    return response.text ?? '';
   } catch (err: any) {
     throw new Error(err.message || 'Error communicating with AI');
   }

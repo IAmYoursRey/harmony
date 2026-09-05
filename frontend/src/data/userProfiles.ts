@@ -19,6 +19,8 @@ export interface UserProfile {
   grade: 'X' | 'XI' | 'XII';
   classSection: string;
   schoolId: string;
+  /** classId links a student to a Class entity (classes[] in database). Optional for backward compatibility with legacy profiles. */
+  classId?: string;
   supervisedClasses?: { grade: 'X' | 'XI' | 'XII'; section: string }[];
   dateOfBirth?: string;
   phone?: string;
@@ -89,7 +91,7 @@ export async function updateProfile(
 
 export async function getAllProfiles(): Promise<UserProfile[]> {
   try {
-    const data = await apiClient.get('/api/profile/all');
+    const data = await apiClient.get('/api/users');
     return data.profiles || [];
   } catch {
     return [];

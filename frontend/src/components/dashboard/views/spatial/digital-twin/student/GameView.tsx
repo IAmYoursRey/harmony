@@ -185,7 +185,7 @@ export function GameView({ room, onExit }: Props) {
         map={gameState.map}
         playerPos={{ x: gameState.player.x, y: gameState.player.y }}
         hazardCells={hazardCells}
-        safePointIds={gameState.simulation.safePointIds}
+        simulation={gameState.simulation}
       />
 
       {/* Virtual Joystick */}

@@ -1,10 +1,11 @@
 import { useState, useEffect, useMemo, useRef } from 'react';
 import { useAuth } from '@/hooks/useAuth';
-import { getAllAccounts, updateAccount, hashPassword, type UserAccount } from '@/data/accounts';
+import { getAllAccounts, updateAccount, provisionAccount, type UserAccount } from '@/data/accounts';
 import { getAllProfiles, updateProfile, type UserProfile, type Gender } from '@/data/userProfiles';
 import {  useToast  } from '@/hooks/useToast';
 import { Users, UserPlus, ShieldAlert, BookOpen, GraduationCap, Mail, Lock, User, School, Calendar, Download, Edit2, Check, X, MapPin, TrendingUp, TrendingDown, Award, Target, Brain, FileText, Sparkles, CheckCircle2, AlertTriangle, Clock, Plus, ChevronDown, Phone, Pencil, Bell, Globe, Shield, LogOut, Camera, Boxes, Satellite, Zap, Trophy, Compass, Flame, Medal, Save, type LucideIcon } from 'lucide-react';
 import { getAllSchools, extractProvinces, extractRegencies } from '@/services/schoolService';
+import { apiClient } from '@/services/apiClient';
 import type { School as SchoolData } from '@/data/schools';
 import { motion, AnimatePresence } from 'framer-motion';
 import { RadarChart, Radar, PolarGrid, PolarAngleAxis, PolarRadiusAxis, ResponsiveContainer, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, LineChart, Line } from 'recharts';
@@ -23,12 +24,14 @@ export function DevDashboardView() {
   const [accounts, setAccounts] = useState<UserAccount[]>([]);
   const [profiles, setProfiles] = useState<UserProfile[]>([]);
   const [loading, setLoading] = useState(false);
+  const [systemStats, setSystemStats] = useState<any>(null);
 
   // Form state
   const [regRole, setRegRole] = useState<'student' | 'teacher'>('teacher');
   const [regName, setRegName] = useState('');
   const [regEmail, setRegEmail] = useState('');
   const [regPassword, setRegPassword] = useState('');
+  const [regPasswordConfirm, setRegPasswordConfirm] = useState('');
   const [regGender, setRegGender] = useState<Gender>('male');
   const [regGrade, setRegGrade] = useState<'X'|'XI'|'XII'>('X');
   const [regSection, setRegSection] = useState('');
@@ -38,6 +41,8 @@ export function DevDashboardView() {
   const [regSchoolId, setRegSchoolId] = useState('');
 
   // Edit state
+  const [userFilter, setUserFilter] = useState<'all' | 'teacher' | 'student'>('all');
+  const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingUserId, setEditingUserId] = useState<string | null>(null);
   const [editName, setEditName] = useState('');
   const [editPassword, setEditPassword] = useState('');
@@ -57,7 +62,13 @@ export function DevDashboardView() {
     const acc = await getAllAccounts();
     const profs = await getAllProfiles();
     setProfiles(profs);
-    setAccounts(await getAllAccounts());
+    setAccounts(acc);
+    try {
+      const stats = await apiClient.get('/api/analytics/system');
+      if (stats.success) setSystemStats(stats.data);
+    } catch (e) {
+      console.error(e);
+    }
   };
 
   const handleRegister = async (e: React.FormEvent) => {
@@ -69,12 +80,16 @@ export function DevDashboardView() {
       show('Kata sandi minimal 6 karakter.', 'error'); return;
     }
 
+    if (regPassword !== regPasswordConfirm) {
+      show('Kata sandi tidak cocok', 'error');
+      return;
+    }
     setLoading(true);
     const finalGrade = regGrade;
     const finalClass = regRole === 'teacher' ? '' : regSection;
     const finalSchoolId = regSchoolId || 'unknown';
     
-    const result = await register(
+    const result = await provisionAccount(
       regName, 
       regEmail, 
       regPassword, 
@@ -92,6 +107,7 @@ export function DevDashboardView() {
       setRegName('');
       setRegEmail('');
       setRegPassword('');
+      setIsModalOpen(false);
       refreshData();
     } else {
       show(result.error ?? 'Gagal membuat akun', 'error');
@@ -163,9 +179,9 @@ export function DevDashboardView() {
   };
 
   const stats = {
-    total: accounts.length,
-    students: accounts.filter(a => a.role === 'student').length,
-    teachers: accounts.filter(a => a.role === 'teacher').length,
+    total: systemStats?.totalUsers || accounts.length,
+    students: systemStats?.students || accounts.filter(a => a.role === 'student').length,
+    teachers: systemStats?.teachers || accounts.filter(a => a.role === 'teacher').length,
     devs: accounts.filter(a => a.role === 'dev').length,
   };
 
@@ -199,242 +215,321 @@ export function DevDashboardView() {
         ))}
       </div>
 
-      <div className="grid gap-6 lg:grid-cols-2">
-        {/* Register Form */}
-        <div className="rounded-2xl border border-brand-100 dark:border-slate-800 bg-white dark:bg-slate-900 shadow-sm">
-          <div className="border-b border-brand-100 dark:border-slate-800 px-6 py-4">
+      <div className="grid gap-6 lg:grid-cols-1">
+        {/* User List */}
+        <div className="rounded-2xl border border-brand-100 dark:border-slate-800 bg-white dark:bg-slate-900 shadow-sm overflow-hidden flex flex-col min-h-[400px] max-h-[800px]">
+          <div className="border-b border-brand-100 dark:border-slate-800 px-6 py-4 bg-brand-50/50 dark:bg-slate-800/50 flex flex-wrap gap-4 items-center justify-between">
             <h3 className="font-bold text-ink-900 dark:text-white flex items-center gap-2">
-              <UserPlus className="h-4 w-4 text-brand-600" /> Daftarkan Akun Baru
+              <Users className="h-4 w-4 text-brand-600" /> Daftar Pengguna
             </h3>
+            
+            <div className="flex bg-white dark:bg-slate-800 rounded-xl p-1 border border-brand-100 dark:border-slate-700 shadow-sm">
+              <button onClick={() => setUserFilter('all')} className={`px-4 py-1.5 text-xs font-semibold rounded-lg transition-colors ${userFilter === 'all' ? 'bg-brand-600 text-white' : 'text-ink-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-700'}`}>Semua</button>
+              <button onClick={() => setUserFilter('teacher')} className={`px-4 py-1.5 text-xs font-semibold rounded-lg transition-colors ${userFilter === 'teacher' ? 'bg-brand-600 text-white' : 'text-ink-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-700'}`}>Teacher</button>
+              <button onClick={() => setUserFilter('student')} className={`px-4 py-1.5 text-xs font-semibold rounded-lg transition-colors ${userFilter === 'student' ? 'bg-brand-600 text-white' : 'text-ink-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-700'}`}>Student</button>
+            </div>
+
+            <div className="flex items-center gap-3">
+              <button onClick={handleExport} className="flex items-center gap-1.5 rounded-xl bg-white dark:bg-slate-800 border border-brand-100 dark:border-slate-700 px-4 py-2 text-xs font-semibold text-ink-600 hover:text-brand-600 hover:border-brand-300 transition-colors shadow-sm">
+                <Download className="h-4 w-4" /> Ekspor JSON
+              </button>
+              <button onClick={() => setIsModalOpen(true)} className="flex items-center gap-2 rounded-xl bg-brand-600 px-4 py-2 text-xs font-semibold text-white hover:bg-brand-700 transition-colors shadow-sm">
+                <Plus className="h-4 w-4" /> Tambah Pengguna
+              </button>
+            </div>
           </div>
-          <div className="p-6">
-            <form onSubmit={handleRegister} className="space-y-4">
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                <button type="button" onClick={() => setRegRole('teacher')}
-                  className={`flex items-center justify-center gap-2 rounded-xl border py-2.5 text-sm font-semibold transition-colors ${regRole === 'teacher' ? 'border-brand-600 bg-brand-50 text-brand-700 dark:bg-brand-500/20 dark:text-brand-400' : 'border-brand-100 bg-white text-ink-600 hover:bg-brand-50 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-300'}`}>
-                  <BookOpen className="h-4 w-4" /> Guru
+          
+          <div className="flex-1 overflow-y-auto p-6 bg-slate-50/30 dark:bg-slate-900/50">
+            {accounts.length === 0 ? (
+              <div className="flex flex-col items-center justify-center h-full min-h-[300px] text-center">
+                <div className="flex h-16 w-16 items-center justify-center rounded-2xl bg-brand-50 dark:bg-slate-800 text-brand-500 mb-4 border border-brand-100 dark:border-slate-700">
+                  <Users className="h-8 w-8" />
+                </div>
+                <h3 className="text-lg font-bold text-ink-900 dark:text-white mb-1">Belum ada pengguna</h3>
+                <p className="text-sm text-ink-500 dark:text-slate-400 max-w-sm mx-auto mb-6">
+                  Sistem belum memiliki data pengguna untuk ditampilkan. Silakan tambahkan pengguna baru.
+                </p>
+                <button onClick={() => setIsModalOpen(true)} className="flex items-center gap-2 rounded-xl bg-brand-600 px-5 py-2.5 text-sm font-semibold text-white hover:bg-brand-700 transition-all shadow-sm">
+                  <Plus className="h-4 w-4" /> Tambah Pengguna
                 </button>
-                <button type="button" onClick={() => setRegRole('student')}
-                  className={`flex items-center justify-center gap-2 rounded-xl border py-2.5 text-sm font-semibold transition-colors ${regRole === 'student' ? 'border-brand-600 bg-brand-50 text-brand-700 dark:bg-brand-500/20 dark:text-brand-400' : 'border-brand-100 bg-white text-ink-600 hover:bg-brand-50 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-300'}`}>
-                  <GraduationCap className="h-4 w-4" /> Murid
+              </div>
+            ) : (
+              <div className="grid gap-4 lg:grid-cols-2">
+                {accounts.filter(acc => userFilter === 'all' ? true : acc.role === userFilter).slice().reverse().map(acc => {
+                  const profile = profiles.find(p => p.userId === acc.id);
+                  return (
+                    <div key={acc.id} className="flex flex-col gap-3 rounded-2xl border border-brand-100 dark:border-slate-800 bg-white dark:bg-slate-800/80 p-5 shadow-sm hover:shadow-md transition-shadow">
+                      <div className="flex items-start justify-between">
+                        <div className="flex items-center gap-4">
+                          <div className={`flex h-12 w-12 shrink-0 items-center justify-center rounded-xl ${acc.role === 'dev' ? 'bg-red-50 text-red-600 border border-red-100' : acc.role === 'teacher' ? 'bg-amber-50 text-amber-600 border border-amber-100' : 'bg-emerald-50 text-emerald-600 border border-emerald-100'}`}>
+                            {acc.role === 'dev' ? <ShieldAlert className="h-6 w-6" /> : acc.role === 'teacher' ? <BookOpen className="h-6 w-6" /> : <GraduationCap className="h-6 w-6" />}
+                          </div>
+                          <div>
+                            <p className="font-bold text-ink-900 dark:text-white flex items-center gap-2 text-base">
+                              {acc.name} 
+                              <span className={`px-2.5 py-0.5 text-[10px] font-bold rounded-full border tracking-wide uppercase ${acc.role === 'dev' ? 'border-red-200 bg-red-50 text-red-700' : acc.role === 'teacher' ? 'border-amber-200 bg-amber-50 text-amber-700' : 'border-emerald-200 bg-emerald-50 text-emerald-700'}`}>
+                                {acc.role}
+                              </span>
+                            </p>
+                            <p className="text-sm text-ink-500 dark:text-slate-400 flex items-center gap-1.5 mt-0.5">
+                              <Mail className="h-3.5 w-3.5" /> {acc.email}
+                            </p>
+                          </div>
+                        </div>
+                        {editingUserId !== acc.id && (
+                          <button onClick={() => handleEditClick(acc, profile)} className="p-2.5 text-ink-400 bg-slate-50 hover:bg-brand-50 hover:text-brand-600 rounded-xl transition-colors border border-transparent hover:border-brand-100">
+                            <Edit2 className="h-4 w-4" />
+                          </button>
+                        )}
+                      </div>
+                      
+                      {editingUserId === acc.id ? (
+                        <div className="mt-4 p-4 bg-slate-50 dark:bg-slate-800/50 rounded-xl space-y-4 text-sm border border-brand-100 dark:border-brand-900/50">
+                          <div className="flex items-center gap-2 pb-2 border-b border-brand-100 dark:border-slate-700">
+                            <Pencil className="h-4 w-4 text-brand-600" />
+                            <h4 className="font-bold text-ink-800 dark:text-slate-200">Edit Pengguna</h4>
+                          </div>
+                          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            <div>
+                              <label className="block text-xs font-bold text-ink-600 dark:text-slate-400 mb-1.5">Ubah Nama</label>
+                              <input value={editName} onChange={e => setEditName(e.target.value)} className="w-full px-3.5 py-2 rounded-xl border border-brand-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-ink-900 dark:text-white outline-none focus:ring-2 focus:ring-brand-100 focus:border-brand-300 transition-all" />
+                            </div>
+                            <div>
+                              <label className="block text-xs font-bold text-ink-600 dark:text-slate-400 mb-1.5">Ganti Sandi (Opsional)</label>
+                              <input value={editPassword} onChange={e => setEditPassword(e.target.value)} placeholder="Kata sandi baru..." className="w-full px-3.5 py-2 rounded-xl border border-brand-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-ink-900 dark:text-white outline-none focus:ring-2 focus:ring-brand-100 focus:border-brand-300 transition-all" />
+                            </div>
+                          </div>
+                          
+                          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                            <div>
+                              <label className="block text-xs font-bold text-ink-600 dark:text-slate-400 mb-1.5">Provinsi</label>
+                              <select value={editProvId} onChange={e => { setEditProvId(e.target.value); setEditRegId(''); setEditSchoolId(''); }} className="w-full px-3.5 py-2 rounded-xl border border-brand-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-ink-900 dark:text-white outline-none focus:ring-2 focus:ring-brand-100">
+                                <option value="">Pilih Provinsi...</option>
+                                {extractProvinces(allSchools).map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
+                              </select>
+                            </div>
+                            <div>
+                              <label className="block text-xs font-bold text-ink-600 dark:text-slate-400 mb-1.5">Kab/Kota</label>
+                              <select value={editRegId} onChange={e => { setEditRegId(e.target.value); setEditSchoolId(''); }} disabled={!editProvId} className="w-full px-3.5 py-2 rounded-xl border border-brand-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-ink-900 dark:text-white disabled:opacity-50 outline-none focus:ring-2 focus:ring-brand-100">
+                                <option value="">Pilih Kab/Kota...</option>
+                                {editProvId && extractRegencies(allSchools, editProvId).map(r => <option key={r.id} value={r.id}>{r.name}</option>)}
+                              </select>
+                            </div>
+                            <div>
+                              <label className="block text-xs font-bold text-ink-600 dark:text-slate-400 mb-1.5">Sekolah</label>
+                              <select value={editSchoolId} onChange={e => setEditSchoolId(e.target.value)} disabled={!editRegId} className="w-full px-3.5 py-2 rounded-xl border border-brand-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-ink-900 dark:text-white disabled:opacity-50 outline-none focus:ring-2 focus:ring-brand-100">
+                                <option value="">Pilih Sekolah...</option>
+                                {editProvId && editRegId && allSchools.filter(s => s.province === editProvId && s.regency === editRegId).map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
+                              </select>
+                            </div>
+                          </div>
+                          
+                          <div className="grid grid-cols-2 gap-3">
+                            <div>
+                              <label className="block text-xs font-bold text-ink-600 dark:text-slate-400 mb-1.5">Tingkat Kelas</label>
+                              <select value={editGrade} onChange={e => setEditGrade(e.target.value as 'X'|'XI'|'XII')} className="w-full px-3.5 py-2 rounded-xl border border-brand-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-ink-900 dark:text-white outline-none focus:ring-2 focus:ring-brand-100">
+                                <option value="X">Kelas X</option>
+                                <option value="XI">Kelas XI</option>
+                                <option value="XII">Kelas XII</option>
+                              </select>
+                            </div>
+                            <div>
+                              <label className="block text-xs font-bold text-ink-600 dark:text-slate-400 mb-1.5">No. Ruang</label>
+                              <input type="number" min="1" value={editSection} onChange={e => setEditSection(e.target.value)} className="w-full px-3.5 py-2 rounded-xl border border-brand-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-ink-900 dark:text-white outline-none focus:ring-2 focus:ring-brand-100" />
+                            </div>
+                          </div>
+                          
+                          <div className="flex items-center justify-end gap-3 pt-4 border-t border-brand-100 dark:border-slate-700">
+                            <button onClick={() => setEditingUserId(null)} className="px-4 py-2 text-xs font-bold text-ink-600 hover:bg-slate-200 bg-slate-100 dark:bg-slate-700 rounded-xl transition-colors">Batal</button>
+                            <button onClick={() => handleSaveEdit(acc.id)} className="px-4 py-2 text-xs font-bold text-white bg-brand-600 hover:bg-brand-700 rounded-xl flex items-center gap-1.5 transition-colors shadow-sm"><Check className="h-4 w-4" /> Simpan</button>
+                          </div>
+                        </div>
+                      ) : profile && (
+                        <div className="mt-1 grid grid-cols-2 sm:grid-cols-4 gap-3 rounded-xl bg-slate-50 dark:bg-slate-900/60 p-4 border border-slate-100 dark:border-slate-800">
+                          <div>
+                            <span className="text-[10px] font-bold text-ink-400 dark:text-slate-500 uppercase tracking-wider block mb-1">Sekolah</span>
+                            <span className="text-xs font-semibold text-ink-800 dark:text-slate-200 truncate block" title={profile.schoolId}>{profile.schoolId || '-'}</span>
+                          </div>
+                          <div>
+                            <span className="text-[10px] font-bold text-ink-400 dark:text-slate-500 uppercase tracking-wider block mb-1">Kelas</span>
+                            <span className="text-xs font-semibold text-ink-800 dark:text-slate-200">{profile.grade} {profile.classSection}</span>
+                          </div>
+                          <div>
+                            <span className="text-[10px] font-bold text-ink-400 dark:text-slate-500 uppercase tracking-wider block mb-1">Total Poin</span>
+                            <span className="text-xs font-bold text-brand-600 dark:text-brand-400 flex items-center gap-1"><Award className="h-3 w-3" /> {profile.totalPoints}</span>
+                          </div>
+                          <div>
+                            <span className="text-[10px] font-bold text-ink-400 dark:text-slate-500 uppercase tracking-wider block mb-1">Progress</span>
+                            <span className="text-xs font-bold text-emerald-600 dark:text-emerald-400 flex items-center gap-1"><TrendingUp className="h-3 w-3" /> {Object.keys(profile.topicScores || {}).length} Modul</span>
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+        </div>
+      </div>
+
+      <AnimatePresence>
+        {isModalOpen && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+            <motion.div 
+              initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} 
+              className="absolute inset-0 bg-slate-900/40 backdrop-blur-sm"
+              onClick={() => setIsModalOpen(false)}
+            />
+            <motion.div 
+              initial={{ opacity: 0, scale: 0.95, y: 20 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.95, y: 20 }}
+              className="relative w-full max-w-2xl rounded-2xl bg-white dark:bg-slate-900 shadow-2xl overflow-hidden border border-brand-100 dark:border-slate-800 flex flex-col max-h-[90vh]"
+            >
+              <div className="flex items-center justify-between border-b border-brand-100 dark:border-slate-800 px-6 py-4 bg-slate-50 dark:bg-slate-900/50">
+                <h3 className="font-bold text-ink-900 dark:text-white flex items-center gap-2.5 text-lg">
+                  <div className="p-1.5 bg-brand-100 dark:bg-brand-500/20 rounded-lg text-brand-600">
+                    <UserPlus className="h-5 w-5" />
+                  </div>
+                  Tambah Pengguna
+                </h3>
+                <button onClick={() => setIsModalOpen(false)} className="p-2 rounded-xl text-ink-400 hover:text-ink-700 hover:bg-slate-200 dark:hover:bg-slate-800 transition-colors">
+                  <X className="h-5 w-5" />
                 </button>
               </div>
+              
+              <div className="p-6 overflow-y-auto">
+                <form onSubmit={handleRegister} className="space-y-5">
+                  <div className="space-y-2">
+                    <label className="text-xs font-bold text-ink-600 dark:text-slate-400 uppercase tracking-wider">Pilih Peran Pengguna</label>
+                    <div className="grid grid-cols-2 gap-3">
+                      <button type="button" onClick={() => setRegRole('teacher')}
+                        className={`flex items-center justify-center gap-2 rounded-xl border-2 py-3 text-sm font-bold transition-all ${regRole === 'teacher' ? 'border-brand-600 bg-brand-50 text-brand-700 dark:bg-brand-500/20 dark:text-brand-400' : 'border-slate-200 bg-white text-ink-500 hover:bg-slate-50 hover:border-slate-300 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-400'}`}>
+                        <BookOpen className="h-4 w-4" /> Guru / Pendidik
+                      </button>
+                      <button type="button" onClick={() => setRegRole('student')}
+                        className={`flex items-center justify-center gap-2 rounded-xl border-2 py-3 text-sm font-bold transition-all ${regRole === 'student' ? 'border-brand-600 bg-brand-50 text-brand-700 dark:bg-brand-500/20 dark:text-brand-400' : 'border-slate-200 bg-white text-ink-500 hover:bg-slate-50 hover:border-slate-300 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-400'}`}>
+                        <GraduationCap className="h-4 w-4" /> Murid / Siswa
+                      </button>
+                    </div>
+                  </div>
 
-              <div className="space-y-1">
-                <label className="text-xs font-bold text-ink-700 dark:text-slate-300">Nama Lengkap <span className="text-red-500">*</span></label>
-                <div className="relative">
-                  <User className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-ink-400" />
-                  <input value={regName} onChange={e => setRegName(e.target.value)} placeholder="Nama pengguna"
-                    className="w-full rounded-xl border border-brand-100 bg-white py-2.5 pl-10 pr-4 text-sm outline-none focus:border-brand-300 focus:ring-2 focus:ring-brand-100 dark:border-slate-700 dark:bg-slate-800 dark:text-white" />
-                </div>
-              </div>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div className="space-y-1.5">
+                      <label className="text-xs font-bold text-ink-700 dark:text-slate-300">Nama Lengkap <span className="text-red-500">*</span></label>
+                      <div className="relative">
+                        <User className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-ink-400" />
+                        <input value={regName} onChange={e => setRegName(e.target.value)} placeholder="Nama pengguna"
+                          className="w-full rounded-xl border border-brand-200 bg-white py-2.5 pl-10 pr-4 text-sm outline-none focus:border-brand-400 focus:ring-4 focus:ring-brand-100 dark:border-slate-700 dark:bg-slate-800 dark:text-white transition-all" />
+                      </div>
+                    </div>
 
-              <div className="space-y-1">
-                <label className="text-xs font-bold text-ink-700 dark:text-slate-300">Email <span className="text-red-500">*</span></label>
-                <div className="relative">
-                  <Mail className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-ink-400" />
-                  <input type="email" value={regEmail} onChange={e => setRegEmail(e.target.value)} placeholder="email@geosense.edu"
-                    className="w-full rounded-xl border border-brand-100 bg-white py-2.5 pl-10 pr-4 text-sm outline-none focus:border-brand-300 focus:ring-2 focus:ring-brand-100 dark:border-slate-700 dark:bg-slate-800 dark:text-white" />
-                </div>
-              </div>
+                    <div className="space-y-1.5">
+                      <label className="text-xs font-bold text-ink-700 dark:text-slate-300">Email Login <span className="text-red-500">*</span></label>
+                      <div className="relative">
+                        <Mail className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-ink-400" />
+                        <input type="email" value={regEmail} onChange={e => setRegEmail(e.target.value)} placeholder="email@geosense.edu"
+                          className="w-full rounded-xl border border-brand-200 bg-white py-2.5 pl-10 pr-4 text-sm outline-none focus:border-brand-400 focus:ring-4 focus:ring-brand-100 dark:border-slate-700 dark:bg-slate-800 dark:text-white transition-all" />
+                      </div>
+                    </div>
+                  </div>
 
-              <div className="space-y-1">
-                <label className="text-xs font-bold text-ink-700 dark:text-slate-300">Kata Sandi <span className="text-red-500">*</span></label>
-                <div className="relative">
-                  <Lock className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-ink-400" />
-                  <input type="text" value={regPassword} onChange={e => setRegPassword(e.target.value)} placeholder="Min. 6 karakter"
-                    className="w-full rounded-xl border border-brand-100 bg-white py-2.5 pl-10 pr-4 text-sm outline-none focus:border-brand-300 focus:ring-2 focus:ring-brand-100 dark:border-slate-700 dark:bg-slate-800 dark:text-white" />
-                </div>
-              </div>
-
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                <div className="space-y-1">
-                  <label className="text-xs font-bold text-ink-700 dark:text-slate-300">Jenis Kelamin</label>
-                  <select value={regGender} onChange={e => setRegGender(e.target.value as Gender)}
-                    className="w-full rounded-xl border border-brand-100 bg-white py-2.5 px-3 text-sm outline-none focus:border-brand-300 focus:ring-2 focus:ring-brand-100 dark:border-slate-700 dark:bg-slate-800 dark:text-white">
-                    <option value="male">Laki-laki</option>
-                    <option value="female">Perempuan</option>
-                    <option value="other">Lainnya</option>
-                  </select>
-                </div>
-                
-                {(regRole === 'student' || regRole === 'teacher') && (
-                  <div className="space-y-1">
-                    <label className="text-xs font-bold text-ink-700 dark:text-slate-300">Tingkat Kelas <span className="text-red-500">*</span></label>
-                    <div className="relative">
-                      <School className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-ink-400" />
-                      <select value={regGrade} onChange={e => setRegGrade(e.target.value as 'X'|'XI'|'XII')}
-                        className="w-full rounded-xl border border-brand-100 bg-white py-2.5 pl-10 pr-3 text-sm outline-none focus:border-brand-300 focus:ring-2 focus:ring-brand-100 dark:border-slate-700 dark:bg-slate-800 dark:text-white">
-                        <option value="X">Kelas X</option>
-                        <option value="XI">Kelas XI</option>
-                        <option value="XII">Kelas XII</option>
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                    <div className="space-y-1.5">
+                      <label className="text-xs font-bold text-ink-700 dark:text-slate-300">Kata Sandi <span className="text-red-500">*</span></label>
+                      <div className="relative">
+                        <Lock className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-ink-400" />
+                        <input type="text" value={regPassword} onChange={e => setRegPassword(e.target.value)} placeholder="Min. 6 karakter"
+                          className="w-full rounded-xl border border-brand-200 bg-white py-2.5 pl-10 pr-4 text-sm outline-none focus:border-brand-400 focus:ring-4 focus:ring-brand-100 dark:border-slate-700 dark:bg-slate-800 dark:text-white transition-all" />
+                      </div>
+                    </div>
+                    <div className="space-y-1.5">
+                      <label className="text-xs font-bold text-ink-700 dark:text-slate-300">Konfirmasi Sandi <span className="text-red-500">*</span></label>
+                      <div className="relative">
+                        <Lock className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-ink-400" />
+                        <input type="text" value={regPasswordConfirm} onChange={e => setRegPasswordConfirm(e.target.value)} placeholder="Min. 6 karakter"
+                          className="w-full rounded-xl border border-brand-200 bg-white py-2.5 pl-10 pr-4 text-sm outline-none focus:border-brand-400 focus:ring-4 focus:ring-brand-100 dark:border-slate-700 dark:bg-slate-800 dark:text-white transition-all" />
+                      </div>
+                    </div>
+                    <div className="space-y-1.5">
+                      <label className="text-xs font-bold text-ink-700 dark:text-slate-300">Jenis Kelamin</label>
+                      <select value={regGender} onChange={e => setRegGender(e.target.value as Gender)}
+                        className="w-full rounded-xl border border-brand-200 bg-white py-2.5 px-3 text-sm outline-none focus:border-brand-400 focus:ring-4 focus:ring-brand-100 dark:border-slate-700 dark:bg-slate-800 dark:text-white transition-all">
+                        <option value="male">Laki-laki</option>
+                        <option value="female">Perempuan</option>
+                        <option value="other">Lainnya</option>
                       </select>
                     </div>
                   </div>
-                )}
-              </div>
 
-              {regRole === 'student' && (
-                <div className="space-y-1">
-                  <label className="text-xs font-bold text-ink-700 dark:text-slate-300">Ruang/No. Kelas (Hanya Angka) <span className="text-red-500">*</span></label>
-                  <div className="relative">
-                    <School className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-ink-400" />
-                    <input type="number" min="1" value={regSection} onChange={e => setRegSection(e.target.value)} placeholder="1"
-                      className="w-full rounded-xl border border-brand-100 bg-white py-2.5 pl-10 pr-3 text-sm outline-none focus:border-brand-300 focus:ring-2 focus:ring-brand-100 dark:border-slate-700 dark:bg-slate-800 dark:text-white" />
-                  </div>
-                </div>
-              )}
-
-              {/* School Selection for Registration */}
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-                <div className="space-y-1">
-                  <label className="text-xs font-bold text-ink-700 dark:text-slate-300">Provinsi</label>
-                  <select value={regProvId} onChange={e => { setRegProvId(e.target.value); setRegRegId(''); setRegSchoolId(''); }}
-                    className="w-full rounded-xl border border-brand-100 bg-white py-2.5 px-3 text-sm outline-none focus:border-brand-300 dark:border-slate-700 dark:bg-slate-800 dark:text-white">
-                    <option value="">(Opsional) Pilih Provinsi...</option>
-                    {extractProvinces(allSchools).map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
-                  </select>
-                </div>
-                <div className="space-y-1">
-                  <label className="text-xs font-bold text-ink-700 dark:text-slate-300">Kabupaten/Kota</label>
-                  <select value={regRegId} onChange={e => { setRegRegId(e.target.value); setRegSchoolId(''); }} disabled={!regProvId}
-                    className="w-full rounded-xl border border-brand-100 bg-white py-2.5 px-3 text-sm outline-none focus:border-brand-300 dark:border-slate-700 dark:bg-slate-800 dark:text-white disabled:opacity-50">
-                    <option value="">(Opsional) Pilih Kab/Kota...</option>
-                    {regProvId && extractRegencies(allSchools, regProvId).map(r => <option key={r.id} value={r.id}>{r.name}</option>)}
-                  </select>
-                </div>
-                <div className="space-y-1">
-                  <label className="text-xs font-bold text-ink-700 dark:text-slate-300">Sekolah</label>
-                  <select value={regSchoolId} onChange={e => setRegSchoolId(e.target.value)} disabled={!regRegId}
-                    className="w-full rounded-xl border border-brand-100 bg-white py-2.5 px-3 text-sm outline-none focus:border-brand-300 dark:border-slate-700 dark:bg-slate-800 dark:text-white disabled:opacity-50">
-                    <option value="">(Opsional) Pilih Sekolah...</option>
-                    {regProvId && regRegId && allSchools.filter(s => s.province === regProvId && s.regency === regRegId).map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
-                  </select>
-                </div>
-              </div>
-
-              <button type="submit" disabled={loading}
-                className="mt-2 flex w-full items-center justify-center gap-2 rounded-xl bg-brand-600 py-3 text-sm font-semibold text-white shadow-sm transition-all hover:bg-brand-700 disabled:opacity-60">
-                {loading ? <div className="h-5 w-5 animate-spin rounded-full border-2 border-white/20 border-t-white" /> : <><UserPlus className="h-4 w-4" /> Daftarkan Akun</>}
-              </button>
-            </form>
-          </div>
-        </div>
-
-        {/* User List */}
-        <div className="rounded-2xl border border-brand-100 dark:border-slate-800 bg-white dark:bg-slate-900 shadow-sm overflow-hidden flex flex-col max-h-[600px]">
-          <div className="border-b border-brand-100 dark:border-slate-800 px-6 py-4 bg-brand-50/50 dark:bg-slate-800/50 flex items-center justify-between">
-            <h3 className="font-bold text-ink-900 dark:text-white flex items-center gap-2">
-              <Users className="h-4 w-4 text-brand-600" /> Daftar Pengguna Terakhir
-            </h3>
-            <button onClick={handleExport} className="flex items-center gap-1.5 rounded-lg bg-white dark:bg-slate-800 border border-brand-100 dark:border-slate-700 px-3 py-1.5 text-xs font-semibold text-ink-600 hover:text-brand-600 hover:border-brand-300 transition-colors shadow-sm">
-              <Download className="h-3.5 w-3.5" /> Ekspor JSON
-            </button>
-          </div>
-          <div className="flex-1 overflow-y-auto p-4 space-y-3">
-            {accounts.slice().reverse().map(acc => {
-              const profile = profiles.find(p => p.userId === acc.id);
-              return (
-                <div key={acc.id} className="flex flex-col gap-2 rounded-xl border border-brand-50 dark:border-slate-800 bg-white dark:bg-slate-800/50 p-4">
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-3">
-                      <div className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-lg ${acc.role === 'dev' ? 'bg-red-100 text-red-600' : acc.role === 'teacher' ? 'bg-amber-100 text-amber-600' : 'bg-emerald-100 text-emerald-600'}`}>
-                        {acc.role === 'dev' ? <ShieldAlert className="h-5 w-5" /> : acc.role === 'teacher' ? <BookOpen className="h-5 w-5" /> : <GraduationCap className="h-5 w-5" />}
+                  <div className="p-4 bg-brand-50/50 dark:bg-slate-800/30 rounded-xl border border-brand-100 dark:border-slate-700/50 space-y-4">
+                    <h4 className="text-xs font-bold text-brand-700 dark:text-brand-400 uppercase tracking-wider flex items-center gap-1.5"><School className="h-3.5 w-3.5" /> Penempatan Sekolah</h4>
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                      <div className="space-y-1.5">
+                        <label className="text-xs font-bold text-ink-600 dark:text-slate-400">Provinsi</label>
+                        <select value={regProvId} onChange={e => { setRegProvId(e.target.value); setRegRegId(''); setRegSchoolId(''); }}
+                          className="w-full rounded-xl border border-slate-200 bg-white py-2 px-3 text-sm outline-none focus:border-brand-400 focus:ring-2 focus:ring-brand-100 dark:border-slate-700 dark:bg-slate-800 dark:text-white transition-all">
+                          <option value="">(Opsional) Pilih...</option>
+                          {extractProvinces(allSchools).map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
+                        </select>
                       </div>
-                      <div>
-                        <p className="text-sm font-bold text-ink-900 dark:text-white flex items-center gap-2">
-                          {acc.name} 
-                          <span className={`px-2 py-0.5 text-[9px] font-bold rounded-full border ${acc.role === 'dev' ? 'border-red-200 bg-red-50 text-red-700' : acc.role === 'teacher' ? 'border-amber-200 bg-amber-50 text-amber-700' : 'border-emerald-200 bg-emerald-50 text-emerald-700'}`}>
-                            {acc.role.toUpperCase()}
-                          </span>
-                        </p>
-                        <p className="text-xs text-ink-500 dark:text-slate-400">{acc.email}</p>
+                      <div className="space-y-1.5">
+                        <label className="text-xs font-bold text-ink-600 dark:text-slate-400">Kabupaten/Kota</label>
+                        <select value={regRegId} onChange={e => { setRegRegId(e.target.value); setRegSchoolId(''); }} disabled={!regProvId}
+                          className="w-full rounded-xl border border-slate-200 bg-white py-2 px-3 text-sm outline-none focus:border-brand-400 focus:ring-2 focus:ring-brand-100 dark:border-slate-700 dark:bg-slate-800 dark:text-white disabled:opacity-50 transition-all">
+                          <option value="">(Opsional) Pilih...</option>
+                          {regProvId && extractRegencies(allSchools, regProvId).map(r => <option key={r.id} value={r.id}>{r.name}</option>)}
+                        </select>
+                      </div>
+                      <div className="space-y-1.5">
+                        <label className="text-xs font-bold text-ink-600 dark:text-slate-400">Sekolah</label>
+                        <select value={regSchoolId} onChange={e => setRegSchoolId(e.target.value)} disabled={!regRegId}
+                          className="w-full rounded-xl border border-slate-200 bg-white py-2 px-3 text-sm outline-none focus:border-brand-400 focus:ring-2 focus:ring-brand-100 dark:border-slate-700 dark:bg-slate-800 dark:text-white disabled:opacity-50 transition-all">
+                          <option value="">(Opsional) Pilih...</option>
+                          {regProvId && regRegId && allSchools.filter(s => s.province === regProvId && s.regency === regRegId).map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
+                        </select>
                       </div>
                     </div>
-                    {editingUserId !== acc.id && (
-                      <button onClick={() => handleEditClick(acc, profile)} className="p-2 text-ink-400 hover:text-brand-600 transition-colors">
-                        <Edit2 className="h-4 w-4" />
-                      </button>
-                    )}
                   </div>
-                  {editingUserId === acc.id ? (
-                    <div className="mt-3 p-3 bg-brand-50 dark:bg-slate-800 rounded-lg space-y-3 text-sm border border-brand-100 dark:border-brand-900/50">
-                      <div>
-                        <label className="block text-xs font-bold text-ink-600 dark:text-slate-400 mb-1">Ubah Nama</label>
-                        <input value={editName} onChange={e => setEditName(e.target.value)} className="w-full px-3 py-1.5 rounded border border-brand-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-ink-900 dark:text-white" />
-                      </div>
-                      <div>
-                        <label className="block text-xs font-bold text-ink-600 dark:text-slate-400 mb-1">Ganti Sandi (Kosongkan jika tidak diubah)</label>
-                        <input value={editPassword} onChange={e => setEditPassword(e.target.value)} placeholder="Kata sandi baru" className="w-full px-3 py-1.5 rounded border border-brand-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-ink-900 dark:text-white" />
-                      </div>
-                      <div className="grid grid-cols-1 md:grid-cols-3 gap-2">
-                        <div>
-                          <label className="block text-xs font-bold text-ink-600 dark:text-slate-400 mb-1">Provinsi</label>
-                          <select value={editProvId} onChange={e => { setEditProvId(e.target.value); setEditRegId(''); setEditSchoolId(''); }} className="w-full px-3 py-1.5 rounded border border-brand-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-ink-900 dark:text-white">
-                            <option value="">Pilih Provinsi...</option>
-                            {extractProvinces(allSchools).map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
-                          </select>
-                        </div>
-                        <div>
-                          <label className="block text-xs font-bold text-ink-600 dark:text-slate-400 mb-1">Kabupaten/Kota</label>
-                          <select value={editRegId} onChange={e => { setEditRegId(e.target.value); setEditSchoolId(''); }} disabled={!editProvId} className="w-full px-3 py-1.5 rounded border border-brand-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-ink-900 dark:text-white disabled:opacity-50">
-                            <option value="">Pilih Kab/Kota...</option>
-                            {editProvId && extractRegencies(allSchools, editProvId).map(r => <option key={r.id} value={r.id}>{r.name}</option>)}
-                          </select>
-                        </div>
-                        <div>
-                          <label className="block text-xs font-bold text-ink-600 dark:text-slate-400 mb-1">Sekolah</label>
-                          <select value={editSchoolId} onChange={e => setEditSchoolId(e.target.value)} disabled={!editRegId} className="w-full px-3 py-1.5 rounded border border-brand-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-ink-900 dark:text-white disabled:opacity-50">
-                            <option value="">Pilih Sekolah...</option>
-                            {editProvId && editRegId && allSchools.filter(s => s.province === editProvId && s.regency === editRegId).map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
-                          </select>
-                        </div>
-                      </div>
-                      <div>
-                        <label className="block text-xs font-bold text-ink-600 dark:text-slate-400 mb-1">Tingkat Kelas (Murid & Guru)</label>
-                        <select value={editGrade} onChange={e => setEditGrade(e.target.value as 'X'|'XI'|'XII')} className="w-full px-3 py-1.5 rounded border border-brand-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-ink-900 dark:text-white">
+
+                  <div className="grid grid-cols-2 gap-4">
+                    {(regRole === 'student' || regRole === 'teacher') && (
+                      <div className="space-y-1.5">
+                        <label className="text-xs font-bold text-ink-700 dark:text-slate-300">Tingkat Kelas <span className="text-red-500">*</span></label>
+                        <select value={regGrade} onChange={e => setRegGrade(e.target.value as 'X'|'XI'|'XII')}
+                          className="w-full rounded-xl border border-brand-200 bg-white py-2.5 px-3 text-sm outline-none focus:border-brand-400 focus:ring-4 focus:ring-brand-100 dark:border-slate-700 dark:bg-slate-800 dark:text-white transition-all">
                           <option value="X">Kelas X</option>
                           <option value="XI">Kelas XI</option>
                           <option value="XII">Kelas XII</option>
                         </select>
                       </div>
-                      <div>
-                        <label className="block text-xs font-bold text-ink-600 dark:text-slate-400 mb-1">No. Ruang Kelas (Khusus Murid)</label>
-                        <input type="number" min="1" value={editSection} onChange={e => setEditSection(e.target.value)} className="w-full px-3 py-1.5 rounded border border-brand-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-ink-900 dark:text-white" />
+                    )}
+
+                    {regRole === 'student' && (
+                      <div className="space-y-1.5">
+                        <label className="text-xs font-bold text-ink-700 dark:text-slate-300">Ruang/No. Kelas <span className="text-red-500">*</span></label>
+                        <input type="number" min="1" value={regSection} onChange={e => setRegSection(e.target.value)} placeholder="1"
+                          className="w-full rounded-xl border border-brand-200 bg-white py-2.5 px-3 text-sm outline-none focus:border-brand-400 focus:ring-4 focus:ring-brand-100 dark:border-slate-700 dark:bg-slate-800 dark:text-white transition-all" />
                       </div>
-                      <div className="flex items-center justify-end gap-2 pt-2">
-                        <button onClick={() => setEditingUserId(null)} className="px-3 py-1.5 text-xs font-bold text-ink-500 hover:text-ink-700 bg-white dark:bg-slate-700 rounded border border-brand-200 dark:border-slate-600">Batal</button>
-                        <button onClick={() => handleSaveEdit(acc.id)} className="px-3 py-1.5 text-xs font-bold text-white bg-brand-600 hover:bg-brand-700 rounded flex items-center gap-1"><Check className="h-3.5 w-3.5" /> Simpan</button>
-                      </div>
-                    </div>
-                  ) : profile && (
-                    <div className="mt-2 grid grid-cols-1 sm:grid-cols-2 gap-2 rounded-lg bg-slate-50 dark:bg-slate-900/50 p-3 text-xs border border-slate-100 dark:border-slate-800">
-                      <div>
-                        <span className="text-ink-400 dark:text-slate-500 block mb-0.5">Sekolah</span>
-                        <span className="font-semibold text-ink-700 dark:text-slate-300">{profile.schoolId}</span>
-                      </div>
-                      <div>
-                        <span className="text-ink-400 dark:text-slate-500 block mb-0.5">Kelas / Status</span>
-                        <span className="font-semibold text-ink-700 dark:text-slate-300">{profile.grade}</span>
-                      </div>
-                      <div>
-                        <span className="text-ink-400 dark:text-slate-500 block mb-0.5">Total Poin</span>
-                        <span className="font-semibold text-brand-600 dark:text-brand-400">{profile.totalPoints} pts</span>
-                      </div>
-                      <div>
-                        <span className="text-ink-400 dark:text-slate-500 block mb-0.5">Progress</span>
-                        <span className="font-semibold text-emerald-600 dark:text-emerald-400">
-                          {Object.keys(profile.topicScores || {}).length} Modul
-                        </span>
-                      </div>
-                    </div>
-                  )}
-                </div>
-              );
-            })}
+                    )}
+                  </div>
+
+                  <div className="pt-4 mt-2 border-t border-slate-100 dark:border-slate-800 flex items-center justify-end gap-3">
+                    <button type="button" onClick={() => setIsModalOpen(false)} className="px-5 py-2.5 text-sm font-bold text-ink-600 bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:text-slate-300 dark:hover:bg-slate-700 rounded-xl transition-all">
+                      Batal
+                    </button>
+                    <button type="submit" disabled={loading}
+                      className="flex items-center justify-center gap-2 rounded-xl bg-brand-600 px-6 py-2.5 text-sm font-bold text-white shadow-md shadow-brand-500/20 transition-all hover:bg-brand-700 disabled:opacity-60 disabled:shadow-none min-w-[140px]">
+                      {loading ? <div className="h-5 w-5 animate-spin rounded-full border-2 border-white/20 border-t-white" /> : <><CheckCircle2 className="h-4 w-4" /> Buat Pengguna</>}
+                    </button>
+                  </div>
+                </form>
+              </div>
+            </motion.div>
           </div>
-        </div>
-      </div>
+        )}
+      </AnimatePresence>
     </div>
   );
 }

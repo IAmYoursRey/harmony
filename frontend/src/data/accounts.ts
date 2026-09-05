@@ -48,18 +48,44 @@ export async function registerAccount(
   }
 }
 
-// In the new architecture, updating accounts (like name/email) should be done via an auth endpoint if needed, but for now we'll stub it out as it's less critical.
+// Provision an account without modifying the current session
+export async function provisionAccount(
+  name: string,
+  email: string,
+  password: string,
+  role: 'student' | 'teacher' | 'dev',
+  gender?: string,
+  grade?: string,
+  classSection?: string,
+  schoolId?: string,
+  dob?: string
+): Promise<{ success: boolean; error?: string; account?: UserAccount }> {
+  try {
+    const data = await apiClient.post('/api/users', { 
+      name, email, password, role, gender, grade, classSection, schoolId, dob 
+    });
+    return { success: true, account: data.account };
+  } catch (err: unknown) {
+    return { success: false, error: err instanceof Error ? err.message : 'Provision error' };
+  }
+}
+
 export async function updateAccount(
   id: string,
-  updates: { name?: string; email?: string; password?: string }
+  updates: { name?: string; email?: string; password?: string, schoolId?: string, grade?: string, classSection?: string }
 ): Promise<{ success: boolean; error?: string; account?: UserAccount }> {
-  return { success: false, error: 'Not implemented in this version' };
+  try {
+    const data = await apiClient.put(`/api/users/${id}`, updates);
+    return { success: true, account: data.account };
+  } catch (err: unknown) {
+    return { success: false, error: err instanceof Error ? err.message : 'Update error' };
+  }
 }
 
 export async function getAllAccounts(): Promise<UserAccount[]> {
   try {
-    const data = await apiClient.get('/api/profile/accounts');
-    return data.accounts || [];
+    const data = await apiClient.get('/api/users');
+    return data.users || [];
   } catch {
     return [];
   }

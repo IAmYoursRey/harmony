@@ -3,7 +3,7 @@
     {
       "id": "seed-raihanansari6678",
       "email": "raihanansari6678@gmail.com",
-      "passwordHash": "$2b$10$B96SxRw.c8z2dhcOjvLZsuvnuO3OGKWB/O8EZVhYgLFj2GIAg0ynS",
+      "passwordHash": "$2b$10$4aR4gDVvos25ibUeuUrCgenlcoCyLCSP1gsI6ZZUhDsIRN8K3ba7e",
       "name": "Developer Admin",
       "role": "dev",
       "createdAt": "2026-09-04T06:29:19.797Z"
@@ -31,22 +31,6 @@
       "name": "Sinta Nadhifah",
       "role": "student",
       "createdAt": "2026-09-04T06:29:19.798Z"
-    },
-    {
-      "id": "usr-1788567855020",
-      "email": "test@test.com",
-      "passwordHash": "$2b$10$WdWWWmeACKgITbJpegbjMu9wTHxiU4AoE.fB1YR/eySLYp.EDOmUy",
-      "name": "Test",
-      "role": "student",
-      "createdAt": "2026-09-05T00:24:15.087Z"
-    },
-    {
-      "id": "usr-1788567996959",
-      "email": "devtest@test.com",
-      "passwordHash": "$2b$10$OCSsucwOTGeNQFhjO7EqI.txzLFbGhH3BDCQYuTqzSoewV7zU9JA2",
-      "name": "Dev Test",
-      "role": "dev",
-      "createdAt": "2026-09-05T00:26:37.025Z"
     }
   ],
   "profiles": [
@@ -105,7 +89,7 @@
       "mapImage": "mock",
       "nodes": [],
       "edges": [],
-      "lastUpdated": "2026-09-05T01:41:47.638Z"
+      "lastUpdated": "2026-09-05T09:07:29.078Z"
     },
     "sch_smax_123": {
       "lastUpdated": "2026-09-04T09:52:18.034Z"
@@ -289,14 +273,1038 @@
       "gridHeight": 60,
       "cellScale": 2,
       "cellScaleUnit": "meter",
+      "cells": {
+        "25,24": {
+          "x": 25,
+          "y": 24,
+          "type": "WALL",
+          "walkable": false
+        },
+        "26,24": {
+          "x": 26,
+          "y": 24,
+          "type": "WALL",
+          "walkable": false
+        },
+        "27,24": {
+          "x": 27,
+          "y": 24,
+          "type": "WALL",
+          "walkable": false
+        },
+        "28,24": {
+          "x": 28,
+          "y": 24,
+          "type": "WALL",
+          "walkable": false
+        },
+        "29,24": {
+          "x": 29,
+          "y": 24,
+          "type": "WALL",
+          "walkable": false
+        },
+        "30,24": {
+          "x": 30,
+          "y": 24,
+          "type": "WALL",
+          "walkable": false
+        },
+        "31,24": {
+          "x": 31,
+          "y": 24,
+          "type": "WALL",
+          "walkable": false
+        },
+        "32,24": {
+          "x": 32,
+          "y": 24,
+          "type": "DOOR",
+          "walkable": true
+        },
+        "33,24": {
+          "x": 33,
+          "y": 24,
+          "type": "WALL",
+          "walkable": false
+        },
+        "34,24": {
+          "x": 34,
+          "y": 24,
+          "type": "WALL",
+          "walkable": false
+        },
+        "34,23": {
+          "x": 34,
+          "y": 23,
+          "type": "WALL",
+          "walkable": false
+        },
+        "34,22": {
+          "x": 34,
+          "y": 22,
+          "type": "WALL",
+          "walkable": false
+        },
+        "34,21": {
+          "x": 34,
+          "y": 21,
+          "type": "WALL",
+          "walkable": false
+        },
+        "34,20": {
+          "x": 34,
+          "y": 20,
+          "type": "WALL",
+          "walkable": false
+        },
+        "33,20": {
+          "x": 33,
+          "y": 20,
+          "type": "WALL",
+          "walkable": false
+        },
+        "32,20": {
+          "x": 32,
+          "y": 20,
+          "type": "WALL",
+          "walkable": false
+        },
+        "31,20": {
+          "x": 31,
+          "y": 20,
+          "type": "WALL",
+          "walkable": false
+        },
+        "30,20": {
+          "x": 30,
+          "y": 20,
+          "type": "WALL",
+          "walkable": false
+        },
+        "29,20": {
+          "x": 29,
+          "y": 20,
+          "type": "WALL",
+          "walkable": false
+        },
+        "28,20": {
+          "x": 28,
+          "y": 20,
+          "type": "WALL",
+          "walkable": false
+        },
+        "27,20": {
+          "x": 27,
+          "y": 20,
+          "type": "WALL",
+          "walkable": false
+        },
+        "26,20": {
+          "x": 26,
+          "y": 20,
+          "type": "WALL",
+          "walkable": false
+        },
+        "25,20": {
+          "x": 25,
+          "y": 20,
+          "type": "WALL",
+          "walkable": false
+        },
+        "25,21": {
+          "x": 25,
+          "y": 21,
+          "type": "WALL",
+          "walkable": false
+        },
+        "25,22": {
+          "x": 25,
+          "y": 22,
+          "type": "WALL",
+          "walkable": false
+        },
+        "25,23": {
+          "x": 25,
+          "y": 23,
+          "type": "WALL",
+          "walkable": false
+        },
+        "24,20": {
+          "x": 24,
+          "y": 20,
+          "type": "WALL",
+          "walkable": false
+        },
+        "23,20": {
+          "x": 23,
+          "y": 20,
+          "type": "WALL",
+          "walkable": false
+        },
+        "22,20": {
+          "x": 22,
+          "y": 20,
+          "type": "WALL",
+          "walkable": false
+        },
+        "20,20": {
+          "x": 20,
+          "y": 20,
+          "type": "WALL",
+          "walkable": false
+        },
+        "19,20": {
+          "x": 19,
+          "y": 20,
+          "type": "WALL",
+          "walkable": false
+        },
+        "21,20": {
+          "x": 21,
+          "y": 20,
+          "type": "WALL",
+          "walkable": false
+        },
+        "16,20": {
+          "x": 16,
+          "y": 20,
+          "type": "WALL",
+          "walkable": false
+        },
+        "17,20": {
+          "x": 17,
+          "y": 20,
+          "type": "WALL",
+          "walkable": false
+        },
+        "18,20": {
+          "x": 18,
+          "y": 20,
+          "type": "WALL",
+          "walkable": false
+        },
+        "15,20": {
+          "x": 15,
+          "y": 20,
+          "type": "WALL",
+          "walkable": false
+        },
+        "15,21": {
+          "x": 15,
+          "y": 21,
+          "type": "WALL",
+          "walkable": false
+        },
+        "15,22": {
+          "x": 15,
+          "y": 22,
+          "type": "WALL",
+          "walkable": false
+        },
+        "15,23": {
+          "x": 15,
+          "y": 23,
+          "type": "WALL",
+          "walkable": false
+        },
+        "15,24": {
+          "x": 15,
+          "y": 24,
+          "type": "WALL",
+          "walkable": false
+        },
+        "16,24": {
+          "x": 16,
+          "y": 24,
+          "type": "WALL",
+          "walkable": false
+        },
+        "17,24": {
+          "x": 17,
+          "y": 24,
+          "type": "WALL",
+          "walkable": false
+        },
+        "18,24": {
+          "x": 18,
+          "y": 24,
+          "type": "WALL",
+          "walkable": false
+        },
+        "19,24": {
+          "x": 19,
+          "y": 24,
+          "type": "WALL",
+          "walkable": false
+        },
+        "20,24": {
+          "x": 20,
+          "y": 24,
+          "type": "WALL",
+          "walkable": false
+        },
+        "21,24": {
+          "x": 21,
+          "y": 24,
+          "type": "WALL",
+          "walkable": false
+        },
+        "22,24": {
+          "x": 22,
+          "y": 24,
+          "type": "WALL",
+          "walkable": false
+        },
+        "23,24": {
+          "x": 23,
+          "y": 24,
+          "type": "WALL",
+          "walkable": false
+        },
+        "24,24": {
+          "x": 24,
+          "y": 24,
+          "type": "WALL",
+          "walkable": false
+        },
+        "35,20": {
+          "x": 35,
+          "y": 20,
+          "type": "WALL",
+          "walkable": false
+        },
+        "36,20": {
+          "x": 36,
+          "y": 20,
+          "type": "WALL",
+          "walkable": false
+        },
+        "37,20": {
+          "x": 37,
+          "y": 20,
+          "type": "WALL",
+          "walkable": false
+        },
+        "38,20": {
+          "x": 38,
+          "y": 20,
+          "type": "WALL",
+          "walkable": false
+        },
+        "39,20": {
+          "x": 39,
+          "y": 20,
+          "type": "WALL",
+          "walkable": false
+        },
+        "41,20": {
+          "x": 41,
+          "y": 20,
+          "type": "WALL",
+          "walkable": false
+        },
+        "42,20": {
+          "x": 42,
+          "y": 20,
+          "type": "WALL",
+          "walkable": false
+        },
+        "40,20": {
+          "x": 40,
+          "y": 20,
+          "type": "WALL",
+          "walkable": false
+        },
+        "43,20": {
+          "x": 43,
+          "y": 20,
+          "type": "WALL",
+          "walkable": false
+        },
+        "44,20": {
+          "x": 44,
+          "y": 20,
+          "type": "WALL",
+          "walkable": false
+        },
+        "44,21": {
+          "x": 44,
+          "y": 21,
+          "type": "WALL",
+          "walkable": false
+        },
+        "44,22": {
+          "x": 44,
+          "y": 22,
+          "type": "WALL",
+          "walkable": false
+        },
+        "44,23": {
+          "x": 44,
+          "y": 23,
+          "type": "WALL",
+          "walkable": false
+        },
+        "44,24": {
+          "x": 44,
+          "y": 24,
+          "type": "WALL",
+          "walkable": false
+        },
+        "43,24": {
+          "x": 43,
+          "y": 24,
+          "type": "WALL",
+          "walkable": false
+        },
+        "42,24": {
+          "x": 42,
+          "y": 24,
+          "type": "DOOR",
+          "walkable": true
+        },
+        "41,24": {
+          "x": 41,
+          "y": 24,
+          "type": "WALL",
+          "walkable": false
+        },
+        "40,24": {
+          "x": 40,
+          "y": 24,
+          "type": "WALL",
+          "walkable": false
+        },
+        "39,24": {
+          "x": 39,
+          "y": 24,
+          "type": "WALL",
+          "walkable": false
+        },
+        "38,24": {
+          "x": 38,
+          "y": 24,
+          "type": "WALL",
+          "walkable": false
+        },
+        "37,24": {
+          "x": 37,
+          "y": 24,
+          "type": "WALL",
+          "walkable": false
+        },
+        "36,24": {
+          "x": 36,
+          "y": 24,
+          "type": "WALL",
+          "walkable": false
+        },
+        "35,24": {
+          "x": 35,
+          "y": 24,
+          "type": "WALL",
+          "walkable": false
+        },
+        "27,22": {
+          "x": 27,
+          "y": 22,
+          "type": "SPAWN",
+          "walkable": true
+        },
+        "28,22": {
+          "x": 28,
+          "y": 22,
+          "type": "SPAWN",
+          "walkable": true
+        },
+        "26,21": {
+          "x": 26,
+          "y": 21,
+          "type": "SPAWN",
+          "walkable": true
+        },
+        "26,22": {
+          "x": 26,
+          "y": 22,
+          "type": "SPAWN",
+          "walkable": true
+        },
+        "26,23": {
+          "x": 26,
+          "y": 23,
+          "type": "SPAWN",
+          "walkable": true
+        },
+        "27,23": {
+          "x": 27,
+          "y": 23,
+          "type": "SPAWN",
+          "walkable": true
+        },
+        "28,23": {
+          "x": 28,
+          "y": 23,
+          "type": "SPAWN",
+          "walkable": true
+        },
+        "29,23": {
+          "x": 29,
+          "y": 23,
+          "type": "SPAWN",
+          "walkable": true
+        },
+        "29,22": {
+          "x": 29,
+          "y": 22,
+          "type": "SPAWN",
+          "walkable": true
+        },
+        "29,21": {
+          "x": 29,
+          "y": 21,
+          "type": "SPAWN",
+          "walkable": true
+        },
+        "28,21": {
+          "x": 28,
+          "y": 21,
+          "type": "SPAWN",
+          "walkable": true
+        },
+        "27,21": {
+          "x": 27,
+          "y": 21,
+          "type": "SPAWN",
+          "walkable": true
+        },
+        "15,25": {
+          "x": 15,
+          "y": 25,
+          "type": "CORRIDOR",
+          "walkable": true
+        },
+        "16,25": {
+          "x": 16,
+          "y": 25,
+          "type": "CORRIDOR",
+          "walkable": true
+        },
+        "17,25": {
+          "x": 17,
+          "y": 25,
+          "type": "CORRIDOR",
+          "walkable": true
+        },
+        "18,25": {
+          "x": 18,
+          "y": 25,
+          "type": "CORRIDOR",
+          "walkable": true
+        },
+        "19,25": {
+          "x": 19,
+          "y": 25,
+          "type": "CORRIDOR",
+          "walkable": true
+        },
+        "20,25": {
+          "x": 20,
+          "y": 25,
+          "type": "CORRIDOR",
+          "walkable": true
+        },
+        "23,25": {
+          "x": 23,
+          "y": 25,
+          "type": "CORRIDOR",
+          "walkable": true
+        },
+        "18,22": {
+          "x": 18,
+          "y": 22,
+          "type": "ROOM",
+          "walkable": true
+        },
+        "19,22": {
+          "x": 19,
+          "y": 22,
+          "type": "ROOM",
+          "walkable": true
+        },
+        "20,22": {
+          "x": 20,
+          "y": 22,
+          "type": "ROOM",
+          "walkable": true
+        },
+        "18,21": {
+          "x": 18,
+          "y": 21,
+          "type": "ROOM",
+          "walkable": true
+        },
+        "21,25": {
+          "x": 21,
+          "y": 25,
+          "type": "CORRIDOR",
+          "walkable": true
+        },
+        "22,25": {
+          "x": 22,
+          "y": 25,
+          "type": "CORRIDOR",
+          "walkable": true
+        },
+        "24,25": {
+          "x": 24,
+          "y": 25,
+          "type": "CORRIDOR",
+          "walkable": true
+        },
+        "25,25": {
+          "x": 25,
+          "y": 25,
+          "type": "CORRIDOR",
+          "walkable": true
+        },
+        "26,25": {
+          "x": 26,
+          "y": 25,
+          "type": "CORRIDOR",
+          "walkable": true
+        },
+        "27,25": {
+          "x": 27,
+          "y": 25,
+          "type": "CORRIDOR",
+          "walkable": true
+        },
+        "28,25": {
+          "x": 28,
+          "y": 25,
+          "type": "CORRIDOR",
+          "walkable": true
+        },
+        "29,25": {
+          "x": 29,
+          "y": 25,
+          "type": "CORRIDOR",
+          "walkable": true
+        },
+        "30,25": {
+          "x": 30,
+          "y": 25,
+          "type": "CORRIDOR",
+          "walkable": true
+        },
+        "31,25": {
+          "x": 31,
+          "y": 25,
+          "type": "CORRIDOR",
+          "walkable": true
+        },
+        "32,25": {
+          "x": 32,
+          "y": 25,
+          "type": "CORRIDOR",
+          "walkable": true
+        },
+        "33,25": {
+          "x": 33,
+          "y": 25,
+          "type": "CORRIDOR",
+          "walkable": true
+        },
+        "34,25": {
+          "x": 34,
+          "y": 25,
+          "type": "CORRIDOR",
+          "walkable": true
+        },
+        "35,25": {
+          "x": 35,
+          "y": 25,
+          "type": "CORRIDOR",
+          "walkable": true
+        },
+        "36,25": {
+          "x": 36,
+          "y": 25,
+          "type": "CORRIDOR",
+          "walkable": true
+        },
+        "37,25": {
+          "x": 37,
+          "y": 25,
+          "type": "CORRIDOR",
+          "walkable": true
+        },
+        "38,25": {
+          "x": 38,
+          "y": 25,
+          "type": "CORRIDOR",
+          "walkable": true
+        },
+        "39,25": {
+          "x": 39,
+          "y": 25,
+          "type": "CORRIDOR",
+          "walkable": true
+        },
+        "40,25": {
+          "x": 40,
+          "y": 25,
+          "type": "CORRIDOR",
+          "walkable": true
+        },
+        "41,25": {
+          "x": 41,
+          "y": 25,
+          "type": "CORRIDOR",
+          "walkable": true
+        },
+        "42,25": {
+          "x": 42,
+          "y": 25,
+          "type": "CORRIDOR",
+          "walkable": true
+        },
+        "43,25": {
+          "x": 43,
+          "y": 25,
+          "type": "CORRIDOR",
+          "walkable": true
+        },
+        "44,25": {
+          "x": 44,
+          "y": 25,
+          "type": "CORRIDOR",
+          "walkable": true
+        },
+        "46,25": {
+          "x": 46,
+          "y": 25,
+          "type": "SAFE_POINT",
+          "walkable": true
+        },
+        "47,25": {
+          "x": 47,
+          "y": 25,
+          "type": "SAFE_POINT",
+          "walkable": true
+        },
+        "48,25": {
+          "x": 48,
+          "y": 25,
+          "type": "SAFE_POINT",
+          "walkable": true
+        },
+        "48,26": {
+          "x": 48,
+          "y": 26,
+          "type": "SAFE_POINT",
+          "walkable": true
+        },
+        "46,26": {
+          "x": 46,
+          "y": 26,
+          "type": "SAFE_POINT",
+          "walkable": true
+        },
+        "47,26": {
+          "x": 47,
+          "y": 26,
+          "type": "SAFE_POINT",
+          "walkable": true
+        },
+        "45,25": {
+          "x": 45,
+          "y": 25,
+          "type": "SAFE_POINT",
+          "walkable": true
+        }
+      },
+      "rooms": [],
+      "doors": [
+        {
+          "id": "door_32_24",
+          "x": 32,
+          "y": 24,
+          "state": "open",
+          "breakable": false
+        },
+        {
+          "id": "door_42_24",
+          "x": 42,
+          "y": 24,
+          "state": "open",
+          "breakable": false
+        },
+        {
+          "id": "door_23_24",
+          "x": 23,
+          "y": 24,
+          "state": "open",
+          "breakable": false
+        }
+      ],
+      "safePoints": [
+        {
+          "id": "sp_46_25",
+          "name": "Titik Aman 1",
+          "x": 46,
+          "y": 25,
+          "capacity": 50,
+          "enabled": true,
+          "priority": 1
+        },
+        {
+          "id": "sp_47_25",
+          "name": "Titik Aman 2",
+          "x": 47,
+          "y": 25,
+          "capacity": 50,
+          "enabled": true,
+          "priority": 2
+        },
+        {
+          "id": "sp_48_25",
+          "name": "Titik Aman 3",
+          "x": 48,
+          "y": 25,
+          "capacity": 50,
+          "enabled": true,
+          "priority": 3
+        },
+        {
+          "id": "sp_48_26",
+          "name": "Titik Aman 4",
+          "x": 48,
+          "y": 26,
+          "capacity": 50,
+          "enabled": true,
+          "priority": 4
+        },
+        {
+          "id": "sp_46_26",
+          "name": "Titik Aman 5",
+          "x": 46,
+          "y": 26,
+          "capacity": 50,
+          "enabled": true,
+          "priority": 5
+        },
+        {
+          "id": "sp_47_26",
+          "name": "Titik Aman 6",
+          "x": 47,
+          "y": 26,
+          "capacity": 50,
+          "enabled": true,
+          "priority": 6
+        },
+        {
+          "id": "sp_45_25",
+          "name": "Titik Aman 7",
+          "x": 45,
+          "y": 25,
+          "capacity": 50,
+          "enabled": true,
+          "priority": 7
+        }
+      ],
+      "spawnPoints": [
+        {
+          "id": "spawn_27_21",
+          "name": "Titik Mulai",
+          "x": 27,
+          "y": 21
+        }
+      ],
+      "createdBy": "seed-raihanansari6678",
+      "createdAt": "2026-09-05T08:10:53.058Z",
+      "updatedAt": "2026-09-05T08:52:43.110Z"
+    },
+    "map_1788600463770_8wmej": {
+      "id": "map_1788600463770_8wmej",
+      "schoolId": "qa-school-1788600463434",
+      "name": "QA Map",
+      "description": "",
+      "gridWidth": 20,
+      "gridHeight": 20,
+      "cellScale": 1,
+      "cellScaleUnit": "meter",
       "cells": {},
       "rooms": [],
       "doors": [],
       "safePoints": [],
       "spawnPoints": [],
-      "createdBy": "seed-raihanansari6678",
-      "createdAt": "2026-09-05T08:10:53.058Z",
-      "updatedAt": "2026-09-05T08:10:53.058Z"
+      "createdBy": "usr-1788600463442",
+      "createdAt": "2026-09-05T09:27:43.770Z",
+      "updatedAt": "2026-09-05T09:27:43.770Z"
+    },
+    "map_1788600470081_6rlun": {
+      "id": "map_1788600470081_6rlun",
+      "schoolId": "qa-school-1788600469775",
+      "name": "QA Map",
+      "description": "",
+      "gridWidth": 20,
+      "gridHeight": 20,
+      "cellScale": 1,
+      "cellScaleUnit": "meter",
+      "cells": {},
+      "rooms": [],
+      "doors": [],
+      "safePoints": [],
+      "spawnPoints": [],
+      "createdBy": "usr-1788600469784",
+      "createdAt": "2026-09-05T09:27:50.081Z",
+      "updatedAt": "2026-09-05T09:27:50.081Z"
+    },
+    "map_1788600484482_o0xit": {
+      "id": "map_1788600484482_o0xit",
+      "schoolId": "qa-school-1788600484148",
+      "name": "QA Map",
+      "description": "",
+      "gridWidth": 20,
+      "gridHeight": 20,
+      "cellScale": 1,
+      "cellScaleUnit": "meter",
+      "cells": {},
+      "rooms": [],
+      "doors": [],
+      "safePoints": [],
+      "spawnPoints": [],
+      "createdBy": "usr-1788600484156",
+      "createdAt": "2026-09-05T09:28:04.482Z",
+      "updatedAt": "2026-09-05T09:28:04.482Z"
+    },
+    "map_1788600499166_8p1vs": {
+      "id": "map_1788600499166_8p1vs",
+      "schoolId": "qa-school-1788600498838",
+      "name": "QA Map",
+      "description": "",
+      "gridWidth": 20,
+      "gridHeight": 20,
+      "cellScale": 1,
+      "cellScaleUnit": "meter",
+      "cells": {},
+      "rooms": [],
+      "doors": [],
+      "safePoints": [],
+      "spawnPoints": [],
+      "createdBy": "usr-1788600498847",
+      "createdAt": "2026-09-05T09:28:19.166Z",
+      "updatedAt": "2026-09-05T09:28:19.166Z"
+    },
+    "map_1788600512017_gdb8q": {
+      "id": "map_1788600512017_gdb8q",
+      "schoolId": "qa-school-1788600511689",
+      "name": "QA Map",
+      "description": "",
+      "gridWidth": 20,
+      "gridHeight": 20,
+      "cellScale": 1,
+      "cellScaleUnit": "meter",
+      "cells": {},
+      "rooms": [],
+      "doors": [],
+      "safePoints": [],
+      "spawnPoints": [],
+      "createdBy": "usr-1788600511698",
+      "createdAt": "2026-09-05T09:28:32.017Z",
+      "updatedAt": "2026-09-05T09:28:32.017Z"
+    },
+    "map_1788600535915_tl5bj": {
+      "id": "map_1788600535915_tl5bj",
+      "schoolId": "qa-school-1788600535592",
+      "name": "QA Map",
+      "description": "",
+      "gridWidth": 20,
+      "gridHeight": 20,
+      "cellScale": 1,
+      "cellScaleUnit": "meter",
+      "cells": {},
+      "rooms": [],
+      "doors": [],
+      "safePoints": [],
+      "spawnPoints": [],
+      "createdBy": "usr-1788600535599",
+      "createdAt": "2026-09-05T09:28:55.915Z",
+      "updatedAt": "2026-09-05T09:28:55.915Z"
+    },
+    "map_1788600575475_p0l6c": {
+      "id": "map_1788600575475_p0l6c",
+      "schoolId": "qa-school-1788600575152",
+      "name": "QA Map",
+      "description": "",
+      "gridWidth": 20,
+      "gridHeight": 20,
+      "cellScale": 1,
+      "cellScaleUnit": "meter",
+      "cells": {},
+      "rooms": [],
+      "doors": [],
+      "safePoints": [],
+      "spawnPoints": [],
+      "createdBy": "usr-1788600575161",
+      "createdAt": "2026-09-05T09:29:35.475Z",
+      "updatedAt": "2026-09-05T09:29:35.475Z"
+    },
+    "map_1788600590580_igbgx": {
+      "id": "map_1788600590580_igbgx",
+      "schoolId": "qa-school-1788600590254",
+      "name": "QA Map",
+      "description": "",
+      "gridWidth": 20,
+      "gridHeight": 20,
+      "cellScale": 1,
+      "cellScaleUnit": "meter",
+      "cells": {},
+      "rooms": [],
+      "doors": [],
+      "safePoints": [],
+      "spawnPoints": [],
+      "createdBy": "usr-1788600590265",
+      "createdAt": "2026-09-05T09:29:50.580Z",
+      "updatedAt": "2026-09-05T09:29:50.580Z"
+    },
+    "map_1788600604208_ctpsk": {
+      "id": "map_1788600604208_ctpsk",
+      "schoolId": "qa-school-1788600603865",
+      "name": "QA Map",
+      "description": "",
+      "gridWidth": 20,
+      "gridHeight": 20,
+      "cellScale": 1,
+      "cellScaleUnit": "meter",
+      "cells": {},
+      "rooms": [],
+      "doors": [],
+      "safePoints": [],
+      "spawnPoints": [],
+      "createdBy": "usr-1788600603879",
+      "createdAt": "2026-09-05T09:30:04.208Z",
+      "updatedAt": "2026-09-05T09:30:04.208Z"
+    },
+    "map_1788600618568_vue8e": {
+      "id": "map_1788600618568_vue8e",
+      "schoolId": "qa-school-1788600618240",
+      "name": "QA Map",
+      "description": "",
+      "gridWidth": 20,
+      "gridHeight": 20,
+      "cellScale": 1,
+      "cellScaleUnit": "meter",
+      "cells": {},
+      "rooms": [],
+      "doors": [],
+      "safePoints": [],
+      "spawnPoints": [],
+      "createdBy": "usr-1788600618252",
+      "createdAt": "2026-09-05T09:30:18.568Z",
+      "updatedAt": "2026-09-05T09:30:18.568Z"
     }
   },
   "simulations": {
@@ -310,7 +1318,21 @@
       "durationSeconds": 60,
       "spawnPointId": "",
       "safePointIds": [],
-      "hazards": [],
+      "hazards": [
+        {
+          "id": "haz_34_25",
+          "type": "earthquake",
+          "label": "Bahaya",
+          "x": 34,
+          "y": 25,
+          "radius": 2,
+          "damagePerSecond": 10,
+          "lethal": false,
+          "startTime": 0,
+          "duration": -1,
+          "movementEffect": "slow"
+        }
+      ],
       "events": [],
       "winCondition": "REACH_SAFE_POINT",
       "loseConditions": [
@@ -319,7 +1341,196 @@
       ],
       "createdBy": "seed-raihanansari6678",
       "createdAt": "2026-09-05T08:25:23.889Z",
-      "updatedAt": "2026-09-05T08:25:23.889Z"
+      "updatedAt": "2026-09-05T08:53:23.742Z"
+    },
+    "sim_1788600499179_r4loe": {
+      "id": "sim_1788600499179_r4loe",
+      "schoolId": "qa-school-1788600498838",
+      "mapId": "map_1788600499166_8p1vs",
+      "disasterType": "fire",
+      "name": "Fire Drill QA",
+      "description": "",
+      "durationSeconds": 120,
+      "spawnPointId": "",
+      "safePointIds": [],
+      "hazards": [
+        {
+          "type": "fire",
+          "x": 2,
+          "y": 2
+        }
+      ],
+      "events": [],
+      "winCondition": "REACH_SAFE_POINT",
+      "loseConditions": [
+        "HP_ZERO",
+        "TIMER_ZERO"
+      ],
+      "createdBy": "usr-1788600498847",
+      "createdAt": "2026-09-05T09:28:19.179Z",
+      "updatedAt": "2026-09-05T09:28:19.179Z"
+    },
+    "sim_1788600512032_k6dhe": {
+      "id": "sim_1788600512032_k6dhe",
+      "schoolId": "qa-school-1788600511689",
+      "mapId": "map_1788600512017_gdb8q",
+      "disasterType": "fire",
+      "name": "Fire Drill QA",
+      "description": "",
+      "durationSeconds": 120,
+      "spawnPointId": "",
+      "safePointIds": [],
+      "hazards": [
+        {
+          "type": "fire",
+          "x": 2,
+          "y": 2
+        }
+      ],
+      "events": [],
+      "winCondition": "REACH_SAFE_POINT",
+      "loseConditions": [
+        "HP_ZERO",
+        "TIMER_ZERO"
+      ],
+      "createdBy": "usr-1788600511698",
+      "createdAt": "2026-09-05T09:28:32.032Z",
+      "updatedAt": "2026-09-05T09:28:32.032Z"
+    },
+    "sim_1788600535930_v7lbf": {
+      "id": "sim_1788600535930_v7lbf",
+      "schoolId": "qa-school-1788600535592",
+      "mapId": "map_1788600535915_tl5bj",
+      "disasterType": "fire",
+      "name": "Fire Drill QA",
+      "description": "",
+      "durationSeconds": 120,
+      "spawnPointId": "",
+      "safePointIds": [],
+      "hazards": [
+        {
+          "type": "fire",
+          "x": 2,
+          "y": 2
+        }
+      ],
+      "events": [],
+      "winCondition": "REACH_SAFE_POINT",
+      "loseConditions": [
+        "HP_ZERO",
+        "TIMER_ZERO"
+      ],
+      "createdBy": "usr-1788600535599",
+      "createdAt": "2026-09-05T09:28:55.930Z",
+      "updatedAt": "2026-09-05T09:28:55.930Z"
+    },
+    "sim_1788600575491_valyy": {
+      "id": "sim_1788600575491_valyy",
+      "schoolId": "qa-school-1788600575152",
+      "mapId": "map_1788600575475_p0l6c",
+      "disasterType": "fire",
+      "name": "Fire Drill QA",
+      "description": "",
+      "durationSeconds": 120,
+      "spawnPointId": "",
+      "safePointIds": [],
+      "hazards": [
+        {
+          "type": "fire",
+          "x": 2,
+          "y": 2
+        }
+      ],
+      "events": [],
+      "winCondition": "REACH_SAFE_POINT",
+      "loseConditions": [
+        "HP_ZERO",
+        "TIMER_ZERO"
+      ],
+      "createdBy": "usr-1788600575161",
+      "createdAt": "2026-09-05T09:29:35.491Z",
+      "updatedAt": "2026-09-05T09:29:35.491Z"
+    },
+    "sim_1788600590596_b0cma": {
+      "id": "sim_1788600590596_b0cma",
+      "schoolId": "qa-school-1788600590254",
+      "mapId": "map_1788600590580_igbgx",
+      "disasterType": "fire",
+      "name": "Fire Drill QA",
+      "description": "",
+      "durationSeconds": 120,
+      "spawnPointId": "",
+      "safePointIds": [],
+      "hazards": [
+        {
+          "type": "fire",
+          "x": 2,
+          "y": 2
+        }
+      ],
+      "events": [],
+      "winCondition": "REACH_SAFE_POINT",
+      "loseConditions": [
+        "HP_ZERO",
+        "TIMER_ZERO"
+      ],
+      "createdBy": "usr-1788600590265",
+      "createdAt": "2026-09-05T09:29:50.596Z",
+      "updatedAt": "2026-09-05T09:29:50.596Z"
+    },
+    "sim_1788600604224_igm4c": {
+      "id": "sim_1788600604224_igm4c",
+      "schoolId": "qa-school-1788600603865",
+      "mapId": "map_1788600604208_ctpsk",
+      "disasterType": "fire",
+      "name": "Fire Drill QA",
+      "description": "",
+      "durationSeconds": 120,
+      "spawnPointId": "",
+      "safePointIds": [],
+      "hazards": [
+        {
+          "type": "fire",
+          "x": 2,
+          "y": 2
+        }
+      ],
+      "events": [],
+      "winCondition": "REACH_SAFE_POINT",
+      "loseConditions": [
+        "HP_ZERO",
+        "TIMER_ZERO"
+      ],
+      "createdBy": "usr-1788600603879",
+      "createdAt": "2026-09-05T09:30:04.224Z",
+      "updatedAt": "2026-09-05T09:30:04.224Z"
+    },
+    "sim_1788600618582_xrp64": {
+      "id": "sim_1788600618582_xrp64",
+      "schoolId": "qa-school-1788600618240",
+      "mapId": "map_1788600618568_vue8e",
+      "disasterType": "fire",
+      "name": "Fire Drill QA",
+      "description": "",
+      "durationSeconds": 120,
+      "spawnPointId": "",
+      "safePointIds": [],
+      "hazards": [
+        {
+          "type": "fire",
+          "x": 2,
+          "y": 2
+        }
+      ],
+      "events": [],
+      "winCondition": "REACH_SAFE_POINT",
+      "loseConditions": [
+        "HP_ZERO",
+        "TIMER_ZERO"
+      ],
+      "createdBy": "usr-1788600618252",
+      "createdAt": "2026-09-05T09:30:18.582Z",
+      "updatedAt": "2026-09-05T09:30:18.582Z"
     }
   },
   "dtRooms": {
@@ -430,6 +1641,144 @@
         "seed-alvira.nizha",
         "seed-sinta.nadhifah"
       ]
+    },
+    "room_1788598414048_jlrnm": {
+      "id": "room_1788598414048_jlrnm",
+      "schoolId": "sch-20502725",
+      "name": "12",
+      "mapId": "map_1788595853058_g95z3",
+      "simulationId": "sim_1788596723889_bkhtb",
+      "targetGrade": "X",
+      "targetClass": "IPA 1",
+      "createdBy": "seed-raihanansari6678",
+      "status": "FINISHED",
+      "createdAt": "2026-09-05T08:53:34.048Z",
+      "startedAt": "2026-09-05T08:53:35.520Z",
+      "endedAt": "2026-09-05T08:53:41.535Z",
+      "joinedStudents": []
+    },
+    "room_1788599249450_8qv0w": {
+      "id": "room_1788599249450_8qv0w",
+      "schoolId": "sch-20534748",
+      "name": "Test Room",
+      "mapId": "map_1788599249351_aw721",
+      "simulationId": "sim_1788599249419_3a88v",
+      "targetGrade": "X",
+      "targetClass": "IPA 1",
+      "createdBy": "seed-raihanansari6678",
+      "status": "FINISHED",
+      "createdAt": "2026-09-05T09:07:29.450Z",
+      "startedAt": "2026-09-05T09:07:29.578Z",
+      "endedAt": "2026-09-05T09:07:29.608Z",
+      "joinedStudents": [
+        "seed-alvira.nizha",
+        "seed-sinta.nadhifah"
+      ]
+    },
+    "room_1788600499195_7u6ht": {
+      "id": "room_1788600499195_7u6ht",
+      "schoolId": "qa-school-1788600498838",
+      "name": "QA Room",
+      "mapId": "map_1788600499166_8p1vs",
+      "simulationId": "sim_1788600499179_r4loe",
+      "targetGrade": "",
+      "targetClass": "X-IPA QA",
+      "createdBy": "usr-1788600498847",
+      "status": "WAITING",
+      "createdAt": "2026-09-05T09:28:19.195Z",
+      "startedAt": null,
+      "endedAt": null,
+      "joinedStudents": []
+    },
+    "room_1788600512040_ovofo": {
+      "id": "room_1788600512040_ovofo",
+      "schoolId": "qa-school-1788600511689",
+      "name": "QA Room",
+      "mapId": "map_1788600512017_gdb8q",
+      "simulationId": "sim_1788600512032_k6dhe",
+      "targetGrade": "",
+      "targetClass": "X-IPA QA",
+      "createdBy": "usr-1788600511698",
+      "status": "WAITING",
+      "createdAt": "2026-09-05T09:28:32.040Z",
+      "startedAt": null,
+      "endedAt": null,
+      "joinedStudents": []
+    },
+    "room_1788600535945_55cw9": {
+      "id": "room_1788600535945_55cw9",
+      "schoolId": "qa-school-1788600535592",
+      "name": "QA Room",
+      "mapId": "map_1788600535915_tl5bj",
+      "simulationId": "sim_1788600535930_v7lbf",
+      "targetGrade": "",
+      "targetClass": "IPA QA",
+      "createdBy": "usr-1788600535599",
+      "status": "WAITING",
+      "createdAt": "2026-09-05T09:28:55.945Z",
+      "startedAt": null,
+      "endedAt": null,
+      "joinedStudents": []
+    },
+    "room_1788600575499_2lpgy": {
+      "id": "room_1788600575499_2lpgy",
+      "schoolId": "qa-school-1788600575152",
+      "name": "QA Room",
+      "mapId": "map_1788600575475_p0l6c",
+      "simulationId": "sim_1788600575491_valyy",
+      "targetGrade": "",
+      "targetClass": "IPA QA",
+      "createdBy": "usr-1788600575161",
+      "status": "RUNNING",
+      "createdAt": "2026-09-05T09:29:35.499Z",
+      "startedAt": "2026-09-05T09:29:35.517Z",
+      "endedAt": null,
+      "joinedStudents": []
+    },
+    "room_1788600590611_e0car": {
+      "id": "room_1788600590611_e0car",
+      "schoolId": "qa-school-1788600590254",
+      "name": "QA Room",
+      "mapId": "map_1788600590580_igbgx",
+      "simulationId": "sim_1788600590596_b0cma",
+      "targetGrade": "",
+      "targetClass": "IPA QA",
+      "createdBy": "usr-1788600590265",
+      "status": "RUNNING",
+      "createdAt": "2026-09-05T09:29:50.611Z",
+      "startedAt": "2026-09-05T09:29:50.625Z",
+      "endedAt": null,
+      "joinedStudents": []
+    },
+    "room_1788600604237_dw149": {
+      "id": "room_1788600604237_dw149",
+      "schoolId": "qa-school-1788600603865",
+      "name": "QA Room",
+      "mapId": "map_1788600604208_ctpsk",
+      "simulationId": "sim_1788600604224_igm4c",
+      "targetGrade": "",
+      "targetClass": "IPA QA",
+      "createdBy": "usr-1788600603879",
+      "status": "RUNNING",
+      "createdAt": "2026-09-05T09:30:04.237Z",
+      "startedAt": "2026-09-05T09:30:04.254Z",
+      "endedAt": null,
+      "joinedStudents": []
+    },
+    "room_1788600618588_8e47u": {
+      "id": "room_1788600618588_8e47u",
+      "schoolId": "qa-school-1788600618240",
+      "name": "QA Room",
+      "mapId": "map_1788600618568_vue8e",
+      "simulationId": "sim_1788600618582_xrp64",
+      "targetGrade": "",
+      "targetClass": "IPA QA",
+      "createdBy": "usr-1788600618252",
+      "status": "RUNNING",
+      "createdAt": "2026-09-05T09:30:18.588Z",
+      "startedAt": "2026-09-05T09:30:18.602Z",
+      "endedAt": null,
+      "joinedStudents": []
     }
   },
   "dtResults": [
@@ -522,6 +1871,89 @@
       "distanceTravelled": 25,
       "hazardsEncountered": [],
       "submittedAt": "2026-09-05T01:41:48.149Z"
+    },
+    {
+      "id": "result_1788599249590_zr7xv",
+      "roomId": "room_1788599249450_8qv0w",
+      "simulationId": "sim_1788599249419_3a88v",
+      "mapId": "map_1788599249351_aw721",
+      "schoolId": "sch-20534748",
+      "userId": "seed-alvira.nizha",
+      "outcome": "success",
+      "completionTimeSeconds": 45,
+      "hpRemaining": 80,
+      "damageTaken": 20,
+      "distanceTravelled": 25,
+      "hazardsEncountered": [],
+      "submittedAt": "2026-09-05T09:07:29.590Z"
+    },
+    {
+      "id": "result_1788600575534_mxmwx",
+      "roomId": "room_1788600575499_2lpgy",
+      "simulationId": "sim_1788600575491_valyy",
+      "mapId": "map_1788600575475_p0l6c",
+      "schoolId": "qa-school-1788600575152",
+      "userId": "usr-1788600575326",
+      "outcome": "COMPLETED",
+      "completionTimeSeconds": 45,
+      "hpRemaining": 85,
+      "damageTaken": 0,
+      "distanceTravelled": 0,
+      "hazardsEncountered": [
+        "fire"
+      ],
+      "submittedAt": "2026-09-05T09:29:35.534Z"
+    },
+    {
+      "id": "result_1788600590635_zgvyp",
+      "roomId": "room_1788600590611_e0car",
+      "simulationId": "sim_1788600590596_b0cma",
+      "mapId": "map_1788600590580_igbgx",
+      "schoolId": "qa-school-1788600590254",
+      "userId": "usr-1788600590429",
+      "outcome": "COMPLETED",
+      "completionTimeSeconds": 45,
+      "hpRemaining": 85,
+      "damageTaken": 0,
+      "distanceTravelled": 0,
+      "hazardsEncountered": [
+        "fire"
+      ],
+      "submittedAt": "2026-09-05T09:29:50.635Z"
+    },
+    {
+      "id": "result_1788600604270_r7brl",
+      "roomId": "room_1788600604237_dw149",
+      "simulationId": "sim_1788600604224_igm4c",
+      "mapId": "map_1788600604208_ctpsk",
+      "schoolId": "qa-school-1788600603865",
+      "userId": "usr-1788600604041",
+      "outcome": "COMPLETED",
+      "completionTimeSeconds": 45,
+      "hpRemaining": 85,
+      "damageTaken": 0,
+      "distanceTravelled": 0,
+      "hazardsEncountered": [
+        "fire"
+      ],
+      "submittedAt": "2026-09-05T09:30:04.270Z"
+    },
+    {
+      "id": "result_1788600618614_cyp7l",
+      "roomId": "room_1788600618588_8e47u",
+      "simulationId": "sim_1788600618582_xrp64",
+      "mapId": "map_1788600618568_vue8e",
+      "schoolId": "qa-school-1788600618240",
+      "userId": "usr-1788600618409",
+      "outcome": "COMPLETED",
+      "completionTimeSeconds": 45,
+      "hpRemaining": 85,
+      "damageTaken": 0,
+      "distanceTravelled": 0,
+      "hazardsEncountered": [
+        "fire"
+      ],
+      "submittedAt": "2026-09-05T09:30:18.614Z"
     }
   ],
   "schools": [
@@ -4733,5 +6165,6 @@
       "regency": "Kabupaten Mojokerto",
       "province": "Jawa Timur"
     }
-  ]
+  ],
+  "classes": []
 }

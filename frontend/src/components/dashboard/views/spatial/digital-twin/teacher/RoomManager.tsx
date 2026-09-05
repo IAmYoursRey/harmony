@@ -99,7 +99,7 @@ export function RoomManager({ rooms, maps, simulations, schoolId, onRefresh }: P
           Ruang Sesi ({activeRooms.length} aktif)
         </h3>
         <div className="flex gap-2">
-          <button onClick={onRefresh} className="p-2 rounded-lg bg-slate-100 dark:bg-slate-800 text-ink-500 hover:bg-slate-200">
+          <button onClick={() => onRefresh(false)} className="px-3 py-2 text-ink-500 hover:text-brand-600 rounded-lg hover:bg-brand-50" title="Refresh">
             <RefreshCw className="h-4 w-4" />
           </button>
           <button
