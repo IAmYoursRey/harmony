@@ -5,7 +5,10 @@
   "framework": null,
   "functions": {
     "api/**/*.js": {
-      "includeFiles": "backend/database.json"
+      "includeFiles": [
+        "backend/database.json",
+        "backend/data/schools-lite.json"
+      ]
     }
   },
   "rewrites": [
