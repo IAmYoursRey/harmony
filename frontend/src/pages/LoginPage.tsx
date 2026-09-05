@@ -61,7 +61,7 @@ export default function LoginPage() {
     setLoading(false);
     if (result.success) {
       show(`Selamat datang kembali!`, 'success');
-      navigate('/school-selection');
+      navigate('/app');
     } else {
       show(result.error ?? 'Gagal masuk', 'error');
     }
@@ -83,7 +83,7 @@ export default function LoginPage() {
     setLoading(false);
     if (result.success) {
       show(`Akun berhasil dibuat! Selamat datang, ${regName}!`, 'success');
-      navigate('/school-selection');
+      navigate('/app');
     } else {
       show(result.error ?? 'Gagal mendaftar', 'error');
     }

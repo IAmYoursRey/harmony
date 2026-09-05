@@ -18,7 +18,7 @@ import { Logo } from '@/components/Logo';
 import {  useToast  } from '@/hooks/useToast';
 import { useSchool } from '@/hooks/useSchool';
 import { useAuth } from '@/hooks/useAuth';
-import { updateProfile } from '@/data/userProfiles';
+import { apiClient } from '@/services/apiClient';
 import { ThemePicker } from '@/components/ThemePicker';
 import { useI18n } from '@/hooks/useI18n';
 import { getAllSchools, extractProvinces, extractRegencies } from '@/services/schoolService';
@@ -77,20 +77,22 @@ export default function SchoolSelectionPage() {
     return schools.filter((s) => s.name.toLowerCase().includes(q));
   }, [schools, search]);
 
-  const handleConfirm = () => {
+  const handleConfirm = async () => {
     if (!school || !provinceId || !regencyId) return;
     
-    // Save to global context
-    setSelection(school);
-    
-    // Persist to user profile
     if (currentUser) {
-      updateProfile({ schoolId: school.id });
-      refreshProfile();
+      try {
+        await apiClient.post('/api/users/me/school', { schoolId: school.id });
+        setSelection(school);
+        await refreshProfile();
+        show(`Sekolah ${school.name} berhasil dipilih!`, 'success');
+        navigate('/app');
+      } catch (err: any) {
+        show(err.message || 'Gagal menyimpan sekolah', 'error');
+      }
+    } else {
+      navigate('/login');
     }
-
-    show(`Sekolah ${school.name} berhasil dipilih!`, 'success');
-    navigate('/app');
   };
 
   const stepLabels = [t('school.province'), t('school.regency'), t('school.select'), t('school.confirm')];
@@ -123,12 +125,6 @@ export default function SchoolSelectionPage() {
               className="inline-flex items-center gap-1.5 text-sm font-medium text-ink-600 transition-colors hover:text-brand-600 dark:text-slate-400 dark:hover:text-brand-400"
             >
               {t('login.back')}
-            </button>
-            <button
-              onClick={() => navigate('/app')}
-              className="inline-flex items-center gap-1.5 text-sm font-medium text-brand-600 transition-colors hover:text-brand-700 dark:text-brand-400 dark:hover:text-brand-300"
-            >
-              Lewati (Nanti Saja) <ArrowRight className="h-4 w-4" />
             </button>
           </div>
         </div>

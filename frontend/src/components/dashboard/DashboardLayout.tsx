@@ -8,7 +8,7 @@ import { useAuth } from '@/hooks/useAuth';
 export function DashboardLayout() {
   const [mobileOpen, setMobileOpen] = useState(false);
   const location = useLocation();
-  const { currentUser, isLoading } = useAuth();
+  const { currentUser, currentProfile, isLoading } = useAuth();
 
   const activeId = (() => {
     const path = location.pathname.replace('/app', '').replace(/^\//, '');
@@ -21,6 +21,11 @@ export function DashboardLayout() {
   // Global Auth Protection
   if (!isLoading && !currentUser) {
     return <Navigate to="/login" replace />;
+  }
+
+  // Onboarding Gate
+  if (!isLoading && currentUser && (!currentProfile?.schoolId || currentProfile.schoolId === 'unknown')) {
+    return <Navigate to="/school-selection" replace />;
   }
 
   // RBAC Route Protection

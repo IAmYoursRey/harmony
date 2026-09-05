@@ -15,14 +15,17 @@ router.post('/', verifyToken, (req, res) => {
   const db = readDB();
   const index = db.profiles.findIndex(p => p.userId === req.user.id);
   
+  // Extract schoolId to prevent arbitrary modification
+  const { schoolId, ...safeBody } = req.body;
+  
   // Create or Update
   if (index === -1) {
-    const newProfile = { ...req.body, userId: req.user.id, lastUpdated: new Date().toISOString() };
+    const newProfile = { ...safeBody, userId: req.user.id, lastUpdated: new Date().toISOString() };
     db.profiles.push(newProfile);
     writeDB(db);
     return res.json({ profile: newProfile });
   } else {
-    db.profiles[index] = { ...db.profiles[index], ...req.body, lastUpdated: new Date().toISOString() };
+    db.profiles[index] = { ...db.profiles[index], ...safeBody, lastUpdated: new Date().toISOString() };
     writeDB(db);
     return res.json({ profile: db.profiles[index] });
   }

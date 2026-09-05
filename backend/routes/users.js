@@ -171,4 +171,41 @@ router.put('/:id', verifyToken, async (req, res) => {
   res.json({ success: true, account: safeAccount, profile: targetProfile });
 });
 
+// POST /api/users/me/school
+// Dedicated endpoint for one-time school assignment (Onboarding)
+router.post('/me/school', verifyToken, (req, res) => {
+  const db = readDB();
+  const userId = req.user.id;
+  const { schoolId } = req.body;
+
+  if (!schoolId) {
+    return res.status(400).json({ error: 'schoolId is required' });
+  }
+
+  const profileIndex = db.profiles.findIndex(p => p.userId === userId);
+  if (profileIndex === -1) {
+    return res.status(404).json({ error: 'Profile not found' });
+  }
+
+  const profile = db.profiles[profileIndex];
+
+  // Only allow assignment if currently not assigned (null, undefined, or 'unknown')
+  if (profile.schoolId && profile.schoolId !== 'unknown') {
+    return res.status(403).json({ error: 'School already assigned. Only a DEV can change your school.' });
+  }
+
+  // Validate that the requested school actually exists
+  const schoolExists = db.schools.find(s => s.id === schoolId);
+  if (!schoolExists) {
+    return res.status(400).json({ error: 'Invalid school ID' });
+  }
+
+  db.profiles[profileIndex].schoolId = schoolId;
+  db.profiles[profileIndex].lastUpdated = new Date().toISOString();
+  
+  writeDB(db);
+
+  return res.json({ success: true, profile: db.profiles[profileIndex] });
+});
+
 export default router;
