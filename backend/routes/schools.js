@@ -12,11 +12,23 @@ async function getBaseSchools() {
     const finalPath = path.resolve(process.cwd(), 'data/final/schools-final.json');
     if (fs.existsSync(finalPath)) {
         try {
-            console.log('Loading 215k dataset into memory...');
+            console.log('Loading 215k final dataset into memory...');
             _localSchoolsCache = JSON.parse(fs.readFileSync(finalPath, 'utf8'));
             return _localSchoolsCache;
         } catch(e) {
             console.error('Error reading schools-final.json:', e);
+        }
+    }
+    
+    // Try to load lite dataset (for Vercel/production where 100MB limit applies)
+    const litePath = path.resolve(__dirname, '../data/schools-lite.json');
+    if (fs.existsSync(litePath)) {
+        try {
+            console.log('Loading 215k LITE dataset into memory...');
+            _localSchoolsCache = JSON.parse(fs.readFileSync(litePath, 'utf8'));
+            return _localSchoolsCache;
+        } catch(e) {
+            console.error('Error reading schools-lite.json:', e);
         }
     }
     
