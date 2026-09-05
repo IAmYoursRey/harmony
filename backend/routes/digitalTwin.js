@@ -42,48 +42,48 @@ function requireSchoolOwnership(req, res, callerSchoolId, targetSchoolId) {
 // ─────────────────────────────────────────────────────────────
 
 // GET digital twin by schoolId (legacy image+nodes+edges)
-router.get('/legacy/:schoolId', (req, res) => {
+router.get('/legacy/:schoolId', async (req, res) => {
   const { schoolId } = req.params;
-  const db = readDB();
+  const db = await readDB();
   const twin = db.digitalTwins?.[schoolId] || null;
   res.json({ data: twin });
 });
 
 // POST save digital twin (legacy)
-router.post('/legacy/:schoolId', verifyToken, (req, res) => {
+router.post('/legacy/:schoolId', verifyToken, async (req, res) => {
   if (!requireTeacher(req, res)) return;
   const { schoolId } = req.params;
   const { mapImage, nodes, edges } = req.body;
-  const db = readDB();
+  const db = await readDB();
   const callerSchoolId = getCallerSchoolId(db, req.user.id);
   if (!requireSchoolOwnership(req, res, callerSchoolId, schoolId)) return;
 
   if (!db.digitalTwins) db.digitalTwins = {};
   db.digitalTwins[schoolId] = { mapImage, nodes, edges, lastUpdated: new Date().toISOString() };
-  const success = writeDB(db);
+  const success = await writeDB(db);
   if (success) res.json({ success: true });
   else res.status(500).json({ error: 'Failed to save digital twin' });
 });
 
 // Legacy routes without prefix (backward-compat for existing frontend)
-router.get('/:schoolId', (req, res, next) => {
+router.get('/:schoolId', async (req, res, next) => {
   // Skip if the schoolId looks like a sub-route
   const id = req.params.schoolId;
   if (['maps', 'simulations', 'rooms'].includes(id)) return next();
-  const db = readDB();
+  const db = await readDB();
   const twin = db.digitalTwins?.[id] || null;
   res.json({ data: twin });
 });
 
-router.post('/:schoolId', verifyToken, (req, res, next) => {
+router.post('/:schoolId', verifyToken, async (req, res, next) => {
   const id = req.params.schoolId;
   if (['maps', 'simulations', 'rooms'].includes(id)) return next();
   if (!requireTeacher(req, res)) return;
   const { mapImage, nodes, edges } = req.body;
-  const db = readDB();
+  const db = await readDB();
   if (!db.digitalTwins) db.digitalTwins = {};
   db.digitalTwins[id] = { mapImage, nodes, edges, lastUpdated: new Date().toISOString() };
-  const success = writeDB(db);
+  const success = await writeDB(db);
   if (success) res.json({ success: true });
   else res.status(500).json({ error: 'Failed to save digital twin' });
 });
@@ -93,10 +93,10 @@ router.post('/:schoolId', verifyToken, (req, res, next) => {
 // ─────────────────────────────────────────────────────────────
 
 // GET all maps for a school
-router.get('/maps', verifyToken, (req, res) => {
+router.get('/maps', verifyToken, async (req, res) => {
   const { schoolId } = req.query;
   if (!schoolId) return res.status(400).json({ error: 'schoolId query param required' });
-  const db = readDB();
+  const db = await readDB();
   const callerSchoolId = getCallerSchoolId(db, req.user.id);
   if (!requireSchoolOwnership(req, res, callerSchoolId, schoolId)) return;
 
@@ -105,9 +105,9 @@ router.get('/maps', verifyToken, (req, res) => {
 });
 
 // POST create new map
-router.post('/maps', verifyToken, (req, res) => {
+router.post('/maps', verifyToken, async (req, res) => {
   if (!requireTeacher(req, res)) return;
-  const db = readDB();
+  const db = await readDB();
   const callerSchoolId = getCallerSchoolId(db, req.user.id);
   const { schoolId, name, description, gridWidth, gridHeight, cellScale, cellScaleUnit } = req.body;
 
@@ -138,13 +138,13 @@ router.post('/maps', verifyToken, (req, res) => {
 
   if (!db.gridMaps) db.gridMaps = {};
   db.gridMaps[newMap.id] = newMap;
-  if (writeDB(db)) res.status(201).json({ data: newMap });
+  if (await writeDB(db)) res.status(201).json({ data: newMap });
   else res.status(500).json({ error: 'Failed to create map' });
 });
 
 // GET single map
-router.get('/maps/:mapId', verifyToken, (req, res) => {
-  const db = readDB();
+router.get('/maps/:mapId', verifyToken, async (req, res) => {
+  const db = await readDB();
   const map = db.gridMaps?.[req.params.mapId];
   if (!map) return res.status(404).json({ error: 'Map not found' });
   const callerSchoolId = getCallerSchoolId(db, req.user.id);
@@ -153,9 +153,9 @@ router.get('/maps/:mapId', verifyToken, (req, res) => {
 });
 
 // PUT update map
-router.put('/maps/:mapId', verifyToken, (req, res) => {
+router.put('/maps/:mapId', verifyToken, async (req, res) => {
   if (!requireTeacher(req, res)) return;
-  const db = readDB();
+  const db = await readDB();
   const map = db.gridMaps?.[req.params.mapId];
   if (!map) return res.status(404).json({ error: 'Map not found' });
   const callerSchoolId = getCallerSchoolId(db, req.user.id);
@@ -174,21 +174,21 @@ router.put('/maps/:mapId', verifyToken, (req, res) => {
   map.updatedAt = new Date().toISOString();
 
   db.gridMaps[req.params.mapId] = map;
-  if (writeDB(db)) res.json({ data: map });
+  if (await writeDB(db)) res.json({ data: map });
   else res.status(500).json({ error: 'Failed to update map' });
 });
 
 // DELETE map
-router.delete('/maps/:mapId', verifyToken, (req, res) => {
+router.delete('/maps/:mapId', verifyToken, async (req, res) => {
   if (!requireTeacher(req, res)) return;
-  const db = readDB();
+  const db = await readDB();
   const map = db.gridMaps?.[req.params.mapId];
   if (!map) return res.status(404).json({ error: 'Map not found' });
   const callerSchoolId = getCallerSchoolId(db, req.user.id);
   if (!requireSchoolOwnership(req, res, callerSchoolId, map.schoolId)) return;
 
   delete db.gridMaps[req.params.mapId];
-  if (writeDB(db)) res.json({ success: true });
+  if (await writeDB(db)) res.json({ success: true });
   else res.status(500).json({ error: 'Failed to delete map' });
 });
 
@@ -197,10 +197,10 @@ router.delete('/maps/:mapId', verifyToken, (req, res) => {
 // ─────────────────────────────────────────────────────────────
 
 // GET all simulations for a school
-router.get('/simulations', verifyToken, (req, res) => {
+router.get('/simulations', verifyToken, async (req, res) => {
   const { schoolId } = req.query;
   if (!schoolId) return res.status(400).json({ error: 'schoolId query param required' });
-  const db = readDB();
+  const db = await readDB();
   const callerSchoolId = getCallerSchoolId(db, req.user.id);
   if (!requireSchoolOwnership(req, res, callerSchoolId, schoolId)) return;
 
@@ -209,9 +209,9 @@ router.get('/simulations', verifyToken, (req, res) => {
 });
 
 // POST create simulation
-router.post('/simulations', verifyToken, (req, res) => {
+router.post('/simulations', verifyToken, async (req, res) => {
   if (!requireTeacher(req, res)) return;
-  const db = readDB();
+  const db = await readDB();
   const { schoolId, mapId, disasterType, name, description, durationSeconds,
     spawnPointId, safePointIds, hazards, events, loseConditions } = req.body;
 
@@ -247,13 +247,13 @@ router.post('/simulations', verifyToken, (req, res) => {
 
   if (!db.simulations) db.simulations = {};
   db.simulations[sim.id] = sim;
-  if (writeDB(db)) res.status(201).json({ data: sim });
+  if (await writeDB(db)) res.status(201).json({ data: sim });
   else res.status(500).json({ error: 'Failed to create simulation' });
 });
 
 // GET single simulation
-router.get('/simulations/:simId', verifyToken, (req, res) => {
-  const db = readDB();
+router.get('/simulations/:simId', verifyToken, async (req, res) => {
+  const db = await readDB();
   const sim = db.simulations?.[req.params.simId];
   if (!sim) return res.status(404).json({ error: 'Simulation not found' });
   const callerSchoolId = getCallerSchoolId(db, req.user.id);
@@ -262,9 +262,9 @@ router.get('/simulations/:simId', verifyToken, (req, res) => {
 });
 
 // PUT update simulation
-router.put('/simulations/:simId', verifyToken, (req, res) => {
+router.put('/simulations/:simId', verifyToken, async (req, res) => {
   if (!requireTeacher(req, res)) return;
-  const db = readDB();
+  const db = await readDB();
   const sim = db.simulations?.[req.params.simId];
   if (!sim) return res.status(404).json({ error: 'Simulation not found' });
   const callerSchoolId = getCallerSchoolId(db, req.user.id);
@@ -276,21 +276,21 @@ router.put('/simulations/:simId', verifyToken, (req, res) => {
   }
   sim.updatedAt = new Date().toISOString();
   db.simulations[req.params.simId] = sim;
-  if (writeDB(db)) res.json({ data: sim });
+  if (await writeDB(db)) res.json({ data: sim });
   else res.status(500).json({ error: 'Failed to update simulation' });
 });
 
 // DELETE simulation
-router.delete('/simulations/:simId', verifyToken, (req, res) => {
+router.delete('/simulations/:simId', verifyToken, async (req, res) => {
   if (!requireTeacher(req, res)) return;
-  const db = readDB();
+  const db = await readDB();
   const sim = db.simulations?.[req.params.simId];
   if (!sim) return res.status(404).json({ error: 'Simulation not found' });
   const callerSchoolId = getCallerSchoolId(db, req.user.id);
   if (!requireSchoolOwnership(req, res, callerSchoolId, sim.schoolId)) return;
 
   delete db.simulations[req.params.simId];
-  if (writeDB(db)) res.json({ success: true });
+  if (await writeDB(db)) res.json({ success: true });
   else res.status(500).json({ error: 'Failed to delete simulation' });
 });
 
@@ -299,10 +299,10 @@ router.delete('/simulations/:simId', verifyToken, (req, res) => {
 // ─────────────────────────────────────────────────────────────
 
 // GET rooms for a school (students see only their class rooms, teachers see all for their school)
-router.get('/rooms', verifyToken, (req, res) => {
+router.get('/rooms', verifyToken, async (req, res) => {
   const { schoolId } = req.query;
   if (!schoolId) return res.status(400).json({ error: 'schoolId required' });
-  const db = readDB();
+  const db = await readDB();
   const callerSchoolId = getCallerSchoolId(db, req.user.id);
   if (!requireSchoolOwnership(req, res, callerSchoolId, schoolId)) return;
 
@@ -323,9 +323,9 @@ router.get('/rooms', verifyToken, (req, res) => {
 });
 
 // POST create room
-router.post('/rooms', verifyToken, (req, res) => {
+router.post('/rooms', verifyToken, async (req, res) => {
   if (!requireTeacher(req, res)) return;
-  const db = readDB();
+  const db = await readDB();
   const { schoolId, name, mapId, simulationId, targetGrade, targetClass } = req.body;
   if (!schoolId || !name || !mapId || !simulationId || !targetClass) {
     return res.status(400).json({ error: 'schoolId, name, mapId, simulationId, targetClass required' });
@@ -357,13 +357,13 @@ router.post('/rooms', verifyToken, (req, res) => {
 
   if (!db.dtRooms) db.dtRooms = {};
   db.dtRooms[room.id] = room;
-  if (writeDB(db)) res.status(201).json({ data: room });
+  if (await writeDB(db)) res.status(201).json({ data: room });
   else res.status(500).json({ error: 'Failed to create room' });
 });
 
 // GET single room
-router.get('/rooms/:roomId', verifyToken, (req, res) => {
-  const db = readDB();
+router.get('/rooms/:roomId', verifyToken, async (req, res) => {
+  const db = await readDB();
   const room = db.dtRooms?.[req.params.roomId];
   if (!room) return res.status(404).json({ error: 'Room not found' });
   const callerSchoolId = getCallerSchoolId(db, req.user.id);
@@ -380,8 +380,8 @@ router.get('/rooms/:roomId', verifyToken, (req, res) => {
 });
 
 // POST join room
-router.post('/rooms/:roomId/join', verifyToken, (req, res) => {
-  const db = readDB();
+router.post('/rooms/:roomId/join', verifyToken, async (req, res) => {
+  const db = await readDB();
   const room = db.dtRooms?.[req.params.roomId];
   if (!room) return res.status(404).json({ error: 'Room not found' });
 
@@ -405,14 +405,14 @@ router.post('/rooms/:roomId/join', verifyToken, (req, res) => {
     room.joinedStudents.push(req.user.id);
   }
   db.dtRooms[req.params.roomId] = room;
-  if (writeDB(db)) res.json({ data: room });
+  if (await writeDB(db)) res.json({ data: room });
   else res.status(500).json({ error: 'Failed to join room' });
 });
 
 // POST start room
-router.post('/rooms/:roomId/start', verifyToken, (req, res) => {
+router.post('/rooms/:roomId/start', verifyToken, async (req, res) => {
   if (!requireTeacher(req, res)) return;
-  const db = readDB();
+  const db = await readDB();
   const room = db.dtRooms?.[req.params.roomId];
   if (!room) return res.status(404).json({ error: 'Room not found' });
   const callerSchoolId = getCallerSchoolId(db, req.user.id);
@@ -424,14 +424,14 @@ router.post('/rooms/:roomId/start', verifyToken, (req, res) => {
   room.status = 'RUNNING';
   room.startedAt = new Date().toISOString();
   db.dtRooms[req.params.roomId] = room;
-  if (writeDB(db)) res.json({ data: room });
+  if (await writeDB(db)) res.json({ data: room });
   else res.status(500).json({ error: 'Failed to start room' });
 });
 
 // POST end room
-router.post('/rooms/:roomId/end', verifyToken, (req, res) => {
+router.post('/rooms/:roomId/end', verifyToken, async (req, res) => {
   if (!requireTeacher(req, res)) return;
-  const db = readDB();
+  const db = await readDB();
   const room = db.dtRooms?.[req.params.roomId];
   if (!room) return res.status(404).json({ error: 'Room not found' });
   const callerSchoolId = getCallerSchoolId(db, req.user.id);
@@ -440,13 +440,13 @@ router.post('/rooms/:roomId/end', verifyToken, (req, res) => {
   room.status = 'FINISHED';
   room.endedAt = new Date().toISOString();
   db.dtRooms[req.params.roomId] = room;
-  if (writeDB(db)) res.json({ data: room });
+  if (await writeDB(db)) res.json({ data: room });
   else res.status(500).json({ error: 'Failed to end room' });
 });
 
 // POST submit game result
-router.post('/rooms/:roomId/result', verifyToken, (req, res) => {
-  const db = readDB();
+router.post('/rooms/:roomId/result', verifyToken, async (req, res) => {
+  const db = await readDB();
   const room = db.dtRooms?.[req.params.roomId];
   if (!room) return res.status(404).json({ error: 'Room not found' });
 
@@ -484,14 +484,14 @@ router.post('/rooms/:roomId/result', verifyToken, (req, res) => {
 
   if (!db.dtResults) db.dtResults = [];
   db.dtResults.push(result);
-  if (writeDB(db)) res.status(201).json({ data: result });
+  if (await writeDB(db)) res.status(201).json({ data: result });
   else res.status(500).json({ error: 'Failed to save result' });
 });
 
 // GET results for a room (teacher only)
-router.get('/rooms/:roomId/results', verifyToken, (req, res) => {
+router.get('/rooms/:roomId/results', verifyToken, async (req, res) => {
   if (!requireTeacher(req, res)) return;
-  const db = readDB();
+  const db = await readDB();
   const room = db.dtRooms?.[req.params.roomId];
   if (!room) return res.status(404).json({ error: 'Room not found' });
   const callerSchoolId = getCallerSchoolId(db, req.user.id);
@@ -502,8 +502,8 @@ router.get('/rooms/:roomId/results', verifyToken, (req, res) => {
 });
 
 // POST sync player state (Real-time telemetry)
-router.post('/rooms/:roomId/sync', verifyToken, (req, res) => {
-  const db = readDB();
+router.post('/rooms/:roomId/sync', verifyToken, async (req, res) => {
+  const db = await readDB();
   const room = db.dtRooms?.[req.params.roomId];
   if (!room) return res.status(404).json({ error: 'Room not found' });
 
@@ -534,7 +534,7 @@ router.post('/rooms/:roomId/sync', verifyToken, (req, res) => {
       lastSeen: Date.now()
     };
     db.dtRooms[req.params.roomId] = room;
-    writeDB(db);
+    await writeDB(db);
   }
 
   // Clean up stale players (older than 10 seconds)

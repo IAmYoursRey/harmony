@@ -10,8 +10,8 @@ function getCallerSchoolId(db, userId) {
 }
 
 // GET /api/classes
-router.get('/', verifyToken, (req, res) => {
-  const db = readDB();
+router.get('/', verifyToken, async (req, res) => {
+  const db = await readDB();
   const callerRole = req.user.role;
   const classes = db.classes || [];
 
@@ -38,9 +38,9 @@ router.get('/', verifyToken, (req, res) => {
 });
 
 // POST /api/classes
-router.post('/', verifyToken, (req, res) => {
+router.post('/', verifyToken, async (req, res) => {
   const callerRole = req.user.role;
-  const db = readDB();
+  const db = await readDB();
 
   if (callerRole !== 'teacher') {
     return res.status(403).json({ error: 'Only teachers can create classes' });
@@ -71,7 +71,7 @@ router.post('/', verifyToken, (req, res) => {
   };
 
   db.classes.push(newClass);
-  writeDB(db);
+  await writeDB(db);
 
   return res.status(201).json({ success: true, class: newClass });
 });

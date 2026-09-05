@@ -9,8 +9,8 @@ const router = express.Router();
  * Returns aggregated survey statistics for the authenticated user's school.
  * Requires auth.
  */
-router.get('/', verifyToken, (req, res) => {
-  const db = readDB();
+router.get('/', verifyToken, async (req, res) => {
+  const db = await readDB();
   const surveys = db.surveys || [];
   const schoolId = req.query.schoolId;
   const classId = req.query.classId;
@@ -69,14 +69,14 @@ router.get('/', verifyToken, (req, res) => {
  * Submit a new survey response. Requires auth.
  * Body: { schoolId, answers: Record<string, number>, score?: number }
  */
-router.post('/', verifyToken, (req, res) => {
+router.post('/', verifyToken, async (req, res) => {
   const { schoolId, answers, score } = req.body;
 
   if (!schoolId || !answers || typeof answers !== 'object') {
     return res.status(400).json({ error: 'Missing required fields: schoolId, answers' });
   }
 
-  const db = readDB();
+  const db = await readDB();
   if (!db.surveys) db.surveys = [];
 
   // Prevent duplicate submission per user per school
@@ -96,7 +96,7 @@ router.post('/', verifyToken, (req, res) => {
   };
 
   db.surveys.push(entry);
-  writeDB(db);
+  await writeDB(db);
 
   res.json({ success: true, survey: entry });
 });

@@ -13,8 +13,8 @@ function getCallerSchoolId(db, userId) {
 // GET /api/users
 // Dev: get all users
 // Teacher: get only students in their school
-router.get('/', verifyToken, (req, res) => {
-  const db = readDB();
+router.get('/', verifyToken, async (req, res) => {
+  const db = await readDB();
   const callerRole = req.user.role;
 
   if (callerRole === 'dev') {
@@ -50,7 +50,7 @@ router.get('/', verifyToken, (req, res) => {
 // Create user WITHOUT returning auth token (Provisioning)
 router.post('/', verifyToken, async (req, res) => {
   const callerRole = req.user.role;
-  const db = readDB();
+  const db = await readDB();
   const callerSchoolId = getCallerSchoolId(db, req.user.id);
   
   const { name, email, password, role, gender, grade, classSection, schoolId, dob, classId } = req.body;
@@ -106,7 +106,7 @@ router.post('/', verifyToken, async (req, res) => {
     };
     db.profiles.push(profile);
 
-    writeDB(db);
+    await writeDB(db);
 
     const { passwordHash: _, ...safeAccount } = account;
     res.status(201).json({ success: true, account: safeAccount, profile });
@@ -121,7 +121,7 @@ router.post('/', verifyToken, async (req, res) => {
 router.put('/:id', verifyToken, async (req, res) => {
   const targetUserId = req.params.id;
   const callerRole = req.user.role;
-  const db = readDB();
+  const db = await readDB();
   
   const accountIndex = db.accounts.findIndex(a => a.id === targetUserId);
   const profileIndex = db.profiles.findIndex(p => p.userId === targetUserId);
@@ -165,7 +165,7 @@ router.put('/:id', verifyToken, async (req, res) => {
 
   db.accounts[accountIndex] = targetAccount;
   db.profiles[profileIndex] = targetProfile;
-  writeDB(db);
+  await writeDB(db);
 
   const { passwordHash: _, ...safeAccount } = targetAccount;
   res.json({ success: true, account: safeAccount, profile: targetProfile });
@@ -173,8 +173,8 @@ router.put('/:id', verifyToken, async (req, res) => {
 
 // POST /api/users/me/school
 // Dedicated endpoint for one-time school assignment (Onboarding)
-router.post('/me/school', verifyToken, (req, res) => {
-  const db = readDB();
+router.post('/me/school', verifyToken, async (req, res) => {
+  const db = await readDB();
   const userId = req.user.id;
   const { schoolId } = req.body;
 
@@ -203,7 +203,7 @@ router.post('/me/school', verifyToken, (req, res) => {
   db.profiles[profileIndex].schoolId = schoolId;
   db.profiles[profileIndex].lastUpdated = new Date().toISOString();
   
-  writeDB(db);
+  await writeDB(db);
 
   return res.json({ success: true, profile: db.profiles[profileIndex] });
 });

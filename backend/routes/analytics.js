@@ -11,12 +11,12 @@ function getCallerSchoolId(db, userId) {
 
 // GET /api/analytics/system
 // Dev only
-router.get('/system', verifyToken, (req, res) => {
+router.get('/system', verifyToken, async (req, res) => {
   if (req.user.role !== 'dev') {
     return res.status(403).json({ error: 'Access denied' });
   }
 
-  const db = readDB();
+  const db = await readDB();
   
   const totalUsers = db.accounts?.length || 0;
   const teachers = db.accounts?.filter(a => a.role === 'teacher').length || 0;
@@ -43,12 +43,12 @@ router.get('/system', verifyToken, (req, res) => {
 
 // GET /api/analytics/class
 // Teacher only
-router.get('/class', verifyToken, (req, res) => {
+router.get('/class', verifyToken, async (req, res) => {
   if (req.user.role !== 'teacher' && req.user.role !== 'dev') {
     return res.status(403).json({ error: 'Access denied' });
   }
 
-  const db = readDB();
+  const db = await readDB();
   const callerSchoolId = getCallerSchoolId(db, req.user.id);
 
   if (!callerSchoolId) {

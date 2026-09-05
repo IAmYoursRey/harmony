@@ -79,6 +79,54 @@
       "name": "New Student",
       "role": "student",
       "createdAt": "2026-09-05T15:20:27.131Z"
+    },
+    {
+      "id": "usr-1788623489572",
+      "email": "teach_1788623489564@test.com",
+      "passwordHash": "$2b$10$hg7eOT0TtHtOaXrJ7Sfgy.lT7a06pa4A1jOJUEGPUzUnG5tmv/S/C",
+      "name": "New Teacher",
+      "role": "teacher",
+      "createdAt": "2026-09-05T15:51:29.627Z"
+    },
+    {
+      "id": "usr-1788623489641",
+      "email": "stud_1788623489639@test.com",
+      "passwordHash": "$2b$10$GeYUBVFGJnsQtLwTUYaEvOn8TdVcI08LenG0wC/Znpf9CE5Yi2IDa",
+      "name": "New Student",
+      "role": "student",
+      "createdAt": "2026-09-05T15:51:29.693Z"
+    },
+    {
+      "id": "usr-1788623495619",
+      "email": "teach_1788623495617@test.com",
+      "passwordHash": "$2b$10$3rd/uhhUle6fcPANKSLCF.CSQhBA9qO3nRtBkLpUxitgRzjZ0Tg76",
+      "name": "New Teacher",
+      "role": "teacher",
+      "createdAt": "2026-09-05T15:51:35.671Z"
+    },
+    {
+      "id": "usr-1788623495685",
+      "email": "stud_1788623495684@test.com",
+      "passwordHash": "$2b$10$iVrt6qH3hSvhFuI92cnrx.0IJVf/YOLTRz5OIDV4zNCMp6nriwY/a",
+      "name": "New Student",
+      "role": "student",
+      "createdAt": "2026-09-05T15:51:35.738Z"
+    },
+    {
+      "id": "usr-1788623813465",
+      "email": "teach_1788623813457@test.com",
+      "passwordHash": "$2b$10$5nN4SQA25NHbUCu7aNSWa.uH47zM.JgRHkp7ASqsn5Y9puGTOtF3O",
+      "name": "New Teacher",
+      "role": "teacher",
+      "createdAt": "2026-09-05T15:56:53.519Z"
+    },
+    {
+      "id": "usr-1788623813534",
+      "email": "stud_1788623813532@test.com",
+      "passwordHash": "$2b$10$HtWxloJ0bpPpDt7h0HCPceVjD01YD0oKMjex0d5igfH3SURdOuNou",
+      "name": "New Student",
+      "role": "student",
+      "createdAt": "2026-09-05T15:56:53.586Z"
     }
   ],
   "profiles": [
@@ -195,6 +243,72 @@
       "topicScores": {},
       "totalPoints": 0,
       "lastUpdated": "2026-09-05T15:20:27.131Z"
+    },
+    {
+      "userId": "usr-1788623489572",
+      "schoolId": "unknown",
+      "grade": "X",
+      "classSection": "",
+      "gender": "other",
+      "dob": null,
+      "topicScores": {},
+      "totalPoints": 0,
+      "lastUpdated": "2026-09-05T15:51:29.627Z"
+    },
+    {
+      "userId": "usr-1788623489641",
+      "schoolId": null,
+      "grade": "X",
+      "classSection": "",
+      "gender": "other",
+      "dob": null,
+      "topicScores": {},
+      "totalPoints": 0,
+      "lastUpdated": "2026-09-05T15:51:29.693Z"
+    },
+    {
+      "userId": "usr-1788623495619",
+      "schoolId": "unknown",
+      "grade": "X",
+      "classSection": "",
+      "gender": "other",
+      "dob": null,
+      "topicScores": {},
+      "totalPoints": 0,
+      "lastUpdated": "2026-09-05T15:51:35.671Z"
+    },
+    {
+      "userId": "usr-1788623495685",
+      "schoolId": null,
+      "grade": "X",
+      "classSection": "",
+      "gender": "other",
+      "dob": null,
+      "topicScores": {},
+      "totalPoints": 0,
+      "lastUpdated": "2026-09-05T15:51:35.738Z"
+    },
+    {
+      "userId": "usr-1788623813465",
+      "schoolId": "unknown",
+      "grade": "X",
+      "classSection": "",
+      "gender": "other",
+      "dob": null,
+      "topicScores": {},
+      "totalPoints": 0,
+      "lastUpdated": "2026-09-05T15:56:53.519Z"
+    },
+    {
+      "userId": "usr-1788623813534",
+      "schoolId": null,
+      "grade": "X",
+      "classSection": "",
+      "gender": "other",
+      "dob": null,
+      "topicScores": {},
+      "totalPoints": 0,
+      "lastUpdated": "2026-09-05T15:56:53.586Z"
     }
   ],
   "digitalTwins": {

@@ -4,8 +4,8 @@ import { readDB } from '../repository.js';
 const router = express.Router();
 
 // GET all schools (optionally filtered by province or regency)
-router.get('/', (req, res) => {
-  const db = readDB();
+router.get('/', async (req, res) => {
+  const db = await readDB();
   const schools = db.schools || [];
   
   let filtered = schools;
@@ -22,8 +22,8 @@ router.get('/', (req, res) => {
 });
 
 // GET /api/schools/search?q=...
-router.get('/search', (req, res) => {
-  const db = readDB();
+router.get('/search', async (req, res) => {
+  const db = await readDB();
   const schools = db.schools || [];
   const q = (req.query.q || '').toLowerCase();
   
@@ -41,8 +41,8 @@ router.get('/search', (req, res) => {
 });
 
 // GET a specific school by ID
-router.get('/:id', (req, res) => {
-  const db = readDB();
+router.get('/:id', async (req, res) => {
+  const db = await readDB();
   const schools = db.schools || [];
   const school = schools.find(s => s.id === req.params.id);
   

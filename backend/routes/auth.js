@@ -24,7 +24,7 @@ router.post('/register', async (req, res) => {
       return res.status(400).json({ error: 'Invalid field format' });
     }
 
-    const db = readDB();
+    const db = await readDB();
     const exists = db.accounts.find(a => a.email.toLowerCase() === email.toLowerCase());
     if (exists) return res.status(400).json({ error: 'Email already exists' });
 
@@ -41,7 +41,7 @@ router.post('/register', async (req, res) => {
     };
 
     db.accounts.push(account);
-    writeDB(db);
+    await writeDB(db);
 
     const token = jwt.sign({ id: account.id, role: account.role }, SECRET, { expiresIn: '7d' });
     const { passwordHash: _, ...safeAccount } = account;
@@ -65,7 +65,7 @@ router.post('/login', async (req, res) => {
       return res.status(400).json({ error: 'Invalid email or password format' });
     }
 
-    const db = readDB();
+    const db = await readDB();
     const account = db.accounts.find(a => a.email.toLowerCase() === email.toLowerCase());
     if (!account) return res.status(401).json({ error: 'Invalid email or password' });
 
@@ -81,9 +81,9 @@ router.post('/login', async (req, res) => {
   }
 });
 
-router.get('/me', verifyToken, (req, res) => {
+router.get('/me', verifyToken, async (req, res) => {
   try {
-    const db = readDB();
+    const db = await readDB();
     const account = db.accounts.find(a => a.id === req.user.id);
     if (!account) return res.status(404).json({ error: 'User not found' });
     const { passwordHash: _, ...safeAccount } = account;
