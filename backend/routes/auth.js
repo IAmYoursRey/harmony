@@ -7,8 +7,10 @@ import dotenv from 'dotenv';
 dotenv.config();
 
 const router = express.Router();
-const SECRET = process.env.JWT_SECRET || 'geosense_dev_secret_only';
-
+const SECRET = process.env.JWT_SECRET;
+if (!SECRET) {
+  console.error('[CRITICAL] JWT_SECRET is not defined in environment variables.');
+}
 router.post('/register', async (req, res) => {
   try {
     const body = req.body || {};

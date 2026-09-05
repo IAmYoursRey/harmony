@@ -204,7 +204,7 @@ export function AILearningView() {
           {!isChatReady && (
             <div className="flex items-center gap-2 bg-amber-50 dark:bg-amber-500/10 border-b border-amber-200 dark:border-amber-500/20 px-4 py-2 text-xs text-amber-700 dark:text-amber-300">
               <Lock className="h-3.5 w-3.5 shrink-0" />
-              {t('learning.geobot_api_missing', 'Kunci API GeoBot belum diisi. Isi VITE_GEMINI_CHAT_KEY di file .env lalu restart server.')}
+              {t('learning.geobot_api_missing', 'Kunci API GeoBot belum dikonfigurasi di server.')}
             </div>
           )}
           <div className="flex-1 overflow-y-auto px-4 py-4 space-y-4">
@@ -272,7 +272,7 @@ export function AILearningView() {
           {!isQuizReady && (
             <div className="flex items-center gap-2 rounded-xl bg-amber-50 dark:bg-amber-500/10 border border-amber-200 dark:border-amber-500/20 px-4 py-3 text-xs text-amber-700 dark:text-amber-300">
               <Lock className="h-3.5 w-3.5 shrink-0" />
-              {t('learning.quiz_api_missing', 'Kunci API Soal AI belum diisi. Soal menggunakan data demo. Isi VITE_GEMINI_QUIZ_KEY di file .env lalu restart server.')}
+              {t('learning.quiz_api_missing', 'Kunci API Soal AI belum dikonfigurasi di server.')}
             </div>
           )}
 

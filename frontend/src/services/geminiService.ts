@@ -1,6 +1,4 @@
 // src/services/geminiService.ts
-// API keys dibaca dari file .env (AMAN - tidak pernah ditampilkan di web)
-// Set VITE_GEMINI_QUIZ_KEY dan VITE_GEMINI_CHAT_KEY di file .env
 
 import { apiClient } from './apiClient';
 

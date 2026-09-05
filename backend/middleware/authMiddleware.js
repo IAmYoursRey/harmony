@@ -2,8 +2,10 @@ import jwt from 'jsonwebtoken';
 import dotenv from 'dotenv';
 dotenv.config();
 
-const SECRET = process.env.JWT_SECRET || 'geosense_dev_secret_only';
-
+const SECRET = process.env.JWT_SECRET;
+if (!SECRET) {
+  console.error('[CRITICAL] JWT_SECRET is not defined in environment variables.');
+}
 export function verifyToken(req, res, next) {
   const authHeader = req.headers.authorization;
   if (!authHeader) {
