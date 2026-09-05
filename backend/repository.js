@@ -31,27 +31,35 @@ const pool = process.env.DATABASE_URL ? new pg.Pool({
   queryTimeout: 5000
 }) : null;
 
+// Helper for timeouts
+const timeoutQuery = (queryPromise, ms = 4500) => {
+  return Promise.race([
+    queryPromise,
+    new Promise((_, reject) => setTimeout(() => reject(new Error(`[CRITICAL] PostgreSQL timeout after ${ms}ms`)), ms))
+  ]);
+};
+
 // Ensure table exists on startup if using Postgres
 let pgInitialized = false;
 async function initPg() {
   if (!pool || pgInitialized) return;
   try {
-    await pool.query(`
+    await timeoutQuery(pool.query(`
       CREATE TABLE IF NOT EXISTS geosense_data (
         id INT PRIMARY KEY,
         data JSONB NOT NULL
       );
-    `);
+    `));
     
     // Check if initial row exists
-    const res = await pool.query('SELECT 1 FROM geosense_data WHERE id = 1');
+    const res = await timeoutQuery(pool.query('SELECT 1 FROM geosense_data WHERE id = 1'));
     if (res.rowCount === 0) {
       // Seed from local JSON if available
       let seedData = DEFAULT_DB;
       if (fs.existsSync(sourceDbPath)) {
         seedData = { ...DEFAULT_DB, ...JSON.parse(fs.readFileSync(sourceDbPath, 'utf-8')) };
       }
-      await pool.query('INSERT INTO geosense_data (id, data) VALUES (1, $1)', [JSON.stringify(seedData)]);
+      await timeoutQuery(pool.query('INSERT INTO geosense_data (id, data) VALUES (1, $1)', [JSON.stringify(seedData)]));
     }
     pgInitialized = true;
   } catch (err) {
@@ -67,7 +75,7 @@ export async function readDB() {
     }
     await initPg();
     try {
-      const res = await pool.query('SELECT data FROM geosense_data WHERE id = 1');
+      const res = await timeoutQuery(pool.query('SELECT data FROM geosense_data WHERE id = 1'));
       if (res.rowCount > 0) {
         return { ...DEFAULT_DB, ...res.rows[0].data };
       }
@@ -101,7 +109,7 @@ export async function writeDB(db) {
     }
     await initPg();
     try {
-      await pool.query('UPDATE geosense_data SET data = $1 WHERE id = 1', [JSON.stringify(fullDb)]);
+      await timeoutQuery(pool.query('UPDATE geosense_data SET data = $1 WHERE id = 1', [JSON.stringify(fullDb)]));
       return true;
     } catch (err) {
       console.error('Failed to write to PostgreSQL:', err);
