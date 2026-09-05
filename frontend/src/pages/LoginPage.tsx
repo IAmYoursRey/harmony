@@ -173,22 +173,22 @@ export default function LoginPage() {
                   </span>
                 </div>
 
-                {[{ id: 'login-email', label: 'Email', value: loginEmail, set: setLoginEmail, type: 'email', icon: Mail, placeholder: 'email@geosense.edu' },
-                ].map(({ id, label, value, set, type, icon: Icon, placeholder }) => (
+                {[{ id: 'email', label: 'Email', value: loginEmail, set: setLoginEmail, type: 'email', icon: Mail, placeholder: 'email@geosense.edu', autoComplete: 'email' },
+                ].map(({ id, label, value, set, type, icon: Icon, placeholder, autoComplete }) => (
                   <div key={label} className="space-y-1.5">
                     <label htmlFor={id} className="text-sm font-medium text-ink-700 dark:text-slate-300">{label}</label>
                     <div className="relative">
                       <Icon className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-ink-400" />
-                      <input id={id} name={id} type={type} value={value} onChange={e => set(e.target.value)} placeholder={placeholder}
+                      <input id={id} name={id} type={type} value={value} onChange={e => set(e.target.value)} placeholder={placeholder} autoComplete={autoComplete}
                         className="w-full rounded-xl border border-brand-100 bg-white/70 py-3 pl-10 pr-4 text-sm outline-none focus:border-brand-300 focus:ring-2 focus:ring-brand-100 dark:border-slate-700 dark:bg-slate-800/70 dark:text-white" />
                     </div>
                   </div>
                 ))}
                 <div className="space-y-1.5">
-                  <label htmlFor="login-password" className="text-sm font-medium text-ink-700 dark:text-slate-300">Kata Sandi</label>
+                  <label htmlFor="password" className="text-sm font-medium text-ink-700 dark:text-slate-300">Kata Sandi</label>
                   <div className="relative">
                     <Lock className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-ink-400" />
-                    <input id="login-password" name="login-password" type={showLoginPw ? 'text' : 'password'} value={loginPassword} onChange={e => setLoginPassword(e.target.value)} placeholder="••••••••"
+                    <input id="password" name="password" type={showLoginPw ? 'text' : 'password'} value={loginPassword} onChange={e => setLoginPassword(e.target.value)} placeholder="••••••••" autoComplete="current-password"
                       className="w-full rounded-xl border border-brand-100 bg-white/70 py-3 pl-10 pr-12 text-sm outline-none focus:border-brand-300 focus:ring-2 focus:ring-brand-100 dark:border-slate-700 dark:bg-slate-800/70 dark:text-white" />
                     <button type="button" onClick={() => setShowLoginPw(s => !s)} className="absolute right-3 top-1/2 -translate-y-1/2 text-ink-400 hover:text-ink-600">
                       {showLoginPw ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
