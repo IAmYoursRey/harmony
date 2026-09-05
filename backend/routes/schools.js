@@ -4,21 +4,26 @@ import { readDB } from '../repository.js';
 const router = express.Router();
 
 // GET all schools (optionally filtered by province or regency)
-router.get('/', async (req, res) => {
-  const db = await readDB();
-  const schools = db.schools || [];
-  
-  let filtered = schools;
-  
-  if (req.query.province) {
-    filtered = filtered.filter(s => s.province === req.query.province);
+router.get('/', async (req, res, next) => {
+  try {
+    const db = await readDB();
+    const schools = db.schools || [];
+    
+    let filtered = schools;
+    
+    if (req.query.province) {
+      filtered = filtered.filter(s => s.province === req.query.province);
+    }
+    
+    if (req.query.regency) {
+      filtered = filtered.filter(s => s.regency === req.query.regency);
+    }
+    
+    res.json({ schools: filtered });
+  } catch (error) {
+    console.error('Error fetching schools:', error);
+    res.status(503).json({ success: false, error: 'Database connection failed' });
   }
-  
-  if (req.query.regency) {
-    filtered = filtered.filter(s => s.regency === req.query.regency);
-  }
-  
-  res.json({ schools: filtered });
 });
 
 // GET /api/schools/search?q=...
