@@ -13,8 +13,9 @@
       "email": "alvira.nizha@geosense.edu",
       "passwordHash": "$2b$10$dqC8jGjGj7riZteeAFKBnOMtn8HvPtqBD8RXsXBCPrSjPbOqwBvxS",
       "name": "Alvira Fitriatun Nizha",
-      "role": "teacher",
-      "createdAt": "2026-09-04T06:29:19.798Z"
+      "role": "dev",
+      "createdAt": "2026-09-04T06:29:19.798Z",
+      "password": "$2b$10$U4B4Nlf.46yuEmftg1bYtuE9tKpalvIna/DmE5jqvHPV9Jxd1VoIm"
     },
     {
       "id": "seed-aretha.kirana",
