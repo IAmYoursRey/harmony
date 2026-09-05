@@ -3,7 +3,7 @@
     {
       "id": "seed-raihanansari6678",
       "email": "raihanansari6678@gmail.com",
-      "passwordHash": "$2b$10$4aR4gDVvos25ibUeuUrCgenlcoCyLCSP1gsI6ZZUhDsIRN8K3ba7e",
+      "passwordHash": "$2b$10$z5kabhx/vhglXe9K5y4NpOBCZctEptXudt7s48xMRqZxR/R.uhvre",
       "name": "Developer Admin",
       "role": "dev",
       "createdAt": "2026-09-04T06:29:19.797Z"
@@ -11,7 +11,7 @@
     {
       "id": "seed-alvira.nizha",
       "email": "alvira.nizha@geosense.edu",
-      "passwordHash": "$2b$10$B96SxRw.c8z2dhcOjvLZsuvnuO3OGKWB/O8EZVhYgLFj2GIAg0ynS",
+      "passwordHash": "$2b$10$dqC8jGjGj7riZteeAFKBnOMtn8HvPtqBD8RXsXBCPrSjPbOqwBvxS",
       "name": "Alvira Fitriatun Nizha",
       "role": "student",
       "createdAt": "2026-09-04T06:29:19.798Z"
@@ -19,7 +19,7 @@
     {
       "id": "seed-aretha.kirana",
       "email": "aretha.kirana@geosense.edu",
-      "passwordHash": "$2b$10$B96SxRw.c8z2dhcOjvLZsuvnuO3OGKWB/O8EZVhYgLFj2GIAg0ynS",
+      "passwordHash": "$2b$10$dqC8jGjGj7riZteeAFKBnOMtn8HvPtqBD8RXsXBCPrSjPbOqwBvxS",
       "name": "Aretha Kirana Putri Junaidi",
       "role": "student",
       "createdAt": "2026-09-04T06:29:19.798Z"
@@ -27,7 +27,7 @@
     {
       "id": "seed-sinta.nadhifah",
       "email": "sinta.nadhifah@geosense.edu",
-      "passwordHash": "$2b$10$B96SxRw.c8z2dhcOjvLZsuvnuO3OGKWB/O8EZVhYgLFj2GIAg0ynS",
+      "passwordHash": "$2b$10$dqC8jGjGj7riZteeAFKBnOMtn8HvPtqBD8RXsXBCPrSjPbOqwBvxS",
       "name": "Sinta Nadhifah",
       "role": "student",
       "createdAt": "2026-09-04T06:29:19.798Z"
