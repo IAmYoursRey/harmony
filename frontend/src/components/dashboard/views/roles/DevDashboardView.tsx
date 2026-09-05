@@ -335,26 +335,27 @@ export function DevDashboardView() {
                           </div>
                           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                             <div>
-                              <label className="block text-xs font-bold text-ink-600 dark:text-slate-400 mb-1.5">Ubah Nama</label>
-                              <input value={editName} onChange={e => setEditName(e.target.value)} className="w-full px-3.5 py-2 rounded-xl border border-brand-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-ink-900 dark:text-white outline-none focus:ring-2 focus:ring-brand-100 focus:border-brand-300 transition-all" />
+                              <label htmlFor={`editName-${acc.id}`} className="block text-xs font-bold text-ink-600 dark:text-slate-400 mb-1.5">Ubah Nama</label>
+                              <input id={`editName-${acc.id}`} value={editName} onChange={e => setEditName(e.target.value)} className="w-full px-3.5 py-2 rounded-xl border border-brand-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-ink-900 dark:text-white outline-none focus:ring-2 focus:ring-brand-100 focus:border-brand-300 transition-all" />
                             </div>
                             <div>
-                              <label className="block text-xs font-bold text-ink-600 dark:text-slate-400 mb-1.5">Ganti Sandi (Opsional)</label>
-                              <input value={editPassword} onChange={e => setEditPassword(e.target.value)} placeholder="Kata sandi baru..." className="w-full px-3.5 py-2 rounded-xl border border-brand-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-ink-900 dark:text-white outline-none focus:ring-2 focus:ring-brand-100 focus:border-brand-300 transition-all" />
+                              <label htmlFor={`editPassword-${acc.id}`} className="block text-xs font-bold text-ink-600 dark:text-slate-400 mb-1.5">Ganti Sandi (Opsional)</label>
+                              <input id={`editPassword-${acc.id}`} value={editPassword} onChange={e => setEditPassword(e.target.value)} placeholder="Kata sandi baru..." className="w-full px-3.5 py-2 rounded-xl border border-brand-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-ink-900 dark:text-white outline-none focus:ring-2 focus:ring-brand-100 focus:border-brand-300 transition-all" />
                             </div>
                           </div>
                           
                           <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
                             <div>
-                              <label className="block text-xs font-bold text-ink-600 dark:text-slate-400 mb-1.5">Provinsi</label>
-                              <select value={editProvId} onChange={e => { setEditProvId(e.target.value); setEditRegId(''); setEditSchoolId(''); }} className="w-full px-3.5 py-2 rounded-xl border border-brand-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-ink-900 dark:text-white outline-none focus:ring-2 focus:ring-brand-100">
+                              <label htmlFor={`editProvId-${acc.id}`} className="block text-xs font-bold text-ink-600 dark:text-slate-400 mb-1.5">Provinsi</label>
+                              <select id={`editProvId-${acc.id}`} value={editProvId} onChange={e => { setEditProvId(e.target.value); setEditRegId(''); setEditSchoolId(''); }} className="w-full px-3.5 py-2 rounded-xl border border-brand-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-ink-900 dark:text-white outline-none focus:ring-2 focus:ring-brand-100">
                                 <option value="">Pilih Provinsi...</option>
                                 {allProvinces.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
                               </select>
                             </div>
                             <div>
-                              <label className="block text-xs font-bold text-ink-600 dark:text-slate-400 mb-1.5">Kab/Kota</label>
+                              <label htmlFor={`editRegId-${acc.id}`} className="block text-xs font-bold text-ink-600 dark:text-slate-400 mb-1.5">Kab/Kota</label>
                               <select 
+                      id={`editRegId-${acc.id}`}
                       className="w-full bg-slate-900 border border-slate-700 rounded-lg px-4 py-2"
                       value={editRegId}
                       onChange={e => { setEditRegId(e.target.value); setEditSchoolId(''); }}
@@ -367,8 +368,8 @@ export function DevDashboardView() {
                     </select>
                             </div>
                             <div>
-                              <label className="block text-xs font-bold text-ink-600 dark:text-slate-400 mb-1.5">Sekolah</label>
-                              <select value={editSchoolId} onChange={e => setEditSchoolId(e.target.value)} disabled={!editRegId} className="w-full px-3.5 py-2 rounded-xl border border-brand-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-ink-900 dark:text-white disabled:opacity-50 outline-none focus:ring-2 focus:ring-brand-100">
+                              <label htmlFor={`editSchoolId-${acc.id}`} className="block text-xs font-bold text-ink-600 dark:text-slate-400 mb-1.5">Sekolah</label>
+                              <select id={`editSchoolId-${acc.id}`} value={editSchoolId} onChange={e => setEditSchoolId(e.target.value)} disabled={!editRegId} className="w-full px-3.5 py-2 rounded-xl border border-brand-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-ink-900 dark:text-white disabled:opacity-50 outline-none focus:ring-2 focus:ring-brand-100">
                                 <option value="">Pilih Sekolah...</option>
                                 {editSchoolsList.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
                               </select>
@@ -377,16 +378,16 @@ export function DevDashboardView() {
                           
                           <div className="grid grid-cols-2 gap-3">
                             <div>
-                              <label className="block text-xs font-bold text-ink-600 dark:text-slate-400 mb-1.5">Tingkat Kelas</label>
-                              <select value={editGrade} onChange={e => setEditGrade(e.target.value as 'X'|'XI'|'XII')} className="w-full px-3.5 py-2 rounded-xl border border-brand-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-ink-900 dark:text-white outline-none focus:ring-2 focus:ring-brand-100">
+                              <label htmlFor={`editGrade-${acc.id}`} className="block text-xs font-bold text-ink-600 dark:text-slate-400 mb-1.5">Tingkat Kelas</label>
+                              <select id={`editGrade-${acc.id}`} value={editGrade} onChange={e => setEditGrade(e.target.value as 'X'|'XI'|'XII')} className="w-full px-3.5 py-2 rounded-xl border border-brand-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-ink-900 dark:text-white outline-none focus:ring-2 focus:ring-brand-100">
                                 <option value="X">Kelas X</option>
                                 <option value="XI">Kelas XI</option>
                                 <option value="XII">Kelas XII</option>
                               </select>
                             </div>
                             <div>
-                              <label className="block text-xs font-bold text-ink-600 dark:text-slate-400 mb-1.5">No. Ruang</label>
-                              <input type="number" min="1" value={editSection} onChange={e => setEditSection(e.target.value)} className="w-full px-3.5 py-2 rounded-xl border border-brand-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-ink-900 dark:text-white outline-none focus:ring-2 focus:ring-brand-100" />
+                              <label htmlFor={`editSection-${acc.id}`} className="block text-xs font-bold text-ink-600 dark:text-slate-400 mb-1.5">No. Ruang</label>
+                              <input id={`editSection-${acc.id}`} type="number" min="1" value={editSection} onChange={e => setEditSection(e.target.value)} className="w-full px-3.5 py-2 rounded-xl border border-brand-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-ink-900 dark:text-white outline-none focus:ring-2 focus:ring-brand-100" />
                             </div>
                           </div>
                           
@@ -468,19 +469,19 @@ export function DevDashboardView() {
 
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <div className="space-y-1.5">
-                      <label className="text-xs font-bold text-ink-700 dark:text-slate-300">Nama Lengkap <span className="text-red-500">*</span></label>
+                      <label htmlFor="regName" className="text-xs font-bold text-ink-700 dark:text-slate-300">Nama Lengkap <span className="text-red-500">*</span></label>
                       <div className="relative">
                         <User className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-ink-400" />
-                        <input value={regName} onChange={e => setRegName(e.target.value)} placeholder="Nama pengguna"
+                        <input id="regName" value={regName} onChange={e => setRegName(e.target.value)} placeholder="Nama pengguna"
                           className="w-full rounded-xl border border-brand-200 bg-white py-2.5 pl-10 pr-4 text-sm outline-none focus:border-brand-400 focus:ring-4 focus:ring-brand-100 dark:border-slate-700 dark:bg-slate-800 dark:text-white transition-all" />
                       </div>
                     </div>
 
                     <div className="space-y-1.5">
-                      <label className="text-xs font-bold text-ink-700 dark:text-slate-300">Email Login <span className="text-red-500">*</span></label>
+                      <label htmlFor="regEmail" className="text-xs font-bold text-ink-700 dark:text-slate-300">Email Login <span className="text-red-500">*</span></label>
                       <div className="relative">
                         <Mail className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-ink-400" />
-                        <input type="email" value={regEmail} onChange={e => setRegEmail(e.target.value)} placeholder="email@geosense.edu"
+                        <input id="regEmail" type="email" value={regEmail} onChange={e => setRegEmail(e.target.value)} placeholder="email@geosense.edu"
                           className="w-full rounded-xl border border-brand-200 bg-white py-2.5 pl-10 pr-4 text-sm outline-none focus:border-brand-400 focus:ring-4 focus:ring-brand-100 dark:border-slate-700 dark:bg-slate-800 dark:text-white transition-all" />
                       </div>
                     </div>
@@ -488,24 +489,24 @@ export function DevDashboardView() {
 
                   <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                     <div className="space-y-1.5">
-                      <label className="text-xs font-bold text-ink-700 dark:text-slate-300">Kata Sandi <span className="text-red-500">*</span></label>
+                      <label htmlFor="regPassword" className="text-xs font-bold text-ink-700 dark:text-slate-300">Kata Sandi <span className="text-red-500">*</span></label>
                       <div className="relative">
                         <Lock className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-ink-400" />
-                        <input type="text" value={regPassword} onChange={e => setRegPassword(e.target.value)} placeholder="Min. 6 karakter"
+                        <input id="regPassword" type="text" value={regPassword} onChange={e => setRegPassword(e.target.value)} placeholder="Min. 6 karakter"
                           className="w-full rounded-xl border border-brand-200 bg-white py-2.5 pl-10 pr-4 text-sm outline-none focus:border-brand-400 focus:ring-4 focus:ring-brand-100 dark:border-slate-700 dark:bg-slate-800 dark:text-white transition-all" />
                       </div>
                     </div>
                     <div className="space-y-1.5">
-                      <label className="text-xs font-bold text-ink-700 dark:text-slate-300">Konfirmasi Sandi <span className="text-red-500">*</span></label>
+                      <label htmlFor="regPasswordConfirm" className="text-xs font-bold text-ink-700 dark:text-slate-300">Konfirmasi Sandi <span className="text-red-500">*</span></label>
                       <div className="relative">
                         <Lock className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-ink-400" />
-                        <input type="text" value={regPasswordConfirm} onChange={e => setRegPasswordConfirm(e.target.value)} placeholder="Min. 6 karakter"
+                        <input id="regPasswordConfirm" type="text" value={regPasswordConfirm} onChange={e => setRegPasswordConfirm(e.target.value)} placeholder="Min. 6 karakter"
                           className="w-full rounded-xl border border-brand-200 bg-white py-2.5 pl-10 pr-4 text-sm outline-none focus:border-brand-400 focus:ring-4 focus:ring-brand-100 dark:border-slate-700 dark:bg-slate-800 dark:text-white transition-all" />
                       </div>
                     </div>
                     <div className="space-y-1.5">
-                      <label className="text-xs font-bold text-ink-700 dark:text-slate-300">Jenis Kelamin</label>
-                      <select value={regGender} onChange={e => setRegGender(e.target.value as Gender)}
+                      <label htmlFor="regGender" className="text-xs font-bold text-ink-700 dark:text-slate-300">Jenis Kelamin</label>
+                      <select id="regGender" value={regGender} onChange={e => setRegGender(e.target.value as Gender)}
                         className="w-full rounded-xl border border-brand-200 bg-white py-2.5 px-3 text-sm outline-none focus:border-brand-400 focus:ring-4 focus:ring-brand-100 dark:border-slate-700 dark:bg-slate-800 dark:text-white transition-all">
                         <option value="male">Laki-laki</option>
                         <option value="female">Perempuan</option>
@@ -518,8 +519,9 @@ export function DevDashboardView() {
                     <h4 className="text-xs font-bold text-brand-700 dark:text-brand-400 uppercase tracking-wider flex items-center gap-1.5"><School className="h-3.5 w-3.5" /> Penempatan Sekolah</h4>
                     <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
                       <div className="space-y-1.5">
-                        <label className="text-xs font-bold text-ink-600 dark:text-slate-400">Provinsi</label>
+                        <label htmlFor="regProvId" className="text-xs font-bold text-ink-600 dark:text-slate-400">Provinsi</label>
                         <select 
+                      id="regProvId"
                       className="w-full bg-slate-900 border border-slate-700 rounded-lg px-4 py-2"
                       value={regProvId}
                       onChange={e => setRegProvId(e.target.value)}
@@ -531,8 +533,9 @@ export function DevDashboardView() {
                     </select>
                       </div>
                       <div className="space-y-1.5">
-                        <label className="text-xs font-bold text-ink-600 dark:text-slate-400">Kabupaten/Kota</label>
+                        <label htmlFor="regRegId" className="text-xs font-bold text-ink-600 dark:text-slate-400">Kabupaten/Kota</label>
                         <select 
+                      id="regRegId"
                       className="w-full bg-slate-900 border border-slate-700 rounded-lg px-4 py-2"
                       value={regRegId}
                       onChange={e => setRegRegId(e.target.value)}
@@ -545,8 +548,9 @@ export function DevDashboardView() {
                     </select>
                       </div>
                       <div className="space-y-1.5">
-                        <label className="text-xs font-bold text-ink-600 dark:text-slate-400">Sekolah</label>
+                        <label htmlFor="regSchoolId" className="text-xs font-bold text-ink-600 dark:text-slate-400">Sekolah</label>
                         <select 
+                      id="regSchoolId"
                       className="w-full bg-slate-900 border border-slate-700 rounded-lg px-4 py-2"
                       value={regSchoolId}
                       onChange={e => setRegSchoolId(e.target.value)}
@@ -564,8 +568,8 @@ export function DevDashboardView() {
                   <div className="grid grid-cols-2 gap-4">
                     {(regRole === 'student' || regRole === 'teacher') && (
                       <div className="space-y-1.5">
-                        <label className="text-xs font-bold text-ink-700 dark:text-slate-300">Tingkat Kelas <span className="text-red-500">*</span></label>
-                        <select value={regGrade} onChange={e => setRegGrade(e.target.value as 'X'|'XI'|'XII')}
+                        <label htmlFor="regGrade" className="text-xs font-bold text-ink-700 dark:text-slate-300">Tingkat Kelas <span className="text-red-500">*</span></label>
+                        <select id="regGrade" value={regGrade} onChange={e => setRegGrade(e.target.value as 'X'|'XI'|'XII')}
                           className="w-full rounded-xl border border-brand-200 bg-white py-2.5 px-3 text-sm outline-none focus:border-brand-400 focus:ring-4 focus:ring-brand-100 dark:border-slate-700 dark:bg-slate-800 dark:text-white transition-all">
                           <option value="X">Kelas X</option>
                           <option value="XI">Kelas XI</option>
@@ -576,8 +580,8 @@ export function DevDashboardView() {
 
                     {regRole === 'student' && (
                       <div className="space-y-1.5">
-                        <label className="text-xs font-bold text-ink-700 dark:text-slate-300">Ruang/No. Kelas <span className="text-red-500">*</span></label>
-                        <input type="number" min="1" value={regSection} onChange={e => setRegSection(e.target.value)} placeholder="1"
+                        <label htmlFor="regSection" className="text-xs font-bold text-ink-700 dark:text-slate-300">Ruang/No. Kelas <span className="text-red-500">*</span></label>
+                        <input id="regSection" type="number" min="1" value={regSection} onChange={e => setRegSection(e.target.value)} placeholder="1"
                           className="w-full rounded-xl border border-brand-200 bg-white py-2.5 px-3 text-sm outline-none focus:border-brand-400 focus:ring-4 focus:ring-brand-100 dark:border-slate-700 dark:bg-slate-800 dark:text-white transition-all" />
                       </div>
                     )}
