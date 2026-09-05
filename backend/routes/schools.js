@@ -21,7 +21,7 @@ async function getBaseSchools() {
     }
     
     // Try to load lite dataset (for Vercel/production where 100MB limit applies)
-    const litePath = path.resolve(__dirname, '../data/schools-lite.json');
+    const litePath = path.resolve(process.cwd(), 'backend/data/schools-lite.json');
     if (fs.existsSync(litePath)) {
         try {
             console.log('Loading 215k LITE dataset into memory...');
