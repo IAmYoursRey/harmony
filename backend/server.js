@@ -35,36 +35,39 @@ app.use('/api/users', usersRoutes);
 app.use('/api/analytics', analyticsRoutes);
 app.use('/api/classes', classesRoutes);
 
-const server = app.listen(PORT, () => {
-  console.log(`GeoSense Backend listening at http://localhost:${PORT}`);
-});
+export default app;
 
-server.on('error', (err) => {
-  if (err.code === 'EADDRINUSE') {
-    console.error(`\n[ERROR] Port ${PORT} is already in use.`);
-    console.error(`Please kill the process holding the port manually.\n`);
-    process.exit(1);
-  } else {
-    throw err;
-  }
-});
-
-// Graceful shutdown handling for nodemon and concurrently
-const shutdown = (signal) => {
-  console.log(`\n[${signal}] Received, shutting down gracefully...`);
-  server.close(() => {
-    console.log('HTTP server closed.');
-    process.exit(0);
+if (process.env.NODE_ENV !== 'production') {
+  const server = app.listen(PORT, () => {
+    console.log(`GeoSense Backend listening at http://localhost:${PORT}`);
   });
-};
 
-process.on('SIGINT', () => shutdown('SIGINT'));
-process.on('SIGTERM', () => shutdown('SIGTERM'));
-
-// Handle nodemon restart specifically (SIGUSR2)
-process.once('SIGUSR2', () => {
-  server.close(() => {
-    process.kill(process.pid, 'SIGUSR2');
+  server.on('error', (err) => {
+    if (err.code === 'EADDRINUSE') {
+      console.error(`\n[ERROR] Port ${PORT} is already in use.`);
+      console.error(`Please kill the process holding the port manually.\n`);
+      process.exit(1);
+    } else {
+      throw err;
+    }
   });
-});
 
+  // Graceful shutdown handling for nodemon and concurrently
+  const shutdown = (signal) => {
+    console.log(`\n[${signal}] Received, shutting down gracefully...`);
+    server.close(() => {
+      console.log('HTTP server closed.');
+      process.exit(0);
+    });
+  };
+
+  process.on('SIGINT', () => shutdown('SIGINT'));
+  process.on('SIGTERM', () => shutdown('SIGTERM'));
+
+  // Handle nodemon restart specifically (SIGUSR2)
+  process.once('SIGUSR2', () => {
+    server.close(() => {
+      process.kill(process.pid, 'SIGUSR2');
+    });
+  });
+}
