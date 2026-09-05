@@ -405,15 +405,15 @@ export function DisasterQuestionView() {
         <div className="absolute -right-10 -top-10 h-48 w-48 rounded-full bg-white/10 blur-3xl" />
         <div className="relative">
           <div className="inline-flex items-center gap-1.5 rounded-full bg-white/15 px-3 py-1 text-xs font-semibold backdrop-blur-sm">
-            <Shield className="h-3.5 w-3.5" strokeWidth={2.5} /> {locale === 'id' ? 'Kesiapsiagaan & Pertanyaan Bencana' : 'Disaster Question'}
+            <Shield className="h-3.5 w-3.5" strokeWidth={2.5} /> {locale === 'id' ? 'Pertanyaan Bencana' : 'Disaster Question'}
           </div>
           <h2 className="mt-3 font-display text-2xl font-extrabold tracking-tight sm:text-3xl">
-            {locale === 'id' ? 'Pusat Pertanyaan & Evakuasi Mandiri' : 'Disaster Question Center'}
+            {locale === 'id' ? 'Pusat Pertanyaan Bencana' : 'Disaster Question Center'}
           </h2>
           <p className="mt-1.5 max-w-md text-sm text-brand-100">
             {locale === 'id'
-              ? 'Ikuti skenario simulasi evakuasi interaktif, pelajari materi bencana berkelanjutan, dan ikuti panduan penyelamatan diri.'
-              : 'Take interactive evacuation scenarios and read continuous safety guides.'}
+              ? 'Ikuti pertanyaan bencana interaktif, pelajari materi bencana berkelanjutan, dan ikuti panduan penyelamatan diri.'
+              : 'Take interactive disaster questions and read continuous safety guides.'}
           </p>
         </div>
       </div>

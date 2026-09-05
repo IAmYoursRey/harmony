@@ -196,7 +196,7 @@ export async function generateSmartSimulationQuestions(
     ? 'Mode: LEARNING. Jangan gunakan konsep yang sudah dikuasai.'
     : 'Mode: TEST. Buatkan soal yang SANGAT SULIT (HOTS). Anda boleh menggunakan konsep yang sudah dikuasai tapi buat narasinya berbeda dan lebih rumit.';
 
-  const prompt = `Buatkan ${params.count} soal pilihan ganda (MCQ A-E) Simulasi Bencana Alam.
+  const prompt = `Buatkan ${params.count} soal pilihan ganda (MCQ A-E) Pertanyaan Bencana Alam.
   
 Konteks Risiko Sekolah (Porsi soal HARUS mencerminkan bobot risiko ini, paling banyak soal untuk risiko terbesar):
 ${riskContext}
