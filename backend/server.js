@@ -26,6 +26,8 @@ app.use(cors({
 }));
 app.use(express.json({ limit: '10mb' }));
 
+import 'express-async-errors';
+
 app.use('/api/auth', authRoutes);
 app.use('/api/profile', profileRoutes);
 app.use('/api/ai', aiRoutes);
@@ -35,6 +37,11 @@ app.use('/api/surveys', surveyRoutes);
 app.use('/api/users', usersRoutes);
 app.use('/api/analytics', analyticsRoutes);
 app.use('/api/classes', classesRoutes);
+
+app.use((err, req, res, next) => {
+  console.error('[SERVER ERROR]', err.message);
+  res.status(503).json({ error: 'Service temporarily unavailable. Please verify backend configurations.' });
+});
 
 export default app;
 
