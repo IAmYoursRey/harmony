@@ -4,6 +4,11 @@
   "outputDirectory": "frontend/dist",
   "installCommand": "npm install --prefix frontend",
   "framework": null,
+  "functions": {
+    "api/**/*.js": {
+      "includeFiles": "backend/database.json"
+    }
+  },
   "rewrites": [
     {
       "source": "/api/(.*)",
