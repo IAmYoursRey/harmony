@@ -151,8 +151,15 @@ export function DevDashboardView() {
 
   const handleSaveEdit = async (accId: string) => {
     try {
-      // Update Account
-      const accountUpdates: { name?: string; password?: string } = { name: editName };
+      // Update Account and Profile via PUT /api/users/:id
+      const finalEditGrade = editGrade as 'X'|'XI'|'XII';
+      const accountUpdates: { name?: string; password?: string; schoolId?: string; grade?: string; classSection?: string } = { 
+        name: editName,
+        schoolId: editSchoolId,
+        grade: finalEditGrade,
+        classSection: editSection
+      };
+
       if (editPassword.trim().length > 0) {
         if (editPassword.trim().length < 6) {
           show('Kata sandi baru minimal 6 karakter', 'error');
@@ -160,15 +167,11 @@ export function DevDashboardView() {
         }
         accountUpdates.password = editPassword.trim();
       }
-      updateAccount(accId, accountUpdates);
-
-      // Update Profile
-      const finalEditGrade = editGrade as 'X'|'XI'|'XII';
-      updateProfile({
-        schoolId: editSchoolId,
-        grade: finalEditGrade,
-        classSection: editSection
-      }, accId);
+      
+      const res = await updateAccount(accId, accountUpdates);
+      if (!res.success) {
+        throw new Error(res.error || 'Update failed');
+      }
 
       show('Data pengguna berhasil diperbarui!', 'success');
       setEditingUserId(null);
