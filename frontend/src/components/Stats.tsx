@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import { Reveal } from '@/components/Reveal';
 import { useReveal } from '@/hooks/useReveal';
 
-import { useI18n } from '@/context/I18nContext';
+import { useI18n } from '@/hooks/useI18n';
 
 interface Stat {
   value: number;
