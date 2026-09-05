@@ -4,6 +4,48 @@
 
 import { apiClient } from './apiClient';
 
+export function normalizeAIResponse(rawResponse: any): string {
+  if (rawResponse === null || rawResponse === undefined) return '';
+
+  let text = '';
+
+  if (typeof rawResponse === 'object') {
+    if (typeof rawResponse.text === 'function') {
+      try { text = rawResponse.text(); } catch (e) { /* ignore */ }
+    } else {
+      text = rawResponse.response || rawResponse.text || JSON.stringify(rawResponse);
+    }
+  } else if (typeof rawResponse === 'string') {
+    text = rawResponse;
+  } else {
+    text = String(rawResponse);
+  }
+
+  const trimmed = text.trim();
+  
+  let possibleJson = trimmed;
+  if (trimmed.startsWith('```json') || trimmed.startsWith('```')) {
+    const match = trimmed.match(/```(?:json)?\s*([\s\S]*?)\s*```/);
+    if (match) {
+      possibleJson = match[1].trim();
+    }
+  }
+
+  if (possibleJson.startsWith('{') && possibleJson.endsWith('}')) {
+    try {
+      const parsed = JSON.parse(possibleJson);
+      if (parsed && typeof parsed === 'object' && !Array.isArray(parsed)) {
+        if (typeof parsed.response === 'string') return parsed.response;
+        if (typeof parsed.text === 'string') return parsed.text;
+      }
+    } catch (e) {
+      // Not a valid JSON object wrapper, ignore
+    }
+  }
+
+  return trimmed;
+}
+
 async function callGemini(
   contents: object[],
   type: 'quiz' | 'chat' | 'chatbot',
@@ -11,12 +53,13 @@ async function callGemini(
 ): Promise<string> {
   try {
     const response = await apiClient.post('/api/ai/generate', { contents, type, jsonMode });
-    // The backend now returns { success: true, data: { text: ... } }
+    let rawText = '';
     if (response && response.success && response.data) {
-      return response.data.text ?? '';
+      rawText = response.data.text ?? '';
+    } else {
+      rawText = response?.text ?? '';
     }
-    // Fallback if structured differently (though our new backend standard uses the above)
-    return response.text ?? '';
+    return normalizeAIResponse(rawText);
   } catch (err: any) {
     throw new Error(err.message || 'Error communicating with AI');
   }
@@ -287,7 +330,7 @@ Jawab dengan bahasa yang ramah, ringkas, mudah dipahami siswa sekolah, dan eduka
   ];
 
   try {
-    return await callGemini(contents, 'chatbot', true);
+    return await callGemini(contents, 'chatbot', false);
   } catch (err) {
     console.error('ChatbotAI error:', err);
     return 'Maaf, ada kendala koneksi dengan GeoBot. Silakan coba sesaat lagi.';
