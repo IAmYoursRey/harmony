@@ -14,7 +14,7 @@ if (!SECRET) {
 router.post('/register', async (req, res) => {
   try {
     const body = req.body || {};
-    const { name, email, password, role } = body;
+    const { name, email, password, role, gender, grade, section, dob } = body;
     
     if (!name || !email || !password || !role) {
       return res.status(400).json({ error: 'Missing fields' });
@@ -41,11 +41,29 @@ router.post('/register', async (req, res) => {
     };
 
     db.accounts.push(account);
+
+    const profile = {
+      userId: id,
+      name,
+      role,
+      gender: gender || 'other',
+      grade: grade || 'X',
+      section: section || '1',
+      dob: dob || null,
+      schoolId: null, // Always empty on creation to enforce assignment
+      xp: 0,
+      level: 1,
+      achievements: [],
+      joinedAt: new Date().toISOString(),
+      lastUpdated: new Date().toISOString()
+    };
+    db.profiles.push(profile);
+
     await writeDB(db);
 
     const token = jwt.sign({ id: account.id, role: account.role }, SECRET, { expiresIn: '7d' });
     const { passwordHash: _, ...safeAccount } = account;
-    res.json({ success: true, token, account: safeAccount });
+    res.json({ success: true, token, account: safeAccount, profile });
   } catch (error) {
     console.error('[AUTH ERROR] /register:', error);
     res.status(500).json({ error: 'Internal server error during registration' });
