@@ -53,7 +53,7 @@ function StatCard({
 
 export function TeacherDashboardView() {
   const { t, locale, setLocale } = useI18n();
-  const { currentProfile, refreshProfile } = useAuth();
+  const { currentUser, currentProfile, refreshProfile } = useAuth();
   const [exporting, setExporting] = useState(false);
 
   const [selectedClassIdx, setSelectedClassIdx] = useState(0);
