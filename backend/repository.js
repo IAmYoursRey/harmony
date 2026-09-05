@@ -23,12 +23,20 @@ const DEFAULT_DB = {
   classes: []
 };
 
-// PostgreSQL configuration
+import dns from 'node:dns';
+
+// Fix for Node 18+ IPv6 preference which causes timeouts on Vercel with databases like Supabase
+dns.setDefaultResultOrder('ipv4first');
+
+// PostgreSQL configuration optimized for Serverless
 const pool = process.env.DATABASE_URL ? new pg.Pool({
   connectionString: process.env.DATABASE_URL,
   ssl: { rejectUnauthorized: false },
+  max: 3, // Prevent connection exhaustion across multiple serverless instances
+  idleTimeoutMillis: 5000,
   connectionTimeoutMillis: 5000,
-  queryTimeout: 5000
+  queryTimeout: 5000,
+  allowExitOnIdle: true
 }) : null;
 
 // Helper for timeouts
