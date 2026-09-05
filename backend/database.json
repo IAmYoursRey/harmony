@@ -13,7 +13,7 @@
       "email": "alvira.nizha@geosense.edu",
       "passwordHash": "$2b$10$dqC8jGjGj7riZteeAFKBnOMtn8HvPtqBD8RXsXBCPrSjPbOqwBvxS",
       "name": "Alvira Fitriatun Nizha",
-      "role": "student",
+      "role": "teacher",
       "createdAt": "2026-09-04T06:29:19.798Z"
     },
     {
@@ -21,7 +21,7 @@
       "email": "aretha.kirana@geosense.edu",
       "passwordHash": "$2b$10$dqC8jGjGj7riZteeAFKBnOMtn8HvPtqBD8RXsXBCPrSjPbOqwBvxS",
       "name": "Aretha Kirana Putri Junaidi",
-      "role": "student",
+      "role": "teacher",
       "createdAt": "2026-09-04T06:29:19.798Z"
     },
     {
@@ -29,7 +29,7 @@
       "email": "sinta.nadhifah@geosense.edu",
       "passwordHash": "$2b$10$dqC8jGjGj7riZteeAFKBnOMtn8HvPtqBD8RXsXBCPrSjPbOqwBvxS",
       "name": "Sinta Nadhifah",
-      "role": "student",
+      "role": "teacher",
       "createdAt": "2026-09-04T06:29:19.798Z"
     }
   ],

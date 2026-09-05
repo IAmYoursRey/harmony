@@ -180,7 +180,6 @@ export function DevDashboardView() {
 
   const stats = {
     total: systemStats?.totalUsers || accounts.length,
-    students: systemStats?.students || accounts.filter(a => a.role === 'student').length,
     teachers: systemStats?.teachers || accounts.filter(a => a.role === 'teacher').length,
     devs: accounts.filter(a => a.role === 'dev').length,
   };
@@ -197,8 +196,7 @@ export function DevDashboardView() {
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
         {[
           { label: 'Total Pengguna', value: stats.total, icon: Users, color: 'text-brand-600', bg: 'bg-brand-50 dark:bg-brand-500/10' },
-          { label: 'Peserta Didik', value: stats.students, icon: GraduationCap, color: 'text-emerald-600', bg: 'bg-emerald-50 dark:bg-emerald-500/10' },
-          { label: 'Guru / Pendidik', value: stats.teachers, icon: BookOpen, color: 'text-amber-600', bg: 'bg-amber-50 dark:bg-amber-500/10' },
+          { label: 'Guru / Pengguna', value: stats.teachers, icon: BookOpen, color: 'text-amber-600', bg: 'bg-amber-50 dark:bg-amber-500/10' },
           { label: 'Admin (Dev)', value: stats.devs, icon: ShieldAlert, color: 'text-red-600', bg: 'bg-red-50 dark:bg-red-500/10' },
         ].map((s, i) => (
           <div key={i} className="rounded-2xl border border-brand-100 dark:border-slate-800 bg-white dark:bg-slate-900 p-5 shadow-sm">

@@ -338,12 +338,12 @@ export function TeacherDashboardView() {
           </div>
 
           {/* Student List */}
-          {accounts.filter(a => a.role === 'student').length === 0 ? (
+          {accounts.filter(a => a.role !== 'dev' && a.id !== currentUser?.id).length === 0 ? (
             <div className="flex flex-col items-center justify-center min-h-[300px] text-center bg-slate-50 dark:bg-slate-900/50 rounded-2xl border border-slate-200 dark:border-slate-800">
               <Users className="h-12 w-12 text-slate-300 mb-4" />
-              <h3 className="text-lg font-bold text-ink-900 dark:text-white">Belum ada Student</h3>
-              <p className="text-sm text-ink-500 mb-4">Belum ada Student yang terdaftar pada scope Anda.</p>
-              <button onClick={() => setIsAddingStudent(true)} className="px-4 py-2 text-sm font-bold bg-brand-600 text-white rounded-xl">+ Tambah Student</button>
+              <h3 className="text-lg font-bold text-ink-900 dark:text-white">Belum ada Pengguna</h3>
+              <p className="text-sm text-ink-500 mb-4">Belum ada Pengguna lain yang terdaftar pada scope Anda.</p>
+              <button onClick={() => setIsAddingStudent(true)} className="px-4 py-2 text-sm font-bold bg-brand-600 text-white rounded-xl">+ Tambah Pengguna</button>
             </div>
           ) : (
             <div className="overflow-x-auto bg-white dark:bg-slate-900 rounded-2xl shadow-sm border border-slate-200 dark:border-slate-800">
@@ -357,7 +357,7 @@ export function TeacherDashboardView() {
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
-                  {accounts.filter(a => a.role === 'student').map(a => {
+                  {accounts.filter(a => a.role !== 'dev' && a.id !== currentUser?.id).map(a => {
                     const prof = profiles.find(p => p.userId === a.id);
                     const cls = classes.find(c => c.id === prof?.classId);
                     return (
