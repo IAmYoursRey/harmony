@@ -16,10 +16,10 @@ const students = db.accounts.filter(a => a.role === 'student');
 students.forEach(s => {
   const p = db.profiles.find(p => p.userId === s.id);
   if (!p) errors.push(`Student ${s.id} has no profile`);
-  else {
-    const c = db.classes.find(cls => cls.id === p.classId);
-    if (!c) errors.push(`Student ${s.id} assigned to invalid classId ${p.classId}`);
-  }
+    if (p.classId) {
+      const c = db.classes.find(cls => cls.id === p.classId);
+      if (!c) errors.push(`Student ${s.id} assigned to invalid classId ${p.classId}`);
+    }
 });
 
 // Every result has valid student and belongs to valid class

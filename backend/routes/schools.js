@@ -1,11 +1,10 @@
 import express from 'express';
 import { readDB } from '../repository.js';
-import { verifyToken } from '../middleware/authMiddleware.js';
 
 const router = express.Router();
 
 // GET all schools (optionally filtered by province or regency)
-router.get('/', verifyToken, (req, res) => {
+router.get('/', (req, res) => {
   const db = readDB();
   const schools = db.schools || [];
   
@@ -23,7 +22,7 @@ router.get('/', verifyToken, (req, res) => {
 });
 
 // GET /api/schools/search?q=...
-router.get('/search', verifyToken, (req, res) => {
+router.get('/search', (req, res) => {
   const db = readDB();
   const schools = db.schools || [];
   const q = (req.query.q || '').toLowerCase();
@@ -42,7 +41,7 @@ router.get('/search', verifyToken, (req, res) => {
 });
 
 // GET a specific school by ID
-router.get('/:id', verifyToken, (req, res) => {
+router.get('/:id', (req, res) => {
   const db = readDB();
   const schools = db.schools || [];
   const school = schools.find(s => s.id === req.params.id);

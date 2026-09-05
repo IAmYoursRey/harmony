@@ -34,17 +34,21 @@ export default function SchoolSelectionPage() {
   const navigate = useNavigate();
   const { show } = useToast();
   const { setSelection } = useSchool();
-  const { currentUser, currentProfile, refreshProfile } = useAuth();
+  const { currentUser, currentProfile, refreshProfile, isLoading } = useAuth();
   const { t } = useI18n();
 
   const [step, setStep] = useState<Step>(1);
 
-  // Lock school if already set
+  // Lock school if already set or redirect to login if unauthenticated
   useEffect(() => {
-    if (currentUser?.role !== 'dev' && currentProfile?.schoolId && currentProfile.schoolId !== 'unknown') {
-      navigate('/app');
+    if (!isLoading) {
+      if (!currentUser) {
+        navigate('/login');
+      } else if (currentUser.role !== 'dev' && currentProfile?.schoolId && currentProfile.schoolId !== 'unknown') {
+        navigate('/app');
+      }
     }
-  }, [currentUser, currentProfile, navigate]);
+  }, [isLoading, currentUser, currentProfile, navigate]);
   const [provinceId, setProvinceId] = useState('');
   const [regencyId, setRegencyId] = useState('');
   const [school, setSchool] = useState<School | null>(null);
