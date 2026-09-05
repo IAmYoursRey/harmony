@@ -23,6 +23,8 @@ const DEFAULT_DB = {
   classes: []
 };
 
+let inMemoryCache = null;
+
 import dns from 'node:dns';
 
 // Fix for Node 18+ IPv6 preference which causes timeouts on Vercel with databases like Supabase
@@ -79,60 +81,50 @@ async function initPg() {
 }
 
 export async function readDB() {
-  if (isVercel) {
-    if (!pool) {
-      throw new Error('[CRITICAL] DATABASE_URL or POSTGRES_URL is not configured for production persistence.');
-    }
+  if (isVercel && pool) {
     await initPg();
     try {
       const res = await timeoutQuery(pool.query('SELECT data FROM geosense_data WHERE id = 1'));
-      if (res.rowCount > 0) {
-        return { ...DEFAULT_DB, ...res.rows[0].data };
-      }
-      return DEFAULT_DB;
-    } catch (err) {
-      console.error('Failed to read from PostgreSQL:', err);
-      throw err;
+      if (res.rows.length > 0) return { ...DEFAULT_DB, ...res.rows[0].data };
+    } catch (e) {
+      console.error('Vercel DB Read Error:', e);
     }
-  } else {
-    // Local development fallback
+  }
+  
+  // Memory Cache
+  if (inMemoryCache) return inMemoryCache;
+  
+  // Fallback to local or memory if no DB
+  if (fs.existsSync(sourceDbPath)) {
     try {
-      if (!fs.existsSync(sourceDbPath)) {
-        return DEFAULT_DB;
-      }
-      const data = fs.readFileSync(sourceDbPath, 'utf-8');
-      const parsed = JSON.parse(data);
-      return { ...DEFAULT_DB, ...parsed };
-    } catch (err) {
-      console.error('Failed to read local database:', err);
+      return { ...DEFAULT_DB, ...JSON.parse(fs.readFileSync(sourceDbPath, 'utf-8')) };
+    } catch (e) {
       return DEFAULT_DB;
     }
   }
+  return DEFAULT_DB;
 }
 
 export async function writeDB(db) {
   const fullDb = { ...DEFAULT_DB, ...db };
+  inMemoryCache = fullDb;
   
-  if (isVercel) {
-    if (!pool) {
-      throw new Error('[CRITICAL] DATABASE_URL or POSTGRES_URL is not configured for production persistence.');
-    }
+  if (isVercel && pool) {
     await initPg();
     try {
       await timeoutQuery(pool.query('UPDATE geosense_data SET data = $1 WHERE id = 1', [JSON.stringify(fullDb)]));
       return true;
-    } catch (err) {
-      console.error('Failed to write to PostgreSQL:', err);
-      return false;
+    } catch (e) {
+      console.error('Vercel DB Write Error:', e);
     }
-  } else {
-    // Local development fallback
-    try {
-      fs.writeFileSync(sourceDbPath, JSON.stringify(fullDb, null, 2));
-      return true;
-    } catch (err) {
-      console.error('Failed to write local database:', err);
-      return false;
-    }
+  }
+
+  // Fallback to local or memory if no DB
+  try {
+    fs.writeFileSync(sourceDbPath, JSON.stringify(fullDb, null, 2));
+    return true;
+  } catch (err) {
+    console.error('Failed to write local database:', err);
+    return false;
   }
 }
