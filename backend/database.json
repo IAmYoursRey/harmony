@@ -63,6 +63,22 @@
       "name": "Rina Wijaya",
       "role": "student",
       "createdAt": "2026-09-05T14:15:09.231Z"
+    },
+    {
+      "id": "usr-1788621626982",
+      "email": "teach_1788621626973@test.com",
+      "passwordHash": "$2b$10$IvkWRo4u0Sxe4ujK/oknEuFvrOm4NuLvzfkvmvfRNo5IdHzn1hDeK",
+      "name": "New Teacher",
+      "role": "teacher",
+      "createdAt": "2026-09-05T15:20:27.052Z"
+    },
+    {
+      "id": "usr-1788621627064",
+      "email": "stud_1788621627063@test.com",
+      "passwordHash": "$2b$10$jTbiDF3Yk5shPmymbqS3uurBFMaSzSYo.j5IHHY4vljLyLiWz/q66",
+      "name": "New Student",
+      "role": "student",
+      "createdAt": "2026-09-05T15:20:27.131Z"
     }
   ],
   "profiles": [
@@ -157,6 +173,28 @@
       "totalPoints": 120,
       "badges": [],
       "lastUpdated": "2026-09-05T14:15:09.231Z"
+    },
+    {
+      "userId": "usr-1788621626982",
+      "schoolId": "unknown",
+      "grade": "X",
+      "classSection": "",
+      "gender": "other",
+      "dob": null,
+      "topicScores": {},
+      "totalPoints": 0,
+      "lastUpdated": "2026-09-05T15:20:27.052Z"
+    },
+    {
+      "userId": "usr-1788621627064",
+      "schoolId": null,
+      "grade": "X",
+      "classSection": "",
+      "gender": "other",
+      "dob": null,
+      "topicScores": {},
+      "totalPoints": 0,
+      "lastUpdated": "2026-09-05T15:20:27.131Z"
     }
   ],
   "digitalTwins": {

@@ -7,7 +7,7 @@ import dotenv from 'dotenv';
 dotenv.config();
 
 const router = express.Router();
-const SECRET = process.env.JWT_SECRET || 'fallback_secret';
+const SECRET = process.env.JWT_SECRET || 'geosense_dev_secret_only';
 
 router.post('/register', async (req, res) => {
   try {

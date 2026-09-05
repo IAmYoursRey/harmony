@@ -2,10 +2,10 @@ import fetch from 'node-fetch';
 import jwt from 'jsonwebtoken';
 import path from 'path';
 import dotenv from 'dotenv';
-dotenv.config({ path: path.resolve(process.cwd(), '../.env') });
+dotenv.config({ path: path.resolve(process.cwd(), '.env') });
 
 const API_BASE = 'http://localhost:3001/api';
-const SECRET = process.env.JWT_SECRET || 'fallback_secret';
+const SECRET = process.env.JWT_SECRET || 'geosense_dev_secret_only';
 
 const devToken = jwt.sign({ id: 'usr-dev-123', role: 'dev' }, SECRET);
 const teacherToken = jwt.sign({ id: 'usr-teach-123', role: 'teacher' }, SECRET);

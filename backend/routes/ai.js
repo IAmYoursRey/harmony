@@ -71,11 +71,15 @@ router.post('/generate', verifyToken, async (req, res) => {
   } catch (err) {
     console.error(`[AI] Error (${type}):`, err.message);
     if (err.name === 'AbortError') {
-      return res.status(504).json({ success: false, error: 'AI provider request timed out.' });
+      return res.status(504).json({ success: false, error: 'Koneksi ke layanan AI terputus. Silakan coba lagi.' });
     }
     
-    const statusCode = err.status === 400 || err.status === 429 ? 502 : (err.status || 500);
-    res.status(statusCode).json({ success: false, error: err.message || 'AI service temporarily unavailable.' });
+    if (err.status === 429) {
+      return res.status(429).json({ success: false, error: 'Sistem AI kami saat ini sedang sangat sibuk (Kuota Tercapai). Harap coba beberapa saat lagi.' });
+    }
+
+    const statusCode = err.status || 500;
+    res.status(statusCode).json({ success: false, error: 'Terjadi kesalahan internal pada layanan AI.' });
   }
 });
 

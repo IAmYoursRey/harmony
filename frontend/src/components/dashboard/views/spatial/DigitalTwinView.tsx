@@ -136,7 +136,7 @@ export function DigitalTwinView() {
       if (!selectedSim) return;
       setSimRunning(true);
 
-      // Create a dummy hazard in the center for demonstration
+      // Create an initial hazard in the center for the simulation
       const newHazard: Hazard = {
         id: `hz_${Date.now()}`,
         type: selectedSim,

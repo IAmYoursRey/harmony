@@ -2,7 +2,7 @@ import jwt from 'jsonwebtoken';
 import dotenv from 'dotenv';
 dotenv.config();
 
-const SECRET = process.env.JWT_SECRET || 'fallback_secret';
+const SECRET = process.env.JWT_SECRET || 'geosense_dev_secret_only';
 
 export function verifyToken(req, res, next) {
   const authHeader = req.headers.authorization;

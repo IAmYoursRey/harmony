@@ -187,7 +187,6 @@ export function TeacherDashboardView() {
 
     const { overview, students } = analyticsData;
 
-    // Simulate online status based on some mock logic for now since we don't have websocket here
     const mappedStudents = students.map((s: any) => ({
       id: s.id,
       name: s.name,
