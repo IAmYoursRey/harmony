@@ -61,12 +61,13 @@ export async function createProfile(
   classSection: string,
   schoolId: string,
   dateOfBirth?: string,
-  supervisedClasses?: { grade: 'X' | 'XI' | 'XII'; section: string }[]
+  supervisedClasses?: { grade: 'X' | 'XI' | 'XII'; section: string }[],
+  classId?: string
 ): Promise<UserProfile | undefined> {
   try {
     const newProfile = {
       gender, grade, classSection, schoolId, dateOfBirth, supervisedClasses,
-      topicScores: {}, totalPoints: 0, badges: []
+      classId, topicScores: {}, totalPoints: 0, badges: []
     };
     const data = await apiClient.post('/api/profile', newProfile);
     return data.profile;

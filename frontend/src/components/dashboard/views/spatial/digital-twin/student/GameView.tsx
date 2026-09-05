@@ -188,11 +188,13 @@ export function GameView({ room, onExit }: Props) {
         simulation={gameState.simulation}
       />
 
-      {/* Virtual Joystick */}
-      <VirtualJoystick
-        onMove={handleMove}
-        disabled={gameState.phase !== 'running' || gameState.player.status !== 'alive'}
-      />
+      {/* Virtual Joystick (Mobile Overlay) */}
+      <div className="fixed bottom-24 left-1/2 -translate-x-1/2 z-50 sm:bottom-12 md:hidden">
+        <VirtualJoystick
+          onMove={handleMove}
+          disabled={gameState.phase !== 'running' || gameState.player.status !== 'alive'}
+        />
+      </div>
     </div>
   );
 }
