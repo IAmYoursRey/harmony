@@ -44,7 +44,7 @@ router.get('/system', verifyToken, (req, res) => {
 // GET /api/analytics/class
 // Teacher only
 router.get('/class', verifyToken, (req, res) => {
-  if (req.user.role !== 'teacher') {
+  if (req.user.role !== 'teacher' && req.user.role !== 'dev') {
     return res.status(403).json({ error: 'Access denied' });
   }
 

@@ -3,7 +3,7 @@
     {
       "id": "seed-raihanansari6678",
       "email": "raihanansari6678@gmail.com",
-      "passwordHash": "$2b$10$z5kabhx/vhglXe9K5y4NpOBCZctEptXudt7s48xMRqZxR/R.uhvre",
+      "passwordHash": "$2b$10$8e/Ndz4B4nmh2gXjxEL5..Gr88dEbRL.du7rpXbvfz.YA9RqM29dW",
       "name": "Developer Admin",
       "role": "dev",
       "createdAt": "2026-09-04T06:29:19.797Z"
@@ -31,6 +31,38 @@
       "name": "Sinta Nadhifah",
       "role": "teacher",
       "createdAt": "2026-09-04T06:29:19.798Z"
+    },
+    {
+      "id": "usr-s1",
+      "email": "budi@student.geosense.edu",
+      "passwordHash": "$2b$10$dqC8jGjGj7riZteeAFKBnOMtn8HvPtqBD8RXsXBCPrSjPbOqwBvxS",
+      "name": "Budi Santoso",
+      "role": "student",
+      "createdAt": "2026-09-05T14:15:09.231Z"
+    },
+    {
+      "id": "usr-s2",
+      "email": "siti@student.geosense.edu",
+      "passwordHash": "$2b$10$dqC8jGjGj7riZteeAFKBnOMtn8HvPtqBD8RXsXBCPrSjPbOqwBvxS",
+      "name": "Siti Aminah",
+      "role": "student",
+      "createdAt": "2026-09-05T14:15:09.231Z"
+    },
+    {
+      "id": "usr-s3",
+      "email": "ahmad@student.geosense.edu",
+      "passwordHash": "$2b$10$dqC8jGjGj7riZteeAFKBnOMtn8HvPtqBD8RXsXBCPrSjPbOqwBvxS",
+      "name": "Ahmad Fauzi",
+      "role": "student",
+      "createdAt": "2026-09-05T14:15:09.231Z"
+    },
+    {
+      "id": "usr-s4",
+      "email": "rina@student.geosense.edu",
+      "passwordHash": "$2b$10$dqC8jGjGj7riZteeAFKBnOMtn8HvPtqBD8RXsXBCPrSjPbOqwBvxS",
+      "name": "Rina Wijaya",
+      "role": "student",
+      "createdAt": "2026-09-05T14:15:09.231Z"
     }
   ],
   "profiles": [
@@ -77,6 +109,54 @@
       "badges": [],
       "lastUpdated": "2026-09-04T06:29:19.798Z",
       "schoolId": "sch-20534748"
+    },
+    {
+      "userId": "usr-s1",
+      "gender": "unknown",
+      "grade": "XI",
+      "classSection": "IPA 1",
+      "classId": "cls-1001",
+      "schoolId": "sch-20502725",
+      "topicScores": {},
+      "totalPoints": 120,
+      "badges": [],
+      "lastUpdated": "2026-09-05T14:15:09.231Z"
+    },
+    {
+      "userId": "usr-s2",
+      "gender": "unknown",
+      "grade": "XI",
+      "classSection": "IPA 1",
+      "classId": "cls-1001",
+      "schoolId": "sch-20502725",
+      "topicScores": {},
+      "totalPoints": 120,
+      "badges": [],
+      "lastUpdated": "2026-09-05T14:15:09.231Z"
+    },
+    {
+      "userId": "usr-s3",
+      "gender": "unknown",
+      "grade": "XI",
+      "classSection": "IPA 1",
+      "classId": "cls-1001",
+      "schoolId": "sch-20502725",
+      "topicScores": {},
+      "totalPoints": 120,
+      "badges": [],
+      "lastUpdated": "2026-09-05T14:15:09.231Z"
+    },
+    {
+      "userId": "usr-s4",
+      "gender": "unknown",
+      "grade": "X",
+      "classSection": "IPS 2",
+      "classId": "cls-1002",
+      "schoolId": "sch-20502725",
+      "topicScores": {},
+      "totalPoints": 120,
+      "badges": [],
+      "lastUpdated": "2026-09-05T14:15:09.231Z"
     }
   ],
   "digitalTwins": {
@@ -262,7 +342,176 @@
       "lastUpdated": "2026-09-04T12:01:06.584Z"
     }
   },
-  "surveys": [],
+  "surveys": [
+    {
+      "id": "srv-pre-usr-s1",
+      "userId": "usr-s1",
+      "type": "pre-test",
+      "schoolId": "sch-20502725",
+      "responses": [
+        {
+          "id": "q1",
+          "type": "rating",
+          "question": "How confident are you?",
+          "value": 2
+        },
+        {
+          "id": "q2",
+          "type": "rating",
+          "question": "Do you like geography?",
+          "value": 3
+        }
+      ],
+      "submittedAt": "2026-08-29T14:15:09.231Z"
+    },
+    {
+      "id": "srv-post-usr-s1",
+      "userId": "usr-s1",
+      "type": "post-test",
+      "schoolId": "sch-20502725",
+      "responses": [
+        {
+          "id": "q1",
+          "type": "rating",
+          "question": "How confident are you?",
+          "value": 4
+        },
+        {
+          "id": "q2",
+          "type": "rating",
+          "question": "Do you like geography?",
+          "value": 5
+        }
+      ],
+      "submittedAt": "2026-09-05T14:15:09.231Z"
+    },
+    {
+      "id": "srv-pre-usr-s2",
+      "userId": "usr-s2",
+      "type": "pre-test",
+      "schoolId": "sch-20502725",
+      "responses": [
+        {
+          "id": "q1",
+          "type": "rating",
+          "question": "How confident are you?",
+          "value": 2
+        },
+        {
+          "id": "q2",
+          "type": "rating",
+          "question": "Do you like geography?",
+          "value": 3
+        }
+      ],
+      "submittedAt": "2026-08-29T14:15:09.231Z"
+    },
+    {
+      "id": "srv-post-usr-s2",
+      "userId": "usr-s2",
+      "type": "post-test",
+      "schoolId": "sch-20502725",
+      "responses": [
+        {
+          "id": "q1",
+          "type": "rating",
+          "question": "How confident are you?",
+          "value": 4
+        },
+        {
+          "id": "q2",
+          "type": "rating",
+          "question": "Do you like geography?",
+          "value": 5
+        }
+      ],
+      "submittedAt": "2026-09-05T14:15:09.231Z"
+    },
+    {
+      "id": "srv-pre-usr-s3",
+      "userId": "usr-s3",
+      "type": "pre-test",
+      "schoolId": "sch-20502725",
+      "responses": [
+        {
+          "id": "q1",
+          "type": "rating",
+          "question": "How confident are you?",
+          "value": 2
+        },
+        {
+          "id": "q2",
+          "type": "rating",
+          "question": "Do you like geography?",
+          "value": 3
+        }
+      ],
+      "submittedAt": "2026-08-29T14:15:09.231Z"
+    },
+    {
+      "id": "srv-post-usr-s3",
+      "userId": "usr-s3",
+      "type": "post-test",
+      "schoolId": "sch-20502725",
+      "responses": [
+        {
+          "id": "q1",
+          "type": "rating",
+          "question": "How confident are you?",
+          "value": 4
+        },
+        {
+          "id": "q2",
+          "type": "rating",
+          "question": "Do you like geography?",
+          "value": 5
+        }
+      ],
+      "submittedAt": "2026-09-05T14:15:09.231Z"
+    },
+    {
+      "id": "srv-pre-usr-s4",
+      "userId": "usr-s4",
+      "type": "pre-test",
+      "schoolId": "sch-20502725",
+      "responses": [
+        {
+          "id": "q1",
+          "type": "rating",
+          "question": "How confident are you?",
+          "value": 2
+        },
+        {
+          "id": "q2",
+          "type": "rating",
+          "question": "Do you like geography?",
+          "value": 3
+        }
+      ],
+      "submittedAt": "2026-08-29T14:15:09.231Z"
+    },
+    {
+      "id": "srv-post-usr-s4",
+      "userId": "usr-s4",
+      "type": "post-test",
+      "schoolId": "sch-20502725",
+      "responses": [
+        {
+          "id": "q1",
+          "type": "rating",
+          "question": "How confident are you?",
+          "value": 4
+        },
+        {
+          "id": "q2",
+          "type": "rating",
+          "question": "Do you like geography?",
+          "value": 5
+        }
+      ],
+      "submittedAt": "2026-09-05T14:15:09.231Z"
+    }
+  ],
   "gridMaps": {
     "map_1788595853058_g95z3": {
       "id": "map_1788595853058_g95z3",
@@ -1787,8 +2036,8 @@
       "roomId": "room_1788564820981_2e6dp",
       "simulationId": "sim_1788564820950_pt5vk",
       "mapId": "map_1788564820888_gqpg7",
-      "schoolId": "sch-20534748",
-      "userId": "seed-alvira.nizha",
+      "schoolId": "sch-20502725",
+      "userId": "usr-s1",
       "outcome": "success",
       "completionTimeSeconds": 45,
       "hpRemaining": 80,
@@ -1802,8 +2051,8 @@
       "roomId": "room_1788567059894_vvzs0",
       "simulationId": "sim_1788567059863_y8qdc",
       "mapId": "map_1788567059812_5pfqw",
-      "schoolId": "sch-20534748",
-      "userId": "seed-alvira.nizha",
+      "schoolId": "sch-20502725",
+      "userId": "usr-s2",
       "outcome": "success",
       "completionTimeSeconds": 45,
       "hpRemaining": 80,
@@ -1817,8 +2066,8 @@
       "roomId": "room_1788570223607_j5e3r",
       "simulationId": "sim_1788570223577_xggz2",
       "mapId": "map_1788570223514_84q31",
-      "schoolId": "sch-20534748",
-      "userId": "seed-alvira.nizha",
+      "schoolId": "sch-20502725",
+      "userId": "usr-s3",
       "outcome": "success",
       "completionTimeSeconds": 45,
       "hpRemaining": 80,
@@ -1832,8 +2081,8 @@
       "roomId": "room_1788570735599_r0rpw",
       "simulationId": "sim_1788570735570_mzhul",
       "mapId": "map_1788570735503_ojubs",
-      "schoolId": "sch-20534748",
-      "userId": "seed-alvira.nizha",
+      "schoolId": "sch-20502725",
+      "userId": "usr-s1",
       "outcome": "success",
       "completionTimeSeconds": 45,
       "hpRemaining": 80,
@@ -1847,8 +2096,8 @@
       "roomId": "room_1788571855450_kdymw",
       "simulationId": "sim_1788571855419_bsknl",
       "mapId": "map_1788571855362_21ek6",
-      "schoolId": "sch-20534748",
-      "userId": "seed-alvira.nizha",
+      "schoolId": "sch-20502725",
+      "userId": "usr-s2",
       "outcome": "success",
       "completionTimeSeconds": 45,
       "hpRemaining": 80,
@@ -1862,8 +2111,8 @@
       "roomId": "room_1788572507995_ohthq",
       "simulationId": "sim_1788572507961_wv4jb",
       "mapId": "map_1788572507900_xedjj",
-      "schoolId": "sch-20534748",
-      "userId": "seed-alvira.nizha",
+      "schoolId": "sch-20502725",
+      "userId": "usr-s3",
       "outcome": "success",
       "completionTimeSeconds": 45,
       "hpRemaining": 80,
@@ -1877,8 +2126,8 @@
       "roomId": "room_1788599249450_8qv0w",
       "simulationId": "sim_1788599249419_3a88v",
       "mapId": "map_1788599249351_aw721",
-      "schoolId": "sch-20534748",
-      "userId": "seed-alvira.nizha",
+      "schoolId": "sch-20502725",
+      "userId": "usr-s1",
       "outcome": "success",
       "completionTimeSeconds": 45,
       "hpRemaining": 80,
@@ -1892,8 +2141,8 @@
       "roomId": "room_1788600575499_2lpgy",
       "simulationId": "sim_1788600575491_valyy",
       "mapId": "map_1788600575475_p0l6c",
-      "schoolId": "qa-school-1788600575152",
-      "userId": "usr-1788600575326",
+      "schoolId": "sch-20502725",
+      "userId": "usr-s2",
       "outcome": "COMPLETED",
       "completionTimeSeconds": 45,
       "hpRemaining": 85,
@@ -1909,8 +2158,8 @@
       "roomId": "room_1788600590611_e0car",
       "simulationId": "sim_1788600590596_b0cma",
       "mapId": "map_1788600590580_igbgx",
-      "schoolId": "qa-school-1788600590254",
-      "userId": "usr-1788600590429",
+      "schoolId": "sch-20502725",
+      "userId": "usr-s3",
       "outcome": "COMPLETED",
       "completionTimeSeconds": 45,
       "hpRemaining": 85,
@@ -1926,8 +2175,8 @@
       "roomId": "room_1788600604237_dw149",
       "simulationId": "sim_1788600604224_igm4c",
       "mapId": "map_1788600604208_ctpsk",
-      "schoolId": "qa-school-1788600603865",
-      "userId": "usr-1788600604041",
+      "schoolId": "sch-20502725",
+      "userId": "usr-s1",
       "outcome": "COMPLETED",
       "completionTimeSeconds": 45,
       "hpRemaining": 85,
@@ -1943,8 +2192,8 @@
       "roomId": "room_1788600618588_8e47u",
       "simulationId": "sim_1788600618582_xrp64",
       "mapId": "map_1788600618568_vue8e",
-      "schoolId": "qa-school-1788600618240",
-      "userId": "usr-1788600618409",
+      "schoolId": "sch-20502725",
+      "userId": "usr-s2",
       "outcome": "COMPLETED",
       "completionTimeSeconds": 45,
       "hpRemaining": 85,
@@ -6166,5 +6415,26 @@
       "province": "Jawa Timur"
     }
   ],
-  "classes": []
+  "classes": [
+    {
+      "id": "cls-1001",
+      "name": "XI IPA 1",
+      "grade": "XI",
+      "section": "IPA 1",
+      "academicYear": "2025/2026",
+      "schoolId": "sch-20502725",
+      "teacherId": "seed-raihanansari6678",
+      "createdAt": "2026-09-05T14:15:09.231Z"
+    },
+    {
+      "id": "cls-1002",
+      "name": "X IPS 2",
+      "grade": "X",
+      "section": "IPS 2",
+      "academicYear": "2025/2026",
+      "schoolId": "sch-20502725",
+      "teacherId": "seed-raihanansari6678",
+      "createdAt": "2026-09-05T14:15:09.231Z"
+    }
+  ]
 }

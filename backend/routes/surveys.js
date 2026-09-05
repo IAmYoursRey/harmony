@@ -13,10 +13,17 @@ router.get('/', verifyToken, (req, res) => {
   const db = readDB();
   const surveys = db.surveys || [];
   const schoolId = req.query.schoolId;
+  const classId = req.query.classId;
 
-  const filtered = schoolId
-    ? surveys.filter(s => s.schoolId === schoolId)
-    : surveys;
+  let filtered = surveys;
+
+  if (classId) {
+    const classProfiles = db.profiles.filter(p => p.classId === classId);
+    const studentIds = classProfiles.map(p => p.userId);
+    filtered = filtered.filter(s => studentIds.includes(s.userId));
+  } else if (schoolId) {
+    filtered = filtered.filter(s => s.schoolId === schoolId);
+  }
 
   if (filtered.length === 0) {
     return res.json({
