@@ -30,7 +30,7 @@ async function runTests() {
 
   // Test 2: Login as student
   console.log('\\n[TEST 2] POST /api/auth/login as student');
-  const loginData = JSON.stringify({ email: 'alvira.nizha@geosense.edu', password: 'password123' });
+  const loginData = JSON.stringify({ email: 'test@test.com', password: 'password123' });
   res = await makeRequest({
     hostname: 'localhost',
     port: 3001,
@@ -77,7 +77,7 @@ async function runTests() {
 
   // Test 5: Login as dev
   console.log('\\n[TEST 5] POST /api/auth/login as dev');
-  const devLoginData = JSON.stringify({ email: 'raihanansari6678@gmail.com', password: 'password123' });
+  const devLoginData = JSON.stringify({ email: 'devtest@test.com', password: 'password123' });
   res = await makeRequest({
     hostname: 'localhost',
     port: 3001,

@@ -1,6 +1,5 @@
-import { createContext, useContext, useEffect, useState, type ReactNode } from 'react';
-
-export type Language = 'id' | 'en';
+import { useState, useEffect, type ReactNode } from 'react';
+import { I18nContext, type Language } from './coreI18n';
 
 type Dictionary = Record<string, string>;
 
@@ -665,13 +664,7 @@ const dictionaries: Record<Language, Dictionary> = {
   }
 };
 
-interface I18nContextValue {
-  locale: Language;
-  setLocale: (locale: Language) => void;
-  t: (key: string, variablesOrDefault?: string | Record<string, string | number>) => string;
-}
 
-const I18nContext = createContext<I18nContextValue | null>(null);
 
 export function I18nProvider({ children }: { children: ReactNode }) {
   const [locale, setLocaleState] = useState<Language>('id');
@@ -711,8 +704,3 @@ export function I18nProvider({ children }: { children: ReactNode }) {
   );
 }
 
-export function useI18n() {
-  const ctx = useContext(I18nContext);
-  if (!ctx) throw new Error('useI18n must be used within I18nProvider');
-  return ctx;
-}

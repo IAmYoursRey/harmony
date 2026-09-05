@@ -1,9 +1,9 @@
 import { Menu, Search, Bell, ChevronDown, Sun, Moon, Globe } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
-import { useTheme } from '@/context/ThemeContext';
+import {  useTheme  } from '@/hooks/useTheme';
 import { ThemePicker } from '@/components/ThemePicker';
-import { useAuth } from '@/context/AuthContext';
-import { useI18n } from '@/context/I18nContext';
+import { useAuth } from '@/hooks/useAuth';
+import { useI18n } from '@/hooks/useI18n';
 
 interface TopbarProps {
   onOpenMobile: () => void;

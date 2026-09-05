@@ -1,6 +1,6 @@
 import { motion } from 'framer-motion';
 import { ShieldCheck, TrendingUp, Brain, Target, Clock, Activity, ArrowUp, Gauge } from 'lucide-react';
-import { useI18n } from '@/context/I18nContext';
+import { useI18n } from '@/hooks/useI18n';
 
 export interface ReadinessFactors {
   knowledge: number;

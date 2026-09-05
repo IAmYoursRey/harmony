@@ -1,4 +1,4 @@
-﻿/**
+/**
  * Geographic utilities for distance calculations and school proximity sorting.
  * Uses the Haversine formula for accurate great-circle distances.
  */

@@ -22,10 +22,10 @@ import { Link } from 'react-router-dom';
 import { LineChart, RadarChart, DonutChart, Sparkline, ProgressRing } from '@/components/dashboard/Charts';
 import { TeamSection } from '@/components/TeamSection';
 import { LeaderboardView } from './views/AnalyticsViews';
-import { useSchool } from '@/context/SchoolContext';
+import { useSchool } from '@/hooks/useSchool';
 
-import { useI18n } from '@/context/I18nContext';
-import { useAuth } from '@/context/AuthContext';
+import { useI18n } from '@/hooks/useI18n';
+import { useAuth } from '@/hooks/useAuth';
 
 function getDashboardData(userId: string, baseScore: number) {
   const seed = userId + baseScore;

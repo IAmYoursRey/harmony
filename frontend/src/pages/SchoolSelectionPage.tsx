@@ -15,12 +15,12 @@ import {
   Map as MapIcon,
 } from 'lucide-react';
 import { Logo } from '@/components/Logo';
-import { useToast } from '@/context/ToastContext';
-import { useSchool } from '@/context/SchoolContext';
-import { useAuth } from '@/context/AuthContext';
+import {  useToast  } from '@/hooks/useToast';
+import { useSchool } from '@/hooks/useSchool';
+import { useAuth } from '@/hooks/useAuth';
 import { updateProfile } from '@/data/userProfiles';
 import { ThemePicker } from '@/components/ThemePicker';
-import { useI18n } from '@/context/I18nContext';
+import { useI18n } from '@/hooks/useI18n';
 import { getAllSchools, extractProvinces, extractRegencies } from '@/services/schoolService';
 import {
   riskStyles,

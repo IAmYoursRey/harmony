@@ -1,5 +1,5 @@
 import { Reveal } from '@/components/Reveal';
-import { useI18n } from '@/context/I18nContext';
+import { useI18n } from '@/hooks/useI18n';
 
 interface SDG {
   number: number;

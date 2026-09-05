@@ -1,19 +1,6 @@
-import { createContext, useContext, useState, useCallback, type ReactNode } from 'react';
+import { useState, useCallback, type ReactNode } from 'react';
 import type { School } from '@/data/schools';
-
-interface SchoolSelection {
-  school: School;
-  provinceName: string;
-  regencyName: string;
-}
-
-interface SchoolContextValue {
-  selection: SchoolSelection | null;
-  setSelection: (school: School) => void;
-  clearSelection: () => void;
-}
-
-const SchoolContext = createContext<SchoolContextValue | null>(null);
+import { SchoolContext, type SchoolSelection } from './coreSchool';
 
 export function SchoolProvider({ children }: { children: ReactNode }) {
   const [selection, setSel] = useState<SchoolSelection | null>(null);
@@ -35,8 +22,3 @@ export function SchoolProvider({ children }: { children: ReactNode }) {
   );
 }
 
-export function useSchool() {
-  const ctx = useContext(SchoolContext);
-  if (!ctx) throw new Error('useSchool must be used within SchoolProvider');
-  return ctx;
-}

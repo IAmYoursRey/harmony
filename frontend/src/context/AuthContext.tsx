@@ -1,5 +1,5 @@
 import { createContext, useContext, useEffect, useState, type ReactNode } from 'react';
-import { useSchool } from '@/context/SchoolContext';
+import { useSchool } from '@/hooks/useSchool';
 import { getSchoolById } from '@/services/schoolService';
 import { apiClient } from '@/services/apiClient';
 import {
@@ -17,19 +17,8 @@ import {
   updateProfile,
 } from '@/data/userProfiles';
 
-interface AuthContextValue {
-  currentUser: UserAccount | null;
-  currentProfile: UserProfile | null;
-  isLoading: boolean;
-  login: (email: string, password: string) => Promise<{ success: boolean; error?: string }>;
-  register: (name: string, email: string, password: string, role: 'student' | 'teacher' | 'dev', gender: Gender, grade: 'X' | 'XI' | 'XII', classSection: string, schoolId?: string, dateOfBirth?: string) => Promise<{ success: boolean; error?: string }>;
-  logout: () => void;
-  refreshProfile: () => Promise<void>;
-  updateUserAccount: (updates: { name?: string; email?: string; password?: string }) => Promise<{ success: boolean; error?: string }>;
-  updateUserProfile: (updates: Partial<UserProfile>) => Promise<void>;
-}
+import { AuthContext } from './coreAuth';
 
-const AuthContext = createContext<AuthContextValue | null>(null);
 
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [currentUser, setCurrentUser] = useState<UserAccount | null>(null);
@@ -124,10 +113,4 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       {children}
     </AuthContext.Provider>
   );
-}
-
-export function useAuth() {
-  const context = useContext(AuthContext);
-  if (!context) throw new Error('useAuth must be used within an AuthProvider');
-  return context;
 }

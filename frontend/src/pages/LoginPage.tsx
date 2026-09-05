@@ -7,9 +7,9 @@ import {
   LogIn, Eye, EyeOff, Calendar, School
 } from 'lucide-react';
 import { Logo } from '@/components/Logo';
-import { useToast } from '@/context/ToastContext';
+import {  useToast  } from '@/hooks/useToast';
 import { ThemePicker } from '@/components/ThemePicker';
-import { useAuth } from '@/context/AuthContext';
+import { useAuth } from '@/hooks/useAuth';
 import { useEffect } from 'react';
 
 type Mode = 'role-select' | 'login' | 'register';

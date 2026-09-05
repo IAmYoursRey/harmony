@@ -5,7 +5,17 @@ import { fileURLToPath } from 'node:url';
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const dbPath = path.join(__dirname, 'database.json');
 
-const DEFAULT_DB = { accounts: [], profiles: [], digitalTwins: {}, surveys: [] };
+const DEFAULT_DB = {
+  accounts: [],
+  profiles: [],
+  digitalTwins: {},
+  surveys: [],
+  // Digital Twin Grid Game (added Phase C)
+  gridMaps: {},      // keyed by mapId
+  simulations: {},   // keyed by simulationId
+  dtRooms: {},       // keyed by roomId
+  dtResults: [],     // array of SimulationResult
+};
 
 // Helper to safely read db
 export function readDB() {

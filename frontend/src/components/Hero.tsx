@@ -2,7 +2,7 @@ import { Link } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { ArrowRight, Play, Brain, Boxes, ShieldCheck, Satellite, GraduationCap, Map, Gauge, BarChart3 } from 'lucide-react';
 import { HeroIllustration } from '@/components/HeroIllustration';
-import { useI18n } from '@/context/I18nContext';
+import { useI18n } from '@/hooks/useI18n';
 
 const pillars = [
   { icon: Brain, label: 'Artificial Intelligence' },

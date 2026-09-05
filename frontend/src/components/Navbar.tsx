@@ -2,8 +2,8 @@ import { useEffect, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { Menu, X, ShieldCheck, Sun, Moon, Globe } from 'lucide-react';
 import { Logo } from '@/components/Logo';
-import { useTheme } from '@/context/ThemeContext';
-import { useI18n } from '@/context/I18nContext';
+import {  useTheme  } from '@/hooks/useTheme';
+import { useI18n } from '@/hooks/useI18n';
 import { ThemePicker } from '@/components/ThemePicker';
 
 const links = [

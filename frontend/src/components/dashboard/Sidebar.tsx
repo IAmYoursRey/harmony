@@ -2,8 +2,8 @@ import { X, LogOut } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { navItems } from '@/components/dashboard/nav';
 import { Logo } from '@/components/Logo';
-import { useI18n } from '@/context/I18nContext';
-import { useAuth } from '@/context/AuthContext';
+import { useI18n } from '@/hooks/useI18n';
+import { useAuth } from '@/hooks/useAuth';
 
 interface SidebarProps {
   active: string;

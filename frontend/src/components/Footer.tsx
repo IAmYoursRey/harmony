@@ -1,7 +1,7 @@
 import { Mail, MapPin, Phone, Github, Instagram, Linkedin, Info, Brain, Boxes, Satellite } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { Logo } from '@/components/Logo';
-import { useI18n } from '@/context/I18nContext';
+import { useI18n } from '@/hooks/useI18n';
 
 const poweredBy = [
   { icon: Brain, label: 'Artificial Intelligence' },

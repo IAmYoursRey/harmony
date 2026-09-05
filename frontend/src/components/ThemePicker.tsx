@@ -1,6 +1,7 @@
 import { useState, useRef, useEffect } from 'react';
 import { Palette, Check } from 'lucide-react';
-import { useThemeColor, type ThemePreset, presets } from '@/context/ThemeColorContext';
+import { type ThemePreset, presets } from '@/context/coreThemeColor';
+import { useThemeColor } from '@/hooks/useThemeColor';
 import { motion, AnimatePresence } from 'framer-motion';
 
 export function ThemePicker() {

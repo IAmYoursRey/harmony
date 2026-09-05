@@ -3,7 +3,7 @@ import { Sidebar } from '@/components/dashboard/Sidebar';
 import { Topbar } from '@/components/dashboard/Topbar';
 import { navItems } from '@/components/dashboard/nav';
 import { useState } from 'react';
-import { useAuth } from '@/context/AuthContext';
+import { useAuth } from '@/hooks/useAuth';
 
 export function DashboardLayout() {
   const [mobileOpen, setMobileOpen] = useState(false);

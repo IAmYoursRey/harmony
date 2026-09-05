@@ -28,7 +28,7 @@ import {
   SlidersHorizontal,
   type LucideIcon,
 } from 'lucide-react';
-import { useI18n } from '@/context/I18nContext';
+import { useI18n } from '@/hooks/useI18n';
 import { getAllSchools, extractProvinces, extractRegencies } from '@/services/schoolService';
 import {
   riskStyles,
@@ -39,8 +39,8 @@ import {
   type NearbySchoolResult,
   type SearchSchoolResult,
 } from '@/data/schools';
-import { useSchool } from '@/context/SchoolContext';
-import { useToast } from '@/context/ToastContext';
+import { useSchool } from '@/hooks/useSchool';
+import {  useToast  } from '@/hooks/useToast';
 import { useUserLocation } from '@/hooks/useUserLocation';
 import { formatDistance } from '@/utils/geoUtils';
 

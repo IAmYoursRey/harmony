@@ -1,6 +1,9 @@
 import { TOKEN_KEY } from '@/data/accounts';
 
-const API_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:3001';
+// In development, Vite proxies /api/* → localhost:3001 (configured in vite.config.ts).
+// In production, set VITE_API_BASE_URL to the actual API origin (e.g. https://api.geosense.app).
+// When VITE_API_BASE_URL is empty/unset, requests use relative paths (proxy mode).
+const API_URL = import.meta.env.VITE_API_BASE_URL ?? '';
 
 export class APIError extends Error {
   constructor(public status: number, message: string, public data?: any) {
@@ -36,10 +39,10 @@ export const apiClient = {
       }
 
       if (!response.ok) {
-        throw new APIError(response.status, data.error || data.message || 'API request failed', data);
+        throw new APIError(response.status, (data as {error?: string, message?: string}).error || (data as {message?: string}).message || 'API request failed', data);
       }
 
-      return data;
+      return data as T;
     } catch (error) {
       if (error instanceof APIError) {
         throw error;
@@ -52,11 +55,11 @@ export const apiClient = {
     return this.fetch<T>(endpoint, { ...options, method: 'GET' });
   },
 
-  post<T = any>(endpoint: string, body: any, options?: RequestInit) {
+  post<T = any>(endpoint: string, body: unknown, options?: RequestInit) {
     return this.fetch<T>(endpoint, { ...options, method: 'POST', body: JSON.stringify(body) });
   },
 
-  put<T = any>(endpoint: string, body: any, options?: RequestInit) {
+  put<T = any>(endpoint: string, body: unknown, options?: RequestInit) {
     return this.fetch<T>(endpoint, { ...options, method: 'PUT', body: JSON.stringify(body) });
   },
 

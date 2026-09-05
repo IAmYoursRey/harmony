@@ -12,7 +12,7 @@ import {
   ArrowRight,
   type LucideIcon,
 } from 'lucide-react';
-import { useI18n } from '@/context/I18nContext';
+import { useI18n } from '@/hooks/useI18n';
 
 interface FeatureCard {
   icon: LucideIcon;
