@@ -7,8 +7,8 @@ pnpm-debug.log*
 lerna-debug.log*
 
 node_modules
-dist
-dist-ssr
+dist/
+dist-ssr/
 *.local
 
 .vscode/*
@@ -21,9 +21,14 @@ dist-ssr
 *.sln
 *.sw?
 
-# AI Agent & Scratch Files
+# Build cache
+.vite/
+
+# AI Agent & one-time utility scripts
 .agents/
 scratch/
 
-# Secrets
+# Secrets — never commit real keys
 .env
+.env.*
+!.env.example
