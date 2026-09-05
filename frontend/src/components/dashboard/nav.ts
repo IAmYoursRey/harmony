@@ -27,7 +27,7 @@ export const navItems: NavItem[] = [
   { id: 'ai-learning', label: 'AI Learning', icon: Brain },
   { id: 'geo-risk-map', label: 'Geo Risk Map', icon: Map },
   { id: 'digital-twin', label: 'Digital Twin School', icon: Boxes },
-  { id: 'simulation', label: 'Disaster Question', icon: CloudLightning },
+  { id: 'disasterQuestion', label: 'Disaster Question', icon: CloudLightning },
   { id: 'gss', label: 'GeoSense Score', icon: Gauge },
   { id: 'resilience', label: 'School Resilience', icon: ShieldCheck },
   { id: 'survey', label: 'Survey Analytics', icon: BarChart3 },

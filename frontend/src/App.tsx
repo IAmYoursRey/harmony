@@ -38,7 +38,7 @@ export default function App() {
           <Route path="ai-learning" element={<Suspense fallback={<PageSkeleton />}><AILearningView /></Suspense>} />
           <Route path="geo-risk-map" element={<Suspense fallback={<PageSkeleton />}><GeoRiskMapView /></Suspense>} />
           <Route path="digital-twin" element={<Suspense fallback={<PageSkeleton />}><DigitalTwinView /></Suspense>} />
-          <Route path="simulation" element={<Suspense fallback={<PageSkeleton />}><DisasterQuestionView /></Suspense>} />
+          <Route path="disasterQuestion" element={<Suspense fallback={<PageSkeleton />}><DisasterQuestionView /></Suspense>} />
           <Route path="gss" element={<Suspense fallback={<PageSkeleton />}><GSSView /></Suspense>} />
           <Route path="resilience" element={<Suspense fallback={<PageSkeleton />}><SchoolResilienceIndexView /></Suspense>} />
           <Route path="survey" element={<Suspense fallback={<PageSkeleton />}><SurveyAnalyticsView /></Suspense>} />

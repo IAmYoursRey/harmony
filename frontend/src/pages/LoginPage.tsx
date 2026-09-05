@@ -223,7 +223,7 @@ export default function LoginPage() {
                   <label htmlFor="reg-name" className="text-xs font-bold text-ink-700 dark:text-slate-300">Nama Lengkap <span className="text-red-500">*</span></label>
                   <div className="relative">
                     <User className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-ink-400" />
-                    <input id="reg-name" name="reg-name" value={regName} onChange={e => setRegName(e.target.value)} placeholder="Nama lengkap Anda"
+                    <input id="reg-name" name="reg-name" value={regName} onChange={e => setRegName(e.target.value)} placeholder="Nama lengkap Anda" autoComplete="name"
                       className="w-full rounded-xl border border-brand-100 bg-white/70 py-2.5 pl-10 pr-4 text-sm outline-none focus:border-brand-300 focus:ring-2 focus:ring-brand-100 dark:border-slate-700 dark:bg-slate-800/70 dark:text-white" />
                   </div>
                 </div>
@@ -232,7 +232,7 @@ export default function LoginPage() {
                   <label htmlFor="reg-email" className="text-xs font-bold text-ink-700 dark:text-slate-300">Email <span className="text-red-500">*</span></label>
                   <div className="relative">
                     <Mail className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-ink-400" />
-                    <input id="reg-email" name="reg-email" type="email" value={regEmail} onChange={e => setRegEmail(e.target.value)} placeholder="email@geosense.edu"
+                    <input id="reg-email" name="reg-email" type="email" value={regEmail} onChange={e => setRegEmail(e.target.value)} placeholder="email@geosense.edu" autoComplete="email"
                       className="w-full rounded-xl border border-brand-100 bg-white/70 py-2.5 pl-10 pr-4 text-sm outline-none focus:border-brand-300 focus:ring-2 focus:ring-brand-100 dark:border-slate-700 dark:bg-slate-800/70 dark:text-white" />
                   </div>
                 </div>
@@ -241,7 +241,7 @@ export default function LoginPage() {
                   <label htmlFor="reg-password" className="text-xs font-bold text-ink-700 dark:text-slate-300">Kata Sandi <span className="text-red-500">*</span></label>
                   <div className="relative">
                     <Lock className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-ink-400" />
-                    <input id="reg-password" name="reg-password" type={showRegPw ? 'text' : 'password'} value={regPassword} onChange={e => setRegPassword(e.target.value)} placeholder="Min. 6 karakter"
+                    <input id="reg-password" name="reg-password" type={showRegPw ? 'text' : 'password'} value={regPassword} onChange={e => setRegPassword(e.target.value)} placeholder="Min. 6 karakter" autoComplete="new-password"
                       className="w-full rounded-xl border border-brand-100 bg-white/70 py-2.5 pl-10 pr-12 text-sm outline-none focus:border-brand-300 focus:ring-2 focus:ring-brand-100 dark:border-slate-700 dark:bg-slate-800/70 dark:text-white" />
                     <button type="button" onClick={() => setShowRegPw(s => !s)} className="absolute right-3 top-1/2 -translate-y-1/2 text-ink-400">
                       {showRegPw ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
