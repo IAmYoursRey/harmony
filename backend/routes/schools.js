@@ -1,5 +1,30 @@
 import express from 'express';
 import { readDB } from '../repository.js';
+import fs from 'fs';
+import path from 'path';
+
+let _localSchoolsCache = null;
+
+async function getBaseSchools() {
+    if (_localSchoolsCache) return _localSchoolsCache;
+    
+    // Try to load the giant dataset if it exists locally
+    const finalPath = path.resolve(process.cwd(), 'data/final/schools-final.json');
+    if (fs.existsSync(finalPath)) {
+        try {
+            console.log('Loading 215k dataset into memory...');
+            _localSchoolsCache = JSON.parse(fs.readFileSync(finalPath, 'utf8'));
+            return _localSchoolsCache;
+        } catch(e) {
+            console.error('Error reading schools-final.json:', e);
+        }
+    }
+    
+    // Fallback to database
+    const db = await readDB();
+    _localSchoolsCache = db.schools || [];
+    return _localSchoolsCache;
+}
 
 const router = express.Router();
 
@@ -46,11 +71,41 @@ function enrichSchool(school) {
     };
 }
 
+// GET all unique provinces
+router.get('/provinces', async (req, res) => {
+  try {
+    const schools = await getBaseSchools();
+    const provs = new Set(schools.map(s => s.province).filter(Boolean));
+    const result = Array.from(provs).map(p => ({ id: p, name: p }));
+    // sort alphabetically
+    result.sort((a, b) => a.name.localeCompare(b.name));
+    res.json({ provinces: result });
+  } catch (error) {
+    res.status(503).json({ success: false, error: 'Database connection failed' });
+  }
+});
+
+// GET all unique regencies for a province
+router.get('/regencies', async (req, res) => {
+  try {
+    const province = req.query.province;
+    if (!province) return res.status(400).json({ error: 'province query required' });
+    
+    const schools = await getBaseSchools();
+    const regs = new Set(schools.filter(s => s.province === province).map(s => s.regency).filter(Boolean));
+    const result = Array.from(regs).map(r => ({ id: r, name: r }));
+    // sort alphabetically
+    result.sort((a, b) => a.name.localeCompare(b.name));
+    res.json({ regencies: result });
+  } catch (error) {
+    res.status(503).json({ success: false, error: 'Database connection failed' });
+  }
+});
+
 // GET all schools (optionally filtered by province or regency)
 router.get('/', async (req, res, next) => {
   try {
-    const db = await readDB();
-    const schools = db.schools || [];
+    const schools = await getBaseSchools();
     
     let filtered = schools;
     
@@ -75,8 +130,7 @@ router.get('/', async (req, res, next) => {
 
 // GET /api/schools/search?q=...
 router.get('/search', async (req, res) => {
-  const db = await readDB();
-  const schools = db.schools || [];
+  const schools = await getBaseSchools();
   const q = (req.query.q || '').toLowerCase();
   
   if (!q) {
@@ -94,8 +148,7 @@ router.get('/search', async (req, res) => {
 
 // GET a specific school by ID
 router.get('/:id', async (req, res) => {
-  const db = await readDB();
-  const schools = db.schools || [];
+  const schools = await getBaseSchools();
   const school = schools.find(s => (s.id === req.params.id || s.school_id === req.params.id));
   
   if (!school) {

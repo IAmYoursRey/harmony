@@ -21,7 +21,7 @@ import { useAuth } from '@/hooks/useAuth';
 import { apiClient } from '@/services/apiClient';
 import { ThemePicker } from '@/components/ThemePicker';
 import { useI18n } from '@/hooks/useI18n';
-import { getAllSchools, extractProvinces, extractRegencies } from '@/services/schoolService';
+import { fetchSchools, fetchProvinces, fetchRegencies } from '@/services/schoolService';
 import {
   riskStyles,
   type School,
@@ -54,14 +54,32 @@ export default function SchoolSelectionPage() {
   const [school, setSchool] = useState<School | null>(null);
   const [search, setSearch] = useState('');
 
-  const [allSchools, setAllSchools] = useState<School[]>([]);
+  const [allProvinces, setAllProvinces] = useState<{id: string, name: string}[]>([]);
+  const [regencies, setRegencies] = useState<{id: string, name: string}[]>([]);
+  const [schools, setSchools] = useState<School[]>([]);
+
+  // Load provinces on mount
   useEffect(() => {
-    getAllSchools().then(setAllSchools).catch(console.error);
+    fetchProvinces().then(setAllProvinces).catch(console.error);
   }, []);
 
-  const allProvinces = useMemo(() => extractProvinces(allSchools), [allSchools]);
-  const regencies = useMemo(() => (provinceId ? extractRegencies(allSchools, provinceId) : []), [provinceId, allSchools]);
-  const schools = useMemo(() => (provinceId && regencyId ? allSchools.filter(s => s.province === provinceId && s.regency === regencyId) : []), [provinceId, regencyId, allSchools]);
+  // Load regencies when province changes
+  useEffect(() => {
+    if (provinceId) {
+      fetchRegencies(provinceId).then(setRegencies).catch(console.error);
+    } else {
+      setRegencies([]);
+    }
+  }, [provinceId]);
+
+  // Load schools when province and regency are selected
+  useEffect(() => {
+    if (provinceId && regencyId) {
+      fetchSchools(provinceId, regencyId).then(setSchools).catch(console.error);
+    } else {
+      setSchools([]);
+    }
+  }, [provinceId, regencyId]);
 
   const filteredProvinces = useMemo(() => {
     const q = search.toLowerCase().trim();

@@ -38,18 +38,32 @@ export async function getSchoolById(id: string): Promise<School | undefined> {
   }
 }
 
+export async function fetchProvinces(): Promise<{id: string, name: string}[]> {
+  const data = await apiClient.get('/api/schools/provinces');
+  return data.provinces || [];
+}
+
+export async function fetchRegencies(province: string): Promise<{id: string, name: string}[]> {
+  if (!province) return [];
+  const data = await apiClient.get(`/api/schools/regencies?province=${encodeURIComponent(province)}`);
+  return data.regencies || [];
+}
+
 export function extractProvinces(schools: School[]): { id: string, name: string }[] {
+  // Deprecated for large datasets, used by fallback
   const provs = new Set(schools.map(s => s.province).filter(Boolean));
   return Array.from(provs).map(p => ({ id: p as string, name: p as string }));
 }
 
 export function extractRegencies(schools: School[], province: string): { id: string, name: string }[] {
+  // Deprecated for large datasets, used by fallback
   const regs = new Set(schools.filter(s => s.province === province).map(s => s.regency).filter(Boolean));
   return Array.from(regs).map(r => ({ id: r as string, name: r as string }));
 }
 
 let _schoolsCache: School[] | null = null;
 export async function getAllSchools(): Promise<School[]> {
+  // Deprecated: returns max 1000 items. Legacy views only.
   if (_schoolsCache) return _schoolsCache;
   _schoolsCache = await fetchSchools();
   return _schoolsCache;

@@ -4,7 +4,7 @@ import { getAllAccounts, updateAccount, provisionAccount, type UserAccount } fro
 import { getAllProfiles, updateProfile, type UserProfile, type Gender } from '@/data/userProfiles';
 import {  useToast  } from '@/hooks/useToast';
 import { Users, UserPlus, ShieldAlert, BookOpen, GraduationCap, Mail, Lock, User, School, Calendar, Download, Edit2, Check, X, MapPin, TrendingUp, TrendingDown, Award, Target, Brain, FileText, Sparkles, CheckCircle2, AlertTriangle, Clock, Plus, ChevronDown, Phone, Pencil, Bell, Globe, Shield, LogOut, Camera, Boxes, Satellite, Zap, Trophy, Compass, Flame, Medal, Save, type LucideIcon } from 'lucide-react';
-import { getAllSchools, extractProvinces, extractRegencies } from '@/services/schoolService';
+import { fetchSchools, fetchProvinces, fetchRegencies } from '@/services/schoolService';
 import { apiClient } from '@/services/apiClient';
 import type { School as SchoolData } from '@/data/schools';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -52,11 +52,54 @@ export function DevDashboardView() {
   const [editGrade, setEditGrade] = useState<'X'|'XI'|'XII'>('X');
   const [editSection, setEditSection] = useState('');
 
-  const [allSchools, setAllSchools] = useState<SchoolData[]>([]);
+  const [allProvinces, setAllProvinces] = useState<{id: string, name: string}[]>([]);
+  
+  // States for Registration Form
+  const [regencies, setRegencies] = useState<{id: string, name: string}[]>([]);
+  const [schools, setSchools] = useState<SchoolData[]>([]);
+
+  // States for Edit Form
+  const [editRegencies, setEditRegencies] = useState<{id: string, name: string}[]>([]);
+  const [editSchoolsList, setEditSchoolsList] = useState<SchoolData[]>([]);
+
   useEffect(() => {
-    getAllSchools().then(setAllSchools).catch(console.error);
+    fetchProvinces().then(setAllProvinces).catch(console.error);
     refreshData();
   }, []);
+
+  // --- REGISTRATION FORM EFFECTS ---
+  useEffect(() => {
+    if (regProvId) {
+      fetchRegencies(regProvId).then(setRegencies).catch(console.error);
+    } else {
+      setRegencies([]);
+    }
+  }, [regProvId]);
+
+  useEffect(() => {
+    if (regProvId && regRegId) {
+      fetchSchools(regProvId, regRegId).then(setSchools).catch(console.error);
+    } else {
+      setSchools([]);
+    }
+  }, [regProvId, regRegId]);
+
+  // --- EDIT FORM EFFECTS ---
+  useEffect(() => {
+    if (editProvId) {
+      fetchRegencies(editProvId).then(setEditRegencies).catch(console.error);
+    } else {
+      setEditRegencies([]);
+    }
+  }, [editProvId]);
+
+  useEffect(() => {
+    if (editProvId && editRegId) {
+      fetchSchools(editProvId, editRegId).then(setEditSchoolsList).catch(console.error);
+    } else {
+      setEditSchoolsList([]);
+    }
+  }, [editProvId, editRegId]);
 
   const refreshData = async () => {
     const acc = await getAllAccounts();
@@ -306,21 +349,28 @@ export function DevDashboardView() {
                               <label className="block text-xs font-bold text-ink-600 dark:text-slate-400 mb-1.5">Provinsi</label>
                               <select value={editProvId} onChange={e => { setEditProvId(e.target.value); setEditRegId(''); setEditSchoolId(''); }} className="w-full px-3.5 py-2 rounded-xl border border-brand-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-ink-900 dark:text-white outline-none focus:ring-2 focus:ring-brand-100">
                                 <option value="">Pilih Provinsi...</option>
-                                {extractProvinces(allSchools).map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
+                                {allProvinces.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
                               </select>
                             </div>
                             <div>
                               <label className="block text-xs font-bold text-ink-600 dark:text-slate-400 mb-1.5">Kab/Kota</label>
-                              <select value={editRegId} onChange={e => { setEditRegId(e.target.value); setEditSchoolId(''); }} disabled={!editProvId} className="w-full px-3.5 py-2 rounded-xl border border-brand-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-ink-900 dark:text-white disabled:opacity-50 outline-none focus:ring-2 focus:ring-brand-100">
-                                <option value="">Pilih Kab/Kota...</option>
-                                {editProvId && extractRegencies(allSchools, editProvId).map(r => <option key={r.id} value={r.id}>{r.name}</option>)}
-                              </select>
+                              <select 
+                      className="w-full bg-slate-900 border border-slate-700 rounded-lg px-4 py-2"
+                      value={editRegId}
+                      onChange={e => { setEditRegId(e.target.value); setEditSchoolId(''); }}
+                      disabled={!editProvId}
+                    >
+                      <option value="">Pilih Kab/Kota</option>
+                      {editRegencies.map(r => (
+                        <option key={r.id} value={r.id}>{r.name}</option>
+                      ))}
+                    </select>
                             </div>
                             <div>
                               <label className="block text-xs font-bold text-ink-600 dark:text-slate-400 mb-1.5">Sekolah</label>
                               <select value={editSchoolId} onChange={e => setEditSchoolId(e.target.value)} disabled={!editRegId} className="w-full px-3.5 py-2 rounded-xl border border-brand-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-ink-900 dark:text-white disabled:opacity-50 outline-none focus:ring-2 focus:ring-brand-100">
                                 <option value="">Pilih Sekolah...</option>
-                                {editProvId && editRegId && allSchools.filter(s => s.province === editProvId && s.regency === editRegId).map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
+                                {editSchoolsList.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
                               </select>
                             </div>
                           </div>
@@ -469,27 +519,44 @@ export function DevDashboardView() {
                     <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
                       <div className="space-y-1.5">
                         <label className="text-xs font-bold text-ink-600 dark:text-slate-400">Provinsi</label>
-                        <select value={regProvId} onChange={e => { setRegProvId(e.target.value); setRegRegId(''); setRegSchoolId(''); }}
-                          className="w-full rounded-xl border border-slate-200 bg-white py-2 px-3 text-sm outline-none focus:border-brand-400 focus:ring-2 focus:ring-brand-100 dark:border-slate-700 dark:bg-slate-800 dark:text-white transition-all">
-                          <option value="">(Opsional) Pilih...</option>
-                          {extractProvinces(allSchools).map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
-                        </select>
+                        <select 
+                      className="w-full bg-slate-900 border border-slate-700 rounded-lg px-4 py-2"
+                      value={regProvId}
+                      onChange={e => setRegProvId(e.target.value)}
+                    >
+                      <option value="">Pilih Provinsi</option>
+                      {allProvinces.map(p => (
+                        <option key={p.id} value={p.id}>{p.name}</option>
+                      ))}
+                    </select>
                       </div>
                       <div className="space-y-1.5">
                         <label className="text-xs font-bold text-ink-600 dark:text-slate-400">Kabupaten/Kota</label>
-                        <select value={regRegId} onChange={e => { setRegRegId(e.target.value); setRegSchoolId(''); }} disabled={!regProvId}
-                          className="w-full rounded-xl border border-slate-200 bg-white py-2 px-3 text-sm outline-none focus:border-brand-400 focus:ring-2 focus:ring-brand-100 dark:border-slate-700 dark:bg-slate-800 dark:text-white disabled:opacity-50 transition-all">
-                          <option value="">(Opsional) Pilih...</option>
-                          {regProvId && extractRegencies(allSchools, regProvId).map(r => <option key={r.id} value={r.id}>{r.name}</option>)}
-                        </select>
+                        <select 
+                      className="w-full bg-slate-900 border border-slate-700 rounded-lg px-4 py-2"
+                      value={regRegId}
+                      onChange={e => setRegRegId(e.target.value)}
+                      disabled={!regProvId}
+                    >
+                      <option value="">Pilih Kab/Kota</option>
+                      {regencies.map(r => (
+                        <option key={r.id} value={r.id}>{r.name}</option>
+                      ))}
+                    </select>
                       </div>
                       <div className="space-y-1.5">
                         <label className="text-xs font-bold text-ink-600 dark:text-slate-400">Sekolah</label>
-                        <select value={regSchoolId} onChange={e => setRegSchoolId(e.target.value)} disabled={!regRegId}
-                          className="w-full rounded-xl border border-slate-200 bg-white py-2 px-3 text-sm outline-none focus:border-brand-400 focus:ring-2 focus:ring-brand-100 dark:border-slate-700 dark:bg-slate-800 dark:text-white disabled:opacity-50 transition-all">
-                          <option value="">(Opsional) Pilih...</option>
-                          {regProvId && regRegId && allSchools.filter(s => s.province === regProvId && s.regency === regRegId).map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
-                        </select>
+                        <select 
+                      className="w-full bg-slate-900 border border-slate-700 rounded-lg px-4 py-2"
+                      value={regSchoolId}
+                      onChange={e => setRegSchoolId(e.target.value)}
+                      disabled={!regRegId}
+                    >
+                      <option value="">Pilih Sekolah</option>
+                      {schools.map(s => (
+                        <option key={s.id} value={s.id}>{s.name}</option>
+                      ))}
+                    </select>
                       </div>
                     </div>
                   </div>
