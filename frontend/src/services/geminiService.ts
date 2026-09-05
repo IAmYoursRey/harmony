@@ -6,10 +6,11 @@ import { apiClient } from './apiClient';
 
 async function callGemini(
   contents: object[],
+  type: 'quiz' | 'chat' | 'chatbot',
   jsonMode = false
 ): Promise<string> {
   try {
-    const response = await apiClient.post('/api/ai/generate', { contents, jsonMode });
+    const response = await apiClient.post('/api/ai/generate', { contents, type, jsonMode });
     // The backend now returns { success: true, data: { text: ... } }
     if (response && response.success && response.data) {
       return response.data.text ?? '';
@@ -107,6 +108,7 @@ Format output HARUS berupa JSON array valid (boleh dibungkus markdown \`\`\`json
   try {
     const text = await callGemini(
       [{ role: 'user', parts: [{ text: prompt }] }],
+      'quiz',
       true
     );
     const parsed = parseJSONFromText(text);
@@ -171,6 +173,7 @@ Format output HARUS berupa JSON array valid (boleh dibungkus markdown \`\`\`json
   try {
     const text = await callGemini(
       [{ role: 'user', parts: [{ text: prompt }] }],
+      'quiz',
       true
     );
     const parsed = parseJSONFromText(text);
@@ -240,6 +243,7 @@ Format output HARUS berupa JSON array valid (boleh dibungkus markdown \`\`\`json
   try {
     const text = await callGemini(
       [{ role: 'user', parts: [{ text: prompt }] }],
+      'quiz',
       true
     );
     const parsed = parseJSONFromText(text);
@@ -283,7 +287,7 @@ Jawab dengan bahasa yang ramah, ringkas, mudah dipahami siswa sekolah, dan eduka
   ];
 
   try {
-    return await callGemini(contents, true);
+    return await callGemini(contents, 'chatbot', true);
   } catch (err) {
     console.error('ChatbotAI error:', err);
     return 'Maaf, ada kendala koneksi dengan GeoBot. Silakan coba sesaat lagi.';

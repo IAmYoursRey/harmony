@@ -5,27 +5,45 @@ import dotenv from 'dotenv';
 dotenv.config();
 
 const router = express.Router();
-const GEMINI_API_KEY = process.env.GEMINI_API_KEY;
 
-// Initialize GoogleGenAI ONLY if the key exists, otherwise we will handle it at the request level.
-const ai = GEMINI_API_KEY ? new GoogleGenAI({ apiKey: GEMINI_API_KEY }) : null;
+const GEMINI_KEYS = {
+  quiz: process.env.GEMINI_QUIZ_KEY,
+  chat: process.env.GEMINI_CHAT_KEY,
+  chatbot: process.env.GEMINI_CHATBOT_KEY,
+};
+
+const aiInstances = {
+  quiz: GEMINI_KEYS.quiz ? new GoogleGenAI({ apiKey: GEMINI_KEYS.quiz }) : null,
+  chat: GEMINI_KEYS.chat ? new GoogleGenAI({ apiKey: GEMINI_KEYS.chat }) : null,
+  chatbot: GEMINI_KEYS.chatbot ? new GoogleGenAI({ apiKey: GEMINI_KEYS.chatbot }) : null,
+};
+
 const MODEL_NAME = process.env.GEMINI_MODEL || 'gemini-3.6-flash';
 
 // Health Check
 router.get('/health', (req, res) => {
-  if (!GEMINI_API_KEY) {
-    return res.status(503).json({ success: false, error: 'AI service API key is missing' });
-  }
-  return res.json({ success: true, status: 'AI service configured', model: MODEL_NAME });
+  res.json({
+    configured: true,
+    quiz: !!GEMINI_KEYS.quiz,
+    chat: !!GEMINI_KEYS.chat,
+    chatbot: !!GEMINI_KEYS.chatbot,
+    model: MODEL_NAME
+  });
 });
 
 router.post('/generate', verifyToken, async (req, res) => {
-  if (!GEMINI_API_KEY || !ai) {
-    return res.status(503).json({ success: false, error: 'AI service is temporarily unavailable (Missing Configuration)' });
+  const { contents, jsonMode, type } = req.body;
+  
+  if (!type || !['quiz', 'chat', 'chatbot'].includes(type)) {
+    return res.status(400).json({ success: false, error: 'Missing or invalid required field: type (must be quiz, chat, or chatbot)' });
   }
 
-  const { contents, jsonMode } = req.body;
-  
+  const ai = aiInstances[type];
+
+  if (!ai) {
+    return res.status(503).json({ success: false, error: `AI service is temporarily unavailable (Missing Configuration for ${type})` });
+  }
+
   if (!contents || !Array.isArray(contents) || contents.length === 0) {
     return res.status(400).json({ success: false, error: 'Missing or invalid required field: contents (must be a non-empty array)' });
   }
@@ -38,7 +56,7 @@ router.post('/generate', verifyToken, async (req, res) => {
       config.responseMimeType = 'application/json';
     }
 
-    console.log(`[AI] Request received - Model: ${MODEL_NAME}`);
+    console.log(`[AI] feature=${type} keyConfigured=true`);
     
     const response = await ai.models.generateContent({
       model: MODEL_NAME,
@@ -46,10 +64,9 @@ router.post('/generate', verifyToken, async (req, res) => {
       config
     });
     
-    console.log(`[AI] Generation successful`);
     res.json({ success: true, data: { text: response.text ?? '' } });
   } catch (err) {
-    console.error(`[AI] Error:`, err.message);
+    console.error(`[AI] Error (${type}):`, err.message);
     if (err.name === 'AbortError') {
       return res.status(504).json({ success: false, error: 'AI provider request timed out.' });
     }
