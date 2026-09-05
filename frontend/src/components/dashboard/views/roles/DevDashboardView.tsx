@@ -4,7 +4,7 @@ import { getAllAccounts, updateAccount, provisionAccount, type UserAccount } fro
 import { getAllProfiles, updateProfile, type UserProfile, type Gender } from '@/data/userProfiles';
 import {  useToast  } from '@/hooks/useToast';
 import { Users, UserPlus, ShieldAlert, BookOpen, GraduationCap, Mail, Lock, User, School, Calendar, Download, Edit2, Check, X, MapPin, TrendingUp, TrendingDown, Award, Target, Brain, FileText, Sparkles, CheckCircle2, AlertTriangle, Clock, Plus, ChevronDown, Phone, Pencil, Bell, Globe, Shield, LogOut, Camera, Boxes, Satellite, Zap, Trophy, Compass, Flame, Medal, Save, type LucideIcon } from 'lucide-react';
-import { fetchSchools, fetchProvinces, fetchRegencies } from '@/services/schoolService';
+import { fetchSchools, fetchProvinces, fetchRegencies, getSchoolById } from '@/services/schoolService';
 import { apiClient } from '@/services/apiClient';
 import type { School as SchoolData } from '@/data/schools';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -171,7 +171,7 @@ export function DevDashboardView() {
     show('Data berhasil diekspor ke file JSON', 'success');
   };
 
-  const handleEditClick = (acc: UserAccount, prof?: UserProfile) => {
+  const handleEditClick = async (acc: UserAccount, prof?: UserProfile) => {
     setEditingUserId(acc.id);
     setEditName(acc.name);
     setEditPassword(''); // Leave blank unless they want to change it
@@ -179,7 +179,7 @@ export function DevDashboardView() {
     let reg = '';
     const sid = prof?.schoolId || '';
     if (sid && sid !== 'unknown') {
-      const sch = allSchools.find(s => s.id === sid);
+      const sch = await getSchoolById(sid);
       if (sch) {
         prov = sch.province || '';
         reg = sch.regency || '';
