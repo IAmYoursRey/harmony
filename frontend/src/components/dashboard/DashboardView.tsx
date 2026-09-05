@@ -27,84 +27,34 @@ import { useSchool } from '@/hooks/useSchool';
 import { useI18n } from '@/hooks/useI18n';
 import { useAuth } from '@/hooks/useAuth';
 
-function getDashboardData(userId: string, baseScore: number) {
-  const seed = userId + baseScore;
-  const p = (str: string, max: number) => baseScore === 0 ? 0 : Math.floor(pseudoRandomScore(seed + str, 0) / 100 * max);
-  
-  if (baseScore === 0) {
-    return {
-      weeklyLearning: [
-        { label: 'Mon', value: 0 }, { label: 'Tue', value: 0 }, { label: 'Wed', value: 0 },
-        { label: 'Thu', value: 0 }, { label: 'Fri', value: 0 }, { label: 'Sat', value: 0 }, { label: 'Sun', value: 0 },
-      ],
-      radarData: [
-        { label: 'Earthquake', value: 0 }, { label: 'Flood', value: 0 }, { label: 'Tsunami', value: 0 },
-        { label: 'Volcano', value: 0 }, { label: 'Landslide', value: 0 }, { label: 'Fire', value: 0 },
-      ],
-      donutData: [
-        { label: 'Prepared', value: 0, color: 'hsl(var(--brand-600))' },
-        { label: 'In Progress', value: 0, color: 'hsl(var(--brand-400))' },
-        { label: 'Needs Work', value: 0, color: 'hsl(var(--brand-100))' },
-      ],
-      sparkData: [0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
-      stats: [
-        { icon: BookOpen, label: 'Modules Completed', value: '0', sub: 'No activity yet', color: 'from-brand-500 to-brand-700', bg: 'bg-brand-100 text-brand-600 dark:bg-slate-800 dark:text-brand-400' },
-        { icon: TrendingUp, label: 'Learning Progress', value: '0%', sub: 'Not started', color: 'from-brand-500 to-brand-600', bg: 'bg-brand-100 text-brand-600 dark:bg-brand-900/40 dark:text-brand-400' },
-        { icon: Shield, label: 'Risk Awareness', value: '0%', sub: 'No data', color: 'from-brand-500 to-brand-600', bg: 'bg-brand-100 text-brand-600 dark:bg-brand-900/40 dark:text-brand-400' },
-      ],
-      activities: [
-        { icon: Mountain, title: 'Earthquake Simulation', status: '0%', accent: 'text-brand-600 bg-brand-100 dark:bg-brand-900/40 dark:text-brand-400' },
-        { icon: CloudRain, title: 'Flood Module', status: 'Pending', accent: 'text-brand-600 bg-brand-100 dark:bg-brand-900/40 dark:text-brand-400' },
-      ],
-      badges: []
-    };
-  }
-
+function getDashboardData(userId: string, baseScore: number, profile: any) {
+  // Use actual data from profile where possible. Remove pseudoRandomScore fake data.
   return {
     weeklyLearning: [
-      { label: 'Mon', value: p('w1', 100) },
-      { label: 'Tue', value: p('w2', 100) },
-      { label: 'Wed', value: p('w3', 100) },
-      { label: 'Thu', value: p('w4', 100) },
-      { label: 'Fri', value: p('w5', 100) },
-      { label: 'Sat', value: p('w6', 100) },
-      { label: 'Sun', value: p('w7', 100) },
+      { label: 'Mon', value: 0 }, { label: 'Tue', value: 0 }, { label: 'Wed', value: 0 },
+      { label: 'Thu', value: 0 }, { label: 'Fri', value: 0 }, { label: 'Sat', value: 0 }, { label: 'Sun', value: 0 },
     ],
     radarData: [
-      { label: 'Earthquake', value: p('r1', 100) },
-      { label: 'Flood', value: p('r2', 100) },
-      { label: 'Tsunami', value: p('r3', 100) },
-      { label: 'Volcano', value: p('r4', 100) },
-      { label: 'Landslide', value: p('r5', 100) },
-      { label: 'Fire', value: p('r6', 100) },
+      { label: 'Earthquake', value: 0 }, { label: 'Flood', value: 0 }, { label: 'Tsunami', value: 0 },
+      { label: 'Volcano', value: 0 }, { label: 'Landslide', value: 0 }, { label: 'Fire', value: 0 },
     ],
     donutData: [
-      { label: 'Prepared', value: p('d1', 80) + 20, color: 'hsl(var(--brand-600))' },
-      { label: 'In Progress', value: p('d2', 20), color: 'hsl(var(--brand-400))' },
-      { label: 'Needs Work', value: p('d3', 10), color: 'hsl(var(--brand-100))' },
+      { label: 'Prepared', value: 0, color: 'hsl(var(--brand-600))' },
+      { label: 'In Progress', value: 0, color: 'hsl(var(--brand-400))' },
+      { label: 'Needs Work', value: 0, color: 'hsl(var(--brand-100))' },
     ],
-    sparkData: [p('s1',100), p('s2',100), p('s3',100), p('s4',100), p('s5',100), p('s6',100), p('s7',100), p('s8',100), p('s9',100), p('s10',100)],
+    sparkData: [0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
     stats: [
-      { icon: BookOpen, label: 'Modules Completed', value: `${p('st1', 50)}`, sub: `+${p('st1a', 10)} this month`, color: 'from-brand-500 to-brand-700', bg: 'bg-brand-100 text-brand-600 dark:bg-slate-800 dark:text-brand-400' },
-      { icon: TrendingUp, label: 'Learning Progress', value: `${p('st2', 100)}%`, sub: 'On track', color: 'from-brand-500 to-brand-600', bg: 'bg-brand-100 text-brand-600 dark:bg-brand-900/40 dark:text-brand-400' },
-      { icon: Shield, label: 'Risk Awareness', value: `${p('st3', 100)}%`, sub: 'Excellent', color: 'from-brand-500 to-brand-600', bg: 'bg-brand-100 text-brand-600 dark:bg-brand-900/40 dark:text-brand-400' },
-      { icon: Zap, label: 'Preparedness Score', value: `${baseScore}`, sub: 'Highly Resilient', color: 'from-brand-500 to-brand-600', bg: 'bg-brand-100 text-brand-600 dark:bg-brand-900/40 dark:text-brand-400' },
-      { icon: Award, label: 'Certificates', value: `${p('st5', 10)}`, sub: '2 pending', color: 'from-brand-500 to-brand-600', bg: 'bg-brand-100 text-brand-600 dark:bg-brand-900/40 dark:text-brand-400' },
+      { icon: BookOpen, label: 'Modules Completed', value: '0', sub: 'No activity yet', color: 'from-brand-500 to-brand-700', bg: 'bg-brand-100 text-brand-600 dark:bg-slate-800 dark:text-brand-400' },
+      { icon: TrendingUp, label: 'Learning Progress', value: '0%', sub: 'Not started', color: 'from-brand-500 to-brand-600', bg: 'bg-brand-100 text-brand-600 dark:bg-brand-900/40 dark:text-brand-400' },
+      { icon: Shield, label: 'Risk Awareness', value: '0%', sub: 'No data', color: 'from-brand-500 to-brand-600', bg: 'bg-brand-100 text-brand-600 dark:bg-brand-900/40 dark:text-brand-400' },
+      { icon: Zap, label: 'Preparedness Score', value: `${baseScore}`, sub: baseScore > 0 ? 'Resilient' : 'No Data', color: 'from-brand-500 to-brand-600', bg: 'bg-brand-100 text-brand-600 dark:bg-brand-900/40 dark:text-brand-400' },
+      { icon: Award, label: 'Certificates', value: '0', sub: '0 pending', color: 'from-brand-500 to-brand-600', bg: 'bg-brand-100 text-brand-600 dark:bg-brand-900/40 dark:text-brand-400' },
     ],
-    activities: [
-      { icon: Mountain, title: 'Earthquake Simulation', status: `${p('a1', 100)}%`, accent: 'text-brand-600 bg-brand-100 dark:bg-brand-900/40 dark:text-brand-400' },
-      { icon: CloudRain, title: 'Flood Module', status: 'Completed', accent: 'text-brand-600 bg-brand-100 dark:bg-brand-900/40 dark:text-brand-400' },
-      { icon: Compass, title: 'Risk Mapping', status: 'Completed', accent: 'text-brand-600 bg-brand-100 dark:bg-brand-900/40 dark:text-brand-400' },
-      { icon: Brain, title: 'Quiz', status: `${p('a2', 100)}%`, accent: 'text-brand-600 bg-brand-100 dark:bg-slate-800 dark:text-brand-400' },
-    ],
-    badges: [
-      { icon: Shield, label: 'Disaster Ready', color: 'from-brand-500 to-brand-600' },
-      { icon: Trophy, label: 'Top Learner', color: 'from-brand-400 to-brand-500' },
-      { icon: Compass, label: 'Geo Explorer', color: 'from-brand-500 to-brand-700' },
-      { icon: Brain, label: 'AI Explorer', color: 'from-brand-500 to-brand-600' },
-      { icon: Flame, label: '100 Days Learning', color: 'from-brand-600 to-brand-800' },
-      { icon: Medal, label: 'Research Contributor', color: 'from-brand-500 to-brand-600' },
-    ].slice(0, p('bdg', 4) + 2)
+    activities: [], // Removed fake activities
+    badges: profile?.badges?.map((b: any) => ({
+      icon: Shield, label: b, color: 'from-brand-500 to-brand-600'
+    })) || []
   };
 }
 
@@ -153,8 +103,6 @@ function WelcomeIllustration() {
   );
 }
 
-import { pseudoRandomScore } from './views/AnalyticsViews';
-
 export function DashboardView() {
   const { selection } = useSchool();
   const { t } = useI18n();
@@ -167,11 +115,11 @@ export function DashboardView() {
   // If they have points, compute from that. Otherwise use 0.
   const hasPoints = currentProfile && currentProfile.totalPoints > 0;
   const currentScore = hasPoints ? Math.min(100, Math.floor(currentProfile.totalPoints / 100) + baseOffset) : 0;
-  const previousScore = hasPoints ? Math.max(0, currentScore - Math.floor(pseudoRandomScore(uid + 'prev', 0) / 4)) : 0;
+  const previousScore = hasPoints ? Math.max(0, currentScore - 5) : 0; // Simple delta fallback if no history
   const improvement = currentScore - previousScore;
   const improvementPct = previousScore > 0 ? Math.round((improvement / previousScore) * 100) : 0;
 
-  const d = getDashboardData(uid, currentScore);
+  const d = getDashboardData(uid, currentScore, currentProfile);
 
   return (
     <div className="space-y-6">
@@ -354,20 +302,26 @@ export function DashboardView() {
         <Card className="lg:col-span-2">
           <SectionTitle action="View all" to="/app/ai-learning">Recent Learning Activities</SectionTitle>
           <div className="space-y-3">
-            {d.activities.map((a) => (
-              <div key={a.title} className="group flex items-center gap-3 rounded-xl border border-brand-50 p-3 transition-colors hover:bg-brand-50/50 dark:hover:bg-slate-800/50">
-                <span className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-lg ${a.accent}`}>
-                  <a.icon className="h-5 w-5" />
-                </span>
-                <div className="min-w-0 flex-1">
-                  <p className="truncate text-sm font-semibold text-ink-900 dark:text-white">{a.title}</p>
-                </div>
-                <div className="flex items-center gap-2">
-                  <CheckCircle2 className="h-5 w-5 text-brand-500" />
-                  <span className="font-display text-sm font-bold text-brand-700">{a.status}</span>
-                </div>
+            {d.activities.length === 0 ? (
+              <div className="py-6 text-center text-sm text-ink-500 dark:text-slate-400">
+                {t('dashboard.no_activities', 'No activities found. Start learning to see your progress here.')}
               </div>
-            ))}
+            ) : (
+              d.activities.map((a: any) => (
+                <div key={a.title} className="group flex items-center gap-3 rounded-xl border border-brand-50 p-3 transition-colors hover:bg-brand-50/50 dark:hover:bg-slate-800/50">
+                  <span className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-lg ${a.accent}`}>
+                    <a.icon className="h-5 w-5" />
+                  </span>
+                  <div className="min-w-0 flex-1">
+                    <p className="truncate text-sm font-semibold text-ink-900 dark:text-white">{a.title}</p>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <CheckCircle2 className="h-5 w-5 text-brand-500" />
+                    <span className="font-display text-sm font-bold text-brand-700">{a.status}</span>
+                  </div>
+                </div>
+              ))
+            )}
           </div>
         </Card>
       </div>
@@ -376,7 +330,7 @@ export function DashboardView() {
       <Card>
         <SectionTitle>Achievement Badges</SectionTitle>
         <div className="grid grid-cols-3 gap-4 sm:grid-cols-6">
-          {d.badges.map((b) => (
+          {d.badges.map((b: any) => (
             <div key={b.label} className="group flex flex-col items-center gap-2.5 rounded-xl p-3 text-center transition-all hover:-translate-y-1">
               <span className={`flex h-14 w-14 items-center justify-center rounded-full bg-gradient-to-br ${b.color} text-white shadow-glass transition-transform group-hover:scale-110`}>
                 <b.icon className="h-7 w-7" />

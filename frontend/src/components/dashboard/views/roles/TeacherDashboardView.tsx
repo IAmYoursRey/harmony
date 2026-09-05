@@ -193,7 +193,7 @@ export function TeacherDashboardView() {
       name: s.name,
       totalPoints: s.averageScore * s.attempts, // Proxy total points
       averageScore: s.averageScore,
-      isOnline: Math.random() > 0.8 // Dummy online status for UI visual until websockets
+      isOnline: false // To be implemented via websockets in future
     }));
 
     mappedStudents.sort((a: any, b: any) => b.totalPoints - a.totalPoints);
