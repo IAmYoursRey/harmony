@@ -201,17 +201,9 @@ export function TeacherDashboardView() {
     const lowStudent = mappedStudents[mappedStudents.length - 1];
     const classAverage = overview.averageScore;
 
-    // Default mock data to fill charts if no students yet
-    const fallbackRadar = [
-      { subjectKey: 'disaster.earthquake', class: classAverage, individual: 0 },
-      { subjectKey: 'disaster.flood', class: classAverage, individual: 0 },
-      { subjectKey: 'disaster.tsunami', class: classAverage, individual: 0 },
-      { subjectKey: 'disaster.volcano', class: classAverage, individual: 0 },
-      { subjectKey: 'disaster.landslide', class: classAverage, individual: 0 },
-      { subjectKey: 'disaster.fire', class: classAverage, individual: 0 },
-    ];
-
-    const fallbackBar = fallbackRadar.map(r => ({ nameKey: r.subjectKey, score: r.class }));
+    // If the API returned no hazard breakdown, show empty state in charts (not fake values).
+    const fallbackRadar: { subjectKey: string; class: number }[] = [];
+    const fallbackBar: { nameKey: string; score: number }[] = [];
 
     return {
       students: mappedStudents,
@@ -515,8 +507,8 @@ export function TeacherDashboardView() {
             )}
           </Card>
 
-          {/* Charts row */}
-          {dashboardData.students.length > 0 && (
+          {/* Charts row — only show when real hazard breakdown data exists */}
+          {dashboardData.students.length > 0 && dashboardData.radarData.length > 0 && (
             <div className="grid gap-6 lg:grid-cols-2">
               <Card>
                 <h3 className="mb-4 font-display text-base font-bold text-ink-900 dark:text-white">
@@ -550,6 +542,14 @@ export function TeacherDashboardView() {
               </Card>
             </div>
           )}
+          {dashboardData.students.length > 0 && dashboardData.radarData.length === 0 && (
+            <Card>
+              <p className="py-6 text-center text-sm text-ink-400 dark:text-slate-500">
+                Belum ada data per jenis bencana. Data grafik akan tersedia setelah siswa menyelesaikan simulasi dengan berbagai jenis hazard.
+              </p>
+            </Card>
+          )}
+
         </>
       )}
         </div>

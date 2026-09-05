@@ -38,9 +38,19 @@ router.get('/', verifyToken, (req, res) => {
   }
 
   const totalRespondents = filtered.length;
-  const totalScore = filtered.reduce((sum, s) => sum + (s.score ?? 0), 0);
+  // Compute score from responses[] if explicit score field is absent (seeded/legacy surveys).
+  // For 5-point rating scale: average value × 20 = 0–100 scale.
+  const totalScore = filtered.reduce((sum, s) => {
+    if (s.score != null) return sum + s.score;
+    if (Array.isArray(s.responses) && s.responses.length > 0) {
+      const avg = s.responses.reduce((a, r) => a + (r.value || 0), 0) / s.responses.length;
+      return sum + Math.round(avg * 20);
+    }
+    return sum;
+  }, 0);
   const averageScore = Math.round(totalScore / totalRespondents);
-  const completed = filtered.filter(s => s.completed).length;
+  // Treat submittedAt as completion indicator for surveys without explicit `completed` field.
+  const completed = filtered.filter(s => s.completed || s.submittedAt).length;
   const completionRate = Math.round((completed / totalRespondents) * 100);
 
   res.json({
