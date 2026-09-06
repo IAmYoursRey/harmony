@@ -8,8 +8,8 @@ import { useState, useMemo, useEffect } from 'react';
 import { getAllProfiles, type UserProfile } from '@/data/userProfiles';
 import { useAuth } from '@/hooks/useAuth';
 
-function Card({ children, className = '' }: { children: React.ReactNode; className?: string }) {
-  return <div className={`glass rounded-2xl p-5 transition-all hover:shadow-glass dark:bg-slate-900/60 ${className}`}>{children}</div>;
+function Card({ children, className = '', style }: { children: React.ReactNode; className?: string; style?: React.CSSProperties }) {
+  return <div style={style} className={`glass rounded-2xl p-5 transition-all hover:shadow-glass dark:bg-slate-900/60 ${className}`}>{children}</div>;
 }
 
 export function SchoolResilienceIndexView() {
@@ -39,7 +39,7 @@ export function SchoolResilienceIndexView() {
   }, []);
 
   const schoolProfiles = useMemo(() => {
-    const schoolId = currentProfile?.schoolId || selection?.id;
+    const schoolId = currentProfile?.schoolId || selection?.school?.id;
     return profiles.filter(p => p.schoolId === schoolId);
   }, [profiles, currentProfile, selection]);
 
@@ -50,9 +50,9 @@ export function SchoolResilienceIndexView() {
     if (!hasRealData) return null;
     let t1 = 0, t2 = 0, t3 = 0, points = 0;
     schoolProfiles.forEach(p => {
-      t1 += p.topicScores?.t1 || 0;
-      t2 += p.topicScores?.t2 || 0;
-      t3 += p.topicScores?.t3 || 0;
+      t1 += (p.topicScores?.t1 as any)?.averageScore || (typeof p.topicScores?.t1 === 'number' ? p.topicScores?.t1 : 0);
+      t2 += (p.topicScores?.t2 as any)?.averageScore || (typeof p.topicScores?.t2 === 'number' ? p.topicScores?.t2 : 0);
+      t3 += (p.topicScores?.t3 as any)?.averageScore || (typeof p.topicScores?.t3 === 'number' ? p.topicScores?.t3 : 0);
       points += p.totalPoints || 0;
     });
     const len = schoolProfiles.length;
@@ -92,7 +92,7 @@ export function SchoolResilienceIndexView() {
               <ShieldCheck className="h-3.5 w-3.5" /> Indeks Resiliensi Sekolah
             </div>
             <h2 className="mt-3 font-display text-2xl font-extrabold tracking-tight sm:text-3xl">
-              Skor Kesiapsiagaan: {selection?.name || 'Sekolah Anda'}
+              Skor Kesiapsiagaan: {selection?.school?.name || 'Sekolah Anda'}
             </h2>
             <p className="mt-1.5 max-w-md text-sm text-brand-100">
               Analisis komprehensif berdasarkan performa {metrics?.len || 0} siswa dalam kuis dan kembaran digital.
