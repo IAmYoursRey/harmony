@@ -1,6 +1,7 @@
 import express from 'express';
 import { readDB } from '../repository.js';
 import { verifyToken } from '../middleware/authMiddleware.js';
+import { getBaseSchools } from './schools.js';
 
 const router = express.Router();
 
@@ -21,7 +22,9 @@ router.get('/system', verifyToken, async (req, res) => {
   const totalUsers = db.accounts?.length || 0;
   const teachers = db.accounts?.filter(a => a.role === 'teacher').length || 0;
   const students = db.accounts?.filter(a => a.role === 'student').length || 0;
-  const schools = db.schools?.length || 0;
+  
+  const schoolsList = await getBaseSchools();
+  const schools = schoolsList?.length || 0;
   
   const totalSimulations = Object.keys(db.simulations || {}).length;
   const totalRooms = Object.keys(db.dtRooms || {}).length;

@@ -5,7 +5,7 @@ import path from 'path';
 
 let _localSchoolsCache = null;
 
-async function getBaseSchools() {
+export async function getBaseSchools() {
     if (_localSchoolsCache) return _localSchoolsCache;
     
     // Try to load the giant dataset if it exists locally

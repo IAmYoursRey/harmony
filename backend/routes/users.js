@@ -2,6 +2,7 @@ import express from 'express';
 import bcrypt from 'bcryptjs';
 import { readDB, writeDB } from '../repository.js';
 import { verifyToken } from '../middleware/authMiddleware.js';
+import { getBaseSchools } from './schools.js';
 
 const router = express.Router();
 
@@ -195,7 +196,8 @@ router.post('/me/school', verifyToken, async (req, res) => {
   }
 
   // Validate that the requested school actually exists
-  const schoolExists = db.schools.find(s => s.id === schoolId);
+  const schools = await getBaseSchools();
+  const schoolExists = schools.find(s => s.id === schoolId || s.school_id === schoolId);
   if (!schoolExists) {
     return res.status(400).json({ error: 'Invalid school ID' });
   }
