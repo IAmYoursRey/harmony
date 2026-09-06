@@ -332,31 +332,64 @@ export default function SchoolSelectionPage() {
                   </div>
 
                   <div className="max-h-[340px] space-y-2 overflow-y-auto pr-1">
-                    {filteredSchools.map((s) => {
-                      const risk = riskStyles[s.risk];
-                      return (
-                        <button
-                          key={s.id}
-                          onClick={() => { setSchool(s); setStep(4); }}
-                          className="group flex w-full items-center gap-3 rounded-xl border border-brand-50 bg-white/60 p-3.5 text-left transition-all hover:border-brand-200 hover:bg-brand-50 dark:border-slate-800 dark:bg-slate-800/60 dark:hover:border-brand-600 dark:hover:bg-slate-800"
-                        >
-                          <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-cyan-100 text-cyan-600 dark:bg-slate-700 dark:text-cyan-400">
-                            <SchoolIcon className="h-4 w-4" />
-                          </span>
-                          <div className="min-w-0 flex-1">
-                            <p className="truncate text-sm font-semibold text-ink-900 dark:text-white">{s.name}</p>
-                            <p className="text-xs text-ink-400 dark:text-slate-500">{s.level} · {s.isPublic ? t('school.public') : t('school.private')}</p>
+                    {(() => {
+                      if (filteredSchools.length === 0) {
+                        return <p className="py-8 text-center text-sm text-ink-400 dark:text-slate-500">{t('school.not_found')}</p>;
+                      }
+
+                      // Group schools by level
+                      const grouped = filteredSchools.reduce((acc, school) => {
+                        const lvl = school.level || 'Lainnya';
+                        if (!acc[lvl]) acc[lvl] = [];
+                        acc[lvl].push(school);
+                        return acc;
+                      }, {} as Record<string, typeof filteredSchools>);
+
+                      // Order levels standard Indonesia
+                      const order = ['SD', 'SMP', 'SMA', 'SMK', 'SLB'];
+                      const levels = Object.keys(grouped).sort((a, b) => {
+                        const ia = order.indexOf(a);
+                        const ib = order.indexOf(b);
+                        if (ia !== -1 && ib !== -1) return ia - ib;
+                        if (ia !== -1) return -1;
+                        if (ib !== -1) return 1;
+                        return a.localeCompare(b);
+                      });
+
+                      return levels.map(level => (
+                        <div key={level} className="mb-5 last:mb-0">
+                          <h3 className="mb-2.5 px-1 text-[11px] font-extrabold uppercase tracking-widest text-ink-500 dark:text-slate-400 flex items-center gap-2">
+                            <span className="h-px flex-1 bg-brand-100 dark:bg-slate-800"></span>
+                            Tingkat {level}
+                            <span className="h-px flex-1 bg-brand-100 dark:bg-slate-800"></span>
+                          </h3>
+                          <div className="space-y-2">
+                            {grouped[level].map(s => {
+                              const risk = riskStyles[s.risk];
+                              return (
+                                <button
+                                  key={s.id}
+                                  onClick={() => { setSchool(s); setStep(4); }}
+                                  className="group flex w-full items-center gap-3 rounded-xl border border-brand-50 bg-white/60 p-3.5 text-left transition-all hover:border-brand-200 hover:bg-brand-50 dark:border-slate-800 dark:bg-slate-800/60 dark:hover:border-brand-600 dark:hover:bg-slate-800"
+                                >
+                                  <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-cyan-100 text-cyan-600 dark:bg-slate-700 dark:text-cyan-400">
+                                    <SchoolIcon className="h-4 w-4" />
+                                  </span>
+                                  <div className="min-w-0 flex-1">
+                                    <p className="truncate text-sm font-semibold text-ink-900 dark:text-white">{s.name}</p>
+                                    <p className="text-xs text-ink-400 dark:text-slate-500">{s.isPublic ? t('school.public') : t('school.private')}</p>
+                                  </div>
+                                  <span className={`shrink-0 rounded-full px-2.5 py-1 text-[10px] font-bold ${risk.bg} ${risk.text}`}>
+                                    {risk.label}
+                                  </span>
+                                  <ChevronRight className="h-4 w-4 shrink-0 text-ink-400 transition-transform group-hover:translate-x-1 dark:text-slate-500" />
+                                </button>
+                              );
+                            })}
                           </div>
-                          <span className={`shrink-0 rounded-full px-2.5 py-1 text-[10px] font-bold ${risk.bg} ${risk.text}`}>
-                            {risk.label}
-                          </span>
-                          <ChevronRight className="h-4 w-4 shrink-0 text-ink-400 transition-transform group-hover:translate-x-1 dark:text-slate-500" />
-                        </button>
-                      );
-                    })}
-                    {filteredSchools.length === 0 && (
-                      <p className="py-8 text-center text-sm text-ink-400 dark:text-slate-500">{t('school.not_found')}</p>
-                    )}
+                        </div>
+                      ));
+                    })()}
                   </div>
 
                   <button
