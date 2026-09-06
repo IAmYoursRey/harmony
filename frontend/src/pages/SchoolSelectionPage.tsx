@@ -208,9 +208,9 @@ export default function SchoolSelectionPage() {
                   exit={{ opacity: 0, x: -20 }}
                   transition={{ duration: 0.3 }}
                 >
-                  <div className="mb-6 flex items-center justify-between">
+                  <div className="mb-6 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
                     <h2 className="font-display text-xl font-bold text-ink-900 dark:text-white">{t('school.province')}</h2>
-                    <div className="relative">
+                    <div className="relative w-full sm:w-auto">
                       <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-ink-400 dark:text-slate-500" />
                       <label htmlFor="search-province" className="sr-only">Search</label>
                       <input
@@ -219,7 +219,7 @@ export default function SchoolSelectionPage() {
                         placeholder={t('school.search')}
                         value={search}
                         onChange={(e) => setSearch(e.target.value)}
-                        className="w-48 rounded-full border border-brand-100 bg-white/70 py-1.5 pl-9 pr-4 text-sm text-ink-900 outline-none transition-all placeholder:text-ink-400 focus:border-brand-300 focus:ring-2 focus:ring-brand-100 dark:border-slate-700 dark:bg-slate-800/70 dark:text-white dark:focus:border-brand-600 sm:w-64"
+                        className="w-full rounded-full border border-brand-100 bg-white/70 py-2 pl-9 pr-4 text-sm text-ink-900 outline-none transition-all placeholder:text-ink-400 focus:border-brand-300 focus:ring-2 focus:ring-brand-100 dark:border-slate-700 dark:bg-slate-800/70 dark:text-white dark:focus:border-brand-600 sm:w-64 sm:py-1.5"
                       />
                     </div>
                   </div>
@@ -238,8 +238,8 @@ export default function SchoolSelectionPage() {
                         <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-brand-100 text-brand-600 dark:bg-slate-700 dark:text-brand-400">
                           <MapPin className="h-4 w-4" />
                         </span>
-                        <span className="flex-1 text-sm font-semibold text-ink-900 dark:text-white">{p.name}</span>
-                        <ChevronRight className="h-4 w-4 text-ink-400 transition-transform group-hover:translate-x-1 dark:text-slate-500" />
+                        <span className="flex-1 truncate text-sm font-semibold text-ink-900 dark:text-white">{p.name}</span>
+                        <ChevronRight className="h-4 w-4 shrink-0 text-ink-400 transition-transform group-hover:translate-x-1 dark:text-slate-500" />
                       </button>
                     ))}
                     {filteredProvinces.length === 0 && (
@@ -258,9 +258,9 @@ export default function SchoolSelectionPage() {
                   exit={{ opacity: 0, x: -20 }}
                   transition={{ duration: 0.3 }}
                 >
-                  <div className="mb-6 flex items-center justify-between">
+                  <div className="mb-6 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
                     <h2 className="font-display text-xl font-bold text-ink-900 dark:text-white">{t('school.regency')}</h2>
-                    <div className="relative">
+                    <div className="relative w-full sm:w-auto">
                       <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-ink-400 dark:text-slate-500" />
                       <label htmlFor="search-regency" className="sr-only">Search</label>
                       <input
@@ -269,7 +269,7 @@ export default function SchoolSelectionPage() {
                         placeholder={t('school.search')}
                         value={search}
                         onChange={(e) => setSearch(e.target.value)}
-                        className="w-48 rounded-full border border-brand-100 bg-white/70 py-1.5 pl-9 pr-4 text-sm text-ink-900 outline-none transition-all placeholder:text-ink-400 focus:border-brand-300 focus:ring-2 focus:ring-brand-100 dark:border-slate-700 dark:bg-slate-800/70 dark:text-white dark:focus:border-brand-600 sm:w-64"
+                        className="w-full rounded-full border border-brand-100 bg-white/70 py-2 pl-9 pr-4 text-sm text-ink-900 outline-none transition-all placeholder:text-ink-400 focus:border-brand-300 focus:ring-2 focus:ring-brand-100 dark:border-slate-700 dark:bg-slate-800/70 dark:text-white dark:focus:border-brand-600 sm:w-64 sm:py-1.5"
                       />
                     </div>
                   </div>
@@ -288,8 +288,8 @@ export default function SchoolSelectionPage() {
                         <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-sky-100 text-sky-600 dark:bg-slate-700 dark:text-sky-400">
                           <Building2 className="h-4 w-4" />
                         </span>
-                        <span className="flex-1 text-sm font-semibold text-ink-900 dark:text-white">{r.name}</span>
-                        <ChevronRight className="h-4 w-4 text-ink-400 transition-transform group-hover:translate-x-1 dark:text-slate-500" />
+                        <span className="flex-1 truncate text-sm font-semibold text-ink-900 dark:text-white">{r.name}</span>
+                        <ChevronRight className="h-4 w-4 shrink-0 text-ink-400 transition-transform group-hover:translate-x-1 dark:text-slate-500" />
                       </button>
                     ))}
                     {filteredRegencies.length === 0 && (
@@ -315,9 +315,9 @@ export default function SchoolSelectionPage() {
                   exit={{ opacity: 0, x: -20 }}
                   transition={{ duration: 0.3 }}
                 >
-                  <div className="mb-6 flex items-center justify-between">
+                  <div className="mb-6 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
                     <h2 className="font-display text-xl font-bold text-ink-900 dark:text-white">{t('school.select')}</h2>
-                    <div className="relative">
+                    <div className="relative w-full sm:w-auto">
                       <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-ink-400 dark:text-slate-500" />
                       <label htmlFor="search-school" className="sr-only">Search</label>
                       <input
@@ -326,7 +326,7 @@ export default function SchoolSelectionPage() {
                         placeholder={t('school.search')}
                         value={search}
                         onChange={(e) => setSearch(e.target.value)}
-                        className="w-48 rounded-full border border-brand-100 bg-white/70 py-1.5 pl-9 pr-4 text-sm text-ink-900 outline-none transition-all placeholder:text-ink-400 focus:border-brand-300 focus:ring-2 focus:ring-brand-100 dark:border-slate-700 dark:bg-slate-800/70 dark:text-white dark:focus:border-brand-600 sm:w-64"
+                        className="w-full rounded-full border border-brand-100 bg-white/70 py-2 pl-9 pr-4 text-sm text-ink-900 outline-none transition-all placeholder:text-ink-400 focus:border-brand-300 focus:ring-2 focus:ring-brand-100 dark:border-slate-700 dark:bg-slate-800/70 dark:text-white dark:focus:border-brand-600 sm:w-64 sm:py-1.5"
                       />
                     </div>
                   </div>
@@ -373,15 +373,32 @@ export default function SchoolSelectionPage() {
                                 <button
                                   key={s.id || s.school_id}
                                   onClick={() => { setSchool(s); setStep(4); }}
-                                  className="group flex w-full items-center gap-3 rounded-xl border border-brand-50 bg-white/60 p-3.5 text-left transition-all hover:border-brand-200 hover:bg-brand-50 dark:border-slate-800 dark:bg-slate-800/60 dark:hover:border-brand-600 dark:hover:bg-slate-800"
+                                  className="group flex w-full flex-col sm:flex-row sm:items-center items-start gap-3 rounded-xl border border-brand-50 bg-white/60 p-3.5 text-left transition-all hover:border-brand-200 hover:bg-brand-50 dark:border-slate-800 dark:bg-slate-800/60 dark:hover:border-brand-600 dark:hover:bg-slate-800"
                                 >
-                                  <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-cyan-100 text-cyan-600 dark:bg-slate-700 dark:text-cyan-400">
-                                    <SchoolIcon className="h-4 w-4" />
-                                  </span>
-                                  <div className="min-w-0 flex-1">
+                                  <div className="flex w-full sm:w-auto items-center gap-3">
+                                    <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-cyan-100 text-cyan-600 dark:bg-slate-700 dark:text-cyan-400">
+                                      <SchoolIcon className="h-4 w-4" />
+                                    </span>
+                                    <div className="min-w-0 flex-1 sm:hidden">
+                                      <p className="truncate text-sm font-semibold text-ink-900 dark:text-white">{s.name}</p>
+                                      <p className="text-xs text-ink-400 dark:text-slate-500">{isPublic ? t('school.public', 'Negeri') : t('school.private', 'Swasta')}</p>
+                                    </div>
+                                    <div className="flex items-center gap-2 sm:hidden ml-auto">
+                                      <span className={`shrink-0 rounded-full px-2.5 py-1 text-[10px] font-bold ${risk.bg} ${risk.text}`}>
+                                        {risk.label}
+                                      </span>
+                                      <ChevronRight className="h-4 w-4 shrink-0 text-ink-400 transition-transform group-hover:translate-x-1 dark:text-slate-500" />
+                                    </div>
+                                  </div>
+                                  <div className="hidden sm:block min-w-0 flex-1">
                                     <p className="truncate text-sm font-semibold text-ink-900 dark:text-white">{s.name}</p>
                                     <p className="text-xs text-ink-400 dark:text-slate-500">{isPublic ? t('school.public', 'Negeri') : t('school.private', 'Swasta')}</p>
                                   </div>
+                                  <span className={`hidden sm:inline-flex shrink-0 rounded-full px-2.5 py-1 text-[10px] font-bold ${risk.bg} ${risk.text}`}>
+                                    {risk.label}
+                                  </span>
+                                  <ChevronRight className="hidden sm:block h-4 w-4 shrink-0 text-ink-400 transition-transform group-hover:translate-x-1 dark:text-slate-500" />
+                                </button>
                                   <span className={`shrink-0 rounded-full px-2.5 py-1 text-[10px] font-bold ${risk.bg} ${risk.text}`}>
                                     {risk.label}
                                   </span>
