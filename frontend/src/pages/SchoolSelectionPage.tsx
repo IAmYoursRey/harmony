@@ -338,8 +338,8 @@ export default function SchoolSelectionPage() {
                       }
 
                       // Group schools by level
-                      const grouped = filteredSchools.reduce((acc, school) => {
-                        const lvl = school.level || 'Lainnya';
+                      const grouped = filteredSchools.reduce((acc, school: any) => {
+                        const lvl = school.level || school.bentuk_pendidikan || 'Lainnya';
                         if (!acc[lvl]) acc[lvl] = [];
                         acc[lvl].push(school);
                         return acc;
@@ -364,11 +364,14 @@ export default function SchoolSelectionPage() {
                             <span className="h-px flex-1 bg-brand-100 dark:bg-slate-800"></span>
                           </h3>
                           <div className="space-y-2">
-                            {grouped[level].map(s => {
-                              const risk = riskStyles[s.risk];
+                            {grouped[level].map((s: any) => {
+                              const riskValue = s.risk || 'Moderate';
+                              const risk = riskStyles[riskValue as RiskCategory] || riskStyles['Moderate'];
+                              const isPublic = s.isPublic !== undefined ? s.isPublic : (s.status_sekolah === 'Negeri');
+                              
                               return (
                                 <button
-                                  key={s.id}
+                                  key={s.id || s.school_id}
                                   onClick={() => { setSchool(s); setStep(4); }}
                                   className="group flex w-full items-center gap-3 rounded-xl border border-brand-50 bg-white/60 p-3.5 text-left transition-all hover:border-brand-200 hover:bg-brand-50 dark:border-slate-800 dark:bg-slate-800/60 dark:hover:border-brand-600 dark:hover:bg-slate-800"
                                 >
@@ -377,7 +380,7 @@ export default function SchoolSelectionPage() {
                                   </span>
                                   <div className="min-w-0 flex-1">
                                     <p className="truncate text-sm font-semibold text-ink-900 dark:text-white">{s.name}</p>
-                                    <p className="text-xs text-ink-400 dark:text-slate-500">{s.isPublic ? t('school.public') : t('school.private')}</p>
+                                    <p className="text-xs text-ink-400 dark:text-slate-500">{isPublic ? t('school.public', 'Negeri') : t('school.private', 'Swasta')}</p>
                                   </div>
                                   <span className={`shrink-0 rounded-full px-2.5 py-1 text-[10px] font-bold ${risk.bg} ${risk.text}`}>
                                     {risk.label}
@@ -428,15 +431,15 @@ export default function SchoolSelectionPage() {
                       </span>
                       <div className="flex-1">
                         <h3 className="font-display text-lg font-bold text-ink-900 dark:text-white">{school.name}</h3>
-                        <p className="mt-0.5 text-sm text-ink-500 dark:text-slate-400">{school.level} · {school.isPublic ? t('school.public') : t('school.private')}</p>
+                        <p className="mt-0.5 text-sm text-ink-500 dark:text-slate-400">{(school as any).bentuk_pendidikan || school.level || 'Lainnya'} · {((school as any).status_sekolah === 'Negeri' || school.isPublic) ? t('school.public', 'Negeri') : t('school.private', 'Swasta')}</p>
                         <div className="mt-2 flex flex-wrap gap-2 text-xs">
                           <div className="flex items-center gap-2 text-sm text-ink-500 dark:text-slate-400">
                             <MapIcon className="h-4 w-4" />
-                            {provinceId}
+                            {filteredProvinces.find(p => p.id === provinceId)?.name || provinceId}
                           </div>
                           <div className="flex items-center gap-2 text-sm text-ink-500 dark:text-slate-400">
                             <Building2 className="h-4 w-4" />
-                            {regencyId}
+                            {filteredRegencies.find(r => r.id === regencyId)?.name || regencyId}
                           </div>
                         </div>
                       </div>
@@ -444,25 +447,27 @@ export default function SchoolSelectionPage() {
 
                     {/* Risk profile */}
                     <div className="mt-5">
-                      <p className="mb-2 text-xs font-semibold uppercase tracking-wider text-ink-500 dark:text-slate-400">{t('school.risk_profile')}</p>
+                      <p className="mb-2 text-xs font-semibold uppercase tracking-wider text-ink-500 dark:text-slate-400">{t('school.risk_profile', 'Profil Risiko Regional')}</p>
                       <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
                         {([
-                          { label: t('risk.earthquake'), value: school.earthquake },
-                          { label: t('risk.flood'), value: school.flood },
-                          { label: t('risk.landslide'), value: school.landslide },
-                          { label: t('risk.volcanic'), value: school.volcanic },
-                          { label: t('risk.tsunami'), value: school.tsunami },
-                        ] as const).map((h) => (
-                          <div key={h.label} className="rounded-xl bg-brand-50/60 p-3 text-center dark:bg-slate-700/40">
-                            <p className="text-[10px] font-medium text-ink-500 dark:text-slate-400">{h.label}</p>
-                            <p className={`font-display text-lg font-bold ${h.value >= 60 ? 'text-brand-600 dark:text-brand-400' : h.value >= 35 ? 'text-brand-500 dark:text-brand-400' : 'text-brand-400 dark:text-brand-300'}`}>
-                              {h.value}%
-                            </p>
-                          </div>
-                        ))}
+                          { label: t('risk.earthquake', 'Gempa Bumi'), val: (school as any).earthquake_hazard?.regency_context_risk || 'Sedang', oldVal: school.earthquake },
+                          { label: t('risk.flood', 'Banjir'), val: (school as any).flood_hazard?.regency_context_risk || 'Sedang', oldVal: school.flood },
+                          { label: t('risk.tsunami', 'Tsunami'), val: (school as any).tsunami_hazard?.regency_context_risk || 'Rendah', oldVal: school.tsunami },
+                        ] as const).map((h) => {
+                          const isHigh = h.val === 'Tinggi' || (h.oldVal && h.oldVal >= 60);
+                          const isMod = h.val === 'Sedang' || (h.oldVal && h.oldVal >= 35);
+                          return (
+                            <div key={h.label} className="rounded-xl bg-brand-50/60 p-3 text-center dark:bg-slate-700/40">
+                              <p className="text-[10px] font-medium text-ink-500 dark:text-slate-400">{h.label}</p>
+                              <p className={`font-display text-lg font-bold ${isHigh ? 'text-brand-600 dark:text-brand-400' : isMod ? 'text-brand-500 dark:text-brand-400' : 'text-brand-400 dark:text-brand-300'}`}>
+                                {h.val}
+                              </p>
+                            </div>
+                          );
+                        })}
                         <div className="rounded-xl bg-brand-50/60 p-3 text-center dark:bg-slate-700/40">
-                          <p className="text-[10px] font-medium text-ink-500 dark:text-slate-400">{t('school.risk_level')}</p>
-                          <p className={`font-display text-lg font-bold ${riskStyles[school.risk as RiskCategory].text}`}>{school.risk}</p>
+                          <p className="text-[10px] font-medium text-ink-500 dark:text-slate-400">{t('school.risk_level', 'Tingkat Risiko')}</p>
+                          <p className={`font-display text-lg font-bold ${(riskStyles[(school.risk || 'Moderate') as RiskCategory] || riskStyles['Moderate']).text}`}>{school.risk || 'Moderate'}</p>
                         </div>
                       </div>
                     </div>
