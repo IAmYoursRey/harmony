@@ -86,39 +86,30 @@ export function LeaderboardView() {
   const leaderboardData: LeaderboardEntry[] = useMemo(() => {
     if (loading) return [];
     
-    const userSchool = schools.find(s => s.id === currentProfile?.schoolId);
-    
     // Default values if school not found
     const currentSchoolId = currentProfile?.schoolId || 'unknown';
-    const currentRegency = userSchool?.regency || 'Kabupaten Mojokerto';
-    const currentProvince = userSchool?.province || 'Jawa Timur';
+    const currentRegency = currentProfile?.regency || 'Kabupaten Mojokerto';
+    const currentProvince = currentProfile?.province || 'Jawa Timur';
 
     let filteredProfiles = profiles;
 
     if (activeTab === 'school') {
       filteredProfiles = profiles.filter(p => p.schoolId === currentSchoolId);
     } else if (activeTab === 'regency') {
-      filteredProfiles = profiles.filter(p => {
-        const s = schools.find(sch => sch.id === p.schoolId);
-        return s?.regency === currentRegency;
-      });
+      filteredProfiles = profiles.filter(p => p.regency === currentRegency);
     } else if (activeTab === 'province') {
-      filteredProfiles = profiles.filter(p => {
-        const s = schools.find(sch => sch.id === p.schoolId);
-        return s?.province === currentProvince;
-      });
+      filteredProfiles = profiles.filter(p => p.province === currentProvince);
     }
 
     // Map to display format and sort
     const mapped = filteredProfiles.map(p => {
       const acc = accounts.find(a => a.id === p.userId);
-      const s = schools.find(sch => sch.id === p.schoolId);
       return {
         id: p.userId,
         name: acc?.name || 'Pengguna',
         avatar: p.avatar,
         totalPoints: p.totalPoints,
-        schoolName: s?.name || p.schoolId,
+        schoolName: p.schoolName || p.schoolId,
         isCurrentUser: p.userId === currentProfile?.userId,
         grade: p.grade,
         classSection: p.classSection,

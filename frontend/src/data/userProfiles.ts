@@ -19,6 +19,9 @@ export interface UserProfile {
   grade: 'X' | 'XI' | 'XII';
   classSection: string;
   schoolId: string;
+  schoolName?: string;
+  province?: string;
+  regency?: string;
   /** classId links a student to a Class entity (classes[] in database). Optional for backward compatibility with legacy profiles. */
   classId?: string;
   supervisedClasses?: { grade: 'X' | 'XI' | 'XII'; section: string }[];
