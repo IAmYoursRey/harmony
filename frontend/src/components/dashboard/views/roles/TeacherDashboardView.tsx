@@ -83,7 +83,7 @@ export function TeacherDashboardView() {
     const load = async () => {
       setLoadingData(true);
       try {
-        const teacherClasses = classes.filter(c => c.teacherId === currentUser?.id);
+        const teacherClasses = currentUser?.role === 'dev' ? classes : classes.filter(c => c.teacherId === currentUser?.id);
         const selected = teacherClasses[selectedClassIdx];
         if (selected) {
           const qs = `?classId=${selected.id}`;
@@ -123,7 +123,7 @@ export function TeacherDashboardView() {
     }
   };
 
-  const teacherClasses = classes.filter(c => c.teacherId === currentUser?.id);
+  const teacherClasses = currentUser?.role === 'dev' ? classes : classes.filter(c => c.teacherId === currentUser?.id);
   const selectedClass = teacherClasses[selectedClassIdx];
 
   const handleAddClass = async (e: React.FormEvent) => {
