@@ -399,11 +399,6 @@ export default function SchoolSelectionPage() {
                                   </span>
                                   <ChevronRight className="hidden sm:block h-4 w-4 shrink-0 text-ink-400 transition-transform group-hover:translate-x-1 dark:text-slate-500" />
                                 </button>
-                                  <span className={`shrink-0 rounded-full px-2.5 py-1 text-[10px] font-bold ${risk.bg} ${risk.text}`}>
-                                    {risk.label}
-                                  </span>
-                                  <ChevronRight className="h-4 w-4 shrink-0 text-ink-400 transition-transform group-hover:translate-x-1 dark:text-slate-500" />
-                                </button>
                               );
                             })}
                           </div>
