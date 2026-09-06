@@ -659,7 +659,7 @@
       "gender": "unknown",
       "grade": "XI",
       "classSection": "IPA 1",
-      "classId": "cls-1001",
+      "classId": "cls-mipa1",
       "schoolId": "ffdcdf34-fc99-4209-913e-5a6042e957ad",
       "topicScores": {},
       "totalPoints": 120,
@@ -671,7 +671,7 @@
       "gender": "unknown",
       "grade": "XI",
       "classSection": "IPA 1",
-      "classId": "cls-1001",
+      "classId": "cls-ips1",
       "schoolId": "ffdcdf34-fc99-4209-913e-5a6042e957ad",
       "topicScores": {},
       "totalPoints": 120,
@@ -683,7 +683,7 @@
       "gender": "unknown",
       "grade": "XI",
       "classSection": "IPA 1",
-      "classId": "cls-1001",
+      "classId": "cls-mipa1",
       "schoolId": "ffdcdf34-fc99-4209-913e-5a6042e957ad",
       "topicScores": {},
       "totalPoints": 120,
@@ -695,7 +695,7 @@
       "gender": "unknown",
       "grade": "X",
       "classSection": "IPS 2",
-      "classId": "cls-1002",
+      "classId": "cls-ips1",
       "schoolId": "ffdcdf34-fc99-4209-913e-5a6042e957ad",
       "topicScores": {},
       "totalPoints": 120,
@@ -722,7 +722,8 @@
       "dob": null,
       "topicScores": {},
       "totalPoints": 0,
-      "lastUpdated": "2026-09-05T15:20:27.131Z"
+      "lastUpdated": "2026-09-05T15:20:27.131Z",
+      "classId": "cls-mipa1"
     },
     {
       "userId": "usr-1788623489572",
@@ -744,7 +745,8 @@
       "dob": null,
       "topicScores": {},
       "totalPoints": 0,
-      "lastUpdated": "2026-09-05T15:51:29.693Z"
+      "lastUpdated": "2026-09-05T15:51:29.693Z",
+      "classId": "cls-ips1"
     },
     {
       "userId": "usr-1788623495619",
@@ -766,7 +768,8 @@
       "dob": null,
       "topicScores": {},
       "totalPoints": 0,
-      "lastUpdated": "2026-09-05T15:51:35.738Z"
+      "lastUpdated": "2026-09-05T15:51:35.738Z",
+      "classId": "cls-mipa1"
     },
     {
       "userId": "usr-1788623813465",
@@ -788,7 +791,8 @@
       "dob": null,
       "topicScores": {},
       "totalPoints": 0,
-      "lastUpdated": "2026-09-05T15:56:53.586Z"
+      "lastUpdated": "2026-09-05T15:56:53.586Z",
+      "classId": "cls-ips1"
     },
     {
       "userId": "usr-17886552183920",
@@ -805,7 +809,8 @@
         "flood_ready",
         "earthquake_survivor"
       ],
-      "avatar": "student"
+      "avatar": "student",
+      "classId": "cls-mipa1"
     },
     {
       "userId": "usr-17886552183921",
@@ -822,7 +827,8 @@
         "flood_ready",
         "earthquake_survivor"
       ],
-      "avatar": "student"
+      "avatar": "student",
+      "classId": "cls-ips1"
     },
     {
       "userId": "usr-17886552183922",
@@ -839,7 +845,8 @@
         "flood_ready",
         "earthquake_survivor"
       ],
-      "avatar": "student"
+      "avatar": "student",
+      "classId": "cls-mipa1"
     },
     {
       "userId": "usr-17886552183923",
@@ -856,7 +863,8 @@
         "flood_ready",
         "earthquake_survivor"
       ],
-      "avatar": "student"
+      "avatar": "student",
+      "classId": "cls-ips1"
     },
     {
       "userId": "usr-17886552183924",
@@ -873,7 +881,8 @@
         "flood_ready",
         "earthquake_survivor"
       ],
-      "avatar": "student"
+      "avatar": "student",
+      "classId": "cls-mipa1"
     },
     {
       "userId": "usr-17886552183925",
@@ -890,7 +899,8 @@
         "flood_ready",
         "earthquake_survivor"
       ],
-      "avatar": "student"
+      "avatar": "student",
+      "classId": "cls-ips1"
     },
     {
       "userId": "usr-17886552183926",
@@ -907,7 +917,8 @@
         "flood_ready",
         "earthquake_survivor"
       ],
-      "avatar": "student"
+      "avatar": "student",
+      "classId": "cls-mipa1"
     },
     {
       "userId": "usr-17886552183927",
@@ -924,7 +935,8 @@
         "flood_ready",
         "earthquake_survivor"
       ],
-      "avatar": "student"
+      "avatar": "student",
+      "classId": "cls-ips1"
     },
     {
       "userId": "usr-17886552183928",
@@ -941,7 +953,8 @@
         "flood_ready",
         "earthquake_survivor"
       ],
-      "avatar": "student"
+      "avatar": "student",
+      "classId": "cls-mipa1"
     },
     {
       "userId": "usr-17886552183929",
@@ -958,7 +971,8 @@
         "flood_ready",
         "earthquake_survivor"
       ],
-      "avatar": "student"
+      "avatar": "student",
+      "classId": "cls-ips1"
     },
     {
       "userId": "usr-178865521839210",
@@ -975,7 +989,8 @@
         "flood_ready",
         "earthquake_survivor"
       ],
-      "avatar": "student"
+      "avatar": "student",
+      "classId": "cls-mipa1"
     },
     {
       "userId": "usr-178865521839211",
@@ -992,7 +1007,8 @@
         "flood_ready",
         "earthquake_survivor"
       ],
-      "avatar": "student"
+      "avatar": "student",
+      "classId": "cls-ips1"
     },
     {
       "userId": "usr-178865521839212",
@@ -1009,7 +1025,8 @@
         "flood_ready",
         "earthquake_survivor"
       ],
-      "avatar": "student"
+      "avatar": "student",
+      "classId": "cls-mipa1"
     },
     {
       "userId": "usr-178865521839213",
@@ -1026,7 +1043,8 @@
         "flood_ready",
         "earthquake_survivor"
       ],
-      "avatar": "student"
+      "avatar": "student",
+      "classId": "cls-ips1"
     },
     {
       "userId": "usr-178865521839214",
@@ -1043,7 +1061,8 @@
         "flood_ready",
         "earthquake_survivor"
       ],
-      "avatar": "student"
+      "avatar": "student",
+      "classId": "cls-mipa1"
     },
     {
       "userId": "usr-178865521839215",
@@ -1060,7 +1079,8 @@
         "flood_ready",
         "earthquake_survivor"
       ],
-      "avatar": "student"
+      "avatar": "student",
+      "classId": "cls-ips1"
     },
     {
       "userId": "usr-178865521839216",
@@ -1077,7 +1097,8 @@
         "flood_ready",
         "earthquake_survivor"
       ],
-      "avatar": "student"
+      "avatar": "student",
+      "classId": "cls-mipa1"
     },
     {
       "userId": "usr-178865521839217",
@@ -1094,7 +1115,8 @@
         "flood_ready",
         "earthquake_survivor"
       ],
-      "avatar": "student"
+      "avatar": "student",
+      "classId": "cls-ips1"
     },
     {
       "userId": "usr-178865521839218",
@@ -1111,7 +1133,8 @@
         "flood_ready",
         "earthquake_survivor"
       ],
-      "avatar": "student"
+      "avatar": "student",
+      "classId": "cls-mipa1"
     },
     {
       "userId": "usr-178865521839219",
@@ -1128,7 +1151,8 @@
         "flood_ready",
         "earthquake_survivor"
       ],
-      "avatar": "student"
+      "avatar": "student",
+      "classId": "cls-ips1"
     },
     {
       "userId": "usr-178865521839220",
@@ -1145,7 +1169,8 @@
         "flood_ready",
         "earthquake_survivor"
       ],
-      "avatar": "student"
+      "avatar": "student",
+      "classId": "cls-mipa1"
     },
     {
       "userId": "usr-178865521839221",
@@ -1162,7 +1187,8 @@
         "flood_ready",
         "earthquake_survivor"
       ],
-      "avatar": "student"
+      "avatar": "student",
+      "classId": "cls-ips1"
     },
     {
       "userId": "usr-178865521839222",
@@ -1179,7 +1205,8 @@
         "flood_ready",
         "earthquake_survivor"
       ],
-      "avatar": "student"
+      "avatar": "student",
+      "classId": "cls-mipa1"
     },
     {
       "userId": "usr-178865521839223",
@@ -1196,7 +1223,8 @@
         "flood_ready",
         "earthquake_survivor"
       ],
-      "avatar": "student"
+      "avatar": "student",
+      "classId": "cls-ips1"
     },
     {
       "userId": "usr-178865521839224",
@@ -1213,7 +1241,8 @@
         "flood_ready",
         "earthquake_survivor"
       ],
-      "avatar": "student"
+      "avatar": "student",
+      "classId": "cls-mipa1"
     },
     {
       "userId": "usr-178865521839225",
@@ -1230,7 +1259,8 @@
         "flood_ready",
         "earthquake_survivor"
       ],
-      "avatar": "student"
+      "avatar": "student",
+      "classId": "cls-ips1"
     },
     {
       "userId": "usr-178865521839226",
@@ -1247,7 +1277,8 @@
         "flood_ready",
         "earthquake_survivor"
       ],
-      "avatar": "student"
+      "avatar": "student",
+      "classId": "cls-mipa1"
     },
     {
       "userId": "usr-178865521839227",
@@ -1264,7 +1295,8 @@
         "flood_ready",
         "earthquake_survivor"
       ],
-      "avatar": "student"
+      "avatar": "student",
+      "classId": "cls-ips1"
     },
     {
       "userId": "usr-178865521839228",
@@ -1281,7 +1313,8 @@
         "flood_ready",
         "earthquake_survivor"
       ],
-      "avatar": "student"
+      "avatar": "student",
+      "classId": "cls-mipa1"
     },
     {
       "userId": "usr-178865521839229",
@@ -1298,7 +1331,8 @@
         "flood_ready",
         "earthquake_survivor"
       ],
-      "avatar": "student"
+      "avatar": "student",
+      "classId": "cls-ips1"
     },
     {
       "userId": "usr-178865521839230",
@@ -1315,7 +1349,8 @@
         "flood_ready",
         "earthquake_survivor"
       ],
-      "avatar": "student"
+      "avatar": "student",
+      "classId": "cls-mipa1"
     },
     {
       "userId": "usr-178865521839231",
@@ -1332,7 +1367,8 @@
         "flood_ready",
         "earthquake_survivor"
       ],
-      "avatar": "student"
+      "avatar": "student",
+      "classId": "cls-ips1"
     },
     {
       "userId": "usr-178865521839232",
@@ -1349,7 +1385,8 @@
         "flood_ready",
         "earthquake_survivor"
       ],
-      "avatar": "student"
+      "avatar": "student",
+      "classId": "cls-mipa1"
     },
     {
       "userId": "usr-178865521839233",
@@ -1366,7 +1403,8 @@
         "flood_ready",
         "earthquake_survivor"
       ],
-      "avatar": "student"
+      "avatar": "student",
+      "classId": "cls-ips1"
     },
     {
       "userId": "usr-178865521839234",
@@ -1383,7 +1421,8 @@
         "flood_ready",
         "earthquake_survivor"
       ],
-      "avatar": "student"
+      "avatar": "student",
+      "classId": "cls-mipa1"
     },
     {
       "userId": "usr-178865521839235",
@@ -1400,7 +1439,8 @@
         "flood_ready",
         "earthquake_survivor"
       ],
-      "avatar": "student"
+      "avatar": "student",
+      "classId": "cls-ips1"
     },
     {
       "userId": "usr-178865521839236",
@@ -1417,7 +1457,8 @@
         "flood_ready",
         "earthquake_survivor"
       ],
-      "avatar": "student"
+      "avatar": "student",
+      "classId": "cls-mipa1"
     },
     {
       "userId": "usr-178865521839237",
@@ -1434,7 +1475,8 @@
         "flood_ready",
         "earthquake_survivor"
       ],
-      "avatar": "student"
+      "avatar": "student",
+      "classId": "cls-ips1"
     },
     {
       "userId": "usr-178865521839238",
@@ -1451,7 +1493,8 @@
         "flood_ready",
         "earthquake_survivor"
       ],
-      "avatar": "student"
+      "avatar": "student",
+      "classId": "cls-mipa1"
     },
     {
       "userId": "usr-178865521839239",
@@ -1468,7 +1511,8 @@
         "flood_ready",
         "earthquake_survivor"
       ],
-      "avatar": "student"
+      "avatar": "student",
+      "classId": "cls-ips1"
     },
     {
       "userId": "usr-178865521839240",
@@ -1485,7 +1529,8 @@
         "flood_ready",
         "earthquake_survivor"
       ],
-      "avatar": "student"
+      "avatar": "student",
+      "classId": "cls-mipa1"
     },
     {
       "userId": "usr-178865521839241",
@@ -1502,7 +1547,8 @@
         "flood_ready",
         "earthquake_survivor"
       ],
-      "avatar": "student"
+      "avatar": "student",
+      "classId": "cls-ips1"
     },
     {
       "userId": "usr-178865521839242",
@@ -1519,7 +1565,8 @@
         "flood_ready",
         "earthquake_survivor"
       ],
-      "avatar": "student"
+      "avatar": "student",
+      "classId": "cls-mipa1"
     },
     {
       "userId": "usr-178865521839243",
@@ -1536,7 +1583,8 @@
         "flood_ready",
         "earthquake_survivor"
       ],
-      "avatar": "student"
+      "avatar": "student",
+      "classId": "cls-ips1"
     },
     {
       "userId": "usr-178865521839244",
@@ -1553,7 +1601,8 @@
         "flood_ready",
         "earthquake_survivor"
       ],
-      "avatar": "student"
+      "avatar": "student",
+      "classId": "cls-mipa1"
     },
     {
       "userId": "usr-178865521839245",
@@ -1570,7 +1619,8 @@
         "flood_ready",
         "earthquake_survivor"
       ],
-      "avatar": "student"
+      "avatar": "student",
+      "classId": "cls-ips1"
     },
     {
       "userId": "usr-178865521839246",
@@ -1587,7 +1637,8 @@
         "flood_ready",
         "earthquake_survivor"
       ],
-      "avatar": "student"
+      "avatar": "student",
+      "classId": "cls-mipa1"
     },
     {
       "userId": "usr-178865521839247",
@@ -1604,7 +1655,8 @@
         "flood_ready",
         "earthquake_survivor"
       ],
-      "avatar": "student"
+      "avatar": "student",
+      "classId": "cls-ips1"
     },
     {
       "userId": "usr-178865521839248",
@@ -1621,7 +1673,8 @@
         "flood_ready",
         "earthquake_survivor"
       ],
-      "avatar": "student"
+      "avatar": "student",
+      "classId": "cls-mipa1"
     },
     {
       "userId": "usr-178865521839249",
@@ -1638,7 +1691,8 @@
         "flood_ready",
         "earthquake_survivor"
       ],
-      "avatar": "student"
+      "avatar": "student",
+      "classId": "cls-ips1"
     },
     {
       "userId": "usr-178865521839250",
@@ -1655,7 +1709,8 @@
         "flood_ready",
         "earthquake_survivor"
       ],
-      "avatar": "student"
+      "avatar": "student",
+      "classId": "cls-mipa1"
     },
     {
       "userId": "usr-178865521839251",
@@ -1672,7 +1727,8 @@
         "flood_ready",
         "earthquake_survivor"
       ],
-      "avatar": "student"
+      "avatar": "student",
+      "classId": "cls-ips1"
     },
     {
       "userId": "usr-178865521839252",
@@ -1689,7 +1745,8 @@
         "flood_ready",
         "earthquake_survivor"
       ],
-      "avatar": "student"
+      "avatar": "student",
+      "classId": "cls-mipa1"
     },
     {
       "userId": "usr-178865521839253",
@@ -1706,7 +1763,8 @@
         "flood_ready",
         "earthquake_survivor"
       ],
-      "avatar": "student"
+      "avatar": "student",
+      "classId": "cls-ips1"
     },
     {
       "userId": "usr-178865521839254",
@@ -1723,7 +1781,8 @@
         "flood_ready",
         "earthquake_survivor"
       ],
-      "avatar": "student"
+      "avatar": "student",
+      "classId": "cls-mipa1"
     },
     {
       "userId": "usr-178865521839255",
@@ -1740,7 +1799,8 @@
         "flood_ready",
         "earthquake_survivor"
       ],
-      "avatar": "student"
+      "avatar": "student",
+      "classId": "cls-ips1"
     },
     {
       "userId": "usr-178865521839256",
@@ -1757,7 +1817,8 @@
         "flood_ready",
         "earthquake_survivor"
       ],
-      "avatar": "student"
+      "avatar": "student",
+      "classId": "cls-mipa1"
     },
     {
       "userId": "usr-178865521839257",
@@ -1774,7 +1835,8 @@
         "flood_ready",
         "earthquake_survivor"
       ],
-      "avatar": "student"
+      "avatar": "student",
+      "classId": "cls-ips1"
     },
     {
       "userId": "usr-178865521839258",
@@ -1791,7 +1853,8 @@
         "flood_ready",
         "earthquake_survivor"
       ],
-      "avatar": "student"
+      "avatar": "student",
+      "classId": "cls-mipa1"
     },
     {
       "userId": "usr-178865521839259",
@@ -1808,7 +1871,8 @@
         "flood_ready",
         "earthquake_survivor"
       ],
-      "avatar": "student"
+      "avatar": "student",
+      "classId": "cls-ips1"
     }
   ],
   "digitalTwins": {
@@ -3893,24 +3957,24 @@
   ],
   "classes": [
     {
-      "id": "cls-1001",
-      "name": "XI IPA 1",
-      "grade": "XI",
-      "section": "IPA 1",
-      "academicYear": "2025/2026",
-      "schoolId": "sch-20502725",
-      "teacherId": "seed-raihanansari6678",
-      "createdAt": "2026-09-05T14:15:09.231Z"
+      "id": "cls-mipa1",
+      "name": "X MIPA 1",
+      "grade": "X",
+      "section": "MIPA 1",
+      "academicYear": "2026/2027",
+      "schoolId": "ffdcdf34-fc99-4209-913e-5a6042e957ad",
+      "teacherId": "seed-aretha.kirana",
+      "createdAt": "2026-09-06T00:45:20.961Z"
     },
     {
-      "id": "cls-1002",
-      "name": "X IPS 2",
-      "grade": "X",
-      "section": "IPS 2",
-      "academicYear": "2025/2026",
-      "schoolId": "sch-20502725",
-      "teacherId": "seed-raihanansari6678",
-      "createdAt": "2026-09-05T14:15:09.231Z"
+      "id": "cls-ips1",
+      "name": "XI IPS 1",
+      "grade": "XI",
+      "section": "IPS 1",
+      "academicYear": "2026/2027",
+      "schoolId": "ffdcdf34-fc99-4209-913e-5a6042e957ad",
+      "teacherId": "seed-aretha.kirana",
+      "createdAt": "2026-09-06T00:45:20.961Z"
     }
   ]
 }
