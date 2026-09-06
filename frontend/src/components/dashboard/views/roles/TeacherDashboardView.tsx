@@ -111,7 +111,7 @@ export function TeacherDashboardView() {
   }, []);
 
   const fetchUsersAndClasses = async () => {
-    if (currentUser?.role === 'student') return;
+    if (!currentUser || (currentUser.role !== 'teacher' && currentUser.role !== 'dev')) return;
     try {
       const clsRes = await apiClient.get('/api/classes');
       if (clsRes.classes) setClasses(clsRes.classes);

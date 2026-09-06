@@ -51,15 +51,14 @@ router.get('/legacy/:schoolId', async (req, res) => {
 
 // POST save digital twin (legacy)
 router.post('/legacy/:schoolId', verifyToken, async (req, res) => {
-  if (!requireTeacher(req, res)) return;
   const { schoolId } = req.params;
-  const { mapImage, nodes, edges } = req.body;
+  const { mapImage, nodes, edges, disasterType } = req.body;
   const db = await readDB();
   const callerSchoolId = getCallerSchoolId(db, req.user.id);
   if (!requireSchoolOwnership(req, res, callerSchoolId, schoolId)) return;
 
   if (!db.digitalTwins) db.digitalTwins = {};
-  db.digitalTwins[schoolId] = { mapImage, nodes, edges, lastUpdated: new Date().toISOString() };
+  db.digitalTwins[schoolId] = { mapImage, nodes, edges, disasterType, lastUpdated: new Date().toISOString() };
   const success = await writeDB(db);
   if (success) res.json({ success: true });
   else res.status(500).json({ error: 'Failed to save digital twin' });
@@ -78,11 +77,13 @@ router.get('/:schoolId', async (req, res, next) => {
 router.post('/:schoolId', verifyToken, async (req, res, next) => {
   const id = req.params.schoolId;
   if (['maps', 'simulations', 'rooms'].includes(id)) return next();
-  if (!requireTeacher(req, res)) return;
-  const { mapImage, nodes, edges } = req.body;
   const db = await readDB();
+  const callerSchoolId = getCallerSchoolId(db, req.user.id);
+  if (!requireSchoolOwnership(req, res, callerSchoolId, id)) return;
+
+  const { mapImage, nodes, edges, disasterType } = req.body;
   if (!db.digitalTwins) db.digitalTwins = {};
-  db.digitalTwins[id] = { mapImage, nodes, edges, lastUpdated: new Date().toISOString() };
+  db.digitalTwins[id] = { mapImage, nodes, edges, disasterType, lastUpdated: new Date().toISOString() };
   const success = await writeDB(db);
   if (success) res.json({ success: true });
   else res.status(500).json({ error: 'Failed to save digital twin' });

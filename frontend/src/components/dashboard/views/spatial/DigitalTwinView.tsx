@@ -14,7 +14,6 @@ import { DisasterAlert } from './digital-twin/DisasterAlert';
 import { calculateEvacuationRoute } from './digital-twin/routeEngine';
 
 import { TeacherDTView } from './digital-twin/teacher/TeacherDTView';
-import { StudentDTView } from './digital-twin/student/StudentDTView';
 
 function Card({ children, className = '' }: { children: React.ReactNode; className?: string }) {
   return <div className={`glass rounded-2xl p-5 transition-all hover:shadow-glass dark:bg-slate-900/60 ${className}`}>{children}</div>;
@@ -31,8 +30,9 @@ export function DigitalTwinView() {
   const activeSchool = useMemo(() => selection?.school || null, [selection]);
   const role = currentUser?.role === 'student' ? 'student' : 'teacher';
 
-  // Students go straight to grid game; teachers choose mode
-  const [dtMode, setDtMode] = useState<DTMode>(role === 'student' ? 'grid' : 'legacy');
+  // Students and teachers both use legacy for the simulation workspace.
+  // Game mode is accessed via a separate route for students.
+  const [dtMode, setDtMode] = useState<DTMode>('legacy');
 
   // Data State
   const [mapImage, setMapImage] = useState<string | null>(null);
@@ -97,10 +97,16 @@ export function DigitalTwinView() {
           setMapImage(data.mapImage || null);
           setNodes(data.nodes || []);
           setEdges(data.edges || []);
+          if (currentUser?.role === 'teacher' || currentUser?.role === 'dev') {
+            setSelectedSim(data.disasterType || null);
+          } else {
+            setSelectedSim(null);
+          }
         } else {
           setMapImage(null);
           setNodes([]);
           setEdges([]);
+          setSelectedSim(null);
         }
       } catch (_err) {
         console.error('Error fetching digital twin data.');
@@ -182,15 +188,35 @@ export function DigitalTwinView() {
   // Editor Actions
   const saveFloorPlan = async () => {
     if (!activeSchool) return;
+    if (currentUser?.role === 'student') {
+      show('Simulasi disimpan sementara di sesi Anda (Tidak menimpa peta sekolah utama)', 'info');
+      setIsEditing(false);
+      return;
+    }
     setSaving(true);
     try {
-      await apiClient.post(`/api/digital-twin/${activeSchool.id}`, { mapImage, nodes, edges });
+      await apiClient.post(`/api/digital-twin/${activeSchool.id}`, { mapImage, nodes, edges, disasterType: selectedSim });
       show('Data Digital Twin disimpan ke server', 'success');
       setIsEditing(false);
     } catch (err) {
       show('Gagal menyimpan data ke server', 'error');
     } finally {
       setSaving(false);
+    }
+  };
+
+  const saveDisasterType = async (type: DisasterType) => {
+    setSelectedSim(type);
+    if (currentUser?.role !== 'teacher' && currentUser?.role !== 'dev') {
+      show('Skenario bencana disetel untuk simulasi Anda', 'info');
+      return;
+    }
+    if (!activeSchool) return;
+    try {
+      await apiClient.post(`/api/digital-twin/${activeSchool.id}`, { mapImage, nodes, edges, disasterType: type });
+      show('Skenario bencana berhasil disimpan', 'success');
+    } catch (err) {
+      show('Gagal menyimpan skenario bencana', 'error');
     }
   };
 
@@ -220,7 +246,7 @@ export function DigitalTwinView() {
 
   // Canvas Handlers
   const handleSvgClick = (e: React.MouseEvent, CTM: DOMMatrix) => {
-    if (role !== 'teacher' || draggingId || simRunning || !isEditing) return;
+    if (draggingId || simRunning || !isEditing) return;
     
     if (activeTool === 'select' || activeTool === 'path') {
       if (activeTool === 'path') setPathStart(null);
@@ -242,7 +268,7 @@ export function DigitalTwinView() {
   };
 
   const handleNodeClick = (e: React.MouseEvent, id: string) => {
-    if (role !== 'teacher' || simRunning || !isEditing) return;
+    if (simRunning || !isEditing) return;
     e.stopPropagation();
 
     if (activeTool === 'path') {
@@ -266,7 +292,7 @@ export function DigitalTwinView() {
   };
 
   const handlePointerDown = (e: React.PointerEvent, id: string) => {
-    if (role !== 'teacher' || simRunning || !isEditing || activeTool !== 'select') return;
+    if (simRunning || !isEditing || activeTool !== 'select') return;
     e.stopPropagation();
     (e.target as Element).setPointerCapture(e.pointerId);
     setDraggingId(id);
@@ -318,9 +344,6 @@ export function DigitalTwinView() {
   }
 
   // ── Route to new views ───────────────────────────────────
-  if (role === 'student') {
-    return <StudentDTView />;
-  }
 
   if (dtMode === 'grid') {
     return (
@@ -367,7 +390,7 @@ export function DigitalTwinView() {
                 Kanvas Peta Sekolah
               </h3>
               <div className="flex flex-wrap gap-2">
-                {role === 'teacher' && !simRunning && (
+                {!simRunning && (
                   <>
                     <label className="whitespace-nowrap cursor-pointer flex items-center gap-2 text-xs font-bold bg-brand-50 text-brand-700 px-4 py-2 rounded-lg hover:bg-brand-100">
                       <Upload className="h-4 w-4 shrink-0" /> Unggah Peta
@@ -439,7 +462,7 @@ export function DigitalTwinView() {
         <DisasterSimulationPanel
           simRunning={simRunning}
           selectedSim={selectedSim}
-          onSelectSim={setSelectedSim}
+          onSelectSim={saveDisasterType}
           onToggleSim={toggleSimulation}
           hasMap={!!mapImage}
           hasNodes={nodes.length > 1}

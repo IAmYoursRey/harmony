@@ -387,7 +387,7 @@ export function DevDashboardView() {
                             </div>
                             <div>
                               <label htmlFor={`editSection-${acc.id}`} className="block text-xs font-bold text-ink-600 dark:text-slate-400 mb-1.5">No. Ruang</label>
-                              <input id={`editSection-${acc.id}`} type="number" min="1" value={editSection} onChange={e => setEditSection(e.target.value)} className="w-full px-3.5 py-2 rounded-xl border border-brand-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-ink-900 dark:text-white outline-none focus:ring-2 focus:ring-brand-100" />
+                              <input id={`editSection-${acc.id}`} type="text" value={editSection} onChange={e => setEditSection(e.target.value)} placeholder="Contoh: MIPA 4" className="w-full px-3.5 py-2 rounded-xl border border-brand-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-ink-900 dark:text-white outline-none focus:ring-2 focus:ring-brand-100" />
                             </div>
                           </div>
                           
@@ -581,7 +581,7 @@ export function DevDashboardView() {
                     {regRole === 'student' && (
                       <div className="space-y-1.5">
                         <label htmlFor="regSection" className="text-xs font-bold text-ink-700 dark:text-slate-300">Ruang/No. Kelas <span className="text-red-500">*</span></label>
-                        <input id="regSection" type="number" min="1" value={regSection} onChange={e => setRegSection(e.target.value)} placeholder="1"
+                        <input id="regSection" type="text" value={regSection} onChange={e => setRegSection(e.target.value)} placeholder="Contoh: MIPA 4"
                           className="w-full rounded-xl border border-brand-200 bg-white py-2.5 px-3 text-sm outline-none focus:border-brand-400 focus:ring-4 focus:ring-brand-100 dark:border-slate-700 dark:bg-slate-800 dark:text-white transition-all" />
                       </div>
                     )}

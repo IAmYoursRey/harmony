@@ -21,6 +21,7 @@ const LeaderboardView = lazy(() => import('@/components/dashboard/views/Analytic
 const ProfileView = lazy(() => import('@/components/dashboard/views/RoleDashboards').then(m => ({ default: m.ProfileView })));
 const TeacherDashboardView = lazy(() => import('@/components/dashboard/views/RoleDashboards').then(m => ({ default: m.TeacherDashboardView })));
 const DevDashboardView = lazy(() => import('@/components/dashboard/views/RoleDashboards').then(m => ({ default: m.DevDashboardView })));
+const StudentDTView = lazy(() => import('@/components/dashboard/views/spatial/digital-twin/student/StudentDTView').then(m => ({ default: m.StudentDTView })));
 
 export default function App() {
   return (
@@ -43,6 +44,7 @@ export default function App() {
           <Route path="resilience" element={<Suspense fallback={<PageSkeleton />}><SchoolResilienceIndexView /></Suspense>} />
           <Route path="survey" element={<Suspense fallback={<PageSkeleton />}><SurveyAnalyticsView /></Suspense>} />
           <Route path="teacher" element={<Suspense fallback={<PageSkeleton />}><TeacherDashboardView /></Suspense>} />
+          <Route path="student-game" element={<Suspense fallback={<PageSkeleton />}><StudentDTView /></Suspense>} />
           <Route path="dev-dashboard" element={<Suspense fallback={<PageSkeleton />}><DevDashboardView /></Suspense>} />
           <Route path="profile" element={<Suspense fallback={<PageSkeleton />}><ProfileView /></Suspense>} />
         </Route>

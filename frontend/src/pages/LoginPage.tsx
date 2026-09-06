@@ -287,10 +287,10 @@ export default function LoginPage() {
                 {/* Section (Ruang/Nomor) */}
                 {role === 'student' && (
                 <div className="space-y-1">
-                  <label htmlFor="reg-section" className="text-xs font-bold text-ink-700 dark:text-slate-300">Ruang/No. Kelas (Contoh: "1") <span className="text-red-500">*</span></label>
+                  <label htmlFor="reg-section" className="text-xs font-bold text-ink-700 dark:text-slate-300">Ruang/No. Kelas (Contoh: "MIPA 4") <span className="text-red-500">*</span></label>
                   <div className="relative">
                     <School className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-ink-400" />
-                    <input id="reg-section" name="reg-section" type="number" min="1" value={regSection} onChange={e => setRegSection(e.target.value)} placeholder='1'
+                    <input id="reg-section" name="reg-section" type="text" value={regSection} onChange={e => setRegSection(e.target.value)} placeholder='Contoh: MIPA 4'
                       className="w-full rounded-xl border border-brand-100 bg-white/70 py-2.5 pl-10 pr-4 text-sm outline-none focus:border-brand-300 focus:ring-2 focus:ring-brand-100 dark:border-slate-700 dark:bg-slate-800/70 dark:text-white" />
                   </div>
                 </div>

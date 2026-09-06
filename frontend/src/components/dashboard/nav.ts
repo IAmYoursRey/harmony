@@ -4,6 +4,7 @@ import {
   Brain,
   Map,
   Boxes,
+  Swords,
   CloudLightning,
   Gauge,
   BarChart3,
@@ -19,6 +20,7 @@ export interface NavItem {
   label: string;
   icon: LucideIcon;
   roles?: ('student' | 'teacher' | 'dev')[];
+  labelOverrides?: Partial<Record<'student' | 'teacher' | 'dev', string>>;
 }
 
 export const navItems: NavItem[] = [
@@ -26,7 +28,18 @@ export const navItems: NavItem[] = [
   { id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard },
   { id: 'ai-learning', label: 'AI Learning', icon: Brain },
   { id: 'geo-risk-map', label: 'Geo Risk Map', icon: Map },
-  { id: 'digital-twin', label: 'Digital Twin School', icon: Boxes },
+  { 
+    id: 'digital-twin', 
+    label: 'Digital Twin School', 
+    icon: Boxes, 
+    roles: ['teacher', 'dev', 'student']
+  },
+  { 
+    id: 'student-game', 
+    label: 'Join Room / Game', 
+    icon: Swords, 
+    roles: ['student'] 
+  },
   { id: 'simulation', label: 'Disaster Question', icon: CloudLightning },
   { id: 'gss', label: 'GeoSense Score', icon: Gauge },
   { id: 'resilience', label: 'School Resilience', icon: ShieldCheck },

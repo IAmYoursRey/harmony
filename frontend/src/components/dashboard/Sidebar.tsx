@@ -81,7 +81,7 @@ export function Sidebar({ active, onSelect, mobileOpen, onCloseMobile }: Sidebar
                       }`}
                       strokeWidth={2}
                     />
-                    <span>{t(`nav.${item.id}`)}</span>
+                    <span>{item.labelOverrides?.[currentUser?.role as keyof typeof item.labelOverrides] || t(`nav.${item.id}`)}</span>
                     {isActive && (
                       <span className="ml-auto h-1.5 w-1.5 rounded-full bg-white/80" />
                     )}

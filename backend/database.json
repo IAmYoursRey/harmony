@@ -595,7 +595,7 @@
     {
       "id": "usr-178865521839258",
       "email": "student58@sman1ngoro.edu",
-      "passwordHash": "dummy",
+      "passwordHash": "$2b$10$FyPjSeXH33a42yTkUjMzkOl2Mk0jonbQj4ZyCV8cp8YcqQ5yihJ9K",
       "name": "Reza Setiawan",
       "role": "student",
       "createdAt": "2026-09-06T00:40:18.392Z"
@@ -1854,7 +1854,8 @@
         "earthquake_survivor"
       ],
       "avatar": "student",
-      "classId": "cls-mipa1"
+      "classId": "cls-mipa1",
+      "lastUpdated": "2026-09-06T06:55:51.177Z"
     },
     {
       "userId": "usr-178865521839259",
