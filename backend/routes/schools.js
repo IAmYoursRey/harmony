@@ -2,6 +2,9 @@ import express from 'express';
 import { readDB } from '../repository.js';
 import fs from 'fs';
 import path from 'path';
+import { fileURLToPath } from 'url';
+
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
 let _localSchoolsCache = null;
 
@@ -9,7 +12,7 @@ export async function getBaseSchools() {
     if (_localSchoolsCache) return _localSchoolsCache;
     
     // Try to load the giant dataset if it exists locally
-    const finalPath = path.resolve(process.cwd(), 'data/final/schools-final.json');
+    const finalPath = path.resolve(__dirname, '../../data/final/schools-final.json');
     if (fs.existsSync(finalPath)) {
         try {
             console.log('Loading 215k final dataset into memory...');
@@ -21,7 +24,7 @@ export async function getBaseSchools() {
     }
     
     // Try to load lite dataset (for Vercel/production where 100MB limit applies)
-    const litePath = path.resolve(process.cwd(), 'backend/data/schools-lite.json');
+    const litePath = path.resolve(__dirname, '../data/schools-lite.json');
     if (fs.existsSync(litePath)) {
         try {
             console.log('Loading 215k LITE dataset into memory...');
