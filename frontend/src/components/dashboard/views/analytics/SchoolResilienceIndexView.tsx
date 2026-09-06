@@ -9,7 +9,7 @@ import { getAllProfiles, type UserProfile } from '@/data/userProfiles';
 import { useAuth } from '@/hooks/useAuth';
 
 function Card({ children, className = '', style }: { children: React.ReactNode; className?: string; style?: React.CSSProperties }) {
-  return <div style={style} className={`glass rounded-2xl p-5 transition-all hover:shadow-glass dark:bg-slate-900/60 ${className}`}>{children}</div>;
+  return <div style={style} className={`glass rounded-2xl p-4 sm:p-5 transition-all hover:shadow-glass dark:bg-slate-900/60 ${className}`}>{children}</div>;
 }
 
 export function SchoolResilienceIndexView() {
@@ -127,7 +127,7 @@ export function SchoolResilienceIndexView() {
             <h3 className="font-display text-base font-bold text-ink-900 dark:text-white flex items-center gap-2 mb-4">
               <Activity className="h-5 w-5 text-brand-500" /> Analisis Multi-Dimensi
             </h3>
-            <div className="flex-1 min-h-[300px]">
+            <div className="w-full max-w-full overflow-hidden flex-1 min-h-[300px]">
               <ResponsiveContainer width="100%" height="100%">
                 <RadarChart cx="50%" cy="50%" outerRadius="70%" data={radarData}>
                   <PolarGrid stroke="#e2e8f0" />

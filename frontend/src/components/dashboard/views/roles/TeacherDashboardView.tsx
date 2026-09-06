@@ -21,7 +21,7 @@ import { ProgressRing } from '@/components/dashboard/Charts';
 // --- Merged from TeacherDashboardView.tsx ---
 
 function Card({ children, className = '' }: { children: React.ReactNode; className?: string }) {
-  return <div className={`glass rounded-2xl p-5 transition-all hover:shadow-glass dark:bg-slate-900/60 ${className}`}>{children}</div>;
+  return <div className={`glass rounded-2xl p-4 sm:p-5 transition-all hover:shadow-glass dark:bg-slate-900/60 ${className}`}>{children}</div>;
 }
 
 function StatCard({
@@ -111,6 +111,7 @@ export function TeacherDashboardView() {
   }, []);
 
   const fetchUsersAndClasses = async () => {
+    if (currentUser?.role === 'student') return;
     try {
       const clsRes = await apiClient.get('/api/classes');
       if (clsRes.classes) setClasses(clsRes.classes);
@@ -119,7 +120,10 @@ export function TeacherDashboardView() {
       if (usrRes.users) setAccounts(usrRes.users);
       if (usrRes.profiles) setProfiles(usrRes.profiles);
     } catch (error) {
-      console.error('Failed to fetch data', error);
+      console.warn('Silent fail: Failed to fetch data', error);
+      setClasses([]);
+      setAccounts([]);
+      setProfiles([]);
     }
   };
 

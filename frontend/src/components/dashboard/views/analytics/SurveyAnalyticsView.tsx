@@ -142,7 +142,7 @@ export function SurveyAnalyticsView() {
               <h3 className="font-display text-base font-bold text-ink-900 dark:text-white flex items-center gap-2 mb-6">
                 <BarChart3 className="h-5 w-5 text-brand-500" /> Distribusi Skor Kesiapsiagaan
               </h3>
-              <div className="flex-1 min-h-[250px]">
+              <div className="w-full max-w-full overflow-hidden flex-1 min-h-[250px]">
                 <ResponsiveContainer width="100%" height="100%">
                   <RechartsBarChart data={[
                     { name: 'Sangat Kurang', value: 2 },
@@ -165,7 +165,7 @@ export function SurveyAnalyticsView() {
               <h3 className="font-display text-base font-bold text-ink-900 dark:text-white flex items-center gap-2 mb-6">
                 <PieIcon className="h-5 w-5 text-indigo-500" /> Kategori Kerentanan
               </h3>
-              <div className="flex-1 min-h-[250px]">
+              <div className="w-full max-w-full overflow-hidden flex-1 min-h-[250px]">
                 <ResponsiveContainer width="100%" height="100%">
                   <RechartsPieChart>
                     <Pie

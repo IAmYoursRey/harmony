@@ -376,7 +376,7 @@ export function DevDashboardView() {
                             </div>
                           </div>
                           
-                          <div className="grid grid-cols-2 gap-3">
+                          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                             <div>
                               <label htmlFor={`editGrade-${acc.id}`} className="block text-xs font-bold text-ink-600 dark:text-slate-400 mb-1.5">Tingkat Kelas</label>
                               <select id={`editGrade-${acc.id}`} value={editGrade} onChange={e => setEditGrade(e.target.value as 'X'|'XI'|'XII')} className="w-full px-3.5 py-2 rounded-xl border border-brand-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-ink-900 dark:text-white outline-none focus:ring-2 focus:ring-brand-100">

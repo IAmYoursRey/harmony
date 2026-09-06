@@ -259,7 +259,7 @@ export default function LoginPage() {
                 </div>
 
                 {/* Gender + Grade/Section */}
-                <div className="grid grid-cols-2 gap-3">
+                <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
                   <div className="space-y-1">
                     <label htmlFor="reg-gender" className="text-xs font-bold text-ink-700 dark:text-slate-300">Jenis Kelamin</label>
                     <select id="reg-gender" name="reg-gender" value={regGender} onChange={e => setRegGender(e.target.value as Gender)}
