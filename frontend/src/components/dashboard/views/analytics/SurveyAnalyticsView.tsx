@@ -2,7 +2,7 @@ import { Gauge, Brain, Target, Timer, CalendarCheck, TrendingUp, Trophy, Zap, Aw
 import { Donut, RadarChart, Sparkline, BarChart, GroupedBarChart, PieChart, DonutChart } from '@/components/dashboard/Charts';
 import { SmartReadinessIndex, calculateReadinessIndex } from '@/components/SmartReadinessIndex';
 import { motion } from 'framer-motion';
-import { RadarChart as RechartsRadarChart, Radar, PolarGrid, PolarAngleAxis, PolarRadiusAxis, ResponsiveContainer, Tooltip, BarChart, Bar, XAxis, YAxis, CartesianGrid, PieChart as RechartsPieChart, Pie, Cell } from 'recharts';
+import { RadarChart as RechartsRadarChart, Radar, PolarGrid, PolarAngleAxis, PolarRadiusAxis, ResponsiveContainer, Tooltip, BarChart as RechartsBarChart, Bar, XAxis, YAxis, CartesianGrid, PieChart as RechartsPieChart, Pie, Cell } from 'recharts';
 import { useI18n } from '@/hooks/useI18n';
 import { useSchool } from '@/hooks/useSchool';
 import {  useToast  } from '@/hooks/useToast';
@@ -144,7 +144,7 @@ export function SurveyAnalyticsView() {
               </h3>
               <div className="flex-1 min-h-[250px]">
                 <ResponsiveContainer width="100%" height="100%">
-                  <BarChart data={[
+                  <RechartsBarChart data={[
                     { name: 'Sangat Kurang', value: 2 },
                     { name: 'Kurang', value: 8 },
                     { name: 'Cukup', value: 15 },
@@ -156,7 +156,7 @@ export function SurveyAnalyticsView() {
                     <YAxis tick={{ fontSize: 11, fill: '#64748b' }} axisLine={false} tickLine={false} />
                     <Tooltip cursor={{ fill: 'transparent' }} contentStyle={{ borderRadius: '12px', border: 'none', boxShadow: '0 10px 25px -5px rgba(0, 0, 0, 0.1)' }} />
                     <Bar dataKey="value" fill="#0ea5e9" radius={[6, 6, 0, 0]} />
-                  </BarChart>
+                  </RechartsBarChart>
                 </ResponsiveContainer>
               </div>
             </Card>
