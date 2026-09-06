@@ -239,7 +239,6 @@ export default function SchoolSelectionPage() {
                           <MapPin className="h-4 w-4" />
                         </span>
                         <span className="flex-1 text-sm font-semibold text-ink-900 dark:text-white">{p.name}</span>
-                        <span className="text-xs text-ink-400 dark:text-slate-500">{allSchools.filter(s => s.province === p.id).length} {t('school.school_count')}</span>
                         <ChevronRight className="h-4 w-4 text-ink-400 transition-transform group-hover:translate-x-1 dark:text-slate-500" />
                       </button>
                     ))}
@@ -290,7 +289,6 @@ export default function SchoolSelectionPage() {
                           <Building2 className="h-4 w-4" />
                         </span>
                         <span className="flex-1 text-sm font-semibold text-ink-900 dark:text-white">{r.name}</span>
-                        <span className="text-xs text-ink-400 dark:text-slate-500">{allSchools.filter(s => s.province === provinceId && s.regency === r.id).length} {t('school.school_count')}</span>
                         <ChevronRight className="h-4 w-4 text-ink-400 transition-transform group-hover:translate-x-1 dark:text-slate-500" />
                       </button>
                     ))}
