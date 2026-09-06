@@ -212,7 +212,9 @@ export default function SchoolSelectionPage() {
                     <h2 className="font-display text-xl font-bold text-ink-900 dark:text-white">{t('school.province')}</h2>
                     <div className="relative">
                       <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-ink-400 dark:text-slate-500" />
+                      <label htmlFor="search-province" className="sr-only">Search</label>
                       <input
+                        id="search-province"
                         type="text"
                         placeholder={t('school.search')}
                         value={search}
@@ -261,7 +263,9 @@ export default function SchoolSelectionPage() {
                     <h2 className="font-display text-xl font-bold text-ink-900 dark:text-white">{t('school.regency')}</h2>
                     <div className="relative">
                       <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-ink-400 dark:text-slate-500" />
+                      <label htmlFor="search-regency" className="sr-only">Search</label>
                       <input
+                        id="search-regency"
                         type="text"
                         placeholder={t('school.search')}
                         value={search}
@@ -317,7 +321,9 @@ export default function SchoolSelectionPage() {
                     <h2 className="font-display text-xl font-bold text-ink-900 dark:text-white">{t('school.select')}</h2>
                     <div className="relative">
                       <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-ink-400 dark:text-slate-500" />
+                      <label htmlFor="search-school" className="sr-only">Search</label>
                       <input
+                        id="search-school"
                         type="text"
                         placeholder={t('school.search')}
                         value={search}
