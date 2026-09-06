@@ -139,7 +139,7 @@
       "totalPoints": 0,
       "badges": [],
       "lastUpdated": "2026-09-05T01:33:09.679Z",
-      "schoolId": "sch-20502725"
+      "schoolId": "ffdcdf34-fc99-4209-913e-5a6042e957ad"
     },
     {
       "userId": "seed-alvira.nizha",
@@ -150,7 +150,7 @@
       "totalPoints": 0,
       "badges": [],
       "lastUpdated": "2026-09-04T06:29:19.798Z",
-      "schoolId": "sch-20534748"
+      "schoolId": "ffdcdf34-fc99-4209-913e-5a6042e957ad"
     },
     {
       "userId": "seed-aretha.kirana",
@@ -161,7 +161,7 @@
       "totalPoints": 0,
       "badges": [],
       "lastUpdated": "2026-09-04T06:29:19.798Z",
-      "schoolId": "sch-20534748"
+      "schoolId": "ffdcdf34-fc99-4209-913e-5a6042e957ad"
     },
     {
       "userId": "seed-sinta.nadhifah",
@@ -172,7 +172,7 @@
       "totalPoints": 0,
       "badges": [],
       "lastUpdated": "2026-09-04T06:29:19.798Z",
-      "schoolId": "sch-20534748"
+      "schoolId": "ffdcdf34-fc99-4209-913e-5a6042e957ad"
     },
     {
       "userId": "usr-s1",
@@ -180,7 +180,7 @@
       "grade": "XI",
       "classSection": "IPA 1",
       "classId": "cls-1001",
-      "schoolId": "sch-20502725",
+      "schoolId": "ffdcdf34-fc99-4209-913e-5a6042e957ad",
       "topicScores": {},
       "totalPoints": 120,
       "badges": [],
@@ -192,7 +192,7 @@
       "grade": "XI",
       "classSection": "IPA 1",
       "classId": "cls-1001",
-      "schoolId": "sch-20502725",
+      "schoolId": "ffdcdf34-fc99-4209-913e-5a6042e957ad",
       "topicScores": {},
       "totalPoints": 120,
       "badges": [],
@@ -204,7 +204,7 @@
       "grade": "XI",
       "classSection": "IPA 1",
       "classId": "cls-1001",
-      "schoolId": "sch-20502725",
+      "schoolId": "ffdcdf34-fc99-4209-913e-5a6042e957ad",
       "topicScores": {},
       "totalPoints": 120,
       "badges": [],
@@ -216,7 +216,7 @@
       "grade": "X",
       "classSection": "IPS 2",
       "classId": "cls-1002",
-      "schoolId": "sch-20502725",
+      "schoolId": "ffdcdf34-fc99-4209-913e-5a6042e957ad",
       "topicScores": {},
       "totalPoints": 120,
       "badges": [],
@@ -224,7 +224,7 @@
     },
     {
       "userId": "usr-1788621626982",
-      "schoolId": "unknown",
+      "schoolId": "ffdcdf34-fc99-4209-913e-5a6042e957ad",
       "grade": "X",
       "classSection": "",
       "gender": "other",
@@ -235,7 +235,7 @@
     },
     {
       "userId": "usr-1788621627064",
-      "schoolId": null,
+      "schoolId": "ffdcdf34-fc99-4209-913e-5a6042e957ad",
       "grade": "X",
       "classSection": "",
       "gender": "other",
@@ -246,7 +246,7 @@
     },
     {
       "userId": "usr-1788623489572",
-      "schoolId": "unknown",
+      "schoolId": "ffdcdf34-fc99-4209-913e-5a6042e957ad",
       "grade": "X",
       "classSection": "",
       "gender": "other",
@@ -257,7 +257,7 @@
     },
     {
       "userId": "usr-1788623489641",
-      "schoolId": null,
+      "schoolId": "ffdcdf34-fc99-4209-913e-5a6042e957ad",
       "grade": "X",
       "classSection": "",
       "gender": "other",
@@ -268,7 +268,7 @@
     },
     {
       "userId": "usr-1788623495619",
-      "schoolId": "unknown",
+      "schoolId": "ffdcdf34-fc99-4209-913e-5a6042e957ad",
       "grade": "X",
       "classSection": "",
       "gender": "other",
@@ -279,7 +279,7 @@
     },
     {
       "userId": "usr-1788623495685",
-      "schoolId": null,
+      "schoolId": "ffdcdf34-fc99-4209-913e-5a6042e957ad",
       "grade": "X",
       "classSection": "",
       "gender": "other",
@@ -290,7 +290,7 @@
     },
     {
       "userId": "usr-1788623813465",
-      "schoolId": "unknown",
+      "schoolId": "ffdcdf34-fc99-4209-913e-5a6042e957ad",
       "grade": "X",
       "classSection": "",
       "gender": "other",
@@ -301,7 +301,7 @@
     },
     {
       "userId": "usr-1788623813534",
-      "schoolId": null,
+      "schoolId": "ffdcdf34-fc99-4209-913e-5a6042e957ad",
       "grade": "X",
       "classSection": "",
       "gender": "other",
