@@ -127,6 +127,486 @@
       "name": "New Student",
       "role": "student",
       "createdAt": "2026-09-05T15:56:53.586Z"
+    },
+    {
+      "id": "usr-17886552183920",
+      "email": "student0@sman1ngoro.edu",
+      "passwordHash": "dummy",
+      "name": "Agus Purnama",
+      "role": "student",
+      "createdAt": "2026-09-06T00:40:18.392Z"
+    },
+    {
+      "id": "usr-17886552183921",
+      "email": "student1@sman1ngoro.edu",
+      "passwordHash": "dummy",
+      "name": "Wahyudi Rahayu",
+      "role": "student",
+      "createdAt": "2026-09-06T00:40:18.392Z"
+    },
+    {
+      "id": "usr-17886552183922",
+      "email": "student2@sman1ngoro.edu",
+      "passwordHash": "dummy",
+      "name": "Siti Lestari",
+      "role": "student",
+      "createdAt": "2026-09-06T00:40:18.392Z"
+    },
+    {
+      "id": "usr-17886552183923",
+      "email": "student3@sman1ngoro.edu",
+      "passwordHash": "dummy",
+      "name": "Budi Sari",
+      "role": "student",
+      "createdAt": "2026-09-06T00:40:18.392Z"
+    },
+    {
+      "id": "usr-17886552183924",
+      "email": "student4@sman1ngoro.edu",
+      "passwordHash": "dummy",
+      "name": "Rina Wati",
+      "role": "student",
+      "createdAt": "2026-09-06T00:40:18.392Z"
+    },
+    {
+      "id": "usr-17886552183925",
+      "email": "student5@sman1ngoro.edu",
+      "passwordHash": "dummy",
+      "name": "Muhammad Gunawan",
+      "role": "student",
+      "createdAt": "2026-09-06T00:40:18.392Z"
+    },
+    {
+      "id": "usr-17886552183926",
+      "email": "student6@sman1ngoro.edu",
+      "passwordHash": "dummy",
+      "name": "Kurniawan Yuliana",
+      "role": "student",
+      "createdAt": "2026-09-06T00:40:18.392Z"
+    },
+    {
+      "id": "usr-17886552183927",
+      "email": "student7@sman1ngoro.edu",
+      "passwordHash": "dummy",
+      "name": "Fajar Santoso",
+      "role": "student",
+      "createdAt": "2026-09-06T00:40:18.392Z"
+    },
+    {
+      "id": "usr-17886552183928",
+      "email": "student8@sman1ngoro.edu",
+      "passwordHash": "dummy",
+      "name": "Arif Yuliana",
+      "role": "student",
+      "createdAt": "2026-09-06T00:40:18.392Z"
+    },
+    {
+      "id": "usr-17886552183929",
+      "email": "student9@sman1ngoro.edu",
+      "passwordHash": "dummy",
+      "name": "Putra Saputra",
+      "role": "student",
+      "createdAt": "2026-09-06T00:40:18.392Z"
+    },
+    {
+      "id": "usr-178865521839210",
+      "email": "student10@sman1ngoro.edu",
+      "passwordHash": "dummy",
+      "name": "Arif Setiawan",
+      "role": "student",
+      "createdAt": "2026-09-06T00:40:18.392Z"
+    },
+    {
+      "id": "usr-178865521839211",
+      "email": "student11@sman1ngoro.edu",
+      "passwordHash": "dummy",
+      "name": "Ratna Kusuma",
+      "role": "student",
+      "createdAt": "2026-09-06T00:40:18.392Z"
+    },
+    {
+      "id": "usr-178865521839212",
+      "email": "student12@sman1ngoro.edu",
+      "passwordHash": "dummy",
+      "name": "Maya Rahayu",
+      "role": "student",
+      "createdAt": "2026-09-06T00:40:18.392Z"
+    },
+    {
+      "id": "usr-178865521839213",
+      "email": "student13@sman1ngoro.edu",
+      "passwordHash": "dummy",
+      "name": "Sri Saputra",
+      "role": "student",
+      "createdAt": "2026-09-06T00:40:18.392Z"
+    },
+    {
+      "id": "usr-178865521839214",
+      "email": "student14@sman1ngoro.edu",
+      "passwordHash": "dummy",
+      "name": "Dian Lestari",
+      "role": "student",
+      "createdAt": "2026-09-06T00:40:18.392Z"
+    },
+    {
+      "id": "usr-178865521839215",
+      "email": "student15@sman1ngoro.edu",
+      "passwordHash": "dummy",
+      "name": "Arif Susanti",
+      "role": "student",
+      "createdAt": "2026-09-06T00:40:18.392Z"
+    },
+    {
+      "id": "usr-178865521839216",
+      "email": "student16@sman1ngoro.edu",
+      "passwordHash": "dummy",
+      "name": "Reza Saputra",
+      "role": "student",
+      "createdAt": "2026-09-06T00:40:18.392Z"
+    },
+    {
+      "id": "usr-178865521839217",
+      "email": "student17@sman1ngoro.edu",
+      "passwordHash": "dummy",
+      "name": "Wahyudi Wijaya",
+      "role": "student",
+      "createdAt": "2026-09-06T00:40:18.392Z"
+    },
+    {
+      "id": "usr-178865521839218",
+      "email": "student18@sman1ngoro.edu",
+      "passwordHash": "dummy",
+      "name": "Putri Nugroho",
+      "role": "student",
+      "createdAt": "2026-09-06T00:40:18.392Z"
+    },
+    {
+      "id": "usr-178865521839219",
+      "email": "student19@sman1ngoro.edu",
+      "passwordHash": "dummy",
+      "name": "Wahyudi Nugroho",
+      "role": "student",
+      "createdAt": "2026-09-06T00:40:18.392Z"
+    },
+    {
+      "id": "usr-178865521839220",
+      "email": "student20@sman1ngoro.edu",
+      "passwordHash": "dummy",
+      "name": "Putri Susanti",
+      "role": "student",
+      "createdAt": "2026-09-06T00:40:18.392Z"
+    },
+    {
+      "id": "usr-178865521839221",
+      "email": "student21@sman1ngoro.edu",
+      "passwordHash": "dummy",
+      "name": "Nita Purnama",
+      "role": "student",
+      "createdAt": "2026-09-06T00:40:18.392Z"
+    },
+    {
+      "id": "usr-178865521839222",
+      "email": "student22@sman1ngoro.edu",
+      "passwordHash": "dummy",
+      "name": "Wahyudi Lestari",
+      "role": "student",
+      "createdAt": "2026-09-06T00:40:18.392Z"
+    },
+    {
+      "id": "usr-178865521839223",
+      "email": "student23@sman1ngoro.edu",
+      "passwordHash": "dummy",
+      "name": "Reza Santoso",
+      "role": "student",
+      "createdAt": "2026-09-06T00:40:18.392Z"
+    },
+    {
+      "id": "usr-178865521839224",
+      "email": "student24@sman1ngoro.edu",
+      "passwordHash": "dummy",
+      "name": "Maya Sari",
+      "role": "student",
+      "createdAt": "2026-09-06T00:40:18.392Z"
+    },
+    {
+      "id": "usr-178865521839225",
+      "email": "student25@sman1ngoro.edu",
+      "passwordHash": "dummy",
+      "name": "Budi Lestari",
+      "role": "student",
+      "createdAt": "2026-09-06T00:40:18.392Z"
+    },
+    {
+      "id": "usr-178865521839226",
+      "email": "student26@sman1ngoro.edu",
+      "passwordHash": "dummy",
+      "name": "Dwi Nugroho",
+      "role": "student",
+      "createdAt": "2026-09-06T00:40:18.392Z"
+    },
+    {
+      "id": "usr-178865521839227",
+      "email": "student27@sman1ngoro.edu",
+      "passwordHash": "dummy",
+      "name": "Muhammad Fitriani",
+      "role": "student",
+      "createdAt": "2026-09-06T00:40:18.392Z"
+    },
+    {
+      "id": "usr-178865521839228",
+      "email": "student28@sman1ngoro.edu",
+      "passwordHash": "dummy",
+      "name": "Dewi Lestari",
+      "role": "student",
+      "createdAt": "2026-09-06T00:40:18.392Z"
+    },
+    {
+      "id": "usr-178865521839229",
+      "email": "student29@sman1ngoro.edu",
+      "passwordHash": "dummy",
+      "name": "Rini Rahayu",
+      "role": "student",
+      "createdAt": "2026-09-06T00:40:18.392Z"
+    },
+    {
+      "id": "usr-178865521839230",
+      "email": "student30@sman1ngoro.edu",
+      "passwordHash": "dummy",
+      "name": "Kurniawan Astuti",
+      "role": "student",
+      "createdAt": "2026-09-06T00:40:18.392Z"
+    },
+    {
+      "id": "usr-178865521839231",
+      "email": "student31@sman1ngoro.edu",
+      "passwordHash": "dummy",
+      "name": "Rizky Pratama",
+      "role": "student",
+      "createdAt": "2026-09-06T00:40:18.392Z"
+    },
+    {
+      "id": "usr-178865521839232",
+      "email": "student32@sman1ngoro.edu",
+      "passwordHash": "dummy",
+      "name": "Kurniawan Nugroho",
+      "role": "student",
+      "createdAt": "2026-09-06T00:40:18.392Z"
+    },
+    {
+      "id": "usr-178865521839233",
+      "email": "student33@sman1ngoro.edu",
+      "passwordHash": "dummy",
+      "name": "Ayu Santoso",
+      "role": "student",
+      "createdAt": "2026-09-06T00:40:18.392Z"
+    },
+    {
+      "id": "usr-178865521839234",
+      "email": "student34@sman1ngoro.edu",
+      "passwordHash": "dummy",
+      "name": "Andi Lestari",
+      "role": "student",
+      "createdAt": "2026-09-06T00:40:18.392Z"
+    },
+    {
+      "id": "usr-178865521839235",
+      "email": "student35@sman1ngoro.edu",
+      "passwordHash": "dummy",
+      "name": "Dwi Gunawan",
+      "role": "student",
+      "createdAt": "2026-09-06T00:40:18.392Z"
+    },
+    {
+      "id": "usr-178865521839236",
+      "email": "student36@sman1ngoro.edu",
+      "passwordHash": "dummy",
+      "name": "Agus Saputra",
+      "role": "student",
+      "createdAt": "2026-09-06T00:40:18.392Z"
+    },
+    {
+      "id": "usr-178865521839237",
+      "email": "student37@sman1ngoro.edu",
+      "passwordHash": "dummy",
+      "name": "Wahyudi Fitriani",
+      "role": "student",
+      "createdAt": "2026-09-06T00:40:18.392Z"
+    },
+    {
+      "id": "usr-178865521839238",
+      "email": "student38@sman1ngoro.edu",
+      "passwordHash": "dummy",
+      "name": "Indra Astuti",
+      "role": "student",
+      "createdAt": "2026-09-06T00:40:18.392Z"
+    },
+    {
+      "id": "usr-178865521839239",
+      "email": "student39@sman1ngoro.edu",
+      "passwordHash": "dummy",
+      "name": "Sri Saputra",
+      "role": "student",
+      "createdAt": "2026-09-06T00:40:18.392Z"
+    },
+    {
+      "id": "usr-178865521839240",
+      "email": "student40@sman1ngoro.edu",
+      "passwordHash": "dummy",
+      "name": "Eka Kusuma",
+      "role": "student",
+      "createdAt": "2026-09-06T00:40:18.392Z"
+    },
+    {
+      "id": "usr-178865521839241",
+      "email": "student41@sman1ngoro.edu",
+      "passwordHash": "dummy",
+      "name": "Reza Rahayu",
+      "role": "student",
+      "createdAt": "2026-09-06T00:40:18.392Z"
+    },
+    {
+      "id": "usr-178865521839242",
+      "email": "student42@sman1ngoro.edu",
+      "passwordHash": "dummy",
+      "name": "Tri Astuti",
+      "role": "student",
+      "createdAt": "2026-09-06T00:40:18.392Z"
+    },
+    {
+      "id": "usr-178865521839243",
+      "email": "student43@sman1ngoro.edu",
+      "passwordHash": "dummy",
+      "name": "Sri Purnama",
+      "role": "student",
+      "createdAt": "2026-09-06T00:40:18.392Z"
+    },
+    {
+      "id": "usr-178865521839244",
+      "email": "student44@sman1ngoro.edu",
+      "passwordHash": "dummy",
+      "name": "Reza Hidayat",
+      "role": "student",
+      "createdAt": "2026-09-06T00:40:18.392Z"
+    },
+    {
+      "id": "usr-178865521839245",
+      "email": "student45@sman1ngoro.edu",
+      "passwordHash": "dummy",
+      "name": "Reza Susanti",
+      "role": "student",
+      "createdAt": "2026-09-06T00:40:18.392Z"
+    },
+    {
+      "id": "usr-178865521839246",
+      "email": "student46@sman1ngoro.edu",
+      "passwordHash": "dummy",
+      "name": "Maya Kusuma",
+      "role": "student",
+      "createdAt": "2026-09-06T00:40:18.392Z"
+    },
+    {
+      "id": "usr-178865521839247",
+      "email": "student47@sman1ngoro.edu",
+      "passwordHash": "dummy",
+      "name": "Agus Nugroho",
+      "role": "student",
+      "createdAt": "2026-09-06T00:40:18.392Z"
+    },
+    {
+      "id": "usr-178865521839248",
+      "email": "student48@sman1ngoro.edu",
+      "passwordHash": "dummy",
+      "name": "Budi Kusuma",
+      "role": "student",
+      "createdAt": "2026-09-06T00:40:18.392Z"
+    },
+    {
+      "id": "usr-178865521839249",
+      "email": "student49@sman1ngoro.edu",
+      "passwordHash": "dummy",
+      "name": "Andi Setiawan",
+      "role": "student",
+      "createdAt": "2026-09-06T00:40:18.392Z"
+    },
+    {
+      "id": "usr-178865521839250",
+      "email": "student50@sman1ngoro.edu",
+      "passwordHash": "dummy",
+      "name": "Muhammad Santoso",
+      "role": "student",
+      "createdAt": "2026-09-06T00:40:18.392Z"
+    },
+    {
+      "id": "usr-178865521839251",
+      "email": "student51@sman1ngoro.edu",
+      "passwordHash": "dummy",
+      "name": "Eka Susanti",
+      "role": "student",
+      "createdAt": "2026-09-06T00:40:18.392Z"
+    },
+    {
+      "id": "usr-178865521839252",
+      "email": "student52@sman1ngoro.edu",
+      "passwordHash": "dummy",
+      "name": "Nur Hidayat",
+      "role": "student",
+      "createdAt": "2026-09-06T00:40:18.392Z"
+    },
+    {
+      "id": "usr-178865521839253",
+      "email": "student53@sman1ngoro.edu",
+      "passwordHash": "dummy",
+      "name": "Agus Nugroho",
+      "role": "student",
+      "createdAt": "2026-09-06T00:40:18.392Z"
+    },
+    {
+      "id": "usr-178865521839254",
+      "email": "student54@sman1ngoro.edu",
+      "passwordHash": "dummy",
+      "name": "Putra Susanti",
+      "role": "student",
+      "createdAt": "2026-09-06T00:40:18.392Z"
+    },
+    {
+      "id": "usr-178865521839255",
+      "email": "student55@sman1ngoro.edu",
+      "passwordHash": "dummy",
+      "name": "Rini Pratama",
+      "role": "student",
+      "createdAt": "2026-09-06T00:40:18.392Z"
+    },
+    {
+      "id": "usr-178865521839256",
+      "email": "student56@sman1ngoro.edu",
+      "passwordHash": "dummy",
+      "name": "Siti Setiawan",
+      "role": "student",
+      "createdAt": "2026-09-06T00:40:18.392Z"
+    },
+    {
+      "id": "usr-178865521839257",
+      "email": "student57@sman1ngoro.edu",
+      "passwordHash": "dummy",
+      "name": "Fajar Setiawan",
+      "role": "student",
+      "createdAt": "2026-09-06T00:40:18.392Z"
+    },
+    {
+      "id": "usr-178865521839258",
+      "email": "student58@sman1ngoro.edu",
+      "passwordHash": "dummy",
+      "name": "Reza Setiawan",
+      "role": "student",
+      "createdAt": "2026-09-06T00:40:18.392Z"
+    },
+    {
+      "id": "usr-178865521839259",
+      "email": "student59@sman1ngoro.edu",
+      "passwordHash": "dummy",
+      "name": "Dian Astuti",
+      "role": "student",
+      "createdAt": "2026-09-06T00:40:18.392Z"
     }
   ],
   "profiles": [
@@ -309,6 +789,1026 @@
       "topicScores": {},
       "totalPoints": 0,
       "lastUpdated": "2026-09-05T15:56:53.586Z"
+    },
+    {
+      "userId": "usr-17886552183920",
+      "schoolId": "ffdcdf34-fc99-4209-913e-5a6042e957ad",
+      "grade": "X",
+      "classSection": "MIPA 1",
+      "totalPoints": 928,
+      "topicScores": {
+        "t1": 15,
+        "t2": 39,
+        "t3": 60
+      },
+      "badges": [
+        "flood_ready",
+        "earthquake_survivor"
+      ],
+      "avatar": "student"
+    },
+    {
+      "userId": "usr-17886552183921",
+      "schoolId": "ffdcdf34-fc99-4209-913e-5a6042e957ad",
+      "grade": "XI",
+      "classSection": "MIPA 2",
+      "totalPoints": 253,
+      "topicScores": {
+        "t1": 59,
+        "t2": 65,
+        "t3": 32
+      },
+      "badges": [
+        "flood_ready",
+        "earthquake_survivor"
+      ],
+      "avatar": "student"
+    },
+    {
+      "userId": "usr-17886552183922",
+      "schoolId": "ffdcdf34-fc99-4209-913e-5a6042e957ad",
+      "grade": "XII",
+      "classSection": "MIPA 3",
+      "totalPoints": 821,
+      "topicScores": {
+        "t1": 63,
+        "t2": 1,
+        "t3": 43
+      },
+      "badges": [
+        "flood_ready",
+        "earthquake_survivor"
+      ],
+      "avatar": "student"
+    },
+    {
+      "userId": "usr-17886552183923",
+      "schoolId": "ffdcdf34-fc99-4209-913e-5a6042e957ad",
+      "grade": "X",
+      "classSection": "MIPA 4",
+      "totalPoints": 805,
+      "topicScores": {
+        "t1": 53,
+        "t2": 90,
+        "t3": 39
+      },
+      "badges": [
+        "flood_ready",
+        "earthquake_survivor"
+      ],
+      "avatar": "student"
+    },
+    {
+      "userId": "usr-17886552183924",
+      "schoolId": "ffdcdf34-fc99-4209-913e-5a6042e957ad",
+      "grade": "XI",
+      "classSection": "MIPA 5",
+      "totalPoints": 766,
+      "topicScores": {
+        "t1": 22,
+        "t2": 6,
+        "t3": 34
+      },
+      "badges": [
+        "flood_ready",
+        "earthquake_survivor"
+      ],
+      "avatar": "student"
+    },
+    {
+      "userId": "usr-17886552183925",
+      "schoolId": "ffdcdf34-fc99-4209-913e-5a6042e957ad",
+      "grade": "XII",
+      "classSection": "MIPA 1",
+      "totalPoints": 593,
+      "topicScores": {
+        "t1": 19,
+        "t2": 89,
+        "t3": 25
+      },
+      "badges": [
+        "flood_ready",
+        "earthquake_survivor"
+      ],
+      "avatar": "student"
+    },
+    {
+      "userId": "usr-17886552183926",
+      "schoolId": "ffdcdf34-fc99-4209-913e-5a6042e957ad",
+      "grade": "X",
+      "classSection": "MIPA 2",
+      "totalPoints": 911,
+      "topicScores": {
+        "t1": 2,
+        "t2": 17,
+        "t3": 88
+      },
+      "badges": [
+        "flood_ready",
+        "earthquake_survivor"
+      ],
+      "avatar": "student"
+    },
+    {
+      "userId": "usr-17886552183927",
+      "schoolId": "ffdcdf34-fc99-4209-913e-5a6042e957ad",
+      "grade": "XI",
+      "classSection": "MIPA 3",
+      "totalPoints": 655,
+      "topicScores": {
+        "t1": 65,
+        "t2": 20,
+        "t3": 81
+      },
+      "badges": [
+        "flood_ready",
+        "earthquake_survivor"
+      ],
+      "avatar": "student"
+    },
+    {
+      "userId": "usr-17886552183928",
+      "schoolId": "ffdcdf34-fc99-4209-913e-5a6042e957ad",
+      "grade": "XII",
+      "classSection": "MIPA 4",
+      "totalPoints": 414,
+      "topicScores": {
+        "t1": 40,
+        "t2": 72,
+        "t3": 48
+      },
+      "badges": [
+        "flood_ready",
+        "earthquake_survivor"
+      ],
+      "avatar": "student"
+    },
+    {
+      "userId": "usr-17886552183929",
+      "schoolId": "ffdcdf34-fc99-4209-913e-5a6042e957ad",
+      "grade": "X",
+      "classSection": "MIPA 5",
+      "totalPoints": 459,
+      "topicScores": {
+        "t1": 10,
+        "t2": 96,
+        "t3": 43
+      },
+      "badges": [
+        "flood_ready",
+        "earthquake_survivor"
+      ],
+      "avatar": "student"
+    },
+    {
+      "userId": "usr-178865521839210",
+      "schoolId": "ffdcdf34-fc99-4209-913e-5a6042e957ad",
+      "grade": "XI",
+      "classSection": "MIPA 1",
+      "totalPoints": 983,
+      "topicScores": {
+        "t1": 82,
+        "t2": 41,
+        "t3": 21
+      },
+      "badges": [
+        "flood_ready",
+        "earthquake_survivor"
+      ],
+      "avatar": "student"
+    },
+    {
+      "userId": "usr-178865521839211",
+      "schoolId": "ffdcdf34-fc99-4209-913e-5a6042e957ad",
+      "grade": "XII",
+      "classSection": "MIPA 2",
+      "totalPoints": 747,
+      "topicScores": {
+        "t1": 44,
+        "t2": 39,
+        "t3": 25
+      },
+      "badges": [
+        "flood_ready",
+        "earthquake_survivor"
+      ],
+      "avatar": "student"
+    },
+    {
+      "userId": "usr-178865521839212",
+      "schoolId": "ffdcdf34-fc99-4209-913e-5a6042e957ad",
+      "grade": "X",
+      "classSection": "MIPA 3",
+      "totalPoints": 600,
+      "topicScores": {
+        "t1": 45,
+        "t2": 4,
+        "t3": 9
+      },
+      "badges": [
+        "flood_ready",
+        "earthquake_survivor"
+      ],
+      "avatar": "student"
+    },
+    {
+      "userId": "usr-178865521839213",
+      "schoolId": "ffdcdf34-fc99-4209-913e-5a6042e957ad",
+      "grade": "XI",
+      "classSection": "MIPA 4",
+      "totalPoints": 865,
+      "topicScores": {
+        "t1": 18,
+        "t2": 86,
+        "t3": 1
+      },
+      "badges": [
+        "flood_ready",
+        "earthquake_survivor"
+      ],
+      "avatar": "student"
+    },
+    {
+      "userId": "usr-178865521839214",
+      "schoolId": "ffdcdf34-fc99-4209-913e-5a6042e957ad",
+      "grade": "XII",
+      "classSection": "MIPA 5",
+      "totalPoints": 341,
+      "topicScores": {
+        "t1": 46,
+        "t2": 87,
+        "t3": 35
+      },
+      "badges": [
+        "flood_ready",
+        "earthquake_survivor"
+      ],
+      "avatar": "student"
+    },
+    {
+      "userId": "usr-178865521839215",
+      "schoolId": "ffdcdf34-fc99-4209-913e-5a6042e957ad",
+      "grade": "X",
+      "classSection": "MIPA 1",
+      "totalPoints": 379,
+      "topicScores": {
+        "t1": 84,
+        "t2": 15,
+        "t3": 65
+      },
+      "badges": [
+        "flood_ready",
+        "earthquake_survivor"
+      ],
+      "avatar": "student"
+    },
+    {
+      "userId": "usr-178865521839216",
+      "schoolId": "ffdcdf34-fc99-4209-913e-5a6042e957ad",
+      "grade": "XI",
+      "classSection": "MIPA 2",
+      "totalPoints": 237,
+      "topicScores": {
+        "t1": 2,
+        "t2": 20,
+        "t3": 16
+      },
+      "badges": [
+        "flood_ready",
+        "earthquake_survivor"
+      ],
+      "avatar": "student"
+    },
+    {
+      "userId": "usr-178865521839217",
+      "schoolId": "ffdcdf34-fc99-4209-913e-5a6042e957ad",
+      "grade": "XII",
+      "classSection": "MIPA 3",
+      "totalPoints": 459,
+      "topicScores": {
+        "t1": 41,
+        "t2": 61,
+        "t3": 67
+      },
+      "badges": [
+        "flood_ready",
+        "earthquake_survivor"
+      ],
+      "avatar": "student"
+    },
+    {
+      "userId": "usr-178865521839218",
+      "schoolId": "ffdcdf34-fc99-4209-913e-5a6042e957ad",
+      "grade": "X",
+      "classSection": "MIPA 4",
+      "totalPoints": 823,
+      "topicScores": {
+        "t1": 82,
+        "t2": 65,
+        "t3": 48
+      },
+      "badges": [
+        "flood_ready",
+        "earthquake_survivor"
+      ],
+      "avatar": "student"
+    },
+    {
+      "userId": "usr-178865521839219",
+      "schoolId": "ffdcdf34-fc99-4209-913e-5a6042e957ad",
+      "grade": "XI",
+      "classSection": "MIPA 5",
+      "totalPoints": 991,
+      "topicScores": {
+        "t1": 27,
+        "t2": 69,
+        "t3": 44
+      },
+      "badges": [
+        "flood_ready",
+        "earthquake_survivor"
+      ],
+      "avatar": "student"
+    },
+    {
+      "userId": "usr-178865521839220",
+      "schoolId": "ffdcdf34-fc99-4209-913e-5a6042e957ad",
+      "grade": "XII",
+      "classSection": "MIPA 1",
+      "totalPoints": 685,
+      "topicScores": {
+        "t1": 29,
+        "t2": 31,
+        "t3": 3
+      },
+      "badges": [
+        "flood_ready",
+        "earthquake_survivor"
+      ],
+      "avatar": "student"
+    },
+    {
+      "userId": "usr-178865521839221",
+      "schoolId": "ffdcdf34-fc99-4209-913e-5a6042e957ad",
+      "grade": "X",
+      "classSection": "MIPA 2",
+      "totalPoints": 688,
+      "topicScores": {
+        "t1": 26,
+        "t2": 76,
+        "t3": 2
+      },
+      "badges": [
+        "flood_ready",
+        "earthquake_survivor"
+      ],
+      "avatar": "student"
+    },
+    {
+      "userId": "usr-178865521839222",
+      "schoolId": "ffdcdf34-fc99-4209-913e-5a6042e957ad",
+      "grade": "XI",
+      "classSection": "MIPA 3",
+      "totalPoints": 304,
+      "topicScores": {
+        "t1": 37,
+        "t2": 26,
+        "t3": 14
+      },
+      "badges": [
+        "flood_ready",
+        "earthquake_survivor"
+      ],
+      "avatar": "student"
+    },
+    {
+      "userId": "usr-178865521839223",
+      "schoolId": "ffdcdf34-fc99-4209-913e-5a6042e957ad",
+      "grade": "XII",
+      "classSection": "MIPA 4",
+      "totalPoints": 918,
+      "topicScores": {
+        "t1": 0,
+        "t2": 3,
+        "t3": 34
+      },
+      "badges": [
+        "flood_ready",
+        "earthquake_survivor"
+      ],
+      "avatar": "student"
+    },
+    {
+      "userId": "usr-178865521839224",
+      "schoolId": "ffdcdf34-fc99-4209-913e-5a6042e957ad",
+      "grade": "X",
+      "classSection": "MIPA 5",
+      "totalPoints": 551,
+      "topicScores": {
+        "t1": 88,
+        "t2": 72,
+        "t3": 7
+      },
+      "badges": [
+        "flood_ready",
+        "earthquake_survivor"
+      ],
+      "avatar": "student"
+    },
+    {
+      "userId": "usr-178865521839225",
+      "schoolId": "ffdcdf34-fc99-4209-913e-5a6042e957ad",
+      "grade": "XI",
+      "classSection": "MIPA 1",
+      "totalPoints": 500,
+      "topicScores": {
+        "t1": 41,
+        "t2": 65,
+        "t3": 68
+      },
+      "badges": [
+        "flood_ready",
+        "earthquake_survivor"
+      ],
+      "avatar": "student"
+    },
+    {
+      "userId": "usr-178865521839226",
+      "schoolId": "ffdcdf34-fc99-4209-913e-5a6042e957ad",
+      "grade": "XII",
+      "classSection": "MIPA 2",
+      "totalPoints": 756,
+      "topicScores": {
+        "t1": 49,
+        "t2": 52,
+        "t3": 36
+      },
+      "badges": [
+        "flood_ready",
+        "earthquake_survivor"
+      ],
+      "avatar": "student"
+    },
+    {
+      "userId": "usr-178865521839227",
+      "schoolId": "ffdcdf34-fc99-4209-913e-5a6042e957ad",
+      "grade": "X",
+      "classSection": "MIPA 3",
+      "totalPoints": 830,
+      "topicScores": {
+        "t1": 58,
+        "t2": 84,
+        "t3": 83
+      },
+      "badges": [
+        "flood_ready",
+        "earthquake_survivor"
+      ],
+      "avatar": "student"
+    },
+    {
+      "userId": "usr-178865521839228",
+      "schoolId": "ffdcdf34-fc99-4209-913e-5a6042e957ad",
+      "grade": "XI",
+      "classSection": "MIPA 4",
+      "totalPoints": 831,
+      "topicScores": {
+        "t1": 62,
+        "t2": 53,
+        "t3": 28
+      },
+      "badges": [
+        "flood_ready",
+        "earthquake_survivor"
+      ],
+      "avatar": "student"
+    },
+    {
+      "userId": "usr-178865521839229",
+      "schoolId": "ffdcdf34-fc99-4209-913e-5a6042e957ad",
+      "grade": "XII",
+      "classSection": "MIPA 5",
+      "totalPoints": 826,
+      "topicScores": {
+        "t1": 39,
+        "t2": 7,
+        "t3": 19
+      },
+      "badges": [
+        "flood_ready",
+        "earthquake_survivor"
+      ],
+      "avatar": "student"
+    },
+    {
+      "userId": "usr-178865521839230",
+      "schoolId": "ffdcdf34-fc99-4209-913e-5a6042e957ad",
+      "grade": "X",
+      "classSection": "MIPA 1",
+      "totalPoints": 391,
+      "topicScores": {
+        "t1": 87,
+        "t2": 98,
+        "t3": 21
+      },
+      "badges": [
+        "flood_ready",
+        "earthquake_survivor"
+      ],
+      "avatar": "student"
+    },
+    {
+      "userId": "usr-178865521839231",
+      "schoolId": "ffdcdf34-fc99-4209-913e-5a6042e957ad",
+      "grade": "XI",
+      "classSection": "MIPA 2",
+      "totalPoints": 961,
+      "topicScores": {
+        "t1": 86,
+        "t2": 42,
+        "t3": 46
+      },
+      "badges": [
+        "flood_ready",
+        "earthquake_survivor"
+      ],
+      "avatar": "student"
+    },
+    {
+      "userId": "usr-178865521839232",
+      "schoolId": "ffdcdf34-fc99-4209-913e-5a6042e957ad",
+      "grade": "XII",
+      "classSection": "MIPA 3",
+      "totalPoints": 404,
+      "topicScores": {
+        "t1": 60,
+        "t2": 87,
+        "t3": 98
+      },
+      "badges": [
+        "flood_ready",
+        "earthquake_survivor"
+      ],
+      "avatar": "student"
+    },
+    {
+      "userId": "usr-178865521839233",
+      "schoolId": "ffdcdf34-fc99-4209-913e-5a6042e957ad",
+      "grade": "X",
+      "classSection": "MIPA 4",
+      "totalPoints": 944,
+      "topicScores": {
+        "t1": 93,
+        "t2": 99,
+        "t3": 5
+      },
+      "badges": [
+        "flood_ready",
+        "earthquake_survivor"
+      ],
+      "avatar": "student"
+    },
+    {
+      "userId": "usr-178865521839234",
+      "schoolId": "ffdcdf34-fc99-4209-913e-5a6042e957ad",
+      "grade": "XI",
+      "classSection": "MIPA 5",
+      "totalPoints": 573,
+      "topicScores": {
+        "t1": 94,
+        "t2": 13,
+        "t3": 89
+      },
+      "badges": [
+        "flood_ready",
+        "earthquake_survivor"
+      ],
+      "avatar": "student"
+    },
+    {
+      "userId": "usr-178865521839235",
+      "schoolId": "ffdcdf34-fc99-4209-913e-5a6042e957ad",
+      "grade": "XII",
+      "classSection": "MIPA 1",
+      "totalPoints": 390,
+      "topicScores": {
+        "t1": 7,
+        "t2": 65,
+        "t3": 36
+      },
+      "badges": [
+        "flood_ready",
+        "earthquake_survivor"
+      ],
+      "avatar": "student"
+    },
+    {
+      "userId": "usr-178865521839236",
+      "schoolId": "ffdcdf34-fc99-4209-913e-5a6042e957ad",
+      "grade": "X",
+      "classSection": "MIPA 2",
+      "totalPoints": 490,
+      "topicScores": {
+        "t1": 68,
+        "t2": 67,
+        "t3": 88
+      },
+      "badges": [
+        "flood_ready",
+        "earthquake_survivor"
+      ],
+      "avatar": "student"
+    },
+    {
+      "userId": "usr-178865521839237",
+      "schoolId": "ffdcdf34-fc99-4209-913e-5a6042e957ad",
+      "grade": "XI",
+      "classSection": "MIPA 3",
+      "totalPoints": 213,
+      "topicScores": {
+        "t1": 63,
+        "t2": 37,
+        "t3": 60
+      },
+      "badges": [
+        "flood_ready",
+        "earthquake_survivor"
+      ],
+      "avatar": "student"
+    },
+    {
+      "userId": "usr-178865521839238",
+      "schoolId": "ffdcdf34-fc99-4209-913e-5a6042e957ad",
+      "grade": "XII",
+      "classSection": "MIPA 4",
+      "totalPoints": 719,
+      "topicScores": {
+        "t1": 35,
+        "t2": 7,
+        "t3": 88
+      },
+      "badges": [
+        "flood_ready",
+        "earthquake_survivor"
+      ],
+      "avatar": "student"
+    },
+    {
+      "userId": "usr-178865521839239",
+      "schoolId": "ffdcdf34-fc99-4209-913e-5a6042e957ad",
+      "grade": "X",
+      "classSection": "MIPA 5",
+      "totalPoints": 260,
+      "topicScores": {
+        "t1": 70,
+        "t2": 11,
+        "t3": 84
+      },
+      "badges": [
+        "flood_ready",
+        "earthquake_survivor"
+      ],
+      "avatar": "student"
+    },
+    {
+      "userId": "usr-178865521839240",
+      "schoolId": "ffdcdf34-fc99-4209-913e-5a6042e957ad",
+      "grade": "XI",
+      "classSection": "MIPA 1",
+      "totalPoints": 739,
+      "topicScores": {
+        "t1": 8,
+        "t2": 65,
+        "t3": 99
+      },
+      "badges": [
+        "flood_ready",
+        "earthquake_survivor"
+      ],
+      "avatar": "student"
+    },
+    {
+      "userId": "usr-178865521839241",
+      "schoolId": "ffdcdf34-fc99-4209-913e-5a6042e957ad",
+      "grade": "XII",
+      "classSection": "MIPA 2",
+      "totalPoints": 815,
+      "topicScores": {
+        "t1": 29,
+        "t2": 65,
+        "t3": 75
+      },
+      "badges": [
+        "flood_ready",
+        "earthquake_survivor"
+      ],
+      "avatar": "student"
+    },
+    {
+      "userId": "usr-178865521839242",
+      "schoolId": "ffdcdf34-fc99-4209-913e-5a6042e957ad",
+      "grade": "X",
+      "classSection": "MIPA 3",
+      "totalPoints": 501,
+      "topicScores": {
+        "t1": 18,
+        "t2": 56,
+        "t3": 83
+      },
+      "badges": [
+        "flood_ready",
+        "earthquake_survivor"
+      ],
+      "avatar": "student"
+    },
+    {
+      "userId": "usr-178865521839243",
+      "schoolId": "ffdcdf34-fc99-4209-913e-5a6042e957ad",
+      "grade": "XI",
+      "classSection": "MIPA 4",
+      "totalPoints": 658,
+      "topicScores": {
+        "t1": 4,
+        "t2": 7,
+        "t3": 28
+      },
+      "badges": [
+        "flood_ready",
+        "earthquake_survivor"
+      ],
+      "avatar": "student"
+    },
+    {
+      "userId": "usr-178865521839244",
+      "schoolId": "ffdcdf34-fc99-4209-913e-5a6042e957ad",
+      "grade": "XII",
+      "classSection": "MIPA 5",
+      "totalPoints": 683,
+      "topicScores": {
+        "t1": 26,
+        "t2": 87,
+        "t3": 26
+      },
+      "badges": [
+        "flood_ready",
+        "earthquake_survivor"
+      ],
+      "avatar": "student"
+    },
+    {
+      "userId": "usr-178865521839245",
+      "schoolId": "ffdcdf34-fc99-4209-913e-5a6042e957ad",
+      "grade": "X",
+      "classSection": "MIPA 1",
+      "totalPoints": 708,
+      "topicScores": {
+        "t1": 47,
+        "t2": 30,
+        "t3": 96
+      },
+      "badges": [
+        "flood_ready",
+        "earthquake_survivor"
+      ],
+      "avatar": "student"
+    },
+    {
+      "userId": "usr-178865521839246",
+      "schoolId": "ffdcdf34-fc99-4209-913e-5a6042e957ad",
+      "grade": "XI",
+      "classSection": "MIPA 2",
+      "totalPoints": 993,
+      "topicScores": {
+        "t1": 89,
+        "t2": 6,
+        "t3": 40
+      },
+      "badges": [
+        "flood_ready",
+        "earthquake_survivor"
+      ],
+      "avatar": "student"
+    },
+    {
+      "userId": "usr-178865521839247",
+      "schoolId": "ffdcdf34-fc99-4209-913e-5a6042e957ad",
+      "grade": "XII",
+      "classSection": "MIPA 3",
+      "totalPoints": 432,
+      "topicScores": {
+        "t1": 25,
+        "t2": 82,
+        "t3": 18
+      },
+      "badges": [
+        "flood_ready",
+        "earthquake_survivor"
+      ],
+      "avatar": "student"
+    },
+    {
+      "userId": "usr-178865521839248",
+      "schoolId": "ffdcdf34-fc99-4209-913e-5a6042e957ad",
+      "grade": "X",
+      "classSection": "MIPA 4",
+      "totalPoints": 566,
+      "topicScores": {
+        "t1": 78,
+        "t2": 49,
+        "t3": 96
+      },
+      "badges": [
+        "flood_ready",
+        "earthquake_survivor"
+      ],
+      "avatar": "student"
+    },
+    {
+      "userId": "usr-178865521839249",
+      "schoolId": "ffdcdf34-fc99-4209-913e-5a6042e957ad",
+      "grade": "XI",
+      "classSection": "MIPA 5",
+      "totalPoints": 537,
+      "topicScores": {
+        "t1": 71,
+        "t2": 30,
+        "t3": 67
+      },
+      "badges": [
+        "flood_ready",
+        "earthquake_survivor"
+      ],
+      "avatar": "student"
+    },
+    {
+      "userId": "usr-178865521839250",
+      "schoolId": "ffdcdf34-fc99-4209-913e-5a6042e957ad",
+      "grade": "XII",
+      "classSection": "MIPA 1",
+      "totalPoints": 330,
+      "topicScores": {
+        "t1": 14,
+        "t2": 16,
+        "t3": 3
+      },
+      "badges": [
+        "flood_ready",
+        "earthquake_survivor"
+      ],
+      "avatar": "student"
+    },
+    {
+      "userId": "usr-178865521839251",
+      "schoolId": "ffdcdf34-fc99-4209-913e-5a6042e957ad",
+      "grade": "X",
+      "classSection": "MIPA 2",
+      "totalPoints": 264,
+      "topicScores": {
+        "t1": 74,
+        "t2": 33,
+        "t3": 22
+      },
+      "badges": [
+        "flood_ready",
+        "earthquake_survivor"
+      ],
+      "avatar": "student"
+    },
+    {
+      "userId": "usr-178865521839252",
+      "schoolId": "ffdcdf34-fc99-4209-913e-5a6042e957ad",
+      "grade": "XI",
+      "classSection": "MIPA 3",
+      "totalPoints": 297,
+      "topicScores": {
+        "t1": 37,
+        "t2": 96,
+        "t3": 35
+      },
+      "badges": [
+        "flood_ready",
+        "earthquake_survivor"
+      ],
+      "avatar": "student"
+    },
+    {
+      "userId": "usr-178865521839253",
+      "schoolId": "ffdcdf34-fc99-4209-913e-5a6042e957ad",
+      "grade": "XII",
+      "classSection": "MIPA 4",
+      "totalPoints": 605,
+      "topicScores": {
+        "t1": 82,
+        "t2": 24,
+        "t3": 86
+      },
+      "badges": [
+        "flood_ready",
+        "earthquake_survivor"
+      ],
+      "avatar": "student"
+    },
+    {
+      "userId": "usr-178865521839254",
+      "schoolId": "ffdcdf34-fc99-4209-913e-5a6042e957ad",
+      "grade": "X",
+      "classSection": "MIPA 5",
+      "totalPoints": 962,
+      "topicScores": {
+        "t1": 78,
+        "t2": 84,
+        "t3": 50
+      },
+      "badges": [
+        "flood_ready",
+        "earthquake_survivor"
+      ],
+      "avatar": "student"
+    },
+    {
+      "userId": "usr-178865521839255",
+      "schoolId": "ffdcdf34-fc99-4209-913e-5a6042e957ad",
+      "grade": "XI",
+      "classSection": "MIPA 1",
+      "totalPoints": 932,
+      "topicScores": {
+        "t1": 27,
+        "t2": 80,
+        "t3": 63
+      },
+      "badges": [
+        "flood_ready",
+        "earthquake_survivor"
+      ],
+      "avatar": "student"
+    },
+    {
+      "userId": "usr-178865521839256",
+      "schoolId": "ffdcdf34-fc99-4209-913e-5a6042e957ad",
+      "grade": "XII",
+      "classSection": "MIPA 2",
+      "totalPoints": 648,
+      "topicScores": {
+        "t1": 90,
+        "t2": 48,
+        "t3": 57
+      },
+      "badges": [
+        "flood_ready",
+        "earthquake_survivor"
+      ],
+      "avatar": "student"
+    },
+    {
+      "userId": "usr-178865521839257",
+      "schoolId": "ffdcdf34-fc99-4209-913e-5a6042e957ad",
+      "grade": "X",
+      "classSection": "MIPA 3",
+      "totalPoints": 621,
+      "topicScores": {
+        "t1": 99,
+        "t2": 5,
+        "t3": 58
+      },
+      "badges": [
+        "flood_ready",
+        "earthquake_survivor"
+      ],
+      "avatar": "student"
+    },
+    {
+      "userId": "usr-178865521839258",
+      "schoolId": "ffdcdf34-fc99-4209-913e-5a6042e957ad",
+      "grade": "XI",
+      "classSection": "MIPA 4",
+      "totalPoints": 423,
+      "topicScores": {
+        "t1": 70,
+        "t2": 30,
+        "t3": 41
+      },
+      "badges": [
+        "flood_ready",
+        "earthquake_survivor"
+      ],
+      "avatar": "student"
+    },
+    {
+      "userId": "usr-178865521839259",
+      "schoolId": "ffdcdf34-fc99-4209-913e-5a6042e957ad",
+      "grade": "XII",
+      "classSection": "MIPA 5",
+      "totalPoints": 626,
+      "topicScores": {
+        "t1": 89,
+        "t2": 12,
+        "t3": 27
+      },
+      "badges": [
+        "flood_ready",
+        "earthquake_survivor"
+      ],
+      "avatar": "student"
     }
   ],
   "digitalTwins": {
