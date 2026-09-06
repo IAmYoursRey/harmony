@@ -6,8 +6,11 @@ import type { GameRoom } from '../types';
 import { fetchRooms, joinRoom, fetchRoom } from '@/services/digitalTwinService';
 import { GameView } from './GameView';
 
+import { useAuth } from '@/hooks/useAuth';
+
 export function StudentDTView() {
   const { selection } = useSchool();
+  const { currentUser } = useAuth();
   const { show } = useToast();
   const schoolId = selection?.school.id || '';
   const [rooms, setRooms] = useState<GameRoom[]>([]);
@@ -17,7 +20,7 @@ export function StudentDTView() {
   const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   const loadRooms = async () => {
-    if (!schoolId) return;
+    if (!schoolId || currentUser?.role !== 'student') return;
     setLoading(true);
     try {
       const data = await fetchRooms(schoolId);
@@ -33,7 +36,7 @@ export function StudentDTView() {
     loadRooms();
     pollRef.current = setInterval(loadRooms, 5000);
     return () => { if (pollRef.current) clearInterval(pollRef.current); };
-  }, [schoolId]);
+  }, [schoolId, currentUser?.role]);
 
   // Poll joined room status
   useEffect(() => {

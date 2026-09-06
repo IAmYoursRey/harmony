@@ -8,10 +8,13 @@ import { MapList } from './MapList';
 import { SimulationCreator } from './SimulationCreator';
 import { RoomManager } from './RoomManager';
 
+import { useAuth } from '@/hooks/useAuth';
+
 type Tab = 'maps' | 'simulations' | 'rooms';
 
 export function TeacherDTView() {
   const { selection } = useSchool();
+  const { currentUser } = useAuth();
   const { show } = useToast();
   const schoolId = selection?.school.id || '';
   const [tab, setTab] = useState<Tab>('maps');
@@ -21,7 +24,7 @@ export function TeacherDTView() {
   const [loading, setLoading] = useState(false);
 
   const loadAll = async (isBackground = false) => {
-    if (!schoolId) return;
+    if (!schoolId || (currentUser?.role !== 'teacher' && currentUser?.role !== 'dev')) return;
     if (!isBackground && maps.length === 0) {
       setLoading(true);
     }
@@ -35,13 +38,16 @@ export function TeacherDTView() {
       setSimulations(s);
       setRooms(r);
     } catch (_e) {
-      show('Gagal memuat data Digital Twin', 'error');
+      console.warn('Silent fail: Failed to load Digital Twin data', _e);
+      setMaps([]);
+      setSimulations([]);
+      setRooms([]);
     } finally {
       setLoading(false);
     }
   };
 
-  useEffect(() => { loadAll(); }, [schoolId]);
+  useEffect(() => { loadAll(); }, [schoolId, currentUser?.role]);
 
   const TABS: { id: Tab; label: string; Icon: React.ElementType; count: number }[] = [
     { id: 'maps', label: 'Peta Grid', Icon: Map, count: maps.length },
