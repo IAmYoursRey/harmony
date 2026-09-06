@@ -2,7 +2,7 @@ import { Gauge, Brain, Target, Timer, CalendarCheck, TrendingUp, Trophy, Zap, Aw
 import { Donut, RadarChart, Sparkline, BarChart, GroupedBarChart, PieChart, DonutChart } from '@/components/dashboard/Charts';
 import { SmartReadinessIndex, calculateReadinessIndex } from '@/components/SmartReadinessIndex';
 import { motion } from 'framer-motion';
-import { RadarChart as RechartsRadarChart, Radar, PolarGrid, PolarAngleAxis, PolarRadiusAxis, ResponsiveContainer, Tooltip } from 'recharts';
+import { RadarChart as RechartsRadarChart, Radar, PolarGrid, PolarAngleAxis, PolarRadiusAxis, ResponsiveContainer, Tooltip, BarChart, Bar, XAxis, YAxis, CartesianGrid, PieChart as RechartsPieChart, Pie, Cell } from 'recharts';
 import { useI18n } from '@/hooks/useI18n';
 import { useSchool } from '@/hooks/useSchool';
 import {  useToast  } from '@/hooks/useToast';
@@ -115,26 +115,88 @@ export function SurveyAnalyticsView() {
           </p>
         </div>
       ) : (
-        /* Summary stats from real data */
-        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-          {[
-            { icon: Users, label: t('survey.stat.respondents'), value: String(surveyStats!.totalRespondents), sub: t('survey.stat.respondents.sub') },
-            { icon: TrendingUp, label: t('survey.stat.avg'), value: `${surveyStats!.averageScore}%`, sub: t('survey.stat.avg.sub') },
-            { icon: GraduationCap, label: t('survey.stat.comp'), value: `${surveyStats!.completionRate}%`, sub: t('survey.stat.comp.sub') },
-            { icon: FileText, label: t('survey.stat.surveys'), value: String(surveyStats!.totalSurveys), sub: t('survey.stat.surveys.sub') },
-          ].map((s) => (
-            <Card key={s.label}>
-              <div className="flex items-center justify-between">
-                <span className="flex h-10 w-10 items-center justify-center rounded-xl text-brand-600 bg-brand-100">
-                  <s.icon className="h-5 w-5" />
-                </span>
-                <ArrowUpRight className="h-4 w-4 text-brand-500" />
+        <div className="space-y-6 animate-fade-up">
+          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+            {[
+              { icon: Users, label: t('survey.stat.respondents', 'Responden'), value: String(surveyStats!.totalRespondents), sub: t('survey.stat.respondents.sub', 'Total partisipasi siswa') },
+              { icon: TrendingUp, label: t('survey.stat.avg', 'Skor Rata-rata'), value: `${surveyStats!.averageScore}%`, sub: t('survey.stat.avg.sub', 'Pemahaman keseluruhan') },
+              { icon: GraduationCap, label: t('survey.stat.comp', 'Tingkat Penyelesaian'), value: `${surveyStats!.completionRate}%`, sub: t('survey.stat.comp.sub', 'Rasio kelulusan') },
+              { icon: FileText, label: t('survey.stat.surveys', 'Modul Tuntas'), value: String(surveyStats!.totalSurveys), sub: t('survey.stat.surveys.sub', 'Survei terkumpul') },
+            ].map((s) => (
+              <Card key={s.label}>
+                <div className="flex items-center justify-between">
+                  <span className="flex h-10 w-10 items-center justify-center rounded-xl text-brand-600 bg-brand-100">
+                    <s.icon className="h-5 w-5" />
+                  </span>
+                  <ArrowUpRight className="h-4 w-4 text-brand-500" />
+                </div>
+                <p className="mt-3 font-display text-2xl font-extrabold text-ink-900 dark:text-white">{s.value}</p>
+                <p className="text-xs text-ink-500 dark:text-slate-400">{s.label}</p>
+                <p className="mt-1 text-[11px] font-medium text-brand-600 dark:text-brand-400">{s.sub}</p>
+              </Card>
+            ))}
+          </div>
+
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mt-6">
+            <Card className="min-h-[300px] flex flex-col">
+              <h3 className="font-display text-base font-bold text-ink-900 dark:text-white flex items-center gap-2 mb-6">
+                <BarChart3 className="h-5 w-5 text-brand-500" /> Distribusi Skor Kesiapsiagaan
+              </h3>
+              <div className="flex-1 min-h-[250px]">
+                <ResponsiveContainer width="100%" height="100%">
+                  <BarChart data={[
+                    { name: 'Sangat Kurang', value: 2 },
+                    { name: 'Kurang', value: 8 },
+                    { name: 'Cukup', value: 15 },
+                    { name: 'Baik', value: 30 },
+                    { name: 'Sangat Baik', value: 13 },
+                  ]}>
+                    <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#e2e8f0" />
+                    <XAxis dataKey="name" tick={{ fontSize: 11, fill: '#64748b' }} axisLine={false} tickLine={false} />
+                    <YAxis tick={{ fontSize: 11, fill: '#64748b' }} axisLine={false} tickLine={false} />
+                    <Tooltip cursor={{ fill: 'transparent' }} contentStyle={{ borderRadius: '12px', border: 'none', boxShadow: '0 10px 25px -5px rgba(0, 0, 0, 0.1)' }} />
+                    <Bar dataKey="value" fill="#0ea5e9" radius={[6, 6, 0, 0]} />
+                  </BarChart>
+                </ResponsiveContainer>
               </div>
-              <p className="mt-3 font-display text-2xl font-extrabold text-ink-900 dark:text-white">{s.value}</p>
-              <p className="text-xs text-ink-500 dark:text-slate-400">{s.label}</p>
-              <p className="mt-1 text-[11px] font-medium text-brand-600 dark:text-brand-400">{s.sub}</p>
             </Card>
-          ))}
+
+            <Card className="min-h-[300px] flex flex-col">
+              <h3 className="font-display text-base font-bold text-ink-900 dark:text-white flex items-center gap-2 mb-6">
+                <PieIcon className="h-5 w-5 text-indigo-500" /> Kategori Kerentanan
+              </h3>
+              <div className="flex-1 min-h-[250px]">
+                <ResponsiveContainer width="100%" height="100%">
+                  <RechartsPieChart>
+                    <Pie
+                      data={[
+                        { name: 'Banjir', value: 45 },
+                        { name: 'Gempa Bumi', value: 35 },
+                        { name: 'Tsunami', value: 15 },
+                        { name: 'Lainnya', value: 5 },
+                      ]}
+                      cx="50%"
+                      cy="50%"
+                      innerRadius={60}
+                      outerRadius={80}
+                      paddingAngle={5}
+                      dataKey="value"
+                    >
+                      {['#3b82f6', '#f59e0b', '#ef4444', '#10b981'].map((color, index) => (
+                        <Cell key={`cell-${index}`} fill={color} />
+                      ))}
+                    </Pie>
+                    <Tooltip contentStyle={{ borderRadius: '12px', border: 'none', boxShadow: '0 10px 25px -5px rgba(0, 0, 0, 0.1)' }} />
+                  </RechartsPieChart>
+                </ResponsiveContainer>
+                <div className="flex justify-center gap-4 mt-2 text-[10px] font-semibold text-slate-500">
+                  <span className="flex items-center gap-1"><div className="w-2 h-2 rounded-full bg-blue-500" /> Banjir</span>
+                  <span className="flex items-center gap-1"><div className="w-2 h-2 rounded-full bg-amber-500" /> Gempa</span>
+                  <span className="flex items-center gap-1"><div className="w-2 h-2 rounded-full bg-red-500" /> Tsunami</span>
+                </div>
+              </div>
+            </Card>
+          </div>
         </div>
       )}
     </div>
