@@ -8,10 +8,15 @@ interface LineChartProps {
   color?: string;
 }
 
-export function LineChart({ data, height = 160, color = 'hsl(var(--brand-600))' }: LineChartProps) {
+export function LineChart({
+  data,
+  height = 160,
+  color = "hsl(var(--brand-600))",
+}: LineChartProps) {
   const width = 320;
   const rawMax = Math.max(...data.map((d) => d.value));
-  const max = (rawMax === -Infinity || isNaN(rawMax) || rawMax === 0) ? 100 : rawMax * 1.15;
+  const max =
+    rawMax === -Infinity || isNaN(rawMax) || rawMax === 0 ? 100 : rawMax * 1.15;
   const min = 0;
   const step = data.length > 1 ? width / (data.length - 1) : width;
   const points = data.map((d, i) => {
@@ -20,11 +25,19 @@ export function LineChart({ data, height = 160, color = 'hsl(var(--brand-600))' 
     const y = height - ((safeValue - min) / (max - min)) * (height - 20) - 10;
     return [x, y] as const;
   });
-  const path = points.map(([x, y], i) => `${i === 0 ? 'M' : 'L'}${x},${y}`).join(' ');
+  const path = points
+    .map(([x, y], i) => `${i === 0 ? "M" : "L"}${x},${y}`)
+    .join(" ");
   const area = `${path} L${width},${height} L0,${height} Z`;
 
   return (
-    <svg role="img" aria-label="Chart visualization" viewBox={`0 0 ${width} ${height + 24}`} className="w-full" preserveAspectRatio="xMidYMid meet">
+    <svg
+      role="img"
+      aria-label="Chart visualization"
+      viewBox={`0 0 ${width} ${height + 24}`}
+      className="w-full"
+      preserveAspectRatio="xMidYMid meet"
+    >
       <defs>
         <linearGradient id="lineG" x1="0" y1="0" x2="0" y2="1">
           <stop offset="0%" stopColor={color} stopOpacity="0.25" />
@@ -33,14 +46,44 @@ export function LineChart({ data, height = 160, color = 'hsl(var(--brand-600))' 
       </defs>
       {/* grid lines */}
       {[0.25, 0.5, 0.75].map((r) => (
-        <line key={r} x1="0" y1={height * r} x2={width} y2={height * r} stroke="#e0e7ff" strokeWidth="0.5" strokeDasharray="4 4" />
+        <line
+          key={r}
+          x1="0"
+          y1={height * r}
+          x2={width}
+          y2={height * r}
+          stroke="#e0e7ff"
+          strokeWidth="0.5"
+          strokeDasharray="4 4"
+        />
       ))}
       <path d={area} fill="url(#lineG)" />
-      <path d={path} fill="none" stroke={color} strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" />
+      <path
+        d={path}
+        fill="none"
+        stroke={color}
+        strokeWidth="2.5"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
       {points.map(([x, y], i) => (
         <g key={i}>
-          <circle cx={x} cy={y} r="3.5" fill="#fff" stroke={color} strokeWidth="2" />
-          <text x={x} y={height + 16} textAnchor="middle" fontFamily="Inter, sans-serif" fontSize="9" fill="#64748b">
+          <circle
+            cx={x}
+            cy={y}
+            r="3.5"
+            fill="#fff"
+            stroke={color}
+            strokeWidth="2"
+          />
+          <text
+            x={x}
+            y={height + 16}
+            textAnchor="middle"
+            fontFamily="Inter, sans-serif"
+            fontSize="9"
+            fill="#64748b"
+          >
             {data[i].label}
           </text>
         </g>
@@ -57,13 +100,20 @@ interface BarChartProps {
 
 export function BarChart({ data, max, height = 140 }: BarChartProps) {
   const rawMax = max ?? Math.max(...data.map((d) => d.value));
-  const maxVal = (rawMax === -Infinity || isNaN(rawMax) || rawMax === 0) ? 100 : rawMax;
+  const maxVal =
+    rawMax === -Infinity || isNaN(rawMax) || rawMax === 0 ? 100 : rawMax;
   const barWidth = 28;
   const gap = 14;
   const totalWidth = Math.max(1, data.length * (barWidth + gap));
 
   return (
-    <svg role="img" aria-label="Chart visualization" viewBox={`0 0 ${totalWidth} ${height + 24}`} className="w-full" preserveAspectRatio="xMidYMid meet">
+    <svg
+      role="img"
+      aria-label="Chart visualization"
+      viewBox={`0 0 ${totalWidth} ${height + 24}`}
+      className="w-full"
+      preserveAspectRatio="xMidYMid meet"
+    >
       <defs>
         <linearGradient id="barG" x1="0" y1="0" x2="0" y2="1">
           <stop offset="0%" stopColor="hsl(var(--brand-500))" />
@@ -77,7 +127,14 @@ export function BarChart({ data, max, height = 140 }: BarChartProps) {
         const y = height - h;
         return (
           <g key={d.label}>
-            <rect x={x} y={y} width={barWidth} height={h} rx="6" fill="url(#barG)" />
+            <rect
+              x={x}
+              y={y}
+              width={barWidth}
+              height={h}
+              rx="6"
+              fill="url(#barG)"
+            />
             <text
               x={x + barWidth / 2}
               y={height + 16}
@@ -108,7 +165,13 @@ export function GroupedBarChart({ data, height = 160 }: GroupedBarChartProps) {
   const barW = 22;
 
   return (
-    <svg role="img" aria-label="Chart visualization" viewBox={`0 0 ${totalWidth} ${height + 28}`} className="w-full" preserveAspectRatio="xMidYMid meet">
+    <svg
+      role="img"
+      aria-label="Chart visualization"
+      viewBox={`0 0 ${totalWidth} ${height + 28}`}
+      className="w-full"
+      preserveAspectRatio="xMidYMid meet"
+    >
       <defs>
         <linearGradient id="preG" x1="0" y1="0" x2="0" y2="1">
           <stop offset="0%" stopColor="hsl(var(--brand-300))" />
@@ -127,9 +190,30 @@ export function GroupedBarChart({ data, height = 160 }: GroupedBarChartProps) {
         const postH = (postSafe / maxVal) * height;
         return (
           <g key={d.label}>
-            <rect x={x} y={height - preH} width={barW} height={preH} rx="5" fill="url(#preG)" />
-            <rect x={x + barW + 6} y={height - postH} width={barW} height={postH} rx="5" fill="url(#postG)" />
-            <text x={x + groupWidth / 2} y={height + 18} textAnchor="middle" fontFamily="Inter, sans-serif" fontSize="10" fill="#64748b">
+            <rect
+              x={x}
+              y={height - preH}
+              width={barW}
+              height={preH}
+              rx="5"
+              fill="url(#preG)"
+            />
+            <rect
+              x={x + barW + 6}
+              y={height - postH}
+              width={barW}
+              height={postH}
+              rx="5"
+              fill="url(#postG)"
+            />
+            <text
+              x={x + groupWidth / 2}
+              y={height + 18}
+              textAnchor="middle"
+              fontFamily="Inter, sans-serif"
+              fontSize="10"
+              fill="#64748b"
+            >
               {d.label}
             </text>
           </g>
@@ -147,7 +231,13 @@ interface DonutProps {
   sublabel?: string;
 }
 
-export function Donut({ value, size = 140, stroke = 12, label, sublabel }: DonutProps) {
+export function Donut({
+  value,
+  size = 140,
+  stroke = 12,
+  label,
+  sublabel,
+}: DonutProps) {
   const safeSize = isNaN(size) ? 140 : size;
   const safeStroke = isNaN(stroke) ? 12 : stroke;
   const radius = Math.max(0, (safeSize - safeStroke) / 2);
@@ -157,14 +247,27 @@ export function Donut({ value, size = 140, stroke = 12, label, sublabel }: Donut
 
   return (
     <div className="relative inline-flex items-center justify-center">
-      <svg role="img" aria-label="Chart visualization" width={size} height={size} className="-rotate-90">
+      <svg
+        role="img"
+        aria-label="Chart visualization"
+        width={size}
+        height={size}
+        className="-rotate-90"
+      >
         <defs>
           <linearGradient id="donutG" x1="0" y1="0" x2="1" y2="1">
             <stop offset="0%" stopColor="#22d3ee" />
             <stop offset="100%" stopColor="hsl(var(--brand-600))" />
           </linearGradient>
         </defs>
-        <circle cx={size / 2} cy={size / 2} r={radius} fill="none" stroke="#e0e7ff" strokeWidth={stroke} />
+        <circle
+          cx={size / 2}
+          cy={size / 2}
+          r={radius}
+          fill="none"
+          stroke="#e0e7ff"
+          strokeWidth={stroke}
+        />
         <circle
           cx={size / 2}
           cy={size / 2}
@@ -178,8 +281,14 @@ export function Donut({ value, size = 140, stroke = 12, label, sublabel }: Donut
         />
       </svg>
       <div className="absolute flex flex-col items-center text-center">
-        <span className="font-display text-2xl font-extrabold text-ink-900">{label ?? `${value}%`}</span>
-        {sublabel && <span className="text-[10px] font-medium text-ink-500">{sublabel}</span>}
+        <span className="font-display text-2xl font-extrabold text-ink-900">
+          {label ?? `${value}%`}
+        </span>
+        {sublabel && (
+          <span className="text-[10px] font-medium text-ink-500">
+            {sublabel}
+          </span>
+        )}
       </div>
     </div>
   );
@@ -225,16 +334,31 @@ export function PieChart({ data, size = 180 }: PieChartProps) {
 
   return (
     <div className="flex flex-col items-center gap-4 sm:flex-row sm:items-center">
-      <svg role="img" aria-label="Chart visualization" width={size} height={size} className="shrink-0">
+      <svg
+        role="img"
+        aria-label="Chart visualization"
+        width={size}
+        height={size}
+        className="shrink-0"
+      >
         {slices.map((s, i) => (
-          <path key={i} d={s.path} fill={s.color} stroke="#fff" strokeWidth="2" />
+          <path
+            key={i}
+            d={s.path}
+            fill={s.color}
+            stroke="#fff"
+            strokeWidth="2"
+          />
         ))}
         <circle cx={cx} cy={cy} r={radius * 0.45} fill="#fff" />
       </svg>
       <div className="space-y-2">
         {slices.map((s, i) => (
           <div key={i} className="flex items-center gap-2 text-xs">
-            <span className="h-3 w-3 rounded-sm" style={{ background: s.color }} />
+            <span
+              className="h-3 w-3 rounded-sm"
+              style={{ background: s.color }}
+            />
             <span className="font-medium text-ink-700">{s.label}</span>
             <span className="text-ink-400">{s.pct}%</span>
           </div>
@@ -251,10 +375,16 @@ interface SparklineProps {
   color?: string;
 }
 
-export function Sparkline({ data, width = 240, height = 60, color = 'hsl(var(--brand-600))' }: SparklineProps) {
+export function Sparkline({
+  data,
+  width = 240,
+  height = 60,
+  color = "hsl(var(--brand-600))",
+}: SparklineProps) {
   const max = Math.max(...data);
   const min = Math.min(...data);
-  const range = (max === -Infinity || max === Infinity || isNaN(max)) ? 1 : (max - min || 1);
+  const range =
+    max === -Infinity || max === Infinity || isNaN(max) ? 1 : max - min || 1;
   const step = data.length > 1 ? width / (data.length - 1) : width;
   const points = data.map((v, i) => {
     const x = data.length === 1 ? width / 2 : i * step;
@@ -263,11 +393,19 @@ export function Sparkline({ data, width = 240, height = 60, color = 'hsl(var(--b
     const y = height - ((safeV - safeMin) / range) * (height - 8) - 4;
     return [x, isNaN(y) ? height / 2 : y] as const;
   });
-  const path = points.map(([x, y], i) => `${i === 0 ? 'M' : 'L'}${x},${y}`).join(' ');
+  const path = points
+    .map(([x, y], i) => `${i === 0 ? "M" : "L"}${x},${y}`)
+    .join(" ");
   const area = `${path} L${width},${height} L0,${height} Z`;
 
   return (
-    <svg role="img" aria-label="Chart visualization" viewBox={`0 0 ${width} ${height}`} className="w-full" preserveAspectRatio="none">
+    <svg
+      role="img"
+      aria-label="Chart visualization"
+      viewBox={`0 0 ${width} ${height}`}
+      className="w-full"
+      preserveAspectRatio="none"
+    >
       <defs>
         <linearGradient id="sparkG" x1="0" y1="0" x2="0" y2="1">
           <stop offset="0%" stopColor={color} stopOpacity="0.25" />
@@ -275,9 +413,22 @@ export function Sparkline({ data, width = 240, height = 60, color = 'hsl(var(--b
         </linearGradient>
       </defs>
       <path d={area} fill="url(#sparkG)" />
-      <path d={path} fill="none" stroke={color} strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" />
+      <path
+        d={path}
+        fill="none"
+        stroke={color}
+        strokeWidth="2.5"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
       {points.map(([x, y], i) => (
-        <circle key={i} cx={x} cy={y} r={i === points.length - 1 ? 4 : 0} fill={color} />
+        <circle
+          key={i}
+          cx={x}
+          cy={y}
+          r={i === points.length - 1 ? 4 : 0}
+          fill={color}
+        />
       ))}
     </svg>
   );
@@ -296,8 +447,8 @@ export function ProgressRing({
   value,
   size = 56,
   stroke = 6,
-  color = 'hsl(var(--brand-600))',
-  track = '#e0e7ff',
+  color = "hsl(var(--brand-600))",
+  track = "#e0e7ff",
   label,
 }: ProgressRingProps) {
   const safeSize = isNaN(size) ? 56 : size;
@@ -309,8 +460,21 @@ export function ProgressRing({
 
   return (
     <div className="relative inline-flex items-center justify-center">
-      <svg role="img" aria-label="Chart visualization" width={size} height={size} className="-rotate-90">
-        <circle cx={size / 2} cy={size / 2} r={radius} fill="none" stroke={track} strokeWidth={stroke} />
+      <svg
+        role="img"
+        aria-label="Chart visualization"
+        width={size}
+        height={size}
+        className="-rotate-90"
+      >
+        <circle
+          cx={size / 2}
+          cy={size / 2}
+          r={radius}
+          fill="none"
+          stroke={track}
+          strokeWidth={stroke}
+        />
         <circle
           cx={size / 2}
           cy={size / 2}
@@ -324,7 +488,9 @@ export function ProgressRing({
         />
       </svg>
       {label && (
-        <span className="absolute text-[10px] font-bold text-ink-700">{label}</span>
+        <span className="absolute text-[10px] font-bold text-ink-700">
+          {label}
+        </span>
       )}
     </div>
   );
@@ -336,7 +502,11 @@ interface RadarChartProps {
   color?: string;
 }
 
-export function RadarChart({ data, size = 240, color = 'hsl(var(--brand-600))' }: RadarChartProps) {
+export function RadarChart({
+  data,
+  size = 240,
+  color = "hsl(var(--brand-600))",
+}: RadarChartProps) {
   const safeSize = isNaN(size) ? 240 : size;
   const cx = safeSize / 2;
   const cy = safeSize / 2;
@@ -356,10 +526,15 @@ export function RadarChart({ data, size = 240, color = 'hsl(var(--brand-600))' }
       const [x, y] = pointFor(i, r);
       return `${x},${y}`;
     })
-    .join(' ');
+    .join(" ");
 
   return (
-    <svg role="img" aria-label="Chart visualization" viewBox={`0 0 ${size} ${size}`} className="w-full max-w-[260px] mx-auto">
+    <svg
+      role="img"
+      aria-label="Chart visualization"
+      viewBox={`0 0 ${size} ${size}`}
+      className="w-full max-w-[260px] mx-auto"
+    >
       <defs>
         <radialGradient id="radarG" cx="0.5" cy="0.5" r="0.5">
           <stop offset="0%" stopColor={color} stopOpacity="0.35" />
@@ -370,7 +545,12 @@ export function RadarChart({ data, size = 240, color = 'hsl(var(--brand-600))' }
       {[0.25, 0.5, 0.75, 1].map((r) => (
         <polygon
           key={r}
-          points={data.map((_, i) => { const [x, y] = pointFor(i, maxRadius * r); return `${x},${y}`; }).join(' ')}
+          points={data
+            .map((_, i) => {
+              const [x, y] = pointFor(i, maxRadius * r);
+              return `${x},${y}`;
+            })
+            .join(" ")}
           fill="none"
           stroke="hsl(var(--brand-100))"
           strokeWidth="0.8"
@@ -379,10 +559,25 @@ export function RadarChart({ data, size = 240, color = 'hsl(var(--brand-600))' }
       {/* axes */}
       {data.map((_, i) => {
         const [x, y] = pointFor(i, maxRadius);
-        return <line key={i} x1={cx} y1={cy} x2={x} y2={y} stroke="hsl(var(--brand-100))" strokeWidth="0.8" />;
+        return (
+          <line
+            key={i}
+            x1={cx}
+            y1={cy}
+            x2={x}
+            y2={y}
+            stroke="hsl(var(--brand-100))"
+            strokeWidth="0.8"
+          />
+        );
       })}
       {/* data polygon */}
-      <polygon points={polygon} fill="url(#radarG)" stroke={color} strokeWidth="2" />
+      <polygon
+        points={polygon}
+        fill="url(#radarG)"
+        stroke={color}
+        strokeWidth="2"
+      />
       {data.map((d, i) => {
         const safeValue = isNaN(d.value) ? 0 : d.value;
         const r = (safeValue / 100) * maxRadius;
@@ -390,8 +585,24 @@ export function RadarChart({ data, size = 240, color = 'hsl(var(--brand-600))' }
         const [lx, ly] = pointFor(i, maxRadius + 18);
         return (
           <g key={i}>
-            <circle cx={x} cy={y} r="3" fill="#fff" stroke={color} strokeWidth="2" />
-            <text x={lx} y={ly} textAnchor="middle" dominantBaseline="middle" fontFamily="Inter, sans-serif" fontSize="9" fill="#475569" fontWeight="600">
+            <circle
+              cx={x}
+              cy={y}
+              r="3"
+              fill="#fff"
+              stroke={color}
+              strokeWidth="2"
+            />
+            <text
+              x={lx}
+              y={ly}
+              textAnchor="middle"
+              dominantBaseline="middle"
+              fontFamily="Inter, sans-serif"
+              fontSize="9"
+              fill="#475569"
+              fontWeight="600"
+            >
               {d.label}
             </text>
           </g>
@@ -419,7 +630,13 @@ export function DonutChart({ data, size = 200, stroke = 28 }: DonutChartProps) {
   return (
     <div className="flex flex-col items-center gap-4 sm:flex-row sm:items-center sm:gap-6">
       <div className="relative" style={{ width: safeSize, height: safeSize }}>
-        <svg role="img" aria-label="Chart visualization" width={safeSize} height={safeSize} className="-rotate-90">
+        <svg
+          role="img"
+          aria-label="Chart visualization"
+          width={safeSize}
+          height={safeSize}
+          className="-rotate-90"
+        >
           {data.map((d) => {
             const safeValue = isNaN(d.value) ? 0 : d.value;
             const fraction = safeValue / safeTotal;
@@ -444,14 +661,19 @@ export function DonutChart({ data, size = 200, stroke = 28 }: DonutChartProps) {
           })}
         </svg>
         <div className="absolute inset-0 flex flex-col items-center justify-center">
-          <span className="font-display text-2xl font-extrabold text-ink-900">{total}%</span>
+          <span className="font-display text-2xl font-extrabold text-ink-900">
+            {total}%
+          </span>
           <span className="text-[10px] text-ink-500">Preparedness</span>
         </div>
       </div>
       <div className="space-y-2">
         {data.map((d) => (
           <div key={d.label} className="flex items-center gap-2 text-xs">
-            <span className="h-3 w-3 rounded-sm" style={{ backgroundColor: d.color }} />
+            <span
+              className="h-3 w-3 rounded-sm"
+              style={{ backgroundColor: d.color }}
+            />
             <span className="font-medium text-ink-700">{d.label}</span>
             <span className="font-bold text-ink-900">{d.value}%</span>
           </div>

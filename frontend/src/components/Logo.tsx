@@ -8,7 +8,7 @@ interface LogoIconProps {
   className?: string;
 }
 
-export function LogoIcon({ size = 40, className = '' }: LogoIconProps) {
+export function LogoIcon({ size = 40, className = "" }: LogoIconProps) {
   return (
     <img
       src="/logo.jpg"
@@ -21,7 +21,7 @@ export function LogoIcon({ size = 40, className = '' }: LogoIconProps) {
 }
 
 interface LogoProps {
-  variant?: 'full' | 'icon';
+  variant?: "full" | "icon";
   size?: number;
   className?: string;
   textClassName?: string;
@@ -29,8 +29,14 @@ interface LogoProps {
   light?: boolean;
 }
 
-export function Logo({ variant = 'full', size = 40, className = '', textClassName = '', light = false }: LogoProps) {
-  if (variant === 'icon') {
+export function Logo({
+  variant = "full",
+  size = 40,
+  className = "",
+  textClassName = "",
+  light = false,
+}: LogoProps) {
+  if (variant === "icon") {
     return <LogoIcon size={size} className={className} />;
   }
 

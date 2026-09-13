@@ -1,5 +1,5 @@
-import { ArrowRight, Sparkles } from 'lucide-react';
-import { Reveal } from '@/components/Reveal';
+import { ArrowRight, Sparkles } from "lucide-react";
+import { Reveal } from "@/components/Reveal";
 
 export function CTA() {
   return (
@@ -19,8 +19,9 @@ export function CTA() {
               Bring disaster readiness to your classroom
             </h2>
             <p className="mt-4 text-brand-100 sm:text-lg">
-              Start exploring AI-driven simulations, geospatial maps, and Digital Twin
-              scenarios — and help your community prepare before disaster strikes.
+              Start exploring AI-driven simulations, geospatial maps, and
+              Digital Twin scenarios — and help your community prepare before
+              disaster strikes.
             </p>
             <div className="mt-8 flex flex-col items-center justify-center gap-3 sm:flex-row">
               <a

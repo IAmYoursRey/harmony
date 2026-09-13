@@ -13,8 +13,10 @@ function toRad(deg: number): number {
  * Calculate the great-circle distance (km) between two GPS coordinates.
  */
 export function haversineDistance(
-  lat1: number, lng1: number,
-  lat2: number, lng2: number
+  lat1: number,
+  lng1: number,
+  lat2: number,
+  lng2: number,
 ): number {
   const dLat = toRad(lat2 - lat1);
   const dLng = toRad(lng2 - lng1);

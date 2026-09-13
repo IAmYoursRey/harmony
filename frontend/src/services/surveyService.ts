@@ -1,4 +1,4 @@
-import { apiClient } from './apiClient';
+import { apiClient } from "./apiClient";
 
 export interface SurveyEntry {
   id: string;
@@ -15,6 +15,8 @@ export interface SurveyStats {
   averageScore: number;
   completionRate: number;
   totalSurveys: number;
+  scoreDistribution?: { name: string; value: number }[];
+  vulnerabilityCategories?: { name: string; value: number }[];
 }
 
 export interface SurveyData {
@@ -23,14 +25,16 @@ export interface SurveyData {
 }
 
 export async function getSurveyStats(schoolId?: string): Promise<SurveyData> {
-  const url = schoolId ? `/api/surveys?schoolId=${encodeURIComponent(schoolId)}` : '/api/surveys';
+  const url = schoolId
+    ? `/api/surveys?schoolId=${encodeURIComponent(schoolId)}`
+    : "/api/surveys";
   return apiClient.get(url);
 }
 
 export async function submitSurvey(
   schoolId: string,
   answers: Record<string, number>,
-  score?: number
+  score?: number,
 ): Promise<{ success: boolean; survey: SurveyEntry }> {
-  return apiClient.post('/api/surveys', { schoolId, answers, score });
+  return apiClient.post("/api/surveys", { schoolId, answers, score });
 }

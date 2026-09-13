@@ -1,17 +1,22 @@
-import { type ReactNode } from 'react';
-import { useReveal } from '@/hooks/useReveal';
+import { type ReactNode } from "react";
+import { useReveal } from "@/hooks/useReveal";
 
 interface RevealProps {
   children: ReactNode;
   className?: string;
   delay?: number;
-  as?: 'div' | 'section' | 'li' | 'article';
+  as?: "div" | "section" | "li" | "article";
 }
 
 /**
  * Wrap content to fade + slide it in when it scrolls into view.
  */
-export function Reveal({ children, className = '', delay = 0, as = 'div' }: RevealProps) {
+export function Reveal({
+  children,
+  className = "",
+  delay = 0,
+  as = "div",
+}: RevealProps) {
   const { ref } = useReveal();
   const Tag = as;
 

@@ -1,8 +1,8 @@
-import { useEffect, useRef, useState } from 'react';
-import { Reveal } from '@/components/Reveal';
-import { useReveal } from '@/hooks/useReveal';
+import { useEffect, useRef, useState } from "react";
+import { Reveal } from "@/components/Reveal";
+import { useReveal } from "@/hooks/useReveal";
 
-import { useI18n } from '@/hooks/useI18n';
+import { useI18n } from "@/hooks/useI18n";
 
 interface Stat {
   value: number;
@@ -12,10 +12,20 @@ interface Stat {
 }
 
 const stats: Stat[] = [
-  { value: 1200, suffix: '+', labelEn: 'Schools', labelId: 'Sekolah' },
-  { value: 50000, suffix: '+', labelEn: 'Students', labelId: 'Siswa' },
-  { value: 350, suffix: '+', labelEn: 'Disaster Questions', labelId: 'Pertanyaan Bencana' },
-  { value: 98, suffix: '%', labelEn: 'Preparedness Improvement', labelId: 'Peningkatan Kesiapsiagaan' },
+  { value: 1200, suffix: "+", labelEn: "Schools", labelId: "Sekolah" },
+  { value: 50000, suffix: "+", labelEn: "Students", labelId: "Siswa" },
+  {
+    value: 350,
+    suffix: "+",
+    labelEn: "Disaster Questions",
+    labelId: "Pertanyaan Bencana",
+  },
+  {
+    value: 98,
+    suffix: "%",
+    labelEn: "Preparedness Improvement",
+    labelId: "Peningkatan Kesiapsiagaan",
+  },
 ];
 
 function useCountUp(target: number, active: boolean, duration = 1600) {
@@ -41,7 +51,15 @@ function useCountUp(target: number, active: boolean, duration = 1600) {
   return value;
 }
 
-function StatCard({ stat, index, locale }: { stat: Stat; index: number; locale: string }) {
+function StatCard({
+  stat,
+  index,
+  locale,
+}: {
+  stat: Stat;
+  index: number;
+  locale: string;
+}) {
   const { ref, visible } = useReveal<HTMLDivElement>();
   const animated = useCountUp(stat.value, visible);
 
@@ -49,16 +67,18 @@ function StatCard({ stat, index, locale }: { stat: Stat; index: number; locale: 
     <div
       ref={ref}
       className={`reveal glass group h-full rounded-2xl p-6 text-center transition-all hover:-translate-y-1 hover:shadow-glass-lg ${
-        visible ? 'is-visible' : ''
+        visible ? "is-visible" : ""
       }`}
       style={{ transitionDelay: `${index * 100}ms` }}
     >
       <p className="font-display text-4xl font-extrabold text-brand-700 sm:text-5xl">
         {animated.toLocaleString()}
-        <span className="text-brand-500 dark:text-brand-400">{stat.suffix}</span>
+        <span className="text-brand-500 dark:text-brand-400">
+          {stat.suffix}
+        </span>
       </p>
       <p className="mt-2 text-sm font-medium text-ink-600 dark:text-slate-300">
-        {locale === 'id' ? stat.labelId : stat.labelEn}
+        {locale === "id" ? stat.labelId : stat.labelEn}
       </p>
     </div>
   );
@@ -71,10 +91,12 @@ export function Stats() {
       <div className="section-container">
         <Reveal className="mx-auto mb-10 max-w-2xl text-center">
           <span className="text-sm font-semibold uppercase tracking-wider text-brand-600 dark:text-brand-400">
-            {locale === 'id' ? 'Dampak nyata' : 'Real-world impact'}
+            {locale === "id" ? "Dampak nyata" : "Real-world impact"}
           </span>
           <h2 className="mt-3 font-display text-3xl font-extrabold tracking-tight text-ink-900 sm:text-4xl">
-            {locale === 'id' ? 'Dipercaya pendidik, dibangun untuk ketahanan' : 'Trusted by educators, built for resilience'}
+            {locale === "id"
+              ? "Dipercaya pendidik, dibangun untuk ketahanan"
+              : "Trusted by educators, built for resilience"}
           </h2>
         </Reveal>
         <div className="grid grid-cols-2 gap-4 sm:gap-6 lg:grid-cols-4">

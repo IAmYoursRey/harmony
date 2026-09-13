@@ -1,5 +1,5 @@
-import { Reveal } from '@/components/Reveal';
-import { useI18n } from '@/hooks/useI18n';
+import { Reveal } from "@/components/Reveal";
+import { useI18n } from "@/hooks/useI18n";
 
 interface SDG {
   number: number;
@@ -10,18 +10,18 @@ interface SDG {
 const sdgs: SDG[] = [
   {
     number: 4,
-    titleKey: 'sdgs.sdg4.title',
-    descKey: 'sdgs.sdg4.desc',
+    titleKey: "sdgs.sdg4.title",
+    descKey: "sdgs.sdg4.desc",
   },
   {
     number: 11,
-    titleKey: 'sdgs.sdg11.title',
-    descKey: 'sdgs.sdg11.desc',
+    titleKey: "sdgs.sdg11.title",
+    descKey: "sdgs.sdg11.desc",
   },
   {
     number: 13,
-    titleKey: 'sdgs.sdg13.title',
-    descKey: 'sdgs.sdg13.desc',
+    titleKey: "sdgs.sdg13.title",
+    descKey: "sdgs.sdg13.desc",
   },
 ];
 
@@ -32,13 +32,13 @@ export function SDGs() {
       <div className="section-container">
         <Reveal className="mx-auto max-w-2xl text-center">
           <span className="text-sm font-semibold uppercase tracking-wider text-brand-600 dark:text-brand-400">
-            {t('sdgs.badge')}
+            {t("sdgs.badge")}
           </span>
           <h2 className="mt-3 font-display text-3xl font-extrabold tracking-tight text-ink-900 sm:text-4xl">
-            {t('sdgs.title')}
+            {t("sdgs.title")}
           </h2>
           <p className="mt-4 text-ink-600 dark:text-slate-300">
-            {t('sdgs.subtitle')}
+            {t("sdgs.subtitle")}
           </p>
         </Reveal>
 

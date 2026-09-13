@@ -1,23 +1,91 @@
-import { useState, useEffect, useMemo, useRef } from 'react';
-import { useAuth } from '@/hooks/useAuth';
-import { getAllAccounts, updateAccount, hashPassword, type UserAccount } from '@/data/accounts';
-import { getAllProfiles, updateProfile, type UserProfile, type Gender } from '@/data/userProfiles';
-import {  useToast  } from '@/hooks/useToast';
-import { Users, UserPlus, ShieldAlert, BookOpen, GraduationCap, Mail, Lock, User, School, Calendar, Download, Edit2, Check, X, MapPin, TrendingUp, TrendingDown, Award, Target, Brain, FileText, Sparkles, CheckCircle2, AlertTriangle, Clock, Plus, ChevronDown, Phone, Pencil, Bell, Globe, Shield, LogOut, Camera, Boxes, Satellite, Zap, Trophy, Compass, Flame, Medal, Save, type LucideIcon } from 'lucide-react';
-import { getAllSchools, extractProvinces, extractRegencies } from '@/services/schoolService';
-import type { School as SchoolData } from '@/data/schools';
-import { motion, AnimatePresence } from 'framer-motion';
-import { RadarChart, Radar, PolarGrid, PolarAngleAxis, PolarRadiusAxis, ResponsiveContainer, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, LineChart, Line } from 'recharts';
-import { useI18n } from '@/hooks/useI18n';
-import { useNavigate } from 'react-router-dom';
-import { useSchool } from '@/hooks/useSchool';
-import { ProgressRing } from '@/components/dashboard/Charts';
-
-
-// --- Merged from DevDashboardView.tsx ---
-
-
-// --- Merged from ProfileView.tsx ---
+import { useState, useEffect, useMemo, useRef } from "react";
+import { useAuth } from "@/hooks/useAuth";
+import {
+  getAllAccounts,
+  updateAccount,
+  hashPassword,
+  type UserAccount,
+} from "@/data/accounts";
+import {
+  getAllProfiles,
+  updateProfile,
+  type UserProfile,
+  type Gender,
+} from "@/data/userProfiles";
+import { useToast } from "@/hooks/useToast";
+import {
+  Users,
+  UserPlus,
+  ShieldAlert,
+  BookOpen,
+  GraduationCap,
+  Mail,
+  Lock,
+  User,
+  School,
+  Calendar,
+  Download,
+  Edit2,
+  Check,
+  X,
+  MapPin,
+  TrendingUp,
+  TrendingDown,
+  Award,
+  Target,
+  Brain,
+  FileText,
+  Sparkles,
+  CheckCircle2,
+  AlertTriangle,
+  Clock,
+  Plus,
+  ChevronDown,
+  Phone,
+  Pencil,
+  Bell,
+  Globe,
+  Shield,
+  LogOut,
+  Camera,
+  Boxes,
+  Satellite,
+  Zap,
+  Trophy,
+  Compass,
+  Flame,
+  Medal,
+  Save,
+  type LucideIcon,
+} from "lucide-react";
+import {
+  getAllSchools,
+  extractProvinces,
+  extractRegencies,
+} from "@/services/schoolService";
+import type { School as SchoolData } from "@/data/schools";
+import { motion, AnimatePresence } from "framer-motion";
+import {
+  RadarChart,
+  Radar,
+  PolarGrid,
+  PolarAngleAxis,
+  PolarRadiusAxis,
+  ResponsiveContainer,
+  BarChart,
+  Bar,
+  XAxis,
+  YAxis,
+  CartesianGrid,
+  Tooltip,
+  Legend,
+  LineChart,
+  Line,
+} from "recharts";
+import { useI18n } from "@/hooks/useI18n";
+import { useNavigate } from "react-router-dom";
+import { useSchool } from "@/hooks/useSchool";
+import { ProgressRing } from "@/components/dashboard/Charts";
 
 interface ProfileData {
   fullName: string;
@@ -29,53 +97,12 @@ interface ProfileData {
   avatar: string | null;
 }
 
-const modules = [
-  { label: 'Earthquake', value: 71 },
-  { label: 'Flood', value: 82 },
-  { label: 'Volcanic', value: 64 },
-  { label: 'Landslide', value: 55 },
-  { label: 'Tsunami', value: 48 },
-  { label: 'Fire', value: 67 },
-];
-
-const technologies = [
-  { icon: Brain, label: 'Artificial Intelligence', color: 'from-brand-500 to-brand-700' },
-  { icon: Boxes, label: 'Digital Twin', color: 'from-brand-500 to-brand-600' },
-  { icon: Satellite, label: 'Geospatial Technology', color: 'from-brand-500 to-brand-600' },
-];
-
-const certificates = [
-  { title: 'Earthquake Preparedness', date: 'Jan 2026', icon: Shield, color: 'from-brand-400 to-brand-600' },
-  { title: 'Flood Response Training', date: 'Feb 2026', icon: BookOpen, color: 'from-brand-500 to-brand-600' },
-  { title: 'Digital Twin Simulation', date: 'Mar 2026', icon: Boxes, color: 'from-brand-500 to-brand-600' },
-  { title: 'GIS Risk Mapping', date: 'Apr 2026', icon: Satellite, color: 'from-brand-500 to-brand-600' },
-  { title: 'AI Disaster Analytics', date: 'May 2026', icon: Brain, color: 'from-brand-500 to-brand-700' },
-];
-
-const history = [
-  { title: 'Earthquake Simulation', date: '2 days ago', score: '96%', icon: Shield },
-  { title: 'Flood Module — Advanced', date: '5 days ago', score: 'Completed', icon: BookOpen },
-  { title: 'Risk Mapping Workshop', date: '1 week ago', score: 'Completed', icon: Compass },
-  { title: 'Volcanic Ash Preparedness Quiz', date: '2 weeks ago', score: '90%', icon: Brain },
-];
-
-const achievements: { icon: LucideIcon; label: string; color: string }[] = [
-  { icon: Shield, label: 'Disaster Ready', color: 'from-brand-500 to-brand-600' },
-  { icon: Trophy, label: 'Top Learner', color: 'from-brand-400 to-brand-500' },
-  { icon: Compass, label: 'Geo Explorer', color: 'from-brand-500 to-brand-700' },
-  { icon: Brain, label: 'AI Explorer', color: 'from-brand-500 to-brand-600' },
-  { icon: Flame, label: '100 Days Learning', color: 'from-brand-600 to-brand-800' },
-  { icon: Medal, label: 'Research Contributor', color: 'from-brand-500 to-brand-600' },
-];
-
-
-
 function EditableField({
   icon: Icon,
   label,
   value,
   onChange,
-  type = 'text',
+  type = "text",
 }: {
   icon: LucideIcon;
   label: string;
@@ -102,22 +129,35 @@ function EditableField({
 }
 
 export function ProfileView() {
-function Card({ children, className = '' }: { children: React.ReactNode; className?: string }) {
-  return <div className={`glass rounded-2xl p-5 transition-all hover:shadow-glass dark:bg-slate-900/60 ${className}`}>{children}</div>;
-}
+  function Card({
+    children,
+    className = "",
+  }: {
+    children: React.ReactNode;
+    className?: string;
+  }) {
+    return (
+      <div
+        className={`glass rounded-2xl p-5 transition-all hover:shadow-glass dark:bg-slate-900/60 ${className}`}
+      >
+        {children}
+      </div>
+    );
+  }
   const { show } = useToast();
   const navigate = useNavigate();
   const { t, locale, setLocale } = useI18n();
-  const { currentUser, currentProfile, updateUserAccount, updateUserProfile } = useAuth();
+  const { currentUser, currentProfile, updateUserAccount, updateUserProfile } =
+    useAuth();
   const [editing, setEditing] = useState(false);
-  
+
   const initialData: ProfileData = {
-    fullName: currentUser?.name || 'Guest User',
-    school: currentProfile?.schoolId || 'SMA Negeri 1 Mojokerto',
-    className: currentProfile?.grade || 'Umum',
-    email: currentUser?.email || 'guest@geosense.edu',
-    phone: currentProfile?.phone || '-',
-    password: '••••••••',
+    fullName: currentUser?.name || "Guest User",
+    school: currentProfile?.schoolId || "SMA Negeri 1 Mojokerto",
+    className: currentProfile?.grade || "Umum",
+    email: currentUser?.email || "guest@geosense.edu",
+    phone: currentProfile?.phone || "-",
+    password: "••••••••",
     avatar: currentProfile?.avatar || null,
   };
 
@@ -140,36 +180,40 @@ function Card({ children, className = '' }: { children: React.ReactNode; classNa
   const { selection } = useSchool();
 
   const getSchoolName = (id: string | undefined | null) => {
-    if (!id || id === 'unknown') return t('school.unknown', 'Belum Memilih Sekolah');
+    if (!id || id === "unknown")
+      return t("school.unknown", "Belum Memilih Sekolah");
     return selection?.school?.name || id;
   };
 
   const saveChanges = async () => {
-    // Save to global auth context
     try {
       const accountUpdates: { name?: string; password?: string } = {};
-      if (draft.fullName !== currentUser?.name) accountUpdates.name = draft.fullName;
-      if (draft.password !== '••••••••' && draft.password.trim() !== '') accountUpdates.password = draft.password;
-      
+      if (draft.fullName !== currentUser?.name)
+        accountUpdates.name = draft.fullName;
+      if (draft.password !== "••••••••" && draft.password.trim() !== "")
+        accountUpdates.password = draft.password;
+
       if (Object.keys(accountUpdates).length > 0) {
         await updateUserAccount(accountUpdates);
       }
-      
+
       const profileUpdates: Partial<UserProfile> = {};
-      if (draft.phone !== currentProfile?.phone) profileUpdates.phone = draft.phone;
-      if (draft.avatar !== currentProfile?.avatar) profileUpdates.avatar = draft.avatar ?? undefined;
-      
+      if (draft.phone !== currentProfile?.phone)
+        profileUpdates.phone = draft.phone;
+      if (draft.avatar !== currentProfile?.avatar)
+        profileUpdates.avatar = draft.avatar ?? undefined;
+
       if (Object.keys(profileUpdates).length > 0) {
         updateUserProfile(profileUpdates);
       }
-      
+
       setData(draft);
       setEditing(false);
       setSaved(true);
-      show('Profil berhasil diperbarui', 'success');
+      show("Profil berhasil diperbarui", "success");
       setTimeout(() => setSaved(false), 3000);
     } catch (e: unknown) {
-      show(e instanceof Error ? e.message : 'Gagal menyimpan profil', 'error');
+      show(e instanceof Error ? e.message : "Gagal menyimpan profil", "error");
     }
   };
 
@@ -186,7 +230,10 @@ function Card({ children, className = '' }: { children: React.ReactNode; classNa
     const file = e.target.files?.[0];
     if (file) {
       if (file.size > 100 * 1024) {
-        show('Ukuran gambar terlalu besar. Maksimal 100KB agar memori peramban tidak penuh.', 'error');
+        show(
+          "Ukuran gambar terlalu besar. Maksimal 100KB agar memori peramban tidak penuh.",
+          "error",
+        );
         return;
       }
       const reader = new FileReader();
@@ -204,7 +251,82 @@ function Card({ children, className = '' }: { children: React.ReactNode; classNa
   };
 
   const current = editing ? draft : data;
-  const initials = current.fullName.split(' ').map((n) => n[0]).slice(0, 2).join('').toUpperCase();
+  const initials = current.fullName
+    .split(" ")
+    .map((n) => n[0])
+    .slice(0, 2)
+    .join("")
+    .toUpperCase();
+
+  const realModules = useMemo(() => {
+    if (!currentProfile?.topicScores) return [];
+    return Object.entries(currentProfile.topicScores).map(
+      ([key, scoreData]: [string, any]) => ({
+        label:
+          key === "t1"
+            ? "Quiz/Lesson"
+            : key === "t2"
+              ? "Simulation"
+              : key === "t3"
+                ? "Assessment"
+                : key,
+        value: scoreData.averageScore || 0,
+      }),
+    );
+  }, [currentProfile]);
+
+  const realHistory = useMemo(() => {
+    if (!currentProfile?.activities) return [];
+    return [...currentProfile.activities]
+      .sort(
+        (a, b) =>
+          new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime(),
+      )
+      .slice(0, 5)
+      .map((act) => ({
+        title: act.title,
+        date: new Date(act.timestamp).toLocaleDateString(),
+        score: act.status || "Completed",
+        icon:
+          act.type === "simulation"
+            ? Shield
+            : act.type === "quiz"
+              ? Brain
+              : BookOpen,
+      }));
+  }, [currentProfile]);
+
+  const realAchievements = useMemo(() => {
+    const badges = currentProfile?.badges || [];
+    if (badges.length === 0 && (currentProfile?.totalPoints ?? 0) > 0) {
+      const derived = [];
+      const pts = currentProfile?.totalPoints ?? 0;
+      if (pts >= 100)
+        derived.push({
+          icon: Target,
+          label: "100 Points",
+          color: "from-brand-400 to-brand-500",
+        });
+      if (pts >= 250)
+        derived.push({
+          icon: Award,
+          label: "Dedicated",
+          color: "from-brand-500 to-brand-700",
+        });
+      if (pts >= 500)
+        derived.push({
+          icon: Trophy,
+          label: "Master",
+          color: "from-amber-400 to-amber-600",
+        });
+      return derived;
+    }
+    return badges.map((b) => ({
+      icon: Award,
+      label: b,
+      color: "from-brand-500 to-brand-600",
+    }));
+  }, [currentProfile]);
 
   return (
     <div className="space-y-6">
@@ -225,7 +347,11 @@ function Card({ children, className = '' }: { children: React.ReactNode; classNa
           <div className="relative">
             <span className="flex h-24 w-24 items-center justify-center overflow-hidden rounded-2xl bg-gradient-to-br from-brand-400 to-brand-600 text-3xl font-extrabold shadow-glass ring-1 ring-white/30">
               {current.avatar ? (
-                <img src={current.avatar} alt="Profile" className="h-full w-full object-cover" />
+                <img
+                  src={current.avatar}
+                  alt="Profile"
+                  className="h-full w-full object-cover"
+                />
               ) : (
                 initials
               )}
@@ -239,18 +365,23 @@ function Card({ children, className = '' }: { children: React.ReactNode; classNa
             </button>
           </div>
           <div>
-              <h2 className="font-display text-2xl font-extrabold tracking-tight text-ink-900 dark:text-white">
-                {currentUser?.name || 'Pengguna'}
-              </h2>
-              <div className="mt-1.5 flex flex-wrap gap-2">
-                <span className="inline-flex items-center gap-1 rounded-full bg-brand-50 px-2.5 py-1 text-xs font-semibold text-brand-700 dark:bg-brand-500/20 dark:text-brand-300">
-                  {currentUser?.role === 'dev' ? t('role.dev', 'Pengembang') : currentUser?.role === 'teacher' ? t('role.teacher', 'Guru') : t('role.student', 'Peserta Didik')}
-                </span>
-                <span className="inline-flex items-center gap-1 rounded-full bg-slate-100 px-2.5 py-1 text-xs font-medium text-slate-600 dark:bg-slate-800 dark:text-slate-300">
-                  <MapPin className="h-3 w-3" /> {currentProfile?.schoolId || 'SMA Negeri 1 Mojokerto'}
-                </span>
-              </div>
+            <h2 className="font-display text-2xl font-extrabold tracking-tight text-ink-900 dark:text-white">
+              {currentUser?.name || "Pengguna"}
+            </h2>
+            <div className="mt-1.5 flex flex-wrap gap-2">
+              <span className="inline-flex items-center gap-1 rounded-full bg-brand-50 px-2.5 py-1 text-xs font-semibold text-brand-700 dark:bg-brand-500/20 dark:text-brand-300">
+                {currentUser?.role === "dev"
+                  ? t("role.dev", "Pengembang")
+                  : currentUser?.role === "teacher"
+                    ? t("role.teacher", "Guru")
+                    : t("role.student", "Peserta Didik")}
+              </span>
+              <span className="inline-flex items-center gap-1 rounded-full bg-slate-100 px-2.5 py-1 text-xs font-medium text-slate-600 dark:bg-slate-800 dark:text-slate-300">
+                <MapPin className="h-3 w-3" />{" "}
+                {currentProfile?.schoolId || "SMA Negeri 1 Mojokerto"}
+              </span>
             </div>
+          </div>
 
           {!editing && (
             <button
@@ -280,10 +411,24 @@ function Card({ children, className = '' }: { children: React.ReactNode; classNa
       {/* Quick metrics */}
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
         <Card className="flex items-center gap-4">
-          <ProgressRing value={92} size={64} stroke={6} label="92" />
+          <ProgressRing
+            value={Math.min(
+              100,
+              Math.round(((currentProfile?.totalPoints || 0) / 500) * 100),
+            )}
+            size={64}
+            stroke={6}
+            label={`${Math.min(100, Math.round(((currentProfile?.totalPoints || 0) / 500) * 100))}`}
+          />
           <div>
-            <p className="font-display text-lg font-extrabold text-ink-900 dark:text-white">GeoSense Score</p>
-            <p className="text-xs font-semibold text-brand-600">Highly Resilient</p>
+            <p className="font-display text-lg font-extrabold text-ink-900 dark:text-white">
+              GeoSense Score
+            </p>
+            <p className="text-xs font-semibold text-brand-600">
+              {(currentProfile?.totalPoints ?? 0) > 300
+                ? "Highly Resilient"
+                : "Developing"}
+            </p>
           </div>
         </Card>
         <Card className="flex items-center gap-4">
@@ -291,8 +436,12 @@ function Card({ children, className = '' }: { children: React.ReactNode; classNa
             <Award className="h-7 w-7" />
           </span>
           <div>
-            <p className="font-display text-lg font-extrabold text-ink-900 dark:text-white">5</p>
-            <p className="text-xs text-ink-500 dark:text-slate-400">Certificates Earned</p>
+            <p className="font-display text-lg font-extrabold text-ink-900 dark:text-white">
+              {realAchievements.length}
+            </p>
+            <p className="text-xs text-ink-500 dark:text-slate-400">
+              Badges Earned
+            </p>
           </div>
         </Card>
         <Card className="flex items-center gap-4">
@@ -300,8 +449,12 @@ function Card({ children, className = '' }: { children: React.ReactNode; classNa
             <BookOpen className="h-7 w-7" />
           </span>
           <div>
-            <p className="font-display text-lg font-extrabold text-ink-900 dark:text-white">38</p>
-            <p className="text-xs text-ink-500 dark:text-slate-400">Modules Completed</p>
+            <p className="font-display text-lg font-extrabold text-ink-900 dark:text-white">
+              {realHistory.length}
+            </p>
+            <p className="text-xs text-ink-500 dark:text-slate-400">
+              Activities Completed
+            </p>
           </div>
         </Card>
         <Card className="flex items-center gap-4">
@@ -309,8 +462,12 @@ function Card({ children, className = '' }: { children: React.ReactNode; classNa
             <Zap className="h-7 w-7" />
           </span>
           <div>
-            <p className="font-display text-lg font-extrabold text-ink-900 dark:text-white">95</p>
-            <p className="text-xs text-ink-500 dark:text-slate-400">Preparedness Score</p>
+            <p className="font-display text-lg font-extrabold text-ink-900 dark:text-white">
+              {currentProfile?.totalPoints || 0}
+            </p>
+            <p className="text-xs text-ink-500 dark:text-slate-400">
+              Total Points
+            </p>
           </div>
         </Card>
       </div>
@@ -320,7 +477,7 @@ function Card({ children, className = '' }: { children: React.ReactNode; classNa
         <Card className="lg:col-span-2">
           <div className="mb-4 flex items-center justify-between">
             <h3 className="font-display text-base font-bold text-ink-900 dark:text-white">
-              {editing ? 'Edit Profile' : 'Research Profile'}
+              {editing ? "Edit Profile" : "Research Profile"}
             </h3>
             {!editing && (
               <button
@@ -335,11 +492,21 @@ function Card({ children, className = '' }: { children: React.ReactNode; classNa
           <div className="grid gap-4 sm:grid-cols-2">
             {editing ? (
               <>
-                <EditableField icon={Target} label="Full Name" value={draft.fullName} onChange={(v) => setDraft({ ...draft, fullName: v })} />
-                
-                {currentUser?.role === 'dev' ? (
-                  <EditableField icon={School} label="School" value={draft.school} onChange={(v) => setDraft({ ...draft, school: v })} />
-                ) : draft.school === 'unknown' ? (
+                <EditableField
+                  icon={Target}
+                  label="Full Name"
+                  value={draft.fullName}
+                  onChange={(v) => setDraft({ ...draft, fullName: v })}
+                />
+
+                {currentUser?.role === "dev" ? (
+                  <EditableField
+                    icon={School}
+                    label="School"
+                    value={draft.school}
+                    onChange={(v) => setDraft({ ...draft, school: v })}
+                  />
+                ) : draft.school === "unknown" ? (
                   <div className="flex flex-col rounded-xl border border-brand-50 p-3 dark:border-slate-800 bg-brand-50/50 dark:bg-slate-900/50 relative">
                     <div className="flex items-center gap-3 justify-between">
                       <div className="flex items-center gap-3">
@@ -347,12 +514,16 @@ function Card({ children, className = '' }: { children: React.ReactNode; classNa
                           <School className="h-4 w-4" />
                         </span>
                         <div>
-                          <p className="text-xs text-ink-500 dark:text-slate-400">School</p>
-                          <p className="truncate text-sm font-semibold text-amber-600 dark:text-amber-500">{t('school.unknown', 'Belum Memilih Sekolah')}</p>
+                          <p className="text-xs text-ink-500 dark:text-slate-400">
+                            School
+                          </p>
+                          <p className="truncate text-sm font-semibold text-amber-600 dark:text-amber-500">
+                            {t("school.unknown", "Belum Memilih Sekolah")}
+                          </p>
                         </div>
                       </div>
-                      <button 
-                        onClick={() => navigate('/school-selection')} 
+                      <button
+                        onClick={() => navigate("/school-selection")}
                         className="bg-brand-600 text-white px-3 py-1.5 rounded-lg text-xs font-bold whitespace-nowrap hover:bg-brand-700"
                       >
                         Pilih
@@ -366,8 +537,12 @@ function Card({ children, className = '' }: { children: React.ReactNode; classNa
                         <School className="h-4 w-4" />
                       </span>
                       <div>
-                        <p className="text-xs text-ink-500 dark:text-slate-400">School</p>
-                        <p className="truncate text-sm font-semibold text-ink-900 dark:text-white">{getSchoolName(draft.school)}</p>
+                        <p className="text-xs text-ink-500 dark:text-slate-400">
+                          School
+                        </p>
+                        <p className="truncate text-sm font-semibold text-ink-900 dark:text-white">
+                          {getSchoolName(draft.school)}
+                        </p>
                       </div>
                     </div>
                     {/* Tooltip */}
@@ -376,31 +551,66 @@ function Card({ children, className = '' }: { children: React.ReactNode; classNa
                     </div>
                   </div>
                 )}
-                
-                <EditableField icon={BookOpen} label="Class" value={draft.className} onChange={(v) => setDraft({ ...draft, className: v })} />
-                <EditableField icon={Mail} label="Email" value={draft.email} onChange={(v) => setDraft({ ...draft, email: v })} />
-                <EditableField icon={Phone} label="Phone Number" value={draft.phone} onChange={(v) => setDraft({ ...draft, phone: v })} />
-                <EditableField icon={Lock} label="Password" value={draft.password} onChange={(v) => setDraft({ ...draft, password: v })} />
+
+                <EditableField
+                  icon={BookOpen}
+                  label="Class"
+                  value={draft.className}
+                  onChange={(v) => setDraft({ ...draft, className: v })}
+                />
+                <EditableField
+                  icon={Mail}
+                  label="Email"
+                  value={draft.email}
+                  onChange={(v) => setDraft({ ...draft, email: v })}
+                />
+                <EditableField
+                  icon={Phone}
+                  label="Phone Number"
+                  value={draft.phone}
+                  onChange={(v) => setDraft({ ...draft, phone: v })}
+                />
+                <EditableField
+                  icon={Lock}
+                  label="Password"
+                  value={draft.password}
+                  onChange={(v) => setDraft({ ...draft, password: v })}
+                />
               </>
             ) : (
               <>
                 <div className="flex items-center gap-3 rounded-xl border border-brand-50 p-3 dark:border-slate-800">
-                  <span className="flex h-9 w-9 items-center justify-center rounded-lg bg-brand-100 text-brand-600 dark:bg-slate-800 dark:text-brand-400"><Target className="h-4 w-4" /></span>
-                  <div><p className="text-xs text-ink-500 dark:text-slate-400">Full Name</p><p className="truncate text-sm font-semibold text-ink-900 dark:text-white">{data.fullName}</p></div>
+                  <span className="flex h-9 w-9 items-center justify-center rounded-lg bg-brand-100 text-brand-600 dark:bg-slate-800 dark:text-brand-400">
+                    <Target className="h-4 w-4" />
+                  </span>
+                  <div>
+                    <p className="text-xs text-ink-500 dark:text-slate-400">
+                      Full Name
+                    </p>
+                    <p className="truncate text-sm font-semibold text-ink-900 dark:text-white">
+                      {data.fullName}
+                    </p>
+                  </div>
                 </div>
                 <div className="flex items-center gap-3 rounded-xl border border-brand-50 p-3 dark:border-slate-800 justify-between">
                   <div className="flex items-center gap-3">
-                    <span className="flex h-9 w-9 items-center justify-center rounded-lg bg-brand-100 text-brand-600 dark:bg-slate-800 dark:text-brand-400"><School className="h-4 w-4" /></span>
+                    <span className="flex h-9 w-9 items-center justify-center rounded-lg bg-brand-100 text-brand-600 dark:bg-slate-800 dark:text-brand-400">
+                      <School className="h-4 w-4" />
+                    </span>
                     <div>
-                      <p className="text-xs text-ink-500 dark:text-slate-400">School</p>
-                      <p className={`truncate text-sm font-semibold ${data.school === 'unknown' ? 'text-amber-600 dark:text-amber-500' : 'text-ink-900 dark:text-white'}`}>
+                      <p className="text-xs text-ink-500 dark:text-slate-400">
+                        School
+                      </p>
+                      <p
+                        className={`truncate text-sm font-semibold ${data.school === "unknown" ? "text-amber-600 dark:text-amber-500" : "text-ink-900 dark:text-white"}`}
+                      >
                         {getSchoolName(data.school)}
                       </p>
                     </div>
                   </div>
-                  {data.school === 'unknown' && (
-                    <button 
-                      onClick={() => navigate('/school-selection')} 
+                  {data.school === "unknown" && (
+                    <button
+                      onClick={() => navigate("/school-selection")}
                       className="bg-brand-600 text-white px-3 py-1.5 rounded-lg text-xs font-bold whitespace-nowrap hover:bg-brand-700"
                     >
                       Pilih
@@ -408,20 +618,56 @@ function Card({ children, className = '' }: { children: React.ReactNode; classNa
                   )}
                 </div>
                 <div className="flex items-center gap-3 rounded-xl border border-brand-50 p-3 dark:border-slate-800">
-                  <span className="flex h-9 w-9 items-center justify-center rounded-lg bg-brand-100 text-brand-600 dark:bg-slate-800 dark:text-brand-400"><BookOpen className="h-4 w-4" /></span>
-                  <div><p className="text-xs text-ink-500 dark:text-slate-400">Class</p><p className="truncate text-sm font-semibold text-ink-900 dark:text-white">{data.className}</p></div>
+                  <span className="flex h-9 w-9 items-center justify-center rounded-lg bg-brand-100 text-brand-600 dark:bg-slate-800 dark:text-brand-400">
+                    <BookOpen className="h-4 w-4" />
+                  </span>
+                  <div>
+                    <p className="text-xs text-ink-500 dark:text-slate-400">
+                      Class
+                    </p>
+                    <p className="truncate text-sm font-semibold text-ink-900 dark:text-white">
+                      {data.className}
+                    </p>
+                  </div>
                 </div>
                 <div className="flex items-center gap-3 rounded-xl border border-brand-50 p-3 dark:border-slate-800">
-                  <span className="flex h-9 w-9 items-center justify-center rounded-lg bg-brand-100 text-brand-600 dark:bg-slate-800 dark:text-brand-400"><Mail className="h-4 w-4" /></span>
-                  <div><p className="text-xs text-ink-500 dark:text-slate-400">Email</p><p className="truncate text-sm font-semibold text-ink-900 dark:text-white">{data.email}</p></div>
+                  <span className="flex h-9 w-9 items-center justify-center rounded-lg bg-brand-100 text-brand-600 dark:bg-slate-800 dark:text-brand-400">
+                    <Mail className="h-4 w-4" />
+                  </span>
+                  <div>
+                    <p className="text-xs text-ink-500 dark:text-slate-400">
+                      Email
+                    </p>
+                    <p className="truncate text-sm font-semibold text-ink-900 dark:text-white">
+                      {data.email}
+                    </p>
+                  </div>
                 </div>
                 <div className="flex items-center gap-3 rounded-xl border border-brand-50 p-3 dark:border-slate-800">
-                  <span className="flex h-9 w-9 items-center justify-center rounded-lg bg-brand-100 text-brand-600 dark:bg-slate-800 dark:text-brand-400"><Phone className="h-4 w-4" /></span>
-                  <div><p className="text-xs text-ink-500 dark:text-slate-400">Phone Number</p><p className="truncate text-sm font-semibold text-ink-900 dark:text-white">{data.phone}</p></div>
+                  <span className="flex h-9 w-9 items-center justify-center rounded-lg bg-brand-100 text-brand-600 dark:bg-slate-800 dark:text-brand-400">
+                    <Phone className="h-4 w-4" />
+                  </span>
+                  <div>
+                    <p className="text-xs text-ink-500 dark:text-slate-400">
+                      Phone Number
+                    </p>
+                    <p className="truncate text-sm font-semibold text-ink-900 dark:text-white">
+                      {data.phone}
+                    </p>
+                  </div>
                 </div>
                 <div className="flex items-center gap-3 rounded-xl border border-brand-50 p-3 dark:border-slate-800">
-                  <span className="flex h-9 w-9 items-center justify-center rounded-lg bg-brand-100 text-brand-600 dark:bg-slate-800 dark:text-brand-400"><Lock className="h-4 w-4" /></span>
-                  <div><p className="text-xs text-ink-500 dark:text-slate-400">Password</p><p className="truncate text-sm font-semibold text-ink-900 dark:text-white">{data.password}</p></div>
+                  <span className="flex h-9 w-9 items-center justify-center rounded-lg bg-brand-100 text-brand-600 dark:bg-slate-800 dark:text-brand-400">
+                    <Lock className="h-4 w-4" />
+                  </span>
+                  <div>
+                    <p className="text-xs text-ink-500 dark:text-slate-400">
+                      Password
+                    </p>
+                    <p className="truncate text-sm font-semibold text-ink-900 dark:text-white">
+                      {data.password}
+                    </p>
+                  </div>
                 </div>
               </>
             )}
@@ -448,63 +694,72 @@ function Card({ children, className = '' }: { children: React.ReactNode; classNa
 
         {/* Module progress */}
         <Card className="lg:col-span-1">
-          <h3 className="mb-4 font-display text-base font-bold text-ink-900 dark:text-white">Module Progress</h3>
+          <h3 className="mb-4 font-display text-base font-bold text-ink-900 dark:text-white">
+            Module Progress
+          </h3>
           <div className="space-y-3">
-            {modules.map((m) => {
-              const val = currentProfile?.totalPoints === 0 ? 0 : m.value;
-              return (
-              <div key={m.label} className="flex items-center gap-3">
-                <ProgressRing value={val} size={44} stroke={4} label={`${val}`} />
-                <span className="text-sm font-medium text-ink-700 dark:text-slate-300">{m.label}</span>
-              </div>
-            )})}
+            {realModules.length === 0 ? (
+              <p className="text-sm text-ink-500 dark:text-slate-400 py-4 text-center">
+                Belum ada modul diselesaikan.
+              </p>
+            ) : (
+              realModules.map((m) => {
+                const val = currentProfile?.totalPoints === 0 ? 0 : m.value;
+                return (
+                  <div key={m.label} className="flex items-center gap-3">
+                    <ProgressRing
+                      value={val}
+                      size={44}
+                      stroke={4}
+                      label={`${val}`}
+                    />
+                    <span className="text-sm font-medium text-ink-700 dark:text-slate-300">
+                      {m.label}
+                    </span>
+                  </div>
+                );
+              })
+            )}
           </div>
         </Card>
       </div>
 
-      {/* Certificates */}
-      <Card>
-        <h3 className="mb-4 font-display text-base font-bold text-ink-900 dark:text-white">Certificates</h3>
-        {currentProfile?.totalPoints === 0 ? (
-          <div className="py-8 text-center text-sm font-medium text-ink-500 dark:text-slate-400">
-            {t('profile.no_certificates', 'Belum ada sertifikat. Mulai selesaikan modul untuk mengklaim sertifikat.')}
-          </div>
-        ) : (
-          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-5">
-            {certificates.map((c) => (
-              <div key={c.title} className="group flex flex-col items-center gap-2 rounded-xl border border-brand-50 p-4 text-center transition-all hover:-translate-y-1 hover:shadow-glass dark:border-slate-800">
-                <span className={`flex h-12 w-12 items-center justify-center rounded-full bg-gradient-to-br ${c.color} text-white shadow-glass transition-transform group-hover:scale-110`}>
-                  <c.icon className="h-6 w-6" />
-                </span>
-                <p className="text-xs font-bold leading-tight text-ink-900 dark:text-white">{c.title}</p>
-                <p className="text-[10px] text-ink-500 dark:text-slate-400">{c.date}</p>
-              </div>
-            ))}
-          </div>
-        )}
-      </Card>
+      {/* Certificates (Hidden temporarily as real cert data is unavailable) */}
 
       {/* History + achievements */}
       <div className="grid gap-6 lg:grid-cols-2">
         <Card>
-          <h3 className="mb-4 font-display text-base font-bold text-ink-900 dark:text-white">Learning History</h3>
+          <h3 className="mb-4 font-display text-base font-bold text-ink-900 dark:text-white">
+            Learning History
+          </h3>
           {currentProfile?.totalPoints === 0 ? (
             <div className="flex h-32 items-center justify-center text-sm font-medium text-ink-500 dark:text-slate-400">
-              {t('profile.no_learning_history', 'Belum ada riwayat pembelajaran.')}
+              {t(
+                "profile.no_learning_history",
+                "Belum ada riwayat pembelajaran.",
+              )}
             </div>
           ) : (
             <div className="space-y-3">
-              {history.map((h) => (
-                <div key={h.title} className="group flex items-center gap-3 rounded-xl border border-brand-50 p-3 transition-colors hover:bg-brand-50/50 dark:border-slate-800 dark:hover:bg-slate-800/50">
+              {realHistory.map((h, i) => (
+                <div
+                  key={i}
+                  className="group flex items-center gap-3 rounded-xl border border-brand-50 p-3 transition-colors hover:bg-brand-50/50 dark:border-slate-800 dark:hover:bg-slate-800/50"
+                >
                   <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-brand-100 text-brand-600 dark:bg-slate-800 dark:text-brand-400">
                     <h.icon className="h-5 w-5" />
                   </span>
                   <div className="min-w-0 flex-1">
-                    <p className="truncate text-sm font-semibold text-ink-900 dark:text-white">{h.title}</p>
-                    <p className="flex items-center gap-1 text-[11px] text-ink-500 dark:text-slate-400"><Clock className="h-3 w-3" /> {h.date}</p>
+                    <p className="truncate text-sm font-semibold text-ink-900 dark:text-white">
+                      {h.title}
+                    </p>
+                    <p className="flex items-center gap-1 text-[11px] text-ink-500 dark:text-slate-400">
+                      <Clock className="h-3 w-3" /> {h.date}
+                    </p>
                   </div>
                   <span className="flex items-center gap-1.5 font-display text-sm font-bold text-brand-700 dark:text-brand-400">
-                    <CheckCircle2 className="h-4 w-4 text-brand-500" /> {h.score}
+                    <CheckCircle2 className="h-4 w-4 text-brand-500" />{" "}
+                    {h.score}
                   </span>
                 </div>
               ))}
@@ -513,19 +768,28 @@ function Card({ children, className = '' }: { children: React.ReactNode; classNa
         </Card>
 
         <Card>
-          <h3 className="mb-4 font-display text-base font-bold text-ink-900 dark:text-white">Achievements</h3>
+          <h3 className="mb-4 font-display text-base font-bold text-ink-900 dark:text-white">
+            Achievements
+          </h3>
           {currentProfile?.totalPoints === 0 ? (
             <div className="flex h-32 items-center justify-center text-sm font-medium text-ink-500 dark:text-slate-400">
-              {t('profile.no_achievements', 'Belum ada pencapaian.')}
+              {t("profile.no_achievements", "Belum ada pencapaian.")}
             </div>
           ) : (
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-              {achievements.map((b) => (
-                <div key={b.label} className="group flex flex-col items-center gap-2.5 rounded-xl p-3 text-center transition-all hover:-translate-y-1">
-                  <span className={`flex h-14 w-14 items-center justify-center rounded-full bg-gradient-to-br ${b.color} text-white shadow-glass transition-transform group-hover:scale-110`}>
+              {realAchievements.map((b, i) => (
+                <div
+                  key={i}
+                  className="group flex flex-col items-center gap-2.5 rounded-xl p-3 text-center transition-all hover:-translate-y-1"
+                >
+                  <span
+                    className={`flex h-14 w-14 items-center justify-center rounded-full bg-gradient-to-br ${b.color} text-white shadow-glass transition-transform group-hover:scale-110`}
+                  >
                     <b.icon className="h-7 w-7" />
                   </span>
-                  <span className="text-[10px] font-semibold leading-tight text-ink-600 dark:text-slate-300">{b.label}</span>
+                  <span className="text-[10px] font-semibold leading-tight text-ink-600 dark:text-slate-300">
+                    {b.label}
+                  </span>
                 </div>
               ))}
             </div>
@@ -536,27 +800,63 @@ function Card({ children, className = '' }: { children: React.ReactNode; classNa
       {/* Privacy settings + logout */}
       <div className="grid gap-6 lg:grid-cols-2">
         <Card>
-          <h3 className="mb-4 font-display text-base font-bold text-ink-900 dark:text-white">Privacy Settings</h3>
+          <h3 className="mb-4 font-display text-base font-bold text-ink-900 dark:text-white">
+            Privacy Settings
+          </h3>
           <div className="space-y-3">
             {[
-              { key: 'alerts' as const, icon: Bell, label: 'Disaster alerts', desc: 'Notifications for your area' },
-              { key: 'digest' as const, icon: Mail, label: 'Email digest', desc: 'Weekly research summary' },
-              { key: 'contacts' as const, icon: Shield, label: 'Emergency contacts', desc: '2 contacts configured' },
-              { key: 'location' as const, icon: Globe, label: 'Location sharing', desc: 'For risk-based recommendations' },
+              {
+                key: "alerts" as const,
+                icon: Bell,
+                label: "Disaster alerts",
+                desc: "Notifications for your area",
+              },
+              {
+                key: "digest" as const,
+                icon: Mail,
+                label: "Email digest",
+                desc: "Weekly research summary",
+              },
+              {
+                key: "contacts" as const,
+                icon: Shield,
+                label: "Emergency contacts",
+                desc: "2 contacts configured",
+              },
+              {
+                key: "location" as const,
+                icon: Globe,
+                label: "Location sharing",
+                desc: "For risk-based recommendations",
+              },
             ].map((s) => (
-              <div key={s.key} className="flex items-center gap-3 rounded-xl border border-brand-50 p-3 dark:border-slate-800">
+              <div
+                key={s.key}
+                className="flex items-center gap-3 rounded-xl border border-brand-50 p-3 dark:border-slate-800"
+              >
                 <span className="flex h-9 w-9 items-center justify-center rounded-lg bg-brand-100 text-brand-600 dark:bg-slate-800 dark:text-brand-400">
                   <s.icon className="h-4 w-4" />
                 </span>
                 <div className="flex-1">
-                  <p className="text-sm font-semibold text-ink-900 dark:text-white">{s.label}</p>
-                  <p className="text-xs text-ink-500 dark:text-slate-400">{s.desc}</p>
+                  <p className="text-sm font-semibold text-ink-900 dark:text-white">
+                    {s.label}
+                  </p>
+                  <p className="text-xs text-ink-500 dark:text-slate-400">
+                    {s.desc}
+                  </p>
                 </div>
                 <button
-                  onClick={() => setPrefs((p) => ({ ...p, [s.key]: !p[s.key] }))}
-                  role="switch" aria-checked={prefs[s.key]} aria-label={s.label} className={`relative h-6 w-11 rounded-full transition-colors ${prefs[s.key] ? 'bg-brand-600' : 'bg-brand-100 dark:bg-slate-700'}`}
+                  onClick={() =>
+                    setPrefs((p) => ({ ...p, [s.key]: !p[s.key] }))
+                  }
+                  role="switch"
+                  aria-checked={prefs[s.key]}
+                  aria-label={s.label}
+                  className={`relative h-6 w-11 rounded-full transition-colors ${prefs[s.key] ? "bg-brand-600" : "bg-brand-100 dark:bg-slate-700"}`}
                 >
-                  <span className={`absolute top-0.5 h-5 w-5 rounded-full bg-white shadow-sm transition-all ${prefs[s.key] ? 'left-[22px]' : 'left-0.5'}`} />
+                  <span
+                    className={`absolute top-0.5 h-5 w-5 rounded-full bg-white shadow-sm transition-all ${prefs[s.key] ? "left-[22px]" : "left-0.5"}`}
+                  />
                 </button>
               </div>
             ))}
@@ -564,19 +864,47 @@ function Card({ children, className = '' }: { children: React.ReactNode; classNa
         </Card>
 
         <Card className="flex flex-col">
-          <h3 className="mb-4 font-display text-base font-bold text-ink-900 dark:text-white">Account</h3>
+          <h3 className="mb-4 font-display text-base font-bold text-ink-900 dark:text-white">
+            Account
+          </h3>
           <div className="space-y-3">
-            <button onClick={() => show('Privacy & Security settings are managed by your school administrator.', 'info')} className="flex w-full items-center gap-3 rounded-xl border border-brand-50 p-3 text-left transition-colors hover:bg-brand-50/60 dark:border-slate-800 dark:hover:bg-slate-800/60">
-              <span className="flex h-9 w-9 items-center justify-center rounded-lg bg-brand-100 text-brand-600 dark:bg-slate-800 dark:text-brand-400"><Shield className="h-4 w-4" /></span>
-              <div><p className="text-sm font-semibold text-ink-900 dark:text-white">Privacy & Security</p><p className="text-xs text-ink-500 dark:text-slate-400">Password and data settings</p></div>
+            <button
+              onClick={() =>
+                show(
+                  "Privacy & Security settings are managed by your school administrator.",
+                  "info",
+                )
+              }
+              className="flex w-full items-center gap-3 rounded-xl border border-brand-50 p-3 text-left transition-colors hover:bg-brand-50/60 dark:border-slate-800 dark:hover:bg-slate-800/60"
+            >
+              <span className="flex h-9 w-9 items-center justify-center rounded-lg bg-brand-100 text-brand-600 dark:bg-slate-800 dark:text-brand-400">
+                <Shield className="h-4 w-4" />
+              </span>
+              <div>
+                <p className="text-sm font-semibold text-ink-900 dark:text-white">
+                  Privacy & Security
+                </p>
+                <p className="text-xs text-ink-500 dark:text-slate-400">
+                  Password and data settings
+                </p>
+              </div>
             </button>
 
             <button
-              onClick={() => navigate('/')}
+              onClick={() => navigate("/")}
               className="flex w-full items-center gap-3 rounded-xl border border-brand-100 p-3 text-left transition-colors hover:bg-brand-50 dark:border-brand-900/40 dark:hover:bg-brand-950/30"
             >
-              <span className="flex h-9 w-9 items-center justify-center rounded-lg bg-brand-100 text-brand-600 dark:bg-brand-900/40 dark:text-brand-400"><LogOut className="h-4 w-4" /></span>
-              <div><p className="text-sm font-semibold text-brand-600 dark:text-brand-400">Logout</p><p className="text-xs text-ink-500 dark:text-slate-400">Return to landing page</p></div>
+              <span className="flex h-9 w-9 items-center justify-center rounded-lg bg-brand-100 text-brand-600 dark:bg-brand-900/40 dark:text-brand-400">
+                <LogOut className="h-4 w-4" />
+              </span>
+              <div>
+                <p className="text-sm font-semibold text-brand-600 dark:text-brand-400">
+                  Logout
+                </p>
+                <p className="text-xs text-ink-500 dark:text-slate-400">
+                  Return to landing page
+                </p>
+              </div>
             </button>
           </div>
         </Card>
@@ -584,5 +912,3 @@ function Card({ children, className = '' }: { children: React.ReactNode; classNa
     </div>
   );
 }
-
-

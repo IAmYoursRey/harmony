@@ -1,5 +1,4 @@
-
-import { GraphNode } from './types';
+import { GraphNode } from "./types";
 
 interface EvacuationArrowProps {
   currentPath: string[];
@@ -9,11 +8,14 @@ interface EvacuationArrowProps {
 export function EvacuationArrow({ currentPath, nodes }: EvacuationArrowProps) {
   if (currentPath.length < 2) return null;
 
-  // We map the string IDs to actual points
-  const points = currentPath.map(id => nodes.find(n => n.id === id)).filter(Boolean) as GraphNode[];
+  const points = currentPath
+    .map((id) => nodes.find((n) => n.id === id))
+    .filter(Boolean) as GraphNode[];
   if (points.length < 2) return null;
 
-  const pathData = points.map((p, i) => `${i === 0 ? 'M' : 'L'} ${p.x},${p.y}`).join(' ');
+  const pathData = points
+    .map((p, i) => `${i === 0 ? "M" : "L"} ${p.x},${p.y}`)
+    .join(" ");
 
   return (
     <g>
@@ -27,7 +29,7 @@ export function EvacuationArrow({ currentPath, nodes }: EvacuationArrowProps) {
         strokeLinejoin="round"
         className="opacity-70"
       />
-      
+
       {/* Animated Arrow heads moving along the path */}
       <circle r="8" fill="hsl(var(--brand-300))" className="shadow-lg">
         <animateMotion

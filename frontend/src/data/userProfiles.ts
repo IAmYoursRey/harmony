@@ -33,6 +33,8 @@ export interface UserProfile {
   totalPoints: number;
   badges: string[];
   lastUpdated: string;
+  activities?: { title: string; status: string; timestamp: string; type: 'quiz' | 'simulation' }[];
+  pointsHistory?: { date: string; points: number }[];
 }
 
 export function createInitialTopicScore(): TopicScore {
@@ -83,9 +85,7 @@ export async function updateProfile(
   updates: Partial<Omit<UserProfile, 'userId'>>,
   targetUserId?: string
 ): Promise<UserProfile | undefined> {
-  try {
-    // For now we just use the /api/profile endpoint.
-    // If targetUserId is provided, in a full version this would call /api/profile/admin/:targetUserId
+  try {
     const data = await apiClient.post('/api/profile', updates);
     return data.profile;
   } catch {
@@ -95,7 +95,7 @@ export async function updateProfile(
 
 export async function getAllProfiles(): Promise<UserProfile[]> {
   try {
-    const data = await apiClient.get('/api/users');
+    const data = await apiClient.get('/api/profile/all');
     return data.profiles || [];
   } catch {
     return [];
@@ -125,16 +125,38 @@ export async function recordQuizSession(
   current.averageScore = current.totalScore / current.totalAttempts;
   current.lastAttempt = new Date().toISOString();
   current.isFirstAttempt = false;
-  current.sessionsAtCurrentLevel += 1;
-  
-  // Merge weak/strong
+  current.sessionsAtCurrentLevel += 1;
   const weakSet = new Set([...current.weakTopics, ...weakSubTopics]);
   strongSubTopics.forEach(s => weakSet.delete(s));
   current.weakTopics = Array.from(weakSet);
-  current.strongTopics = Array.from(new Set([...current.strongTopics, ...strongSubTopics]));
+  current.strongTopics = Array.from(new Set([...current.strongTopics, ...strongSubTopics]));
+  const activities = profile.activities || [];
+  activities.unshift({
+    title: `Quiz: ${topic}`,
+    status: `${score}/100`,
+    timestamp: new Date().toISOString(),
+    type: 'quiz'
+  });
+  if (activities.length > 10) activities.pop();
+
+  const pointsHistory = profile.pointsHistory || [];
+  const today = new Date().toISOString().split('T')[0];
+  const newTotal = profile.totalPoints + score;
+  
+  const lastHistory = pointsHistory.length > 0 ? pointsHistory[pointsHistory.length - 1] : null;
+  if (lastHistory && lastHistory.date === today) {
+    lastHistory.points = newTotal;
+  } else {
+    pointsHistory.push({ date: today, points: newTotal });
+  }
 
   const newScores = { ...profile.topicScores, [topic]: current };
-  await updateProfile({ topicScores: newScores, totalPoints: profile.totalPoints + score });
+  await updateProfile({ 
+    topicScores: newScores, 
+    totalPoints: newTotal,
+    activities,
+    pointsHistory
+  });
 }
 
 export async function recordSmartSimulationAnswers(
@@ -146,5 +168,40 @@ export async function recordSmartSimulationAnswers(
   if (!profile) return;
   
   const newMastered = Array.from(new Set([...(profile.masteredConcepts || []), ...masteredConcepts]));
-  await updateProfile({ totalPoints: profile.totalPoints + pointsEarned, masteredConcepts: newMastered });
+  const newTotal = profile.totalPoints + pointsEarned;
+  const activities = profile.activities || [];
+  activities.unshift({
+    title: `Smart Simulation`,
+    status: `+${pointsEarned} Pts`,
+    timestamp: new Date().toISOString(),
+    type: 'simulation'
+  });
+  if (activities.length > 10) activities.pop();
+
+  const pointsHistory = profile.pointsHistory || [];
+  const today = new Date().toISOString().split('T')[0];
+  
+  const lastHistory = pointsHistory.length > 0 ? pointsHistory[pointsHistory.length - 1] : null;
+  if (lastHistory && lastHistory.date === today) {
+    lastHistory.points = newTotal;
+  } else {
+    pointsHistory.push({ date: today, points: newTotal });
+  }
+
+  await updateProfile({ 
+    totalPoints: newTotal, 
+    masteredConcepts: newMastered,
+    activities,
+    pointsHistory
+  });
+}
+
+export async function getGSS(schoolId?: string): Promise<any> {
+  try {
+    const url = schoolId ? `/api/profile/gss?schoolId=${encodeURIComponent(schoolId)}` : '/api/profile/gss';
+    const data = await apiClient.get(url);
+    return data.gss;
+  } catch {
+    return null;
+  }
 }

@@ -1,4 +1,4 @@
-﻿import { useState, useCallback } from "react";
+import { useState, useCallback } from "react";
 
 export type LocationStatus = "idle" | "loading" | "success" | "error";
 
@@ -46,7 +46,7 @@ export function useUserLocation() {
         }
         setStatus("error");
       },
-      { enableHighAccuracy: true, timeout: 10000, maximumAge: 30000 }
+      { enableHighAccuracy: true, timeout: 10000, maximumAge: 30000 },
     );
   }, []);
 

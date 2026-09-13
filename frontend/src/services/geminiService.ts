@@ -1,44 +1,45 @@
-// src/services/geminiService.ts
-
-import { apiClient } from './apiClient';
+import { apiClient } from "./apiClient";
 
 export function normalizeAIResponse(rawResponse: any): string {
-  if (rawResponse === null || rawResponse === undefined) return '';
+  if (rawResponse === null || rawResponse === undefined) return "";
 
-  let text = '';
+  let text = "";
 
-  if (typeof rawResponse === 'object') {
-    if (typeof rawResponse.text === 'function') {
-      try { text = rawResponse.text(); } catch (e) { /* ignore */ }
+  if (typeof rawResponse === "object") {
+    if (typeof rawResponse.text === "function") {
+      try {
+        text = rawResponse.text();
+      } catch (e) {
+        /* ignore */
+      }
     } else {
-      text = rawResponse.response || rawResponse.text || JSON.stringify(rawResponse);
+      text =
+        rawResponse.response || rawResponse.text || JSON.stringify(rawResponse);
     }
-  } else if (typeof rawResponse === 'string') {
+  } else if (typeof rawResponse === "string") {
     text = rawResponse;
   } else {
     text = String(rawResponse);
   }
 
   const trimmed = text.trim();
-  
+
   let possibleJson = trimmed;
-  if (trimmed.startsWith('```json') || trimmed.startsWith('```')) {
+  if (trimmed.startsWith("```json") || trimmed.startsWith("```")) {
     const match = trimmed.match(/```(?:json)?\s*([\s\S]*?)\s*```/);
     if (match) {
       possibleJson = match[1].trim();
     }
   }
 
-  if (possibleJson.startsWith('{') && possibleJson.endsWith('}')) {
+  if (possibleJson.startsWith("{") && possibleJson.endsWith("}")) {
     try {
       const parsed = JSON.parse(possibleJson);
-      if (parsed && typeof parsed === 'object' && !Array.isArray(parsed)) {
-        if (typeof parsed.response === 'string') return parsed.response;
-        if (typeof parsed.text === 'string') return parsed.text;
+      if (parsed && typeof parsed === "object" && !Array.isArray(parsed)) {
+        if (typeof parsed.response === "string") return parsed.response;
+        if (typeof parsed.text === "string") return parsed.text;
       }
-    } catch (e) {
-      // Not a valid JSON object wrapper, ignore
-    }
+    } catch (e) {}
   }
 
   return trimmed;
@@ -46,38 +47,33 @@ export function normalizeAIResponse(rawResponse: any): string {
 
 async function callGemini(
   contents: object[],
-  type: 'quiz' | 'chat' | 'chatbot',
+  type: "quiz" | "chat" | "chatbot",
   jsonMode = false,
-  systemInstruction?: string
+  systemInstruction?: string,
 ): Promise<string> {
   try {
     const payload: any = { contents, type, jsonMode };
     if (systemInstruction) {
       payload.systemInstruction = systemInstruction;
     }
-    const response = await apiClient.post('/api/ai/generate', payload);
-    let rawText = '';
+    const response = await apiClient.post("/api/ai/generate", payload);
+    let rawText = "";
     if (response && response.success && response.data) {
-      rawText = response.data.text ?? '';
+      rawText = response.data.text ?? "";
     } else {
-      rawText = response?.text ?? '';
+      rawText = response?.text ?? "";
     }
     return normalizeAIResponse(rawText);
   } catch (err: any) {
-    throw new Error(err.message || 'Error communicating with AI');
+    throw new Error(err.message || "Error communicating with AI");
   }
 }
 
-// -----------------------------------------------------------------------------
-// QUIZ AI � Essay Question Generation & Evaluation
-// Menggunakan: VITE_GEMINI_QUIZ_KEY dari file .env
-// -----------------------------------------------------------------------------
-
-export type QuizDifficulty = 'pemula' | 'menengah' | 'mahir';
+export type QuizDifficulty = "pemula" | "menengah" | "mahir";
 
 export interface QuizQuestion {
   id: string;
-  type: 'mcq' | 'essay';
+  type: "mcq" | "essay";
   question: string;
   options?: string[]; // For MCQs (A, B, C, D, E)
   correctOption?: string; // e.g., 'A'
@@ -105,7 +101,7 @@ function parseJSONFromText(text: string) {
     const match = text.match(/```(?:json)?\s*([\s\S]*?)\s*```/);
     return JSON.parse(match ? match[1] : text);
   } catch (e) {
-    throw new Error('Gagal parse JSON dari AI');
+    throw new Error("Gagal parse JSON dari AI");
   }
 }
 
@@ -115,18 +111,17 @@ export async function generateQuizQuestions(
   count: number,
   isFirstAttempt: boolean,
   weakSubTopics: string[] = [],
-  strongSubTopics: string[] = []
+  strongSubTopics: string[] = [],
 ): Promise<QuizQuestion[]> {
-  // API Key managed by backend
   const difficultyDesc = {
-    pemula: 'pertanyaan dasar dan faktual',
-    menengah: 'pertanyaan analitis dan konseptual',
-    mahir: 'pertanyaan studi kasus dan evaluasi komprehensif',
+    pemula: "pertanyaan dasar dan faktual",
+    menengah: "pertanyaan analitis dan konseptual",
+    mahir: "pertanyaan studi kasus dan evaluasi komprehensif",
   }[difficulty];
 
   const focusHint = isFirstAttempt
-    ? 'Buat soal diagnostik umum yang mencakup berbagai aspek topik ini.'
-    : `${weakSubTopics.length > 0 ? `Fokuskan lebih banyak soal pada sub-topik yang lemah: ${weakSubTopics.join(', ')}.` : ''} ${strongSubTopics.length > 0 ? `Hindari sub-topik yang sudah dikuasai: ${strongSubTopics.join(', ')}.` : ''}`.trim();
+    ? "Buat soal diagnostik umum yang mencakup berbagai aspek topik ini."
+    : `${weakSubTopics.length > 0 ? `Fokuskan lebih banyak soal pada sub-topik yang lemah: ${weakSubTopics.join(", ")}.` : ""} ${strongSubTopics.length > 0 ? `Hindari sub-topik yang sudah dikuasai: ${strongSubTopics.join(", ")}.` : ""}`.trim();
 
   const prompt = `Buatkan ${count} soal campuran (Pilihan Ganda A-E dan Esai) tentang mitigasi bencana "${topic}" untuk level ${difficulty}.
 Kriteria soal: ${difficultyDesc}. ${focusHint}
@@ -153,15 +148,16 @@ Format output HARUS berupa JSON array valid (boleh dibungkus markdown \`\`\`json
 
   try {
     const text = await callGemini(
-      [{ role: 'user', parts: [{ text: prompt }] }],
-      'quiz',
-      true
+      [{ role: "user", parts: [{ text: prompt }] }],
+      "quiz",
+      true,
     );
     const parsed = parseJSONFromText(text);
-    if (!Array.isArray(parsed)) throw new Error('Format balasan AI tidak sesuai ekspektasi');
+    if (!Array.isArray(parsed))
+      throw new Error("Format balasan AI tidak sesuai ekspektasi");
     return parsed;
   } catch (err) {
-    console.error('QuizAI generation error:', err);
+    console.error("QuizAI generation error:", err);
     throw err;
   }
 }
@@ -176,25 +172,33 @@ export interface SmartSimParams {
     fire: number;
   };
   masteredConcepts: string[];
-  mode: 'learning' | 'test';
+  weakConcepts?: string[];
+  mode: "learning" | "test";
   count: number;
 }
 
 export async function generateSmartSimulationQuestions(
-  params: SmartSimParams
+  params: SmartSimParams,
 ): Promise<QuizQuestion[]> {
   const riskContext = Object.entries(params.schoolRisk)
     .sort((a, b) => b[1] - a[1])
     .map(([key, val]) => `${key}: ${val}%`)
-    .join(', ');
+    .join(", ");
 
-  const masteryContext = params.masteredConcepts.length > 0 
-    ? `Konsep yang sudah dikuasai murid (HINDARI menanyakan ini lagi jika mode learning): ${params.masteredConcepts.join(', ')}`
-    : 'Murid belum menguasai konsep apapun.';
-    
-  const modeContext = params.mode === 'learning' 
-    ? 'Mode: LEARNING. Jangan gunakan konsep yang sudah dikuasai.'
-    : 'Mode: TEST. Buatkan soal yang SANGAT SULIT (HOTS). Anda boleh menggunakan konsep yang sudah dikuasai tapi buat narasinya berbeda dan lebih rumit.';
+  const masteryContext =
+    params.masteredConcepts.length > 0
+      ? `Konsep yang sudah dikuasai murid (HINDARI menanyakan ini lagi jika mode learning): ${params.masteredConcepts.join(", ")}`
+      : "Murid belum menguasai konsep apapun.";
+
+  const weakContext =
+    params.weakConcepts && params.weakConcepts.length > 0
+      ? `Topik lemah murid (FOKUSKAN sebagian besar soal pada topik/konsep ini untuk membantu mereka belajar): ${params.weakConcepts.join(", ")}`
+      : "";
+
+  const modeContext =
+    params.mode === "learning"
+      ? "Mode: LEARNING. Jangan gunakan konsep yang sudah dikuasai. Utamakan topik lemah jika ada."
+      : "Mode: TEST. Buatkan soal yang SANGAT SULIT (HOTS). Anda boleh menggunakan konsep yang sudah dikuasai tapi buat narasinya berbeda dan lebih rumit.";
 
   const prompt = `Buatkan ${params.count} soal pilihan ganda (MCQ A-E) Pertanyaan Bencana Alam.
   
@@ -202,6 +206,7 @@ Konteks Risiko Sekolah (Porsi soal HARUS mencerminkan bobot risiko ini, paling b
 ${riskContext}
 
 ${masteryContext}
+${weakContext}
 ${modeContext}
 
 Format output HARUS berupa JSON array valid (boleh dibungkus markdown \`\`\`json), dengan skema:
@@ -218,15 +223,16 @@ Format output HARUS berupa JSON array valid (boleh dibungkus markdown \`\`\`json
 
   try {
     const text = await callGemini(
-      [{ role: 'user', parts: [{ text: prompt }] }],
-      'quiz',
-      true
+      [{ role: "user", parts: [{ text: prompt }] }],
+      "quiz",
+      true,
     );
     const parsed = parseJSONFromText(text);
-    if (!Array.isArray(parsed)) throw new Error('Format balasan AI tidak sesuai ekspektasi');
+    if (!Array.isArray(parsed))
+      throw new Error("Format balasan AI tidak sesuai ekspektasi");
     return parsed;
   } catch (err) {
-    console.error('SmartSim AI generation error:', err);
+    console.error("SmartSim AI generation error:", err);
     throw err;
   }
 }
@@ -240,33 +246,33 @@ interface EssayEvaluationPayload {
 
 export async function evaluateQuizAnswers(
   questions: QuizQuestion[],
-  answers: Record<string, string>
+  answers: Record<string, string>,
 ): Promise<QuizEvaluation[]> {
-  // Pisahkan evaluasi MCQ dan Esai
   const evals: QuizEvaluation[] = [];
   const essayQuestions: EssayEvaluationPayload[] = [];
 
   for (const q of questions) {
-    const studentAns = answers[q.id] || '';
-    if (q.type === 'mcq') {
+    const studentAns = answers[q.id] || "";
+    if (q.type === "mcq") {
       const isCorrect = studentAns === q.correctOption;
       evals.push({
         questionId: q.id,
         score: isCorrect ? 100 : 0,
-        feedback: isCorrect ? 'Jawaban Anda Tepat!' : `Salah. Jawaban yang benar adalah ${q.correctOption}.`,
-        isCorrect
+        feedback: isCorrect
+          ? "Jawaban Anda Tepat!"
+          : `Salah. Jawaban yang benar adalah ${q.correctOption}.`,
+        isCorrect,
       });
     } else {
       essayQuestions.push({
         id: q.id,
         question: q.question,
         keyPoints: q.keyPoints,
-        studentAnswer: studentAns
+        studentAnswer: studentAns,
       });
     }
   }
 
-  // Jika tidak ada esai, langsung return
   if (essayQuestions.length === 0) return evals;
 
   const prompt = `Anda adalah guru pakar mitigasi bencana. Evaluasi jawaban esai siswa berikut.
@@ -288,69 +294,65 @@ Format output HARUS berupa JSON array valid (boleh dibungkus markdown \`\`\`json
 
   try {
     const text = await callGemini(
-      [{ role: 'user', parts: [{ text: prompt }] }],
-      'quiz',
-      true
+      [{ role: "user", parts: [{ text: prompt }] }],
+      "quiz",
+      true,
     );
     const parsed = parseJSONFromText(text);
     if (Array.isArray(parsed)) {
       evals.push(...parsed);
     }
   } catch (err) {
-    console.error('QuizAI evaluation error:', err);
-    essayQuestions.forEach(q => evals.push({ questionId: q.id, score: 0, feedback: 'Gagal menghubungi AI evaluator.', isCorrect: false }));
+    console.error("QuizAI evaluation error:", err);
+    essayQuestions.forEach((q) =>
+      evals.push({
+        questionId: q.id,
+        score: 0,
+        feedback: "Gagal menghubungi AI evaluator.",
+        isCorrect: false,
+      }),
+    );
   }
 
-  // Sort kembali sesuai urutan pertanyaan asli
   return evals.sort((a, b) => {
-    const idxA = questions.findIndex(q => q.id === a.questionId);
-    const idxB = questions.findIndex(q => q.id === b.questionId);
+    const idxA = questions.findIndex((q) => q.id === a.questionId);
+    const idxB = questions.findIndex((q) => q.id === b.questionId);
     return idxA - idxB;
   });
 }
 
-// -----------------------------------------------------------------------------
-// CHATBOT AI � Interactive chatbot with user profile context
-// Menggunakan: VITE_GEMINI_CHAT_KEY dari file .env
-// -----------------------------------------------------------------------------
-
 export async function askChatbotAI(
   userMessage: string,
-  history: { role: 'user' | 'model'; parts: { text: string }[] }[],
-  userProfileSummary?: string
+  history: { role: "user" | "model"; parts: { text: string }[] }[],
+  userProfileSummary?: string,
 ): Promise<string> {
-  // API Key managed by backend
   const systemContext = `Anda adalah Asisten Pembelajaran Mitigasi Bencana bernama "GeoBot". ${
     userProfileSummary
       ? `Berikut adalah profil siswa yang sedang berdialog:\n${userProfileSummary}\nGunakan data ini untuk mempersonalisasi respons, memberikan motivasi, dan mengarahkan siswa ke area yang perlu diperkuat.`
-      : ''
+      : ""
   }
 Jawab dengan bahasa yang ramah, ringkas, mudah dipahami siswa sekolah, dan edukatif. Jika ditanya di luar topik kebencanaan, arahkan kembali ke topik tersebut.`;
 
   const contents = [
     ...history,
-    { role: 'user', parts: [{ text: userMessage }] },
+    { role: "user", parts: [{ text: userMessage }] },
   ];
 
   try {
-    return await callGemini(contents, 'chatbot', false, systemContext);
+    return await callGemini(contents, "chatbot", false, systemContext);
   } catch (err) {
-    console.error('ChatbotAI error:', err);
-    return 'Maaf, ada kendala koneksi dengan GeoBot. Silakan coba sesaat lagi.';
+    console.error("ChatbotAI error:", err);
+    return "Maaf, ada kendala koneksi dengan GeoBot. Silakan coba sesaat lagi.";
   }
 }
 
-// -- Legacy compat -------------------------------------------------------------
-
 export async function generateQuiz(topic: string, _level: string, count = 3) {
-  throw new Error('generateQuiz is deprecated. Use generateQuizQuestions.');
+  throw new Error("generateQuiz is deprecated. Use generateQuizQuestions.");
 }
 
 export async function askGemini(
   prompt: string,
-  history: { role: 'user' | 'model'; parts: { text: string }[] }[] = []
+  history: { role: "user" | "model"; parts: { text: string }[] }[] = [],
 ) {
   return askChatbotAI(prompt, history);
 }
-
-

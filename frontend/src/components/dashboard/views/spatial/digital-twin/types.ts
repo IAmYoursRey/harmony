@@ -1,14 +1,10 @@
-// ============================================================
-// EXISTING TYPES (preserved)
-// ============================================================
-
-export type ToolMode = 'select' | 'waypoint' | 'exit' | 'path' | 'delete';
+export type ToolMode = "select" | "waypoint" | "exit" | "path" | "delete";
 
 export interface GraphNode {
   id: string;
   x: number;
   y: number;
-  type: 'waypoint' | 'exit' | 'safe-zone';
+  type: "waypoint" | "exit" | "safe-zone";
 }
 
 export interface GraphEdge {
@@ -17,7 +13,8 @@ export interface GraphEdge {
   to: string;
 }
 
-export type DisasterType = 'earthquake' | 'flood' | 'fire' | 'storm' | 'tsunami' | 'landslide';
+export type DisasterType =
+  "earthquake" | "flood" | "fire" | "storm" | "tsunami" | "landslide";
 
 export interface Hazard {
   id: string;
@@ -25,47 +22,44 @@ export interface Hazard {
   x: number;
   y: number;
   radius: number;
-  severity: 'low' | 'medium' | 'high';
+  severity: "low" | "medium" | "high";
   active: boolean;
 }
 
-export type SimulationState = 'idle' | 'starting' | 'active' | 'rerouting' | 'completed' | 'stopped';
+export type SimulationState =
+  "idle" | "starting" | "active" | "rerouting" | "completed" | "stopped";
 
 export type MapPosition =
-  | { type: 'local'; x: number; y: number }
-  | { type: 'geo'; latitude: number; longitude: number };
-
-// ============================================================
-// GRID TYPES (new)
-// ============================================================
+  | { type: "local"; x: number; y: number }
+  | { type: "geo"; latitude: number; longitude: number };
 
 export type CellType =
-  | 'EMPTY'      // walkable, default
-  | 'WALL'       // non-walkable, blocking
-  | 'ROOM'       // walkable room interior
-  | 'CORRIDOR'   // walkable corridor
-  | 'DOOR'       // walkable when open, blocking when closed
-  | 'SAFE_POINT' // evacuation target
-  | 'SPAWN'      // player starting cell
-  | 'HAZARD'     // dangerous zone (deals damage)
-  | 'OBJECT';    // generic obstacle
+  | "EMPTY" // walkable, default
+  | "WALL" // non-walkable, blocking
+  | "ROOM" // walkable room interior
+  | "CORRIDOR" // walkable corridor
+  | "DOOR" // walkable when open, blocking when closed
+  | "SAFE_POINT" // evacuation target
+  | "SPAWN" // player starting cell
+  | "HAZARD" // dangerous zone (deals damage)
+  | "OBJECT"; // generic obstacle
 
 export interface MapCell {
   x: number;
   y: number;
   type: CellType;
   walkable: boolean;
-  roomId?: string;       // reference to Room
-  hazardId?: string;     // reference to SimulationHazardConfig
-  doorId?: string;       // reference to Door
-  safePointId?: string;  // reference to SafePoint
+  roomId?: string; // reference to Room
+  hazardId?: string; // reference to SimulationHazardConfig
+  doorId?: string; // reference to Door
+  safePointId?: string; // reference to SafePoint
   metadata?: Record<string, unknown>;
 }
 
 export interface MapRoom {
   id: string;
   name: string;
-  type: 'classroom' | 'lab' | 'corridor' | 'hall' | 'stairway' | 'other';
+  type: "classroom" | "lab" | "corridor" | "hall" | "stairway" | "other";
   cellIds: string[]; // "x,y" string keys
   color?: string;
 }
@@ -74,7 +68,7 @@ export interface MapDoor {
   id: string;
   x: number;
   y: number;
-  state: 'open' | 'closed' | 'locked';
+  state: "open" | "closed" | "locked";
   breakable: boolean;
   roomId?: string;
 }
@@ -102,25 +96,21 @@ export interface GridMap {
   schoolId: string;
   name: string;
   description: string;
-  gridWidth: number;    // columns
-  gridHeight: number;   // rows
-  cellScale: number;    // e.g., 1
-  cellScaleUnit: 'meter' | 'feet'; // e.g., 'meter'
-  // Sparse cell storage: only non-default (non-EMPTY) cells
+  gridWidth: number; // columns
+  gridHeight: number; // rows
+  cellScale: number; // e.g., 1
+  cellScaleUnit: "meter" | "feet"; // e.g., 'meter'
+
   cells: Record<string, MapCell>; // key: "x,y"
   rooms: MapRoom[];
   doors: MapDoor[];
   safePoints: SafePoint[];
   spawnPoints: SpawnPoint[];
   referenceImageId?: string; // reference to existing mapImage if teacher wants overlay
-  createdBy: string;   // userId
+  createdBy: string; // userId
   createdAt: string;
   updatedAt: string;
 }
-
-// ============================================================
-// SIMULATION TYPES (new)
-// ============================================================
 
 export interface SimulationHazardConfig {
   id: string;
@@ -128,33 +118,39 @@ export interface SimulationHazardConfig {
   label: string;
   x: number;
   y: number;
-  radius: number;           // in cells
-  damagePerSecond: number;  // HP damage per second while inside
-  lethal: boolean;          // instant kill instead of damage
-  startTime: number;        // seconds after sim start when this activates (0 = immediate)
-  duration: number;         // seconds active (-1 = until sim ends)
-  movementEffect: 'none' | 'slow' | 'stun';
+  radius: number; // in cells
+  damagePerSecond: number; // HP damage per second while inside
+  lethal: boolean; // instant kill instead of damage
+  startTime: number; // seconds after sim start when this activates (0 = immediate)
+  duration: number; // seconds active (-1 = until sim ends)
+  movementEffect: "none" | "slow" | "stun";
 }
 
 export interface SimulationEvent {
   id: string;
-  trigger: 'TIME' | 'ENTER_ZONE' | 'ON_START';
-  time?: number;            // seconds (for TIME trigger)
-  zoneCells?: string[];     // "x,y" keys (for ENTER_ZONE trigger)
-  action: 'BLOCK_CELLS' | 'UNBLOCK_CELLS' | 'ACTIVATE_HAZARD' | 'DEACTIVATE_HAZARD' | 'CLOSE_DOOR' | 'OPEN_DOOR';
-  targetIds: string[];      // cell keys, hazard ids, or door ids
+  trigger: "TIME" | "ENTER_ZONE" | "ON_START";
+  time?: number; // seconds (for TIME trigger)
+  zoneCells?: string[]; // "x,y" keys (for ENTER_ZONE trigger)
+  action:
+    | "BLOCK_CELLS"
+    | "UNBLOCK_CELLS"
+    | "ACTIVATE_HAZARD"
+    | "DEACTIVATE_HAZARD"
+    | "CLOSE_DOOR"
+    | "OPEN_DOOR";
+  targetIds: string[]; // cell keys, hazard ids, or door ids
   description: string;
 }
 
 export interface ScenarioObstacle {
   id: string;
-  type: string;        // e.g., 'fire', 'rubble', 'water', 'debris'
+  type: string; // e.g., 'fire', 'rubble', 'water', 'debris'
   x: number;
   y: number;
-  width: number;       // in cells
-  height: number;      // in cells
+  width: number; // in cells
+  height: number; // in cells
   blocking: boolean;
-  damage?: number;     // optional HP damage per second
+  damage?: number; // optional HP damage per second
 }
 
 export interface DisasterSimulation {
@@ -166,29 +162,24 @@ export interface DisasterSimulation {
   description: string;
   durationSeconds: number;
   spawnPointId: string;
-  safePointIds: string[];        // player can reach any of these
-  
-  // Scenario Authoring state:
-  walkableCells?: string[];      // "x,y" explicit safe routes
-  blockedCells?: string[];       // "x,y" blocked paths
+  safePointIds: string[]; // player can reach any of these
+
+  walkableCells?: string[]; // "x,y" explicit safe routes
+  blockedCells?: string[]; // "x,y" blocked paths
   obstacles?: ScenarioObstacle[];
   scenarioSpawn?: { x: number; y: number };
   scenarioExits?: { x: number; y: number }[];
 
   hazards: SimulationHazardConfig[];
   events: SimulationEvent[];
-  winCondition: 'REACH_SAFE_POINT';
-  loseConditions: ('HP_ZERO' | 'TIMER_ZERO' | 'LETHAL_HAZARD')[];
+  winCondition: "REACH_SAFE_POINT";
+  loseConditions: ("HP_ZERO" | "TIMER_ZERO" | "LETHAL_HAZARD")[];
   createdBy: string;
   createdAt: string;
   updatedAt: string;
 }
 
-// ============================================================
-// ROOM (session) TYPES (new)
-// ============================================================
-
-export type RoomStatus = 'WAITING' | 'RUNNING' | 'FINISHED' | 'CANCELLED';
+export type RoomStatus = "WAITING" | "RUNNING" | "FINISHED" | "CANCELLED";
 
 export interface GameRoom {
   id: string;
@@ -196,20 +187,27 @@ export interface GameRoom {
   name: string;
   mapId: string;
   simulationId: string;
-  targetGrade: string;      // e.g., 'X'
-  targetClass: string;      // e.g., 'IPA 1'
-  createdBy: string;        // teacher userId
+  targetGrade: string; // e.g., 'X'
+  targetClass: string; // e.g., 'IPA 1'
+  createdBy: string; // teacher userId
   status: RoomStatus;
   createdAt: string;
   startedAt?: string;
   endedAt?: string;
   joinedStudents: string[]; // userIds
-  activePlayers?: Record<string, { id: string, name: string, x: number, y: number, hp: number, status: string, lastSeen: number }>;
+  activePlayers?: Record<
+    string,
+    {
+      id: string;
+      name: string;
+      x: number;
+      y: number;
+      hp: number;
+      status: string;
+      lastSeen: number;
+    }
+  >;
 }
-
-// ============================================================
-// GAME STATE TYPES (runtime only — not persisted)
-// ============================================================
 
 export interface PlayerState {
   userId: string;
@@ -217,7 +215,7 @@ export interface PlayerState {
   y: number;
   hp: number;
   maxHp: number;
-  status: 'alive' | 'dead' | 'evacuated';
+  status: "alive" | "dead" | "evacuated";
   damageHistory: { time: number; amount: number; source: string }[];
   distanceTravelled: number;
 }
@@ -232,16 +230,12 @@ export interface GameState {
   map: GridMap;
   simulation: DisasterSimulation;
   player: PlayerState;
-  blockedCells: Set<string>;  // "x,y" keys dynamically blocked by events
+  blockedCells: Set<string>; // "x,y" keys dynamically blocked by events
   activeHazards: ActiveHazard[];
   elapsedSeconds: number;
   timerRemaining: number;
-  phase: 'lobby' | 'spawned' | 'running' | 'won' | 'lost';
+  phase: "lobby" | "spawned" | "running" | "won" | "lost";
 }
-
-// ============================================================
-// RESULT TYPE (new)
-// ============================================================
 
 export interface SimulationResult {
   id: string;
@@ -250,7 +244,7 @@ export interface SimulationResult {
   mapId: string;
   schoolId: string;
   userId: string;
-  outcome: 'success' | 'failed';
+  outcome: "success" | "failed";
   completionTimeSeconds?: number;
   hpRemaining?: number;
   damageTaken: number;

@@ -1,4 +1,4 @@
-import { MapPosition } from './types';
+import { MapPosition } from "./types";
 
 interface UserLocationMarkerProps {
   position: MapPosition | null;
@@ -7,9 +7,7 @@ interface UserLocationMarkerProps {
 export function UserLocationMarker({ position }: UserLocationMarkerProps) {
   if (!position) return null;
 
-  // We only render if it's local coordinates.
-  // Geo coords would need a complex transformation not available without calibration.
-  if (position.type === 'geo') return null;
+  if (position.type === "geo") return null;
 
   return (
     <g>

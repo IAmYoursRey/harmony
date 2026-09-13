@@ -1,4 +1,4 @@
-export function SkeletonCard({ className = '' }: { className?: string }) {
+export function SkeletonCard({ className = "" }: { className?: string }) {
   return (
     <div className={`glass rounded-2xl p-5 dark:bg-slate-900/60 ${className}`}>
       <div className="flex items-center justify-between">
@@ -49,7 +49,7 @@ export function DashboardSkeleton() {
   );
 }
 
-import { LogoSpinner } from '@/components/ui/LogoSpinner';
+import { LogoSpinner } from "@/components/ui/LogoSpinner";
 
 export function PageSkeleton() {
   return (

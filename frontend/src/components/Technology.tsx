@@ -6,8 +6,8 @@ import {
   Gauge,
   ArrowRight,
   type LucideIcon,
-} from 'lucide-react';
-import { Reveal } from '@/components/Reveal';
+} from "lucide-react";
+import { Reveal } from "@/components/Reveal";
 
 interface Step {
   icon: LucideIcon;
@@ -19,44 +19,47 @@ interface Step {
 const steps: Step[] = [
   {
     icon: Brain,
-    step: '01',
-    title: 'AI',
+    step: "01",
+    title: "AI",
     description:
-      'The AI Learning Engine assesses each school\u2019s context and generates tailored disaster scenarios aligned to local risk.',
+      "The AI Learning Engine assesses each school\u2019s context and generates tailored disaster scenarios aligned to local risk.",
   },
   {
     icon: Satellite,
-    step: '02',
-    title: 'Geospatial Analysis',
+    step: "02",
+    title: "Geospatial Analysis",
     description:
-      'Live satellite and GIS data map real hazards around the school \u2014 flood zones, fault lines, and exposure patterns.',
+      "Live satellite and GIS data map real hazards around the school \u2014 flood zones, fault lines, and exposure patterns.",
   },
   {
     icon: Boxes,
-    step: '03',
-    title: 'Digital Twin Simulation',
+    step: "03",
+    title: "Digital Twin Simulation",
     description:
-      'A 3D twin of the campus replays the disaster, letting students practice evacuation and response in a safe virtual environment.',
+      "A 3D twin of the campus replays the disaster, letting students practice evacuation and response in a safe virtual environment.",
   },
   {
     icon: ClipboardCheck,
-    step: '04',
-    title: 'Evaluation',
+    step: "04",
+    title: "Evaluation",
     description:
-      'Every simulation is scored against response time, decisions, and knowledge \u2014 surfacing strengths and gaps to close.',
+      "Every simulation is scored against response time, decisions, and knowledge \u2014 surfacing strengths and gaps to close.",
   },
   {
     icon: Gauge,
-    step: '05',
-    title: 'GeoSense Score',
+    step: "05",
+    title: "GeoSense Score",
     description:
-      'Schools receive a clear GeoSense Score tracking preparedness over time, with actionable steps to keep improving.',
+      "Schools receive a clear GeoSense Score tracking preparedness over time, with actionable steps to keep improving.",
   },
 ];
 
 export function Technology() {
   return (
-    <section id="how-it-works" className="relative overflow-hidden py-20 sm:py-28">
+    <section
+      id="how-it-works"
+      className="relative overflow-hidden py-20 sm:py-28"
+    >
       <div className="absolute inset-0 -z-10 bg-gradient-to-b from-brand-950 to-brand-900" />
       <div className="absolute inset-0 -z-10 bg-grid-pattern bg-[size:44px_44px] opacity-20" />
       <div className="absolute -top-20 left-1/2 -z-10 h-96 w-[700px] -translate-x-1/2 rounded-full bg-brand-500/20 blur-[120px]" />
@@ -70,8 +73,8 @@ export function Technology() {
             From data to a GeoSense Score
           </h2>
           <p className="mt-4 text-brand-200">
-            Five connected stages turn raw environmental data into a clear, actionable
-            measure of how ready your school really is.
+            Five connected stages turn raw environmental data into a clear,
+            actionable measure of how ready your school really is.
           </p>
         </Reveal>
 

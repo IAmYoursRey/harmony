@@ -1,5 +1,5 @@
-import { Component, type ErrorInfo, type ReactNode } from 'react';
-import { AlertTriangle, RefreshCw } from 'lucide-react';
+import { Component, type ErrorInfo, type ReactNode } from "react";
+import { AlertTriangle, RefreshCw } from "lucide-react";
 
 interface Props {
   children: ReactNode;
@@ -18,7 +18,7 @@ export class ErrorBoundary extends Component<Props, State> {
   }
 
   componentDidCatch(error: Error, errorInfo: ErrorInfo) {
-    console.error('Application error:', error, errorInfo);
+    console.error("Application error:", error, errorInfo);
   }
 
   render() {
@@ -33,7 +33,8 @@ export class ErrorBoundary extends Component<Props, State> {
               Terjadi kesalahan (Something went wrong)
             </h2>
             <p className="mt-2 text-sm text-ink-500 dark:text-slate-400">
-              Terjadi kesalahan yang tidak terduga. Silakan muat ulang halaman. (An unexpected error occurred. Please try refreshing the page.)
+              Terjadi kesalahan yang tidak terduga. Silakan muat ulang halaman.
+              (An unexpected error occurred. Please try refreshing the page.)
             </p>
             <button
               onClick={() => window.location.reload()}

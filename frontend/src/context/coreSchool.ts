@@ -1,5 +1,5 @@
-import { createContext } from 'react';
-import type { School } from '@/data/schools';
+import { createContext } from "react";
+import type { School } from "@/data/schools";
 
 export interface SchoolSelection {
   school: School;

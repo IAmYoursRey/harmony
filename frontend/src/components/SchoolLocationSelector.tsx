@@ -1,6 +1,6 @@
-import { useState, useMemo, useRef, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
-import { motion, AnimatePresence } from 'framer-motion';
+import { useState, useMemo, useRef, useEffect } from "react";
+import { useNavigate } from "react-router-dom";
+import { motion, AnimatePresence } from "framer-motion";
 import {
   MapPin,
   ChevronDown,
@@ -27,9 +27,13 @@ import {
   Info,
   SlidersHorizontal,
   type LucideIcon,
-} from 'lucide-react';
-import { useI18n } from '@/hooks/useI18n';
-import { getAllSchools, extractProvinces, extractRegencies } from '@/services/schoolService';
+} from "lucide-react";
+import { useI18n } from "@/hooks/useI18n";
+import {
+  getAllSchools,
+  extractProvinces,
+  extractRegencies,
+} from "@/services/schoolService";
 import {
   riskStyles,
   recommendedModules,
@@ -38,11 +42,11 @@ import {
   type School,
   type NearbySchoolResult,
   type SearchSchoolResult,
-} from '@/data/schools';
-import { useSchool } from '@/hooks/useSchool';
-import {  useToast  } from '@/hooks/useToast';
-import { useUserLocation } from '@/hooks/useUserLocation';
-import { formatDistance } from '@/utils/geoUtils';
+} from "@/data/schools";
+import { useSchool } from "@/hooks/useSchool";
+import { useToast } from "@/hooks/useToast";
+import { useUserLocation } from "@/hooks/useUserLocation";
+import { formatDistance } from "@/utils/geoUtils";
 
 interface SearchableDropdownProps {
   label: string;
@@ -64,13 +68,13 @@ function SearchableDropdown({
   disabled,
 }: SearchableDropdownProps) {
   const [open, setOpen] = useState(false);
-  const [query, setQuery] = useState('');
+  const [query, setQuery] = useState("");
   const inputRef = useRef<HTMLInputElement>(null);
   const selected = options.find((o) => o.id === value);
 
   useEffect(() => {
     if (open) {
-      setQuery('');
+      setQuery("");
       setTimeout(() => inputRef.current?.focus(), 50);
     }
   }, [open]);
@@ -92,21 +96,26 @@ function SearchableDropdown({
         onClick={() => setOpen((v) => !v)}
         className={`flex w-full items-center justify-between gap-2 rounded-xl border px-4 py-3 text-left text-sm font-medium transition-all ${
           disabled
-            ? 'cursor-not-allowed border-brand-50 bg-brand-50/30 text-ink-400 dark:border-slate-800 dark:bg-slate-800/30 dark:text-slate-600'
-            : 'border-brand-100 bg-white/70 text-ink-900 hover:border-brand-300 dark:border-slate-700 dark:bg-slate-800/70 dark:text-white dark:hover:border-slate-600'
+            ? "cursor-not-allowed border-brand-50 bg-brand-50/30 text-ink-400 dark:border-slate-800 dark:bg-slate-800/30 dark:text-slate-600"
+            : "border-brand-100 bg-white/70 text-ink-900 hover:border-brand-300 dark:border-slate-700 dark:bg-slate-800/70 dark:text-white dark:hover:border-slate-600"
         }`}
       >
         <span className="flex items-center gap-2 truncate">
           <Icon className="h-4 w-4 shrink-0 text-brand-500" />
           {selected ? selected.name : placeholder}
         </span>
-        <ChevronDown className={`h-4 w-4 shrink-0 text-ink-400 transition-transform ${open ? 'rotate-180' : ''}`} />
+        <ChevronDown
+          className={`h-4 w-4 shrink-0 text-ink-400 transition-transform ${open ? "rotate-180" : ""}`}
+        />
       </button>
 
       <AnimatePresence>
         {open && !disabled && (
           <>
-            <div className="fixed inset-0 z-10" onClick={() => setOpen(false)} />
+            <div
+              className="fixed inset-0 z-10"
+              onClick={() => setOpen(false)}
+            />
             <motion.div
               initial={{ opacity: 0, y: -8 }}
               animate={{ opacity: 1, y: 0 }}
@@ -129,7 +138,9 @@ function SearchableDropdown({
               </div>
               <div className="max-h-56 overflow-y-auto p-1.5">
                 {filtered.length === 0 ? (
-                  <p className="px-3 py-2 text-xs text-ink-400 dark:text-slate-500">No results found</p>
+                  <p className="px-3 py-2 text-xs text-ink-400 dark:text-slate-500">
+                    No results found
+                  </p>
                 ) : (
                   filtered.map((o) => (
                     <button
@@ -140,8 +151,8 @@ function SearchableDropdown({
                       }}
                       className={`block w-full rounded-lg px-3 py-2 text-left text-sm transition-colors ${
                         o.id === value
-                          ? 'bg-brand-50 font-semibold text-brand-700 dark:bg-slate-700 dark:text-brand-400'
-                          : 'text-ink-700 hover:bg-brand-50/60 dark:text-slate-300 dark:hover:bg-slate-700/60'
+                          ? "bg-brand-50 font-semibold text-brand-700 dark:bg-slate-700 dark:text-brand-400"
+                          : "text-ink-700 hover:bg-brand-50/60 dark:text-slate-300 dark:hover:bg-slate-700/60"
                       }`}
                     >
                       {o.name}
@@ -158,18 +169,18 @@ function SearchableDropdown({
 }
 
 const hazardIcons: { icon: LucideIcon; label: string; key: keyof School }[] = [
-  { icon: Mountain, label: 'Earthquake', key: 'earthquake' },
-  { icon: Waves, label: 'Flood', key: 'flood' },
-  { icon: Trees, label: 'Landslide', key: 'landslide' },
-  { icon: Flame, label: 'Volcanic', key: 'volcanic' },
-  { icon: Waves, label: 'Tsunami', key: 'tsunami' },
+  { icon: Mountain, label: "Earthquake", key: "earthquake" },
+  { icon: Waves, label: "Flood", key: "flood" },
+  { icon: Trees, label: "Landslide", key: "landslide" },
+  { icon: Flame, label: "Volcanic", key: "volcanic" },
+  { icon: Waves, label: "Tsunami", key: "tsunami" },
 ];
 
 function hazardColor(value: number): string {
-  if (value >= 70) return 'bg-brand-800';
-  if (value >= 50) return 'bg-brand-600';
-  if (value >= 35) return 'bg-brand-400';
-  return 'bg-brand-200';
+  if (value >= 70) return "bg-brand-800";
+  if (value >= 50) return "bg-brand-600";
+  if (value >= 35) return "bg-brand-400";
+  return "bg-brand-200";
 }
 
 export function SchoolLocationSelector() {
@@ -178,19 +189,24 @@ export function SchoolLocationSelector() {
   const { show } = useToast();
   const { t, locale } = useI18n();
 
-  const [activeTab, setActiveTab] = useState<'manual' | 'zonasi'>('manual');
+  const [activeTab, setActiveTab] = useState<"manual" | "zonasi">("manual");
 
-  // Manual select state
-  const [provinceId, setProvinceId] = useState('');
-  const [regencyId, setRegencyId] = useState('');
-  const [schoolId, setSchoolId] = useState('');
+  const [provinceId, setProvinceId] = useState("");
+  const [regencyId, setRegencyId] = useState("");
+  const [schoolId, setSchoolId] = useState("");
   const [confirmed, setConfirmed] = useState(false);
-  const [globalSearch, setGlobalSearch] = useState('');
+  const [globalSearch, setGlobalSearch] = useState("");
   const [showGlobalResults, setShowGlobalResults] = useState(false);
 
-  // Zonasi / Proximity state
-  const { location, status: locStatus, error: locError, detect: detectLoc } = useUserLocation();
-  const [levelFilter, setLevelFilter] = useState<'ALL' | 'SD' | 'SMP' | 'SMA' | 'SMK'>('ALL');
+  const {
+    location,
+    status: locStatus,
+    error: locError,
+    detect: detectLoc,
+  } = useUserLocation();
+  const [levelFilter, setLevelFilter] = useState<
+    "ALL" | "SD" | "SMP" | "SMA" | "SMK"
+  >("ALL");
 
   const [allSchools, setAllSchools] = useState<School[]>([]);
   useEffect(() => {
@@ -198,52 +214,74 @@ export function SchoolLocationSelector() {
   }, []);
 
   const provinces = useMemo(() => extractProvinces(allSchools), [allSchools]);
-  const regencies = useMemo(() => (provinceId ? extractRegencies(allSchools, provinceId) : []), [provinceId, allSchools]);
-  const schools = useMemo(() => (provinceId && regencyId ? allSchools.filter(s => s.province === provinceId && s.regency === regencyId) : []), [provinceId, regencyId, allSchools]);
+  const regencies = useMemo(
+    () => (provinceId ? extractRegencies(allSchools, provinceId) : []),
+    [provinceId, allSchools],
+  );
+  const schools = useMemo(
+    () =>
+      provinceId && regencyId
+        ? allSchools.filter(
+            (s) => s.province === provinceId && s.regency === regencyId,
+          )
+        : [],
+    [provinceId, regencyId, allSchools],
+  );
 
-  // Retrieve current active school selection based on active schoolId
   const selectedSchool = useMemo(() => {
     if (!schoolId) return undefined;
     return allSchools.find((s) => s.id === schoolId);
   }, [schoolId, allSchools]);
 
-  // If a school is active, find its matching province & regency ID
   const selectedSchoolLocationInfo = useMemo(() => {
     if (!selectedSchool) return null;
-    return { provinceId: selectedSchool.province || '', regencyId: selectedSchool.regency || '' };
+    return {
+      provinceId: selectedSchool.province || "",
+      regencyId: selectedSchool.regency || "",
+    };
   }, [selectedSchool]);
 
   const searchResults = useMemo(() => {
     if (globalSearch.trim().length < 2) return [];
     const q = globalSearch.toLowerCase();
     return allSchools
-      .filter(s => s.name.toLowerCase().includes(q) || s.province?.toLowerCase().includes(q) || s.regency?.toLowerCase().includes(q))
+      .filter(
+        (s) =>
+          s.name.toLowerCase().includes(q) ||
+          s.province?.toLowerCase().includes(q) ||
+          s.regency?.toLowerCase().includes(q),
+      )
       .slice(0, 10)
-      .map(s => ({
+      .map((s) => ({
         school: s,
-        provinceName: s.province || '',
-        regencyName: s.regency || ''
+        provinceName: s.province || "",
+        regencyName: s.regency || "",
       }));
   }, [globalSearch, allSchools]);
 
-  // Calculate nearest schools if location is detected
   const nearestSchools = useMemo(() => {
     if (!location) return [];
-    return sortByNearest(allSchools, location.lat, location.lng, 5, levelFilter === 'ALL' ? undefined : [levelFilter as School['level']]);
+    return sortByNearest(
+      allSchools,
+      location.lat,
+      location.lng,
+      5,
+      levelFilter === "ALL" ? undefined : [levelFilter as School["level"]],
+    );
   }, [location, levelFilter, allSchools]);
 
   const handleConfirm = () => {
     if (!selectedSchool || !selectedSchoolLocationInfo) return;
     setSelection(selectedSchool);
     setConfirmed(true);
-    show('School selection saved successfully', 'success');
+    show("School selection saved successfully", "success");
   };
 
   const handleGlobalSelect = (result: SearchSchoolResult) => {
     setProvinceId(result.provinceName);
     setRegencyId(result.regencyName);
     setSchoolId(result.school.id);
-    setGlobalSearch('');
+    setGlobalSearch("");
     setShowGlobalResults(false);
     setConfirmed(false);
   };
@@ -262,18 +300,21 @@ export function SchoolLocationSelector() {
   const getZoneBadge = (distance: number) => {
     if (distance < 1) {
       return {
-        label: 'Zona 1 (Prioritas Utama)',
-        style: 'bg-emerald-100 text-emerald-800 dark:bg-emerald-950/40 dark:text-emerald-400 border-emerald-200 dark:border-emerald-900/30',
+        label: "Zona 1 (Prioritas Utama)",
+        style:
+          "bg-emerald-100 text-emerald-800 dark:bg-emerald-950/40 dark:text-emerald-400 border-emerald-200 dark:border-emerald-900/30",
       };
     } else if (distance < 3) {
       return {
-        label: 'Zona 2 (Radius Dekat)',
-        style: 'bg-blue-100 text-blue-800 dark:bg-blue-950/40 dark:text-blue-400 border-blue-200 dark:border-blue-900/30',
+        label: "Zona 2 (Radius Dekat)",
+        style:
+          "bg-blue-100 text-blue-800 dark:bg-blue-950/40 dark:text-blue-400 border-blue-200 dark:border-blue-900/30",
       };
     }
     return {
-      label: 'Zona 3 (Luar Ring Utama)',
-      style: 'bg-slate-100 text-slate-800 dark:bg-slate-850 dark:text-slate-400 border-slate-200 dark:border-slate-700/30',
+      label: "Zona 3 (Luar Ring Utama)",
+      style:
+        "bg-slate-100 text-slate-800 dark:bg-slate-850 dark:text-slate-400 border-slate-200 dark:border-slate-700/30",
     };
   };
 
@@ -285,15 +326,17 @@ export function SchoolLocationSelector() {
         <div className="absolute -right-10 -top-10 h-48 w-48 rounded-full bg-white/10 blur-3xl" />
         <div className="relative">
           <div className="inline-flex items-center gap-1.5 rounded-full bg-white/15 px-3 py-1 text-xs font-semibold backdrop-blur-sm">
-            <Navigation className="h-3.5 w-3.5" /> {t('school.title')}
+            <Navigation className="h-3.5 w-3.5" /> {t("school.title")}
           </div>
           <h2 className="mt-3 font-display text-2xl font-extrabold tracking-tight sm:text-3xl">
-            {locale === 'id' ? 'Sistem Pemilihan Sekolah & Penentuan Zonasi' : t('school.title')}
+            {locale === "id"
+              ? "Sistem Pemilihan Sekolah & Penentuan Zonasi"
+              : t("school.title")}
           </h2>
           <p className="mt-1.5 max-w-md text-sm text-brand-100">
-            {locale === 'id' 
-              ? 'Tentukan sekolah Anda secara manual atau gunakan sistem GPS terintegrasi untuk kalkulasi zonasi PPDB terdekat.'
-              : t('school.subtitle')}
+            {locale === "id"
+              ? "Tentukan sekolah Anda secara manual atau gunakan sistem GPS terintegrasi untuk kalkulasi zonasi PPDB terdekat."
+              : t("school.subtitle")}
           </p>
         </div>
       </div>
@@ -301,33 +344,35 @@ export function SchoolLocationSelector() {
       {/* Tabs Selector */}
       <div className="flex border-b border-brand-100 dark:border-slate-800">
         <button
-          onClick={() => setActiveTab('manual')}
+          onClick={() => setActiveTab("manual")}
           className={`flex-1 pb-3 text-center text-sm font-semibold transition-all border-b-2 ${
-            activeTab === 'manual'
-              ? 'border-brand-600 text-brand-600 dark:border-brand-500 dark:text-brand-400'
-              : 'border-transparent text-ink-500 hover:text-ink-800 dark:text-slate-400 dark:hover:text-white'
+            activeTab === "manual"
+              ? "border-brand-600 text-brand-600 dark:border-brand-500 dark:text-brand-400"
+              : "border-transparent text-ink-500 hover:text-ink-800 dark:text-slate-400 dark:hover:text-white"
           }`}
         >
-          {locale === 'id' ? '🔍 Pencarian Manual' : '🔍 Manual Search'}
+          {locale === "id" ? "🔍 Pencarian Manual" : "🔍 Manual Search"}
         </button>
         <button
-          onClick={() => setActiveTab('zonasi')}
+          onClick={() => setActiveTab("zonasi")}
           className={`flex-1 pb-3 text-center text-sm font-semibold transition-all border-b-2 ${
-            activeTab === 'zonasi'
-              ? 'border-brand-600 text-brand-600 dark:border-brand-500 dark:text-brand-400'
-              : 'border-transparent text-ink-500 hover:text-ink-800 dark:text-slate-400 dark:hover:text-white'
+            activeTab === "zonasi"
+              ? "border-brand-600 text-brand-600 dark:border-brand-500 dark:text-brand-400"
+              : "border-transparent text-ink-500 hover:text-ink-800 dark:text-slate-400 dark:hover:text-white"
           }`}
         >
-          {locale === 'id' ? '📍 Deteksi Lokasi & Zonasi PPDB' : '📍 Auto Proximity / Zonasi'}
+          {locale === "id"
+            ? "📍 Deteksi Lokasi & Zonasi PPDB"
+            : "📍 Auto Proximity / Zonasi"}
         </button>
       </div>
 
       {/* Manual selection tab */}
-      {activeTab === 'manual' && (
+      {activeTab === "manual" && (
         <div className="glass rounded-2xl p-5 dark:bg-slate-900/60">
           <div className="relative">
             <label className="mb-1.5 block text-xs font-semibold uppercase tracking-wider text-ink-500 dark:text-slate-400">
-              {t('school.quick_search')}
+              {t("school.quick_search")}
             </label>
             <div className="relative">
               <Search className="pointer-events-none absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-ink-400 dark:text-slate-500" />
@@ -339,13 +384,13 @@ export function SchoolLocationSelector() {
                   setShowGlobalResults(true);
                 }}
                 onFocus={() => setShowGlobalResults(true)}
-                placeholder={t('school.search')}
+                placeholder={t("school.search")}
                 className="w-full rounded-xl border border-brand-100 bg-white/70 py-3 pl-10 pr-10 text-sm text-ink-900 outline-none transition-all placeholder:text-ink-400 focus:border-brand-300 focus:ring-2 focus:ring-brand-100 dark:border-slate-700 dark:bg-slate-800/70 dark:text-white dark:placeholder:text-slate-500"
               />
               {globalSearch && (
                 <button
                   onClick={() => {
-                    setGlobalSearch('');
+                    setGlobalSearch("");
                     setShowGlobalResults(false);
                   }}
                   className="absolute right-3 top-1/2 -translate-y-1/2 rounded-full p-1 text-ink-400 hover:bg-brand-50 dark:hover:bg-slate-700"
@@ -359,7 +404,10 @@ export function SchoolLocationSelector() {
             <AnimatePresence>
               {showGlobalResults && searchResults.length > 0 && (
                 <>
-                  <div className="fixed inset-0 z-10" onClick={() => setShowGlobalResults(false)} />
+                  <div
+                    className="fixed inset-0 z-10"
+                    onClick={() => setShowGlobalResults(false)}
+                  />
                   <motion.div
                     initial={{ opacity: 0, y: -8 }}
                     animate={{ opacity: 1, y: 0 }}
@@ -375,12 +423,16 @@ export function SchoolLocationSelector() {
                       >
                         <SchoolIcon className="mt-0.5 h-4 w-4 shrink-0 text-brand-500" />
                         <div className="min-w-0">
-                          <p className="truncate text-sm font-semibold text-ink-900 dark:text-white">{r.school.name}</p>
+                          <p className="truncate text-sm font-semibold text-ink-900 dark:text-white">
+                            {r.school.name}
+                          </p>
                           <p className="truncate text-xs text-ink-500 dark:text-slate-400">
                             {r.regencyName}, {r.provinceName}
                           </p>
                         </div>
-                        <span className={`ml-auto shrink-0 rounded-full px-2 py-0.5 text-[10px] font-bold ${riskStyles[r.school.risk].bg} ${riskStyles[r.school.risk].text}`}>
+                        <span
+                          className={`ml-auto shrink-0 rounded-full px-2 py-0.5 text-[10px] font-bold ${riskStyles[r.school.risk].bg} ${riskStyles[r.school.risk].text}`}
+                        >
                           {r.school.risk}
                         </span>
                       </button>
@@ -394,44 +446,46 @@ export function SchoolLocationSelector() {
           {/* Divider */}
           <div className="my-5 flex items-center gap-3">
             <div className="h-px flex-1 bg-brand-100 dark:bg-slate-700" />
-            <span className="text-xs font-medium text-ink-400 dark:text-slate-500">{t('school.or_manual')}</span>
+            <span className="text-xs font-medium text-ink-400 dark:text-slate-500">
+              {t("school.or_manual")}
+            </span>
             <div className="h-px flex-1 bg-brand-100 dark:bg-slate-700" />
           </div>
 
           {/* Cascading dropdowns */}
           <div className="grid gap-4 sm:grid-cols-3">
             <SearchableDropdown
-              label={t('school.province')}
+              label={t("school.province")}
               icon={MapPin}
               value={provinceId}
               options={provinces}
-              placeholder={t('school.province')}
+              placeholder={t("school.province")}
               onChange={(id) => {
                 setProvinceId(id);
-                setRegencyId('');
-                setSchoolId('');
+                setRegencyId("");
+                setSchoolId("");
                 setConfirmed(false);
               }}
             />
             <SearchableDropdown
-              label={t('school.regency')}
+              label={t("school.regency")}
               icon={Building2}
               value={regencyId}
               options={regencies}
-              placeholder={t('school.regency')}
+              placeholder={t("school.regency")}
               disabled={!provinceId}
               onChange={(id) => {
                 setRegencyId(id);
-                setSchoolId('');
+                setSchoolId("");
                 setConfirmed(false);
               }}
             />
             <SearchableDropdown
-              label={t('school.select')}
+              label={t("school.select")}
               icon={SchoolIcon}
               value={schoolId}
               options={schools}
-              placeholder={t('school.select')}
+              placeholder={t("school.select")}
               disabled={!regencyId}
               onChange={(id) => {
                 setSchoolId(id);
@@ -443,78 +497,94 @@ export function SchoolLocationSelector() {
       )}
 
       {/* Zonasi / Proximity selection tab */}
-      {activeTab === 'zonasi' && (
+      {activeTab === "zonasi" && (
         <div className="glass rounded-2xl p-5 dark:bg-slate-900/60 space-y-6">
           {/* Geo Detection Card */}
           <div className="flex flex-col sm:flex-row items-center justify-between gap-4 p-4 rounded-xl border border-brand-100 bg-brand-50/20 dark:border-slate-800 dark:bg-slate-900/20">
             <div className="flex items-center gap-3">
               <div className="relative flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-brand-100 text-brand-600 dark:bg-slate-800 dark:text-brand-400">
-                <Locate className={`h-5 w-5 ${locStatus === 'loading' ? 'animate-spin' : ''}`} />
-                {locStatus === 'loading' && (
+                <Locate
+                  className={`h-5 w-5 ${locStatus === "loading" ? "animate-spin" : ""}`}
+                />
+                {locStatus === "loading" && (
                   <span className="absolute -inset-1 rounded-full border-2 border-brand-500 border-t-transparent animate-spin" />
                 )}
               </div>
               <div>
                 <h4 className="text-sm font-bold text-ink-900 dark:text-white">
-                  {locale === 'id' ? 'Layanan GPS Zonasi PPDB' : 'PPDB Proximity Geolocation'}
+                  {locale === "id"
+                    ? "Layanan GPS Zonasi PPDB"
+                    : "PPDB Proximity Geolocation"}
                 </h4>
                 <p className="text-xs text-ink-500 dark:text-slate-400">
-                  {locStatus === 'success' && location
+                  {locStatus === "success" && location
                     ? `Lokasi terdeteksi: Lintang ${location.lat.toFixed(4)}°, Bujur ${location.lng.toFixed(4)}°`
-                    : locale === 'id' 
-                      ? 'Gunakan GPS browser Anda untuk mendeteksi sekolah dalam radius terdekat.'
-                      : 'Detect your browser location to compute nearby schools within zoning rings.'
-                  }
+                    : locale === "id"
+                      ? "Gunakan GPS browser Anda untuk mendeteksi sekolah dalam radius terdekat."
+                      : "Detect your browser location to compute nearby schools within zoning rings."}
                 </p>
               </div>
             </div>
             <button
               onClick={detectLoc}
-              disabled={locStatus === 'loading'}
+              disabled={locStatus === "loading"}
               className="flex items-center gap-2 rounded-xl bg-brand-600 px-4 py-2 text-xs font-bold text-white hover:bg-brand-700 disabled:opacity-50 transition-all shadow-glow"
             >
               <Compass className="h-4 w-4" />
-              {locStatus === 'loading' 
-                ? (locale === 'id' ? 'Mendeteksi...' : 'Detecting...') 
-                : (locale === 'id' ? 'Deteksi Lokasi Saya' : 'Detect My Location')
-              }
+              {locStatus === "loading"
+                ? locale === "id"
+                  ? "Mendeteksi..."
+                  : "Detecting..."
+                : locale === "id"
+                  ? "Deteksi Lokasi Saya"
+                  : "Detect My Location"}
             </button>
           </div>
 
           {/* Show location error */}
-          {locStatus === 'error' && locError && (
+          {locStatus === "error" && locError && (
             <div className="flex items-start gap-2.5 rounded-xl border border-red-200 bg-red-50 p-3 text-red-800 dark:border-red-900/30 dark:bg-red-950/20 dark:text-red-400 text-xs">
               <AlertTriangle className="h-4 w-4 shrink-0 text-red-500" />
               <div>
-                <p className="font-bold">{locale === 'id' ? 'Kesalahan Sensor GPS' : 'GPS Sensor Error'}</p>
+                <p className="font-bold">
+                  {locale === "id"
+                    ? "Kesalahan Sensor GPS"
+                    : "GPS Sensor Error"}
+                </p>
                 <p className="mt-0.5">{locError}</p>
               </div>
             </div>
           )}
 
           {/* Proximity Results */}
-          {locStatus === 'success' && location && (
+          {locStatus === "success" && location && (
             <div className="space-y-4">
               {/* Level Filter Header */}
               <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-brand-50 pb-3 dark:border-slate-800">
                 <div className="flex items-center gap-2">
                   <SlidersHorizontal className="h-4 w-4 text-brand-500" />
                   <span className="text-xs font-bold text-ink-700 dark:text-slate-300">
-                    {locale === 'id' ? 'Filter Tingkat Sekolah:' : 'Filter School Level:'}
+                    {locale === "id"
+                      ? "Filter Tingkat Sekolah:"
+                      : "Filter School Level:"}
                   </span>
                 </div>
                 <div className="flex flex-wrap gap-1.5">
-                  {(['ALL', 'SD', 'SMP', 'SMA', 'SMK'] as const).map((lvl) => (
+                  {(["ALL", "SD", "SMP", "SMA", "SMK"] as const).map((lvl) => (
                     <button
                       key={lvl}
                       onClick={() => setLevelFilter(lvl)}
                       className={`rounded-lg px-2.5 py-1 text-[11px] font-bold transition-all ${
                         levelFilter === lvl
-                          ? 'bg-brand-600 text-white shadow-glow'
-                          : 'bg-brand-50 text-ink-700 hover:bg-brand-100 dark:bg-slate-800 dark:text-slate-300 dark:hover:bg-slate-700'
+                          ? "bg-brand-600 text-white shadow-glow"
+                          : "bg-brand-50 text-ink-700 hover:bg-brand-100 dark:bg-slate-800 dark:text-slate-300 dark:hover:bg-slate-700"
                       }`}
                     >
-                      {lvl === 'ALL' ? (locale === 'id' ? 'Semua' : 'All') : lvl}
+                      {lvl === "ALL"
+                        ? locale === "id"
+                          ? "Semua"
+                          : "All"
+                        : lvl}
                     </button>
                   ))}
                 </div>
@@ -525,10 +595,9 @@ export function SchoolLocationSelector() {
                 <div className="text-center py-8 border border-dashed border-brand-100 rounded-xl">
                   <Info className="mx-auto h-6 w-6 text-ink-400 mb-1.5" />
                   <p className="text-xs text-ink-500 dark:text-slate-400">
-                    {locale === 'id' 
-                      ? 'Tidak ditemukan sekolah dengan filter ini di sekitar Anda.' 
-                      : 'No schools found near your location with the active filters.'
-                    }
+                    {locale === "id"
+                      ? "Tidak ditemukan sekolah dengan filter ini di sekitar Anda."
+                      : "No schools found near your location with the active filters."}
                   </p>
                 </div>
               ) : (
@@ -539,15 +608,23 @@ export function SchoolLocationSelector() {
                     return (
                       <button
                         key={item.school.id}
-                        onClick={() => handleNearSelect(item.school, item.provinceName, item.regencyName)}
+                        onClick={() =>
+                          handleNearSelect(
+                            item.school,
+                            item.provinceName,
+                            item.regencyName,
+                          )
+                        }
                         className={`flex flex-col items-start p-4 rounded-xl border text-left transition-all ${
                           isSchSelected
-                            ? 'border-brand-500 bg-brand-50/60 dark:bg-brand-950/20 ring-2 ring-brand-500/20'
-                            : 'border-brand-100 bg-white hover:border-brand-300 dark:border-slate-700 dark:bg-slate-800 dark:hover:border-slate-600'
+                            ? "border-brand-500 bg-brand-50/60 dark:bg-brand-950/20 ring-2 ring-brand-500/20"
+                            : "border-brand-100 bg-white hover:border-brand-300 dark:border-slate-700 dark:bg-slate-800 dark:hover:border-slate-600"
                         }`}
                       >
                         <div className="flex w-full items-start justify-between gap-1">
-                          <span className={`rounded-full px-2 py-0.5 text-[9px] font-bold ${riskStyles[item.school.risk].bg} ${riskStyles[item.school.risk].text}`}>
+                          <span
+                            className={`rounded-full px-2 py-0.5 text-[9px] font-bold ${riskStyles[item.school.risk].bg} ${riskStyles[item.school.risk].text}`}
+                          >
                             {item.school.risk} Risk
                           </span>
                           <span className="text-[10px] font-bold text-brand-600 dark:text-brand-400">
@@ -561,7 +638,9 @@ export function SchoolLocationSelector() {
                           {item.regencyName}, {item.provinceName}
                         </p>
                         <div className="mt-3 flex w-full items-center justify-between gap-1 border-t border-brand-50/50 pt-2 dark:border-slate-700/50">
-                          <span className={`rounded-lg border px-1.5 py-0.5 text-[8px] font-bold ${zone.style}`}>
+                          <span
+                            className={`rounded-lg border px-1.5 py-0.5 text-[8px] font-bold ${zone.style}`}
+                          >
                             {zone.label}
                           </span>
                           <span className="text-[9px] font-bold uppercase text-brand-500 bg-brand-50 dark:bg-slate-900 px-1.5 py-0.5 rounded">
@@ -577,14 +656,13 @@ export function SchoolLocationSelector() {
           )}
 
           {/* Location prompt if not success */}
-          {locStatus === 'idle' && (
+          {locStatus === "idle" && (
             <div className="text-center py-8 border border-dashed border-brand-100 rounded-xl dark:border-slate-800">
               <Compass className="mx-auto h-8 w-8 text-brand-400 animate-pulse mb-2" />
               <p className="text-xs text-ink-500 dark:text-slate-400 max-w-sm mx-auto">
-                {locale === 'id' 
+                {locale === "id"
                   ? 'Klik tombol "Deteksi Lokasi Saya" di atas untuk mencari sekolah dalam zona radius terdekat dari koordinat GPS Anda saat ini.'
-                  : 'Click the detection button to retrieve nearest schools. Distances will be calculated using GPS coordinates.'
-                }
+                  : "Click the detection button to retrieve nearest schools. Distances will be calculated using GPS coordinates."}
               </p>
             </div>
           )}
@@ -596,7 +674,7 @@ export function SchoolLocationSelector() {
         {selectedSchool && (
           <motion.div
             initial={{ opacity: 0, height: 0 }}
-            animate={{ opacity: 1, height: 'auto' }}
+            animate={{ opacity: 1, height: "auto" }}
             exit={{ opacity: 0, height: 0 }}
             className="overflow-hidden"
           >
@@ -612,10 +690,12 @@ export function SchoolLocationSelector() {
                   </h3>
                   <div className="mt-1 flex flex-wrap items-center gap-2 text-xs text-ink-500 dark:text-slate-400">
                     <span className="inline-flex items-center gap-1 rounded-full bg-brand-50 px-2.5 py-1 font-medium text-ink-700 dark:bg-slate-700 dark:text-slate-300">
-                      <MapPin className="h-3 w-3" /> {selectedSchoolLocationInfo?.provinceId}
+                      <MapPin className="h-3 w-3" />{" "}
+                      {selectedSchoolLocationInfo?.provinceId}
                     </span>
                     <span className="inline-flex items-center gap-1 rounded-full bg-brand-50 px-2.5 py-1 font-medium text-ink-700 dark:bg-slate-700 dark:text-slate-300">
-                      <Building2 className="h-3 w-3" /> {selectedSchoolLocationInfo?.regencyId}
+                      <Building2 className="h-3 w-3" />{" "}
+                      {selectedSchoolLocationInfo?.regencyId}
                     </span>
                     <span>·</span>
                     <span className="flex items-center gap-1">
@@ -623,7 +703,11 @@ export function SchoolLocationSelector() {
                       {selectedSchool.level}
                     </span>
                     <span>·</span>
-                    <span>{selectedSchool.isPublic ? t('school.public') : t('school.private')}</span>
+                    <span>
+                      {selectedSchool.isPublic
+                        ? t("school.public")
+                        : t("school.private")}
+                    </span>
                   </div>
                 </div>
               </div>
@@ -632,17 +716,24 @@ export function SchoolLocationSelector() {
               <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
                 {/* Coordinates */}
                 <div className="rounded-xl border border-brand-100 bg-brand-50/40 p-4 dark:border-slate-700 dark:bg-slate-800/40">
-                  <p className="text-[10px] font-semibold uppercase tracking-wider text-ink-400 dark:text-slate-500">{t('school.coordinates')}</p>
+                  <p className="text-[10px] font-semibold uppercase tracking-wider text-ink-400 dark:text-slate-500">
+                    {t("school.coordinates")}
+                  </p>
                   <p className="mt-1 text-sm font-semibold text-ink-900 dark:text-white">
-                    {selectedSchool.lat.toFixed(4)}°, {selectedSchool.lng.toFixed(4)}°
+                    {selectedSchool.lat.toFixed(4)}°,{" "}
+                    {selectedSchool.lng.toFixed(4)}°
                   </p>
                 </div>
 
                 {/* Hazard Category */}
                 <div className="rounded-xl border border-brand-100 bg-brand-50/40 p-4 dark:border-slate-700 dark:bg-slate-800/40">
-                  <p className="text-[10px] font-semibold uppercase tracking-wider text-ink-400 dark:text-slate-500">{t('school.hazard_category')}</p>
+                  <p className="text-[10px] font-semibold uppercase tracking-wider text-ink-400 dark:text-slate-500">
+                    {t("school.hazard_category")}
+                  </p>
                   {riskStyle && (
-                    <span className={`mt-1 inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-xs font-bold ${riskStyle.bg} ${riskStyle.text}`}>
+                    <span
+                      className={`mt-1 inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-xs font-bold ${riskStyle.bg} ${riskStyle.text}`}
+                    >
                       <AlertTriangle className="h-3 w-3" />
                       {selectedSchool.risk}
                     </span>
@@ -651,12 +742,19 @@ export function SchoolLocationSelector() {
 
                 {/* Disaster Risk Level */}
                 <div className="rounded-xl border border-brand-100 bg-brand-50/40 p-4 dark:border-slate-700 dark:bg-slate-800/40">
-                  <p className="text-[10px] font-semibold uppercase tracking-wider text-ink-400 dark:text-slate-500">{t('school.risk_level')}</p>
+                  <p className="text-[10px] font-semibold uppercase tracking-wider text-ink-400 dark:text-slate-500">
+                    {t("school.risk_level")}
+                  </p>
                   <div className="mt-1.5 flex items-center gap-2">
                     <div className="h-2 flex-1 overflow-hidden rounded-full bg-brand-100 dark:bg-slate-700">
                       <div
                         className={`h-full rounded-full ${hazardColor(
-                          (selectedSchool.earthquake + selectedSchool.flood + selectedSchool.landslide + selectedSchool.volcanic + selectedSchool.tsunami) / 5
+                          (selectedSchool.earthquake +
+                            selectedSchool.flood +
+                            selectedSchool.landslide +
+                            selectedSchool.volcanic +
+                            selectedSchool.tsunami) /
+                            5,
                         )}`}
                         style={{
                           width: `${(selectedSchool.earthquake + selectedSchool.flood + selectedSchool.landslide + selectedSchool.volcanic + selectedSchool.tsunami) / 5}%`,
@@ -664,7 +762,15 @@ export function SchoolLocationSelector() {
                       />
                     </div>
                     <span className="text-sm font-bold text-ink-900 dark:text-white">
-                      {Math.round((selectedSchool.earthquake + selectedSchool.flood + selectedSchool.landslide + selectedSchool.volcanic + selectedSchool.tsunami) / 5)}%
+                      {Math.round(
+                        (selectedSchool.earthquake +
+                          selectedSchool.flood +
+                          selectedSchool.landslide +
+                          selectedSchool.volcanic +
+                          selectedSchool.tsunami) /
+                          5,
+                      )}
+                      %
                     </span>
                   </div>
                 </div>
@@ -672,21 +778,35 @@ export function SchoolLocationSelector() {
 
               {/* Hazard breakdown */}
               <div>
-                <p className="mb-3 text-xs font-bold uppercase tracking-wider text-ink-400 dark:text-slate-500">{t('school.risk_profile')}</p>
+                <p className="mb-3 text-xs font-bold uppercase tracking-wider text-ink-400 dark:text-slate-500">
+                  {t("school.risk_profile")}
+                </p>
                 <div className="grid gap-3 sm:grid-cols-5">
                   {hazardIcons.map((h) => {
-                    const value = selectedSchool[h.key as keyof typeof selectedSchool] as number;
+                    const value = selectedSchool[
+                      h.key as keyof typeof selectedSchool
+                    ] as number;
                     return (
-                      <div key={h.label} className="rounded-xl border border-brand-100 p-3 dark:border-slate-700">
+                      <div
+                        key={h.label}
+                        className="rounded-xl border border-brand-100 p-3 dark:border-slate-700"
+                      >
                         <div className="flex items-center gap-2">
                           <h.icon className="h-4 w-4 text-brand-500" />
-                          <span className="text-xs font-medium text-ink-600 dark:text-slate-300">{h.label}</span>
+                          <span className="text-xs font-medium text-ink-600 dark:text-slate-300">
+                            {h.label}
+                          </span>
                         </div>
                         <div className="mt-2 flex items-center gap-2">
                           <div className="h-1.5 flex-1 overflow-hidden rounded-full bg-brand-50 dark:bg-slate-800">
-                            <div className={`h-full rounded-full ${hazardColor(value)}`} style={{ width: `${value}%` }} />
+                            <div
+                              className={`h-full rounded-full ${hazardColor(value)}`}
+                              style={{ width: `${value}%` }}
+                            />
                           </div>
-                          <span className="text-xs font-bold text-ink-900 dark:text-white">${value}%</span>
+                          <span className="text-xs font-bold text-ink-900 dark:text-white">
+                            ${value}%
+                          </span>
                         </div>
                       </div>
                     );
@@ -696,10 +816,15 @@ export function SchoolLocationSelector() {
 
               {/* Recommended modules */}
               <div>
-                <p className="mb-3 text-xs font-bold uppercase tracking-wider text-ink-400 dark:text-slate-500">{t('school.rec_modules')}</p>
+                <p className="mb-3 text-xs font-bold uppercase tracking-wider text-ink-400 dark:text-slate-500">
+                  {t("school.rec_modules")}
+                </p>
                 <div className="flex flex-wrap gap-2">
                   {modules.map((m) => (
-                    <span key={m} className="inline-flex items-center gap-1.5 rounded-full border border-brand-200 bg-brand-50/60 px-3 py-1.5 text-xs font-medium text-brand-700 dark:border-slate-700 dark:bg-slate-800/60 dark:text-brand-400">
+                    <span
+                      key={m}
+                      className="inline-flex items-center gap-1.5 rounded-full border border-brand-200 bg-brand-50/60 px-3 py-1.5 text-xs font-medium text-brand-700 dark:border-slate-700 dark:bg-slate-800/60 dark:text-brand-400"
+                    >
                       <BookOpen className="h-3 w-3" />
                       {m}
                     </span>
@@ -710,34 +835,52 @@ export function SchoolLocationSelector() {
               {/* Evacuation info */}
               {evacInfo && (
                 <div>
-                  <p className="mb-3 text-xs font-bold uppercase tracking-wider text-ink-400 dark:text-slate-500">{t('school.evac_info')}</p>
+                  <p className="mb-3 text-xs font-bold uppercase tracking-wider text-ink-400 dark:text-slate-500">
+                    {t("school.evac_info")}
+                  </p>
                   <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
                     <div className="flex items-start gap-3 rounded-xl border border-brand-100 p-3 dark:border-slate-700">
                       <Route className="mt-0.5 h-4 w-4 shrink-0 text-brand-500" />
                       <div>
-                        <p className="text-xs font-semibold text-ink-900 dark:text-white">{t('school.evac_route')}</p>
-                        <p className="text-[11px] text-ink-500 dark:text-slate-400">{evacInfo.route}</p>
+                        <p className="text-xs font-semibold text-ink-900 dark:text-white">
+                          {t("school.evac_route")}
+                        </p>
+                        <p className="text-[11px] text-ink-500 dark:text-slate-400">
+                          {evacInfo.route}
+                        </p>
                       </div>
                     </div>
                     <div className="flex items-start gap-3 rounded-xl border border-brand-100 p-3 dark:border-slate-700">
                       <Shield className="mt-0.5 h-4 w-4 shrink-0 text-brand-500" />
                       <div>
-                        <p className="text-xs font-semibold text-ink-900 dark:text-white">{t('school.assembly_pt')}</p>
-                        <p className="text-[11px] text-ink-500 dark:text-slate-400">{evacInfo.assemblyPoint}</p>
+                        <p className="text-xs font-semibold text-ink-900 dark:text-white">
+                          {t("school.assembly_pt")}
+                        </p>
+                        <p className="text-[11px] text-ink-500 dark:text-slate-400">
+                          {evacInfo.assemblyPoint}
+                        </p>
                       </div>
                     </div>
                     <div className="flex items-start gap-3 rounded-xl border border-brand-100 p-3 dark:border-slate-700">
                       <Home className="mt-0.5 h-4 w-4 shrink-0 text-brand-500" />
                       <div>
-                        <p className="text-xs font-semibold text-ink-900 dark:text-white">{t('school.shelter')}</p>
-                        <p className="text-[11px] text-ink-500 dark:text-slate-400">{evacInfo.shelter}</p>
+                        <p className="text-xs font-semibold text-ink-900 dark:text-white">
+                          {t("school.shelter")}
+                        </p>
+                        <p className="text-[11px] text-ink-500 dark:text-slate-400">
+                          {evacInfo.shelter}
+                        </p>
                       </div>
                     </div>
                     <div className="flex items-start gap-3 rounded-xl border border-brand-100 p-3 dark:border-slate-700">
                       <Clock className="mt-0.5 h-4 w-4 shrink-0 text-brand-500" />
                       <div>
-                        <p className="text-xs font-semibold text-ink-900 dark:text-white">{t('school.est_time')}</p>
-                        <p className="text-[11px] text-ink-500 dark:text-slate-400">{evacInfo.estimatedTime}</p>
+                        <p className="text-xs font-semibold text-ink-900 dark:text-white">
+                          {t("school.est_time")}
+                        </p>
+                        <p className="text-[11px] text-ink-500 dark:text-slate-400">
+                          {evacInfo.estimatedTime}
+                        </p>
                       </div>
                     </div>
                   </div>
@@ -750,15 +893,15 @@ export function SchoolLocationSelector() {
                   onClick={clearSelection}
                   className="rounded-full px-6 py-3 text-sm font-semibold text-ink-600 transition-colors hover:bg-brand-50 dark:text-slate-300 dark:hover:bg-slate-800"
                 >
-                  {t('school.cancel')}
+                  {t("school.cancel")}
                 </button>
                 <button
                   onClick={handleConfirm}
                   disabled={confirmed}
                   className={`inline-flex items-center justify-center gap-2 rounded-full px-8 py-3 text-sm font-semibold transition-all ${
                     confirmed
-                      ? 'bg-brand-100 text-brand-700 dark:bg-brand-900/40 dark:text-brand-400'
-                      : 'bg-brand-600 text-white hover:bg-brand-700 hover:-translate-y-0.5 hover:shadow-glow'
+                      ? "bg-brand-100 text-brand-700 dark:bg-brand-900/40 dark:text-brand-400"
+                      : "bg-brand-600 text-white hover:bg-brand-700 hover:-translate-y-0.5 hover:shadow-glow"
                   }`}
                 >
                   {confirmed ? (
@@ -775,7 +918,7 @@ export function SchoolLocationSelector() {
                   <motion.button
                     initial={{ opacity: 0, x: -10 }}
                     animate={{ opacity: 1, x: 0 }}
-                    onClick={() => navigate('/app/geo-risk-map')}
+                    onClick={() => navigate("/app/geo-risk-map")}
                     className="inline-flex items-center justify-center gap-2 rounded-full border border-brand-200 bg-white/70 px-6 py-3 text-sm font-semibold text-brand-700 transition-all hover:bg-white hover:-translate-y-0.5 dark:border-slate-700 dark:bg-slate-800/70 dark:text-brand-400"
                   >
                     View on Risk Map <ArrowRight className="h-4 w-4" />
@@ -786,7 +929,7 @@ export function SchoolLocationSelector() {
                     initial={{ opacity: 0, x: -10 }}
                     animate={{ opacity: 1, x: 0 }}
                     transition={{ delay: 0.1 }}
-                    onClick={() => navigate('/app/ai-learning')}
+                    onClick={() => navigate("/app/ai-learning")}
                     className="inline-flex items-center justify-center gap-2 rounded-full border border-brand-200 bg-white/70 px-6 py-3 text-sm font-semibold text-brand-700 transition-all hover:bg-white hover:-translate-y-0.5 dark:border-slate-700 dark:bg-slate-800/70 dark:text-brand-400"
                   >
                     Continue to Learning <ArrowRight className="h-4 w-4" />
@@ -803,7 +946,8 @@ export function SchoolLocationSelector() {
         <div className="rounded-xl border border-brand-200 bg-brand-50/60 p-4 dark:border-brand-900/40 dark:bg-brand-950/20">
           <p className="text-sm text-brand-700 dark:text-brand-400">
             <CheckCircle2 className="mr-1.5 inline h-4 w-4" />
-            Current selection: <strong>{selection.school.name}</strong> — {selection.regencyName}, {selection.provinceName}
+            Current selection: <strong>{selection.school.name}</strong> —{" "}
+            {selection.regencyName}, {selection.provinceName}
           </p>
         </div>
       )}

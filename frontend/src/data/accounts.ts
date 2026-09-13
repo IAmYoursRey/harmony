@@ -46,9 +46,7 @@ export async function registerAccount(
   } catch (err: unknown) {
     return { success: false, error: err instanceof Error ? err.message : 'Register error' };
   }
-}
-
-// Provision an account without modifying the current session
+}
 export async function provisionAccount(
   name: string,
   email: string,
@@ -84,12 +82,11 @@ export async function updateAccount(
 
 export async function getAllAccounts(): Promise<UserAccount[]> {
   try {
-    const data = await apiClient.get('/api/users');
-    return data.users || [];
+    const data = await apiClient.get('/api/profile/accounts');
+    return data.accounts || [];
   } catch {
     return [];
   }
 }
 
 export function hashPassword(pw: string) { return pw; } // Stub for frontend
-

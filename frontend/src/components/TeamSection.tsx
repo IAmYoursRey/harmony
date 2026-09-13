@@ -1,5 +1,11 @@
-import { Code2, Palette, BarChart3, Sparkles, type LucideIcon } from 'lucide-react';
-import { useI18n } from '@/hooks/useI18n';
+import {
+  Code2,
+  Palette,
+  BarChart3,
+  Sparkles,
+  type LucideIcon,
+} from "lucide-react";
+import { useI18n } from "@/hooks/useI18n";
 
 interface TeamMember {
   initials: string;
@@ -11,50 +17,50 @@ interface TeamMember {
 
 const members: TeamMember[] = [
   {
-    initials: 'AN',
-    name: 'Alvira Fitriatun Nizha',
-    roleKey: 'about.team.an.role',
-    subtitleKey: 'about.team.an.subtitle',
+    initials: "AN",
+    name: "Alvira Fitriatun Nizha",
+    roleKey: "about.team.an.role",
+    subtitleKey: "about.team.an.subtitle",
     icon: Code2,
   },
   {
-    initials: 'AK',
-    name: 'Aretha Kirana Putri Junaidi',
-    roleKey: 'about.team.ak.role',
-    subtitleKey: 'about.team.ak.subtitle',
+    initials: "AK",
+    name: "Aretha Kirana Putri Junaidi",
+    roleKey: "about.team.ak.role",
+    subtitleKey: "about.team.ak.subtitle",
     icon: Palette,
   },
   {
-    initials: 'SN',
-    name: 'Sinta Nadhifah',
-    roleKey: 'about.team.sn.role',
-    subtitleKey: 'about.team.sn.subtitle',
+    initials: "SN",
+    name: "Sinta Nadhifah",
+    roleKey: "about.team.sn.role",
+    subtitleKey: "about.team.sn.subtitle",
     icon: BarChart3,
   },
 ];
 
 interface TeamSectionProps {
   heading?: string;
-  variant?: 'card' | 'section';
+  variant?: "card" | "section";
 }
 
-export function TeamSection({ heading, variant = 'card' }: TeamSectionProps) {
+export function TeamSection({ heading, variant = "card" }: TeamSectionProps) {
   const { t } = useI18n();
-  const title = heading ?? t('about.team.title');
+  const title = heading ?? t("about.team.title");
 
-  if (variant === 'section') {
+  if (variant === "section") {
     return (
       <section id="team" className="relative py-20 sm:py-28">
         <div className="section-container">
           <div className="mx-auto max-w-2xl text-center">
             <span className="text-sm font-semibold uppercase tracking-wider text-brand-600">
-              {t('about.team.label')}
+              {t("about.team.label")}
             </span>
             <h2 className="mt-3 font-display text-3xl font-extrabold tracking-tight text-ink-900 sm:text-4xl">
               {title}
             </h2>
             <p className="mt-4 text-ink-600 dark:text-slate-300">
-              {t('about.team.desc')}
+              {t("about.team.desc")}
             </p>
           </div>
 
@@ -75,29 +81,38 @@ export function TeamSection({ heading, variant = 'card' }: TeamSectionProps) {
                     <m.icon className="h-4 w-4" strokeWidth={2} />
                   </span>
                 </div>
-                <h3 className="mt-5 font-display text-base font-bold text-ink-900 dark:text-white">{m.name}</h3>
-                <p className="mt-1 text-sm font-semibold text-brand-600">{t(m.roleKey)}</p>
-                <p className="mt-0.5 text-xs text-ink-500 dark:text-slate-400">{t(m.subtitleKey)}</p>
+                <h3 className="mt-5 font-display text-base font-bold text-ink-900 dark:text-white">
+                  {m.name}
+                </h3>
+                <p className="mt-1 text-sm font-semibold text-brand-600">
+                  {t(m.roleKey)}
+                </p>
+                <p className="mt-0.5 text-xs text-ink-500 dark:text-slate-400">
+                  {t(m.subtitleKey)}
+                </p>
               </article>
             ))}
           </div>
 
           <p className="mt-10 text-center text-sm font-medium text-ink-400 dark:text-slate-500">
-            {t('about.team.footer')}
+            {t("about.team.footer")}
           </p>
         </div>
       </section>
     );
   }
 
-  // Dashboard card variant
   return (
     <div className="glass rounded-2xl p-5 transition-all hover:shadow-glass">
       <div className="mb-1 flex items-center gap-2">
         <Sparkles className="h-5 w-5 text-brand-600" />
-        <h3 className="font-display text-base font-bold text-ink-900 dark:text-white">{title}</h3>
+        <h3 className="font-display text-base font-bold text-ink-900 dark:text-white">
+          {title}
+        </h3>
       </div>
-      <p className="mb-5 text-xs text-ink-500 dark:text-slate-400">SMA Negeri 1 Ngoro · Mojokerto, East Java</p>
+      <p className="mb-5 text-xs text-ink-500 dark:text-slate-400">
+        SMA Negeri 1 Ngoro · Mojokerto, East Java
+      </p>
 
       <div className="grid gap-4 sm:grid-cols-3">
         {members.map((m) => (
@@ -115,15 +130,21 @@ export function TeamSection({ heading, variant = 'card' }: TeamSectionProps) {
                 <m.icon className="h-3.5 w-3.5" strokeWidth={2} />
               </span>
             </div>
-            <h4 className="mt-3 text-sm font-bold leading-tight text-ink-900 dark:text-white">{m.name}</h4>
-            <p className="mt-1 text-xs font-semibold text-brand-600">{t(m.roleKey)}</p>
-            <p className="mt-0.5 text-[11px] text-ink-500 dark:text-slate-400">{t(m.subtitleKey)}</p>
+            <h4 className="mt-3 text-sm font-bold leading-tight text-ink-900 dark:text-white">
+              {m.name}
+            </h4>
+            <p className="mt-1 text-xs font-semibold text-brand-600">
+              {t(m.roleKey)}
+            </p>
+            <p className="mt-0.5 text-[11px] text-ink-500 dark:text-slate-400">
+              {t(m.subtitleKey)}
+            </p>
           </div>
         ))}
       </div>
 
       <p className="mt-5 text-center text-xs font-medium text-ink-400 dark:text-slate-500">
-        {t('about.team.footer')}
+        {t("about.team.footer")}
       </p>
     </div>
   );

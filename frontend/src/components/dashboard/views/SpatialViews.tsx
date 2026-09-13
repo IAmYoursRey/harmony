@@ -1,2 +1,2 @@
-export * from './spatial/GeoRiskMapView';
-export * from './spatial/DigitalTwinView';
+export * from "./spatial/GeoRiskMapView";
+export * from "./spatial/DigitalTwinView";

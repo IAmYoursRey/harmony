@@ -1,2 +1,2 @@
-export * from './learning/AILearningView';
-export * from './learning/DisasterQuestionView';
+export * from "./learning/AILearningView";
+export * from "./learning/DisasterQuestionView";

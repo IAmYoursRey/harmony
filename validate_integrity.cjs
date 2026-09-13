@@ -4,14 +4,11 @@ const db = JSON.parse(fs.readFileSync('backend/database.json', 'utf8'));
 
 let errors = [];
 
-// Every teacher has valid class? 
-// Not necessarily (a new teacher might not have a class), but we check if all classes belong to a valid teacher
 db.classes.forEach(c => {
   const t = db.accounts.find(a => a.id === c.teacherId && (a.role === 'teacher' || a.role === 'dev'));
   if (!t) errors.push(`Class ${c.id} has invalid teacherId ${c.teacherId}`);
 });
 
-// Every student has valid class
 const students = db.accounts.filter(a => a.role === 'student');
 students.forEach(s => {
   const p = db.profiles.find(p => p.userId === s.id);
@@ -22,7 +19,6 @@ students.forEach(s => {
     }
 });
 
-// Every result has valid student and belongs to valid class
 (db.dtResults || []).forEach(r => {
   const s = db.accounts.find(a => a.id === r.userId);
   if (!s) errors.push(`Result ${r.id} has invalid student ${r.userId}`);
@@ -32,7 +28,6 @@ students.forEach(s => {
   }
 });
 
-// Every survey belongs to valid student
 (db.surveys || []).forEach(s => {
   const u = db.accounts.find(a => a.id === s.userId);
   if (!u) errors.push(`Survey ${s.id} has invalid student ${s.userId}`);

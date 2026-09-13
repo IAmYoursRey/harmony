@@ -1,34 +1,40 @@
-import { createContext, useContext, useEffect, useState, type ReactNode } from 'react';
-import { useSchool } from '@/hooks/useSchool';
-import { getSchoolById } from '@/services/schoolService';
-import { apiClient } from '@/services/apiClient';
+import {
+  createContext,
+  useContext,
+  useEffect,
+  useState,
+  type ReactNode,
+} from "react";
+import { useSchool } from "@/hooks/useSchool";
+import { getSchoolById } from "@/services/schoolService";
+import { apiClient } from "@/services/apiClient";
 import {
   type UserAccount,
   authenticateAccount,
   registerAccount,
   getToken,
   clearSession,
-} from '@/data/accounts';
+} from "@/data/accounts";
 import {
   type UserProfile,
   type Gender,
   getProfile,
   createProfile,
   updateProfile,
-} from '@/data/userProfiles';
+} from "@/data/userProfiles";
 
-import { AuthContext } from './coreAuth';
-
+import { AuthContext } from "./coreAuth";
 
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [currentUser, setCurrentUser] = useState<UserAccount | null>(null);
-  const [currentProfile, setCurrentProfile] = useState<UserProfile | null>(null);
+  const [currentProfile, setCurrentProfile] = useState<UserProfile | null>(
+    null,
+  );
   const [isLoading, setIsLoading] = useState(true);
   const { setSelection, clearSelection } = useSchool();
 
-  // Sync profile school to SchoolContext
   useEffect(() => {
-    if (currentProfile?.schoolId && currentProfile.schoolId !== 'unknown') {
+    if (currentProfile?.schoolId && currentProfile.schoolId !== "unknown") {
       getSchoolById(currentProfile.schoolId).then((foundSchool) => {
         if (foundSchool) {
           setSelection(foundSchool);
@@ -47,7 +53,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         return;
       }
       try {
-        const data = await apiClient.get('/api/auth/me');
+        const data = await apiClient.get("/api/auth/me");
         setCurrentUser(data.account);
         const prof = await getProfile();
         setCurrentProfile(prof ?? null);
@@ -70,11 +76,30 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     return { success: result.success, error: result.error };
   };
 
-  const register = async (name: string, email: string, password: string, role: 'student' | 'teacher' | 'dev', gender: Gender, grade: 'X' | 'XI' | 'XII', classSection: string, schoolId = 'unknown', dateOfBirth?: string) => {
+  const register = async (
+    name: string,
+    email: string,
+    password: string,
+    role: "student" | "teacher" | "dev",
+    gender: Gender,
+    grade: "X" | "XI" | "XII",
+    classSection: string,
+    schoolId = "unknown",
+    dateOfBirth?: string,
+  ) => {
     const result = await registerAccount(name, email, password, role);
     if (result.success && result.account) {
-      const supervisedClasses = role === 'teacher' ? [{ grade, section: classSection }] : undefined;
-      const prof = await createProfile('ignore', gender, grade, classSection, schoolId, dateOfBirth, supervisedClasses);
+      const supervisedClasses =
+        role === "teacher" ? [{ grade, section: classSection }] : undefined;
+      const prof = await createProfile(
+        "ignore",
+        gender,
+        grade,
+        classSection,
+        schoolId,
+        dateOfBirth,
+        supervisedClasses,
+      );
       setCurrentUser(result.account);
       setCurrentProfile(prof ?? null);
     }
@@ -95,9 +120,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   };
 
-  const updateUserAccountLocal = async (updates: { name?: string; email?: string; password?: string }) => {
-    // Account update endpoint not yet implemented on backend
-    return { success: false, error: 'Not implemented' };
+  const updateUserAccountLocal = async (updates: {
+    name?: string;
+    email?: string;
+    password?: string;
+  }) => {
+    return { success: false, error: "Not implemented" };
   };
 
   const updateUserProfileLocal = async (updates: Partial<UserProfile>) => {
@@ -106,10 +134,19 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   };
 
   return (
-    <AuthContext.Provider value={{
-      currentUser, currentProfile, isLoading, login, register, logout, refreshProfile,
-      updateUserAccount: updateUserAccountLocal, updateUserProfile: updateUserProfileLocal
-    }}>
+    <AuthContext.Provider
+      value={{
+        currentUser,
+        currentProfile,
+        isLoading,
+        login,
+        register,
+        logout,
+        refreshProfile,
+        updateUserAccount: updateUserAccountLocal,
+        updateUserProfile: updateUserProfileLocal,
+      }}
+    >
       {children}
     </AuthContext.Provider>
   );

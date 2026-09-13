@@ -1,5 +1,5 @@
-import { Link } from 'react-router-dom';
-import { motion } from 'framer-motion';
+import { Link } from "react-router-dom";
+import { motion } from "framer-motion";
 import {
   Brain,
   Map,
@@ -11,8 +11,8 @@ import {
   BarChart3,
   ArrowRight,
   type LucideIcon,
-} from 'lucide-react';
-import { useI18n } from '@/hooks/useI18n';
+} from "lucide-react";
+import { useI18n } from "@/hooks/useI18n";
 
 interface FeatureCard {
   icon: LucideIcon;
@@ -24,51 +24,51 @@ interface FeatureCard {
 const cards: FeatureCard[] = [
   {
     icon: Brain,
-    titleKey: 'features.card1.title',
-    descKey: 'features.card1.desc',
-    to: '/app/ai-learning',
+    titleKey: "features.card1.title",
+    descKey: "features.card1.desc",
+    to: "/app/ai-learning",
   },
   {
     icon: Map,
-    titleKey: 'features.card2.title',
-    descKey: 'features.card2.desc',
-    to: '/app/geo-risk-map',
+    titleKey: "features.card2.title",
+    descKey: "features.card2.desc",
+    to: "/app/geo-risk-map",
   },
   {
     icon: Boxes,
-    titleKey: 'features.card3.title',
-    descKey: 'features.card3.desc',
-    to: '/app/digital-twin',
+    titleKey: "features.card3.title",
+    descKey: "features.card3.desc",
+    to: "/app/digital-twin",
   },
   {
     icon: CloudLightning,
-    titleKey: 'features.card4.title',
-    descKey: 'features.card4.desc',
-    to: '/app/simulation',
+    titleKey: "features.card4.title",
+    descKey: "features.card4.desc",
+    to: "/app/simulation",
   },
   {
     icon: Gauge,
-    titleKey: 'features.card5.title',
-    descKey: 'features.card5.desc',
-    to: '/app/gss',
+    titleKey: "features.card5.title",
+    descKey: "features.card5.desc",
+    to: "/app/gss",
   },
   {
     icon: GraduationCap,
-    titleKey: 'features.card6.title',
-    descKey: 'features.card6.desc',
-    to: '/app/teacher',
+    titleKey: "features.card6.title",
+    descKey: "features.card6.desc",
+    to: "/app/teacher",
   },
   {
     icon: ShieldCheck,
-    titleKey: 'features.card7.title',
-    descKey: 'features.card7.desc',
-    to: '/app/resilience',
+    titleKey: "features.card7.title",
+    descKey: "features.card7.desc",
+    to: "/app/resilience",
   },
   {
     icon: BarChart3,
-    titleKey: 'features.card8.title',
-    descKey: 'features.card8.desc',
-    to: '/app/survey',
+    titleKey: "features.card8.title",
+    descKey: "features.card8.desc",
+    to: "/app/survey",
   },
 ];
 
@@ -81,7 +81,11 @@ const container = {
 
 const item = {
   hidden: { opacity: 0, y: 24 },
-  show: { opacity: 1, y: 0, transition: { duration: 0.5, ease: 'easeOut' as const } },
+  show: {
+    opacity: 1,
+    y: 0,
+    transition: { duration: 0.5, ease: "easeOut" as const },
+  },
 };
 
 export function FeatureCards() {
@@ -97,13 +101,13 @@ export function FeatureCards() {
           className="mx-auto mb-10 max-w-2xl text-center"
         >
           <span className="text-sm font-semibold uppercase tracking-wider text-brand-600 dark:text-brand-400">
-            {t('features.explore')}
+            {t("features.explore")}
           </span>
           <h2 className="mt-3 font-display text-2xl font-extrabold tracking-tight text-ink-900 sm:text-3xl">
-            {t('features.title')}
+            {t("features.title")}
           </h2>
           <p className="mt-3 text-ink-600 dark:text-slate-300">
-            {t('features.subtitle')}
+            {t("features.subtitle")}
           </p>
         </motion.div>
 
@@ -111,7 +115,7 @@ export function FeatureCards() {
           variants={container}
           initial="hidden"
           whileInView="show"
-          viewport={{ once: true, margin: '-80px' }}
+          viewport={{ once: true, margin: "-80px" }}
           className="grid gap-5 sm:grid-cols-2 lg:grid-cols-4"
         >
           {cards.map((c) => (
@@ -128,10 +132,15 @@ export function FeatureCards() {
                   >
                     <c.icon className="h-6 w-6" strokeWidth={2} />
                   </div>
-                  <h3 className="mt-5 font-display text-base font-bold text-ink-900 dark:text-white">{t(c.titleKey)}</h3>
-                  <p className="mt-2 text-sm leading-relaxed text-ink-600 dark:text-slate-300">{t(c.descKey)}</p>
+                  <h3 className="mt-5 font-display text-base font-bold text-ink-900 dark:text-white">
+                    {t(c.titleKey)}
+                  </h3>
+                  <p className="mt-2 text-sm leading-relaxed text-ink-600 dark:text-slate-300">
+                    {t(c.descKey)}
+                  </p>
                   <div className="mt-4 flex items-center gap-1.5 text-xs font-semibold text-brand-600 opacity-0 transition-all group-hover:opacity-100">
-                    {t('common.open')} <ArrowRight className="h-3.5 w-3.5 transition-transform group-hover:translate-x-1" />
+                    {t("common.open")}{" "}
+                    <ArrowRight className="h-3.5 w-3.5 transition-transform group-hover:translate-x-1" />
                   </div>
                 </article>
               </Link>

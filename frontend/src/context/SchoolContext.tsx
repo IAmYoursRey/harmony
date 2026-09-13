@@ -1,6 +1,6 @@
-import { useState, useCallback, type ReactNode } from 'react';
-import type { School } from '@/data/schools';
-import { SchoolContext, type SchoolSelection } from './coreSchool';
+import { useState, useCallback, type ReactNode } from "react";
+import type { School } from "@/data/schools";
+import { SchoolContext, type SchoolSelection } from "./coreSchool";
 
 export function SchoolProvider({ children }: { children: ReactNode }) {
   const [selection, setSel] = useState<SchoolSelection | null>(null);
@@ -8,8 +8,8 @@ export function SchoolProvider({ children }: { children: ReactNode }) {
   const setSelection = useCallback((school: School) => {
     setSel({
       school,
-      provinceName: school.province || '',
-      regencyName: school.regency || '',
+      provinceName: school.province || "",
+      regencyName: school.regency || "",
     });
   }, []);
 
@@ -21,4 +21,3 @@ export function SchoolProvider({ children }: { children: ReactNode }) {
     </SchoolContext.Provider>
   );
 }
-
