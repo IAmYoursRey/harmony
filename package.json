@@ -1,14 +1,16 @@
 {
-  "name": "geosense-workspace",
+  "name": "harmony-workspace",
   "private": true,
   "type": "module",
   "workspaces": [
-    "frontend",
-    "backend"
+    "apps/web",
+    "apps/server"
   ],
   "scripts": {
-    "dev": "concurrently --kill-others --kill-others-on-fail -n \"BACKEND,FRONTEND\" -c \"cyan,green\" \"cd backend && node --watch-path=. server.js\" \"cd frontend && node ../node_modules/vite/bin/vite.js .\"",
-    "build": "npm run build --prefix frontend"
+    "dev": "concurrently --kill-others --kill-others-on-fail -n \"SERVER,WEB\" -c \"cyan,green\" \"npm run dev -w apps/server\" \"npm run dev -w apps/web\"",
+    "build": "npm run build -w apps/web",
+    "typecheck": "npm run typecheck -w apps/web",
+    "test": "echo 'No tests yet'"
   },
   "dependencies": {
     "concurrently": "^8.2.2"

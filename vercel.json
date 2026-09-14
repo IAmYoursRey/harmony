@@ -1,11 +1,11 @@
 {
   "version": 2,
-  "buildCommand": "npm run build --prefix frontend",
-  "outputDirectory": "frontend/dist",
+  "buildCommand": "npm run build --prefix apps/web",
+  "outputDirectory": "apps/web/dist",
   "framework": null,
   "functions": {
     "api/**/*.js": {
-      "includeFiles": "backend/{database.json,data/schools-lite.json}"
+      "includeFiles": "apps/server/src/database/{database.json,data/schools-lite.json}"
     }
   },
   "rewrites": [
