@@ -17,25 +17,25 @@ interface TeamMember {
 
 const members: TeamMember[] = [
   {
-    initials: "GEO",
-    name: "Geospatial Data",
-    roleKey: "Analis Data",
-    subtitleKey: "Pemetaan Wilayah",
+    initials: "MD",
+    name: "M. David Silva W.",
+    roleKey: "Data & Research Analyst",
+    subtitleKey: "Geospatial Data Collection",
     icon: BarChart3,
+  },
+  {
+    initials: "AF",
+    name: "Alvira Fitriatun Nizha",
+    roleKey: "Project Leader & Ideator",
+    subtitleKey: "Principal Coordinator",
+    icon: Sparkles,
   },
   {
     initials: "RA",
     name: "Raihan Ansari",
-    roleKey: "Lead Developer",
-    subtitleKey: "Sistem & Rekayasa Perangkat Lunak",
+    roleKey: "Lead Software Engineer",
+    subtitleKey: "Full Stack & UI/UX Developer",
     icon: Code2,
-  },
-  {
-    initials: "AI",
-    name: "Harmony AI",
-    roleKey: "Sistem Pakar",
-    subtitleKey: "Prediksi & Analisis Kebencanaan",
-    icon: Sparkles,
   },
 ];
 
