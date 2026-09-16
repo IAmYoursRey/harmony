@@ -42,3 +42,17 @@ apps/web/public/desa-extract/indonesia_villages_border.geojson
 apps/web/public/indonesia-desa.geojson
 apps/web/public/indonesia-desa.topojson
 apps/web/public/indonesia-desa.zip
+
+# Data Sensitif & Scratch
+*.xlsx
+*.csv
+ABSENSI SISWA KELAS X GASAL 2026-2027.xlsx
+token_resp.json
+test_map.json
+osm-temp.json
+
+# Large GeoJSON files
+apps/web/public/desa-extract/indonesia_villages_border.geojson
+apps/web/public/indonesia-desa.geojson
+apps/web/public/indonesia-desa.topojson
+apps/web/public/indonesia-desa.zip
