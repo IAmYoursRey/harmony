@@ -1079,7 +1079,7 @@ export function MapsView() {
       {/* Floating Control Panel */}
       <div 
         style={{ display: showPanel ? 'block' : 'none' }}
-        className="absolute bottom-6 left-6 right-6 sm:left-auto z-10 sm:w-80 max-h-[calc(100vh-4rem)] overflow-y-auto rounded-2xl bg-white/95 p-4 sm:p-5 shadow-glass backdrop-blur-md dark:bg-slate-900/95 border border-slate-200 dark:border-slate-800 animate-in fade-in zoom-in-95 duration-200 origin-bottom-right"
+        className="absolute bottom-6 left-6 right-6 sm:left-auto sm:right-6 z-10 sm:w-80 max-h-[calc(100vh-8rem)] overflow-y-auto rounded-2xl bg-white/95 p-4 sm:p-5 shadow-glass backdrop-blur-md dark:bg-slate-900/95 border border-slate-200 dark:border-slate-800 animate-in fade-in zoom-in-95 duration-200 origin-bottom-right"
       >
           <button 
             onClick={() => setShowPanel(false)} 
