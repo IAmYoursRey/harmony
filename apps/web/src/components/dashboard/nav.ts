@@ -25,6 +25,7 @@ export interface NavItem {
 }
 
 export const navItems: NavItem[] = [
+  { id: "maps", label: "Harmony Maps", icon: Map },
   {
     id: "dev-dashboard",
     label: "User Account",
@@ -34,7 +35,6 @@ export const navItems: NavItem[] = [
   { id: "dashboard", label: "Dashboard", icon: LayoutDashboard },
   { id: "events", label: "Events", icon: Trophy },
   { id: "ai-learning", label: "AI Learning", icon: Brain },
-  { id: "maps", label: "Maps", icon: Map },
   {
     id: "digital-twin",
     label: "Harmony Twin",

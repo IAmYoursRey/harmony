@@ -1,4 +1,4 @@
-import { X, LogOut } from "lucide-react";
+import { X, LogOut, Map } from "lucide-react";
 import { Link } from "react-router-dom";
 import { navItems } from "@/components/dashboard/nav";
 import { Logo } from "@/components/Logo";
@@ -29,6 +29,11 @@ export function Sidebar({
     }
     return true; // Visible to everyone if no roles are specified
   });
+
+  const mapsItem = visibleNavItems.find((item) => item.id === "maps");
+  const regularNavItems = visibleNavItems.filter((item) => item.id !== "maps");
+  const isMapsActive = active === "maps";
+
   return (
     <>
       {/* Mobile overlay */}
@@ -69,11 +74,82 @@ export function Sidebar({
 
         {/* Nav */}
         <nav className="flex-1 overflow-y-auto px-3 py-4">
+          {/* ── Standalone Top-Level Geospatial Feature: Harmony Maps ── */}
+          {mapsItem && (
+            <div className="mb-4">
+              <div className="mb-1.5 flex items-center justify-between px-2">
+                <span className="flex items-center gap-1.5 text-[10px] font-extrabold uppercase tracking-wider text-indigo-600 dark:text-indigo-400">
+                  <span className="relative flex h-2 w-2">
+                    <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-indigo-400 opacity-75" />
+                    <span className="relative inline-flex h-2 w-2 rounded-full bg-indigo-500" />
+                  </span>
+                  Geospatial & Spasial
+                </span>
+                <span className="rounded-full bg-indigo-50 px-2 py-0.5 text-[9px] font-bold text-indigo-700 ring-1 ring-inset ring-indigo-500/20 dark:bg-indigo-950/60 dark:text-indigo-300">
+                  Interactive GIS
+                </span>
+              </div>
+
+              <Link
+                to="/app/maps"
+                onClick={onSelect}
+                className={`group relative flex items-center gap-3 overflow-hidden rounded-2xl p-3 transition-all duration-300 ${
+                  isMapsActive
+                    ? "bg-gradient-to-r from-indigo-600 via-indigo-700 to-brand-600 text-white shadow-glass shadow-indigo-500/25 ring-2 ring-indigo-400/50"
+                    : "border border-indigo-200/70 bg-gradient-to-br from-indigo-50/70 via-white to-blue-50/40 text-ink-900 shadow-sm hover:border-indigo-300 hover:shadow-md hover:-translate-y-0.5 dark:border-indigo-900/50 dark:bg-slate-800/80 dark:text-white dark:hover:border-indigo-700 dark:hover:bg-slate-800"
+                }`}
+              >
+                <div
+                  className={`flex h-11 w-11 shrink-0 items-center justify-center rounded-xl transition-all duration-300 ${
+                    isMapsActive
+                      ? "bg-white/20 text-white shadow-inner"
+                      : "bg-gradient-to-br from-indigo-500 to-blue-600 text-white shadow-md shadow-indigo-500/25 group-hover:scale-105"
+                  }`}
+                >
+                  <Map className="h-5 w-5" strokeWidth={2.2} />
+                </div>
+
+                <div className="min-w-0 flex-1">
+                  <div className="flex items-center justify-between">
+                    <span className="font-display text-sm font-extrabold tracking-tight">
+                      Harmony Maps
+                    </span>
+                    {isMapsActive ? (
+                      <span className="flex h-2 w-2 rounded-full bg-white animate-pulse" />
+                    ) : (
+                      <span className="rounded-md bg-indigo-500/10 px-1.5 py-0.5 text-[9px] font-bold text-indigo-700 dark:bg-indigo-400/20 dark:text-indigo-300">
+                        Buka
+                      </span>
+                    )}
+                  </div>
+                  <p
+                    className={`mt-0.5 truncate text-[11px] font-medium ${
+                      isMapsActive
+                        ? "text-indigo-100"
+                        : "text-ink-500 dark:text-slate-400"
+                    }`}
+                  >
+                    Eksplorasi Peta Interaktif
+                  </p>
+                </div>
+              </Link>
+
+              {/* Distinct separation divider */}
+              <div className="mt-4 mb-2 flex items-center gap-2 px-2">
+                <div className="h-[1px] flex-1 bg-slate-200/80 dark:bg-slate-800" />
+                <span className="text-[9px] font-bold uppercase tracking-widest text-slate-400 dark:text-slate-500">
+                  Portal Menu
+                </span>
+                <div className="h-[1px] flex-1 bg-slate-200/80 dark:bg-slate-800" />
+              </div>
+            </div>
+          )}
+
           <p className="px-3 pb-2 text-[10px] font-bold uppercase tracking-wider text-ink-400 dark:text-slate-500">
             {t("sidebar.portal")}
           </p>
           <ul className="space-y-1">
-            {visibleNavItems.map((item) => {
+            {regularNavItems.map((item) => {
               const isActive = active === item.id;
               return (
                 <li key={item.id}>
@@ -98,7 +174,7 @@ export function Sidebar({
                     <span>
                       {item.labelOverrides?.[
                         currentUser?.role as keyof typeof item.labelOverrides
-                      ] || t(`nav.${item.id}`)}
+                      ] || t(`nav.${item.id}`, item.label)}
                     </span>
                     {isActive && (
                       <span className="ml-auto h-1.5 w-1.5 rounded-full bg-white/80" />
