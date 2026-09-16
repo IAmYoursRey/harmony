@@ -97,28 +97,28 @@ const team: {
   bio: string;
 }[] = [
   {
-    initials: "GEO",
-    name: "Geospatial Data",
-    role: "Analis Data",
-    subtitle: "Pemetaan Wilayah",
+    initials: "MD",
+    name: "M. David Silva W.",
+    role: "Data & Research Analyst",
+    subtitle: "Geospatial Data Collection",
     icon: BarChart3,
-    bio: "Bertanggung jawab memproses titik data satelit dan topografi.",
+    bio: "Responsible for collecting, validating, and managing geospatial field data across Indonesia.",
+  },
+  {
+    initials: "AF",
+    name: "Alvira Fitriatun Nizha",
+    role: "Project Leader & Ideator",
+    subtitle: "Principal Coordinator",
+    icon: Sparkles,
+    bio: "Originated the concept of Harmony and leads the team as the project's chief coordinator.",
   },
   {
     initials: "RA",
     name: "Raihan Ansari",
-    role: "Lead Developer",
-    subtitle: "Rekayasa Perangkat Lunak",
+    role: "Lead Software Engineer",
+    subtitle: "Full Stack & UI/UX Developer",
     icon: Code2,
-    bio: "Pengembang utama arsitektur platform dan integrasi digital twin.",
-  },
-  {
-    initials: "AI",
-    name: "Harmony AI",
-    role: "Sistem Pakar",
-    subtitle: "Prediksi Kebencanaan",
-    icon: Sparkles,
-    bio: "Otak kecerdasan buatan untuk mengelola perhitungan model AI.",
+    bio: "Architected and built the entire platform — from backend systems to the interactive geospatial interface.",
   },
 ];
 
