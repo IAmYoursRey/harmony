@@ -7,14 +7,23 @@ export interface AuthContextValue {
   currentProfile: UserProfile | null;
   isLoading: boolean;
   login: (
-    email: string,
-    password: string,
+    token: string,
+    role?: string,
+  ) => Promise<any>;
+  finalizeLogin: (account: any) => Promise<void>;
+  registerGoogle: (
+    token: string,
+    role?: string,
+    name?: string,
+    schoolId?: string,
+    grade?: string,
+    classSection?: string
   ) => Promise<{ success: boolean; error?: string }>;
   register: (
     name: string,
     email: string,
     password: string,
-    role: "student" | "teacher" | "dev",
+    role: "student" | "teacher" | "developer",
     gender: Gender,
     grade: "X" | "XI" | "XII",
     classSection: string,

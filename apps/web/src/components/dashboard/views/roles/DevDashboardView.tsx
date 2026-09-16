@@ -4,6 +4,7 @@ import {
   getAllAccounts,
   updateAccount,
   provisionAccount,
+  deleteAccount,
   type UserAccount,
 } from "@/data/accounts";
 import {
@@ -50,12 +51,14 @@ import {
   Camera,
   Boxes,
   Satellite,
+  Search,
   Zap,
   Trophy,
   Compass,
   Flame,
   Medal,
   Save,
+  Trash2,
   type LucideIcon,
 } from "lucide-react";
 import {
@@ -90,6 +93,203 @@ import { useSchool } from "@/hooks/useSchool";
 import { ProgressRing } from "@/components/dashboard/Charts";
 import { LoadingState } from "@/components/ui/LoadingState";
 
+function SearchableSelect({
+  id,
+  value,
+  onChange,
+  options,
+  placeholder,
+  disabled = false,
+}: {
+  id?: string;
+  value: string;
+  onChange: (v: string) => void;
+  options: { id: string; name: string }[];
+  placeholder: string;
+  disabled?: boolean;
+}) {
+  const [isOpen, setIsOpen] = useState(false);
+  const [search, setSearch] = useState("");
+  const dropdownRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    function handleClickOutside(event: MouseEvent) {
+      if (dropdownRef.current && !dropdownRef.current.contains(event.target as Node)) {
+        setIsOpen(false);
+      }
+    }
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, []);
+
+  const filtered = options.filter((o) =>
+    o.name.toLowerCase().includes(search.toLowerCase()),
+  );
+  const selectedName = options.find((o) => o.id === value)?.name || placeholder;
+
+  return (
+    <div
+      className={`relative ${disabled ? "opacity-50 pointer-events-none" : ""}`}
+      ref={dropdownRef}
+    >
+      <button
+        type="button"
+        id={id}
+        onClick={() => setIsOpen(!isOpen)}
+        className="w-full text-left rounded-xl border border-brand-200 bg-white py-2.5 px-4 text-sm outline-none transition-all dark:border-slate-700 dark:bg-slate-800 dark:text-white flex justify-between items-center"
+      >
+        <span className="truncate">{selectedName}</span>
+        <ChevronDown className="h-4 w-4 shrink-0 text-ink-400" />
+      </button>
+
+      {isOpen && (
+        <div className="absolute z-50 w-full mt-1 bg-white border border-brand-200 rounded-xl shadow-lg max-h-60 flex flex-col dark:bg-slate-800 dark:border-slate-700">
+          <div className="p-2 border-b border-brand-100 dark:border-slate-700">
+            <input
+              type="text"
+              autoFocus
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              placeholder="Cari..."
+              className="w-full rounded-lg border border-brand-100 bg-brand-50 px-3 py-1.5 text-sm text-ink-900 outline-none focus:border-brand-400 dark:border-slate-600 dark:bg-slate-900 dark:text-white dark:focus:border-brand-500"
+            />
+          </div>
+          <div className="overflow-y-auto py-1">
+            {filtered.length === 0 ? (
+              <div className="p-3 text-sm text-ink-400 dark:text-slate-400 text-center">
+                Tidak ditemukan
+              </div>
+            ) : (
+              filtered.map((opt) => (
+                <button
+                  key={opt.id}
+                  type="button"
+                  onClick={() => {
+                    onChange(opt.id);
+                    setIsOpen(false);
+                    setSearch("");
+                  }}
+                  className={`w-full text-left px-4 py-2 text-sm transition-colors hover:bg-brand-50 dark:hover:bg-slate-700 ${value === opt.id ? "bg-brand-100 text-brand-700 dark:bg-brand-500/20 dark:text-brand-400" : "text-ink-700 dark:text-slate-300"}`}
+                >
+                  {opt.name}
+                </button>
+              ))
+            )}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+function SchoolFilterCombobox({
+  value,
+  onChange,
+  uniqueIds,
+  schoolNamesMap,
+  schoolUserCounts,
+}: {
+  value: string;
+  onChange: (id: string) => void;
+  uniqueIds: string[];
+  schoolNamesMap: Record<string, string>;
+  schoolUserCounts: Record<string, number>;
+}) {
+  const [isOpen, setIsOpen] = useState(false);
+  const [search, setSearch] = useState("");
+  const wrapperRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    function handleClickOutside(event: MouseEvent) {
+      if (wrapperRef.current && !wrapperRef.current.contains(event.target as Node)) {
+        setIsOpen(false);
+      }
+    }
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, []);
+
+  const filteredIds = useMemo(() => {
+    if (!search.trim()) return uniqueIds;
+    const lowerSearch = search.toLowerCase();
+    return uniqueIds.filter((id) => {
+      const name = schoolNamesMap[id] || id;
+      return name.toLowerCase().includes(lowerSearch);
+    });
+  }, [search, uniqueIds, schoolNamesMap]);
+
+  return (
+    <div className="relative" ref={wrapperRef}>
+      <button
+        onClick={() => setIsOpen(!isOpen)}
+        className="flex items-center justify-between w-64 px-3 py-1.5 text-xs font-semibold rounded-lg bg-slate-50 hover:bg-slate-100 dark:bg-slate-800 dark:hover:bg-slate-700 text-ink-700 dark:text-slate-300 transition-colors border border-slate-200 dark:border-slate-700"
+      >
+        <span className="truncate">
+          {value === "all" ? "Semua Sekolah" : schoolNamesMap[value] || value}
+        </span>
+        <ChevronDown className="h-3 w-3 ml-2 shrink-0 opacity-50" />
+      </button>
+
+      <AnimatePresence>
+        {isOpen && (
+          <motion.div
+            initial={{ opacity: 0, y: -5 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -5 }}
+            transition={{ duration: 0.15 }}
+            className="absolute z-50 w-80 mt-2 bg-white dark:bg-slate-800 rounded-xl shadow-xl border border-slate-200 dark:border-slate-700 overflow-hidden right-0"
+          >
+            <div className="p-2 border-b border-slate-100 dark:border-slate-700">
+              <input
+                autoFocus
+                type="text"
+                placeholder="Cari sekolah..."
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+                className="w-full px-3 py-1.5 text-xs rounded-lg bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 focus:outline-none focus:ring-2 focus:ring-brand-500/20 text-ink-700 dark:text-slate-300"
+              />
+            </div>
+            <div className="max-h-60 overflow-y-auto p-1.5">
+              <button
+                onClick={() => {
+                  onChange("all");
+                  setIsOpen(false);
+                }}
+                className={`w-full text-left px-3 py-2 text-xs rounded-lg transition-colors ${value === "all" ? "bg-brand-50 dark:bg-brand-500/10 text-brand-600 font-bold" : "hover:bg-slate-50 dark:hover:bg-slate-700/50 text-ink-700 dark:text-slate-300"}`}
+              >
+                Semua Sekolah
+              </button>
+              {filteredIds.length === 0 ? (
+                <div className="px-3 py-4 text-center text-xs text-slate-500">
+                  Sekolah tidak ditemukan
+                </div>
+              ) : (
+                filteredIds.map((id) => (
+                  <button
+                    key={id}
+                    onClick={() => {
+                      onChange(id);
+                      setIsOpen(false);
+                    }}
+                    className={`w-full flex items-center justify-between text-left px-3 py-2 text-xs rounded-lg transition-colors ${value === id ? "bg-brand-50 dark:bg-brand-500/10 text-brand-600 font-bold" : "hover:bg-slate-50 dark:hover:bg-slate-700/50 text-ink-700 dark:text-slate-300"}`}
+                  >
+                    <span className="truncate pr-2">
+                      {schoolNamesMap[id] || id}
+                    </span>
+                    <span className="shrink-0 bg-brand-100/50 dark:bg-brand-500/20 text-brand-600 dark:text-brand-400 text-[10px] px-2 py-0.5 rounded-full font-bold">
+                      {schoolUserCounts[id] || 0} siswa
+                    </span>
+                  </button>
+                ))
+              )}
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+    </div>
+  );
+}
+
 export function DevDashboardView() {
   const { register } = useAuth();
   const { show } = useToast();
@@ -115,6 +315,37 @@ export function DevDashboardView() {
   const [userFilter, setUserFilter] = useState<"all" | "teacher" | "student">(
     "all",
   );
+  const [schoolFilter, setSchoolFilter] = useState("all");
+  const [devUserSearchQuery, setDevUserSearchQuery] = useState("");
+
+  const uniqueSchoolIds = useMemo(() => {
+    const ids = new Set<string>();
+    profiles.forEach((p) => {
+      if (p.schoolId && p.schoolId !== "unknown") {
+        ids.add(p.schoolId);
+      }
+    });
+    return Array.from(ids).sort();
+  }, [profiles]);
+
+  const [schoolNamesMap, setSchoolNamesMap] = useState<Record<string, string>>(
+    {},
+  );
+  const [schoolUserCounts, setSchoolUserCounts] = useState<Record<string, number>>(
+    {},
+  );
+
+  const handleDeleteAccount = async (id: string) => {
+    if (confirm("Hapus pengguna ini secara permanen?")) {
+      const res = await deleteAccount(id);
+      if (res.success) {
+        show("Pengguna berhasil dihapus.", "success");
+        refreshData();
+      } else {
+        show(res.error || "Gagal menghapus pengguna.", "error");
+      }
+    }
+  };
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingUserId, setEditingUserId] = useState<string | null>(null);
   const [editName, setEditName] = useState("");
@@ -196,6 +427,32 @@ export function DevDashboardView() {
   useEffect(() => {
     refreshData();
   }, [refreshData]);
+
+  useEffect(() => {
+    const fetchSchoolNames = async () => {
+      const counts: Record<string, number> = {};
+      profiles.forEach((p) => {
+        if (p.schoolId && p.schoolId !== "unknown") {
+          counts[p.schoolId] = (counts[p.schoolId] || 0) + 1;
+        }
+      });
+      setSchoolUserCounts(counts);
+
+      const map: Record<string, string> = {};
+      await Promise.all(
+        uniqueSchoolIds.map(async (id) => {
+          const school = await getSchoolById(id);
+          if (school) {
+            map[id] = school.name;
+          }
+        }),
+      );
+      setSchoolNamesMap(map);
+    };
+    if (uniqueSchoolIds.length > 0) {
+      fetchSchoolNames();
+    }
+  }, [uniqueSchoolIds, profiles]);
 
   const handleRegister = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -326,7 +583,7 @@ export function DevDashboardView() {
     teachers:
       systemStats?.teachers ||
       accounts.filter((a) => a.role === "teacher").length,
-    devs: accounts.filter((a) => a.role === "dev").length,
+    devs: accounts.filter((a) => a.role === "developer").length,
   };
 
   if (loadingData && accounts.length === 0) {
@@ -335,13 +592,41 @@ export function DevDashboardView() {
 
   return (
     <div className="space-y-6">
-      <div>
-        <h2 className="font-display text-2xl font-bold tracking-tight text-ink-900 dark:text-white">
-          Developer Panel
-        </h2>
-        <p className="mt-1 text-sm text-ink-500 dark:text-slate-400">
-          Akses penuh untuk mengelola pengguna dan sistem.
-        </p>
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-brand-600/5 border border-brand-100 dark:border-brand-500/20 rounded-2xl p-6 relative overflow-hidden">
+        {/* Abstract Background Decoration */}
+        <div className="absolute top-0 right-0 -translate-y-12 translate-x-1/3 w-64 h-64 bg-brand-500/10 rounded-full blur-3xl pointer-events-none"></div>
+
+        <div className="relative z-10">
+          <div className="flex items-center gap-3 mb-1">
+            <div className="p-2 bg-brand-100 dark:bg-brand-500/20 rounded-lg text-brand-600 dark:text-brand-400 shadow-sm border border-brand-200 dark:border-brand-500/30">
+              <ShieldAlert className="h-5 w-5" />
+            </div>
+            <h2 className="font-display text-2xl font-bold tracking-tight text-ink-900 dark:text-white">
+              User Account
+            </h2>
+          </div>
+          <p className="mt-1 text-sm text-ink-500 dark:text-slate-400">
+            Pusat kendali dan manajemen akun sistem (Akses Developer).
+          </p>
+        </div>
+
+        <div className="relative z-10 flex items-center gap-4 bg-white dark:bg-slate-900 p-4 rounded-xl border border-slate-100 dark:border-slate-800 shadow-sm self-start sm:self-auto w-full sm:w-auto">
+          <div className="flex-1">
+            <p className="text-[10px] font-bold text-ink-400 dark:text-slate-500 uppercase tracking-wider mb-0.5">Status Sistem</p>
+            <div className="text-sm font-bold text-emerald-600 dark:text-emerald-400 flex items-center gap-1.5">
+              <div className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></div>
+              Online & Aman
+            </div>
+          </div>
+          <div className="w-px h-8 bg-slate-200 dark:bg-slate-700 mx-2"></div>
+          <div>
+            <p className="text-[10px] font-bold text-ink-400 dark:text-slate-500 uppercase tracking-wider mb-0.5">Total Akun</p>
+            <p className="text-sm font-bold text-ink-900 dark:text-white flex items-center gap-1.5">
+              <Users className="h-4 w-4 text-ink-400" />
+              {accounts.length} Aktif
+            </p>
+          </div>
+        </div>
       </div>
 
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
@@ -394,45 +679,69 @@ export function DevDashboardView() {
       <div className="grid gap-6 lg:grid-cols-1">
         {/* User List */}
         <div className="rounded-2xl border border-brand-100 dark:border-slate-800 bg-white dark:bg-slate-900 shadow-sm overflow-hidden flex flex-col min-h-[400px] max-h-[800px]">
-          <div className="border-b border-brand-100 dark:border-slate-800 px-6 py-4 bg-brand-50/50 dark:bg-slate-800/50 flex flex-wrap gap-4 items-center justify-between">
-            <h3 className="font-bold text-ink-900 dark:text-white flex items-center gap-2">
-              <Users className="h-4 w-4 text-brand-600" /> Daftar Pengguna
-            </h3>
+          <div className="border-b border-brand-100 dark:border-slate-800 px-6 py-4 bg-brand-50/50 dark:bg-slate-800/50 flex flex-col xl:flex-row gap-4 xl:items-center justify-between">
+            {/* Left Section: Title & Role Filter */}
+            <div className="flex flex-col sm:flex-row sm:items-center gap-4">
+              <h3 className="font-bold text-ink-900 dark:text-white flex items-center gap-2 whitespace-nowrap">
+                <Users className="h-4 w-4 text-brand-600" /> Daftar Pengguna
+              </h3>
 
-            <div className="flex bg-white dark:bg-slate-800 rounded-xl p-1 border border-brand-100 dark:border-slate-700 shadow-sm">
-              <button
-                onClick={() => setUserFilter("all")}
-                className={`px-4 py-1.5 text-xs font-semibold rounded-lg transition-colors ${userFilter === "all" ? "bg-brand-600 text-white" : "text-ink-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-700"}`}
-              >
-                Semua
-              </button>
-              <button
-                onClick={() => setUserFilter("teacher")}
-                className={`px-4 py-1.5 text-xs font-semibold rounded-lg transition-colors ${userFilter === "teacher" ? "bg-brand-600 text-white" : "text-ink-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-700"}`}
-              >
-                Teacher
-              </button>
-              <button
-                onClick={() => setUserFilter("student")}
-                className={`px-4 py-1.5 text-xs font-semibold rounded-lg transition-colors ${userFilter === "student" ? "bg-brand-600 text-white" : "text-ink-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-700"}`}
-              >
-                Student
-              </button>
+              <div className="flex bg-white dark:bg-slate-800 rounded-xl p-1 border border-brand-100 dark:border-slate-700 shadow-sm w-fit">
+                <button
+                  onClick={() => setUserFilter("all")}
+                  className={`px-4 py-1.5 text-xs font-semibold rounded-lg transition-colors ${userFilter === "all" ? "bg-brand-600 text-white" : "text-ink-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-700"}`}
+                >
+                  Semua
+                </button>
+                <button
+                  onClick={() => setUserFilter("teacher")}
+                  className={`px-4 py-1.5 text-xs font-semibold rounded-lg transition-colors ${userFilter === "teacher" ? "bg-brand-600 text-white" : "text-ink-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-700"}`}
+                >
+                  Teacher
+                </button>
+                <button
+                  onClick={() => setUserFilter("student")}
+                  className={`px-4 py-1.5 text-xs font-semibold rounded-lg transition-colors ${userFilter === "student" ? "bg-brand-600 text-white" : "text-ink-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-700"}`}
+                >
+                  Student
+                </button>
+              </div>
             </div>
 
-            <div className="flex items-center gap-3">
-              <button
-                onClick={handleExport}
-                className="flex items-center gap-1.5 rounded-xl bg-white dark:bg-slate-800 border border-brand-100 dark:border-slate-700 px-4 py-2 text-xs font-semibold text-ink-600 hover:text-brand-600 hover:border-brand-300 transition-colors shadow-sm"
-              >
-                <Download className="h-4 w-4" /> Ekspor JSON
-              </button>
-              <button
-                onClick={() => setIsModalOpen(true)}
-                className="flex items-center gap-2 rounded-xl bg-brand-600 px-4 py-2 text-xs font-semibold text-white hover:bg-brand-700 transition-colors shadow-sm"
-              >
-                <Plus className="h-4 w-4" /> Tambah Pengguna
-              </button>
+            {/* Right Section: School Filter, Search, Actions */}
+            <div className="flex flex-col sm:flex-row sm:items-center gap-3 w-full xl:w-auto flex-wrap lg:flex-nowrap justify-end">
+              <SchoolFilterCombobox
+                value={schoolFilter}
+                onChange={setSchoolFilter}
+                uniqueIds={uniqueSchoolIds}
+                schoolNamesMap={schoolNamesMap}
+                schoolUserCounts={schoolUserCounts}
+              />
+              <div className="relative w-full sm:w-64 md:w-72">
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-ink-400" />
+                <input
+                  type="text"
+                  placeholder="Cari nama atau email..."
+                  value={devUserSearchQuery}
+                  onChange={(e) => setDevUserSearchQuery(e.target.value)}
+                  className="pl-9 pr-4 py-2 w-full rounded-xl border border-brand-100 text-sm focus:ring-2 focus:ring-brand-100 outline-none dark:bg-slate-800 dark:border-slate-700 dark:text-white"
+                />
+              </div>
+
+              <div className="flex items-center gap-2 w-full sm:w-auto">
+                <button
+                  onClick={handleExport}
+                  className="flex items-center gap-1.5 rounded-xl bg-white dark:bg-slate-800 border border-brand-100 dark:border-slate-700 px-4 py-2 text-xs font-semibold text-ink-600 hover:text-brand-600 hover:border-brand-300 transition-colors shadow-sm"
+                >
+                  <Download className="h-4 w-4" /> Ekspor JSON
+                </button>
+                <button
+                  onClick={() => setIsModalOpen(true)}
+                  className="flex items-center gap-2 rounded-xl bg-brand-600 px-4 py-2 text-xs font-semibold text-white hover:bg-brand-700 transition-colors shadow-sm"
+                >
+                  <Plus className="h-4 w-4" /> Tambah Akun
+                </button>
+              </div>
             </div>
           </div>
 
@@ -462,6 +771,19 @@ export function DevDashboardView() {
                   .filter((acc) =>
                     userFilter === "all" ? true : acc.role === userFilter,
                   )
+                  .filter((acc) => {
+                    if (schoolFilter === "all") return true;
+                    const prof = profiles.find((p) => p.userId === acc.id);
+                    return prof?.schoolId === schoolFilter;
+                  })
+                  .filter((acc) => {
+                    if (!devUserSearchQuery.trim()) return true;
+                    const q = devUserSearchQuery.toLowerCase();
+                    return (
+                      acc.name?.toLowerCase().includes(q) ||
+                      acc.email?.toLowerCase().includes(q)
+                    );
+                  })
                   .slice()
                   .reverse()
                   .map((acc) => {
@@ -474,9 +796,9 @@ export function DevDashboardView() {
                         <div className="flex items-start justify-between">
                           <div className="flex items-center gap-4">
                             <div
-                              className={`flex h-12 w-12 shrink-0 items-center justify-center rounded-xl ${acc.role === "dev" ? "bg-red-50 text-red-600 border border-red-100" : acc.role === "teacher" ? "bg-amber-50 text-amber-600 border border-amber-100" : "bg-emerald-50 text-emerald-600 border border-emerald-100"}`}
+                              className={`flex h-12 w-12 shrink-0 items-center justify-center rounded-xl ${acc.role === "developer" ? "bg-red-50 text-red-600 border border-red-100" : acc.role === "teacher" ? "bg-amber-50 text-amber-600 border border-amber-100" : "bg-emerald-50 text-emerald-600 border border-emerald-100"}`}
                             >
-                              {acc.role === "dev" ? (
+                              {acc.role === "developer" ? (
                                 <ShieldAlert className="h-6 w-6" />
                               ) : acc.role === "teacher" ? (
                                 <BookOpen className="h-6 w-6" />
@@ -488,7 +810,7 @@ export function DevDashboardView() {
                               <p className="font-bold text-ink-900 dark:text-white flex items-center gap-2 text-base">
                                 {acc.name}
                                 <span
-                                  className={`px-2.5 py-0.5 text-[10px] font-bold rounded-full border tracking-wide uppercase ${acc.role === "dev" ? "border-red-200 bg-red-50 text-red-700" : acc.role === "teacher" ? "border-amber-200 bg-amber-50 text-amber-700" : "border-emerald-200 bg-emerald-50 text-emerald-700"}`}
+                                  className={`px-2.5 py-0.5 text-[10px] font-bold rounded-full border tracking-wide uppercase ${acc.role === "developer" ? "border-red-200 bg-red-50 text-red-700" : acc.role === "teacher" ? "border-amber-200 bg-amber-50 text-amber-700" : "border-emerald-200 bg-emerald-50 text-emerald-700"}`}
                                 >
                                   {acc.role}
                                 </span>
@@ -498,239 +820,70 @@ export function DevDashboardView() {
                               </p>
                             </div>
                           </div>
-                          {editingUserId !== acc.id && (
+                          <div className="flex items-center gap-2 ml-auto">
                             <button
                               onClick={() => handleEditClick(acc, profile)}
-                              className="p-2.5 text-ink-400 bg-slate-50 hover:bg-brand-50 hover:text-brand-600 rounded-xl transition-colors border border-transparent hover:border-brand-100"
+                              className="p-2.5 text-ink-400 bg-slate-50 hover:bg-brand-50 hover:text-brand-600 rounded-xl transition-colors border border-transparent hover:border-brand-100 dark:bg-slate-800 dark:hover:bg-brand-900/30"
+                              title="Edit Account"
                             >
                               <Edit2 className="h-4 w-4" />
                             </button>
-                          )}
+                            {acc.role !== "developer" && (
+                              <button
+                                onClick={() => handleDeleteAccount(acc.id)}
+                                className="p-2.5 text-ink-400 bg-slate-50 hover:bg-red-50 hover:text-red-600 rounded-xl transition-colors border border-transparent hover:border-red-100 dark:bg-slate-800 dark:hover:bg-red-900/30"
+                                title="Delete Account"
+                              >
+                                <Trash2 className="h-4 w-4" />
+                              </button>
+                            )}
+                          </div>
                         </div>
 
-                        {editingUserId === acc.id ? (
-                          <div className="mt-4 p-4 bg-slate-50 dark:bg-slate-800/50 rounded-xl space-y-4 text-sm border border-brand-100 dark:border-brand-900/50">
-                            <div className="flex items-center gap-2 pb-2 border-b border-brand-100 dark:border-slate-700">
-                              <Pencil className="h-4 w-4 text-brand-600" />
-                              <h4 className="font-bold text-ink-800 dark:text-slate-200">
-                                Edit Pengguna
-                              </h4>
-                            </div>
-                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                              <div>
-                                <label
-                                  htmlFor={`editName-${acc.id}`}
-                                  className="block text-xs font-bold text-ink-600 dark:text-slate-400 mb-1.5"
-                                >
-                                  Ubah Nama
-                                </label>
-                                <input
-                                  id={`editName-${acc.id}`}
-                                  value={editName}
-                                  onChange={(e) => setEditName(e.target.value)}
-                                  className="w-full px-3.5 py-2 rounded-xl border border-brand-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-ink-900 dark:text-white outline-none focus:ring-2 focus:ring-brand-100 focus:border-brand-300 transition-all"
-                                />
-                              </div>
-                              <div>
-                                <label
-                                  htmlFor={`editPassword-${acc.id}`}
-                                  className="block text-xs font-bold text-ink-600 dark:text-slate-400 mb-1.5"
-                                >
-                                  Ganti Sandi (Opsional)
-                                </label>
-                                <input
-                                  id={`editPassword-${acc.id}`}
-                                  value={editPassword}
-                                  onChange={(e) =>
-                                    setEditPassword(e.target.value)
-                                  }
-                                  placeholder="Kata sandi baru..."
-                                  className="w-full px-3.5 py-2 rounded-xl border border-brand-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-ink-900 dark:text-white outline-none focus:ring-2 focus:ring-brand-100 focus:border-brand-300 transition-all"
-                                />
-                              </div>
-                            </div>
-
-                            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-                              <div>
-                                <label
-                                  htmlFor={`editProvId-${acc.id}`}
-                                  className="block text-xs font-bold text-ink-600 dark:text-slate-400 mb-1.5"
-                                >
-                                  Provinsi
-                                </label>
-                                <select
-                                  id={`editProvId-${acc.id}`}
-                                  value={editProvId}
-                                  onChange={(e) => {
-                                    setEditProvId(e.target.value);
-                                    setEditRegId("");
-                                    setEditSchoolId("");
-                                  }}
-                                  className="w-full px-3.5 py-2 rounded-xl border border-brand-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-ink-900 dark:text-white outline-none focus:ring-2 focus:ring-brand-100"
-                                >
-                                  <option value="">Pilih Provinsi...</option>
-                                  {allProvinces.map((p) => (
-                                    <option key={p.id} value={p.id}>
-                                      {p.name}
-                                    </option>
-                                  ))}
-                                </select>
-                              </div>
-                              <div>
-                                <label
-                                  htmlFor={`editRegId-${acc.id}`}
-                                  className="block text-xs font-bold text-ink-600 dark:text-slate-400 mb-1.5"
-                                >
-                                  Kab/Kota
-                                </label>
-                                <select
-                                  id={`editRegId-${acc.id}`}
-                                  className="w-full bg-slate-900 border border-slate-700 rounded-lg px-4 py-2"
-                                  value={editRegId}
-                                  onChange={(e) => {
-                                    setEditRegId(e.target.value);
-                                    setEditSchoolId("");
-                                  }}
-                                  disabled={!editProvId}
-                                >
-                                  <option value="">Pilih Kab/Kota</option>
-                                  {editRegencies.map((r) => (
-                                    <option key={r.id} value={r.id}>
-                                      {r.name}
-                                    </option>
-                                  ))}
-                                </select>
-                              </div>
-                              <div>
-                                <label
-                                  htmlFor={`editSchoolId-${acc.id}`}
-                                  className="block text-xs font-bold text-ink-600 dark:text-slate-400 mb-1.5"
-                                >
-                                  Sekolah
-                                </label>
-                                <select
-                                  id={`editSchoolId-${acc.id}`}
-                                  value={editSchoolId}
-                                  onChange={(e) =>
-                                    setEditSchoolId(e.target.value)
-                                  }
-                                  disabled={!editRegId}
-                                  className="w-full px-3.5 py-2 rounded-xl border border-brand-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-ink-900 dark:text-white disabled:opacity-50 outline-none focus:ring-2 focus:ring-brand-100"
-                                >
-                                  <option value="">Pilih Sekolah...</option>
-                                  {editSchoolsList.map((s) => (
-                                    <option key={s.id} value={s.id}>
-                                      {s.name}
-                                    </option>
-                                  ))}
-                                </select>
-                              </div>
-                            </div>
-
-                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                              <div>
-                                <label
-                                  htmlFor={`editGrade-${acc.id}`}
-                                  className="block text-xs font-bold text-ink-600 dark:text-slate-400 mb-1.5"
-                                >
-                                  Tingkat Kelas
-                                </label>
-                                <select
-                                  id={`editGrade-${acc.id}`}
-                                  value={editGrade}
-                                  onChange={(e) =>
-                                    setEditGrade(
-                                      e.target.value as "X" | "XI" | "XII",
-                                    )
-                                  }
-                                  className="w-full px-3.5 py-2 rounded-xl border border-brand-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-ink-900 dark:text-white outline-none focus:ring-2 focus:ring-brand-100"
-                                >
-                                  <option value="X">Kelas X</option>
-                                  <option value="XI">Kelas XI</option>
-                                  <option value="XII">Kelas XII</option>
-                                </select>
-                              </div>
-                              <div>
-                                <label
-                                  htmlFor={`editSection-${acc.id}`}
-                                  className="block text-xs font-bold text-ink-600 dark:text-slate-400 mb-1.5"
-                                >
-                                  No. Ruang
-                                </label>
-                                <input
-                                  id={`editSection-${acc.id}`}
-                                  type="text"
-                                  value={editSection}
-                                  onChange={(e) =>
-                                    setEditSection(e.target.value)
-                                  }
-                                  placeholder="Contoh: MIPA 4"
-                                  className="w-full px-3.5 py-2 rounded-xl border border-brand-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-ink-900 dark:text-white outline-none focus:ring-2 focus:ring-brand-100"
-                                />
-                              </div>
-                            </div>
-
-                            <div className="flex items-center justify-end gap-3 pt-4 border-t border-brand-100 dark:border-slate-700">
-                              <button
-                                onClick={() => setEditingUserId(null)}
-                                className="px-4 py-2 text-xs font-bold text-ink-600 hover:bg-slate-200 bg-slate-100 dark:bg-slate-700 rounded-xl transition-colors"
+                        {profile && (
+                          <div className="mt-1 grid grid-cols-2 sm:grid-cols-4 gap-3 rounded-xl bg-slate-50 dark:bg-slate-900/60 p-4 border border-slate-100 dark:border-slate-800">
+                            <div>
+                              <span className="text-[10px] font-bold text-ink-400 dark:text-slate-500 uppercase tracking-wider block mb-1">
+                                Sekolah
+                              </span>
+                              <span
+                                className="text-xs font-semibold text-ink-800 dark:text-slate-200 truncate block"
+                                title={profile.schoolId ? (schoolNamesMap[profile.schoolId] || profile.schoolId) : "-"}
                               >
-                                Batal
-                              </button>
-                              <button
-                                onClick={() => handleSaveEdit(acc.id)}
-                                className="px-4 py-2 text-xs font-bold text-white bg-brand-600 hover:bg-brand-700 rounded-xl flex items-center gap-1.5 transition-colors shadow-sm"
-                              >
-                                <Check className="h-4 w-4" /> Simpan
-                              </button>
+                                {profile.schoolId && profile.schoolId !== "unknown" ? (schoolNamesMap[profile.schoolId] || profile.schoolId) : "-"}
+                              </span>
+                            </div>
+                            <div>
+                              <span className="text-[10px] font-bold text-ink-400 dark:text-slate-500 uppercase tracking-wider block mb-1">
+                                Kelas
+                              </span>
+                              <span className="text-xs font-semibold text-ink-800 dark:text-slate-200">
+                                {profile.grade}{profile.classSection ? ` - ${profile.classSection}` : ""}
+                              </span>
+                            </div>
+                            <div>
+                              <span className="text-[10px] font-bold text-ink-400 dark:text-slate-500 uppercase tracking-wider block mb-1">
+                                Total Poin
+                              </span>
+                              <span className="text-xs font-bold text-brand-600 dark:text-brand-400 flex items-center gap-1">
+                                <Award className="h-3 w-3" />{" "}
+                                {profile.totalPoints}
+                              </span>
+                            </div>
+                            <div>
+                              <span className="text-[10px] font-bold text-ink-400 dark:text-slate-500 uppercase tracking-wider block mb-1">
+                                Progress
+                              </span>
+                              <span className="text-xs font-bold text-emerald-600 dark:text-emerald-400 flex items-center gap-1">
+                                <TrendingUp className="h-3 w-3" />{" "}
+                                {
+                                  Object.keys(profile.topicScores || {})
+                                    .length
+                                }{" "}
+                                Modul
+                              </span>
                             </div>
                           </div>
-                        ) : (
-                          profile && (
-                            <div className="mt-1 grid grid-cols-2 sm:grid-cols-4 gap-3 rounded-xl bg-slate-50 dark:bg-slate-900/60 p-4 border border-slate-100 dark:border-slate-800">
-                              <div>
-                                <span className="text-[10px] font-bold text-ink-400 dark:text-slate-500 uppercase tracking-wider block mb-1">
-                                  Sekolah
-                                </span>
-                                <span
-                                  className="text-xs font-semibold text-ink-800 dark:text-slate-200 truncate block"
-                                  title={profile.schoolId}
-                                >
-                                  {profile.schoolId || "-"}
-                                </span>
-                              </div>
-                              <div>
-                                <span className="text-[10px] font-bold text-ink-400 dark:text-slate-500 uppercase tracking-wider block mb-1">
-                                  Kelas
-                                </span>
-                                <span className="text-xs font-semibold text-ink-800 dark:text-slate-200">
-                                  {profile.grade} {profile.classSection}
-                                </span>
-                              </div>
-                              <div>
-                                <span className="text-[10px] font-bold text-ink-400 dark:text-slate-500 uppercase tracking-wider block mb-1">
-                                  Total Poin
-                                </span>
-                                <span className="text-xs font-bold text-brand-600 dark:text-brand-400 flex items-center gap-1">
-                                  <Award className="h-3 w-3" />{" "}
-                                  {profile.totalPoints}
-                                </span>
-                              </div>
-                              <div>
-                                <span className="text-[10px] font-bold text-ink-400 dark:text-slate-500 uppercase tracking-wider block mb-1">
-                                  Progress
-                                </span>
-                                <span className="text-xs font-bold text-emerald-600 dark:text-emerald-400 flex items-center gap-1">
-                                  <TrendingUp className="h-3 w-3" />{" "}
-                                  {
-                                    Object.keys(profile.topicScores || {})
-                                      .length
-                                  }{" "}
-                                  Modul
-                                </span>
-                              </div>
-                            </div>
-                          )
                         )}
                       </div>
                     );
@@ -910,19 +1063,13 @@ export function DevDashboardView() {
                         >
                           Provinsi
                         </label>
-                        <select
+                        <SearchableSelect
                           id="regProvId"
-                          className="w-full bg-slate-900 border border-slate-700 rounded-lg px-4 py-2"
                           value={regProvId}
-                          onChange={(e) => setRegProvId(e.target.value)}
-                        >
-                          <option value="">Pilih Provinsi</option>
-                          {allProvinces.map((p) => (
-                            <option key={p.id} value={p.id}>
-                              {p.name}
-                            </option>
-                          ))}
-                        </select>
+                          onChange={setRegProvId}
+                          options={allProvinces.map((p) => ({ id: p.id, name: p.name }))}
+                          placeholder="Pilih Provinsi"
+                        />
                       </div>
                       <div className="space-y-1.5">
                         <label
@@ -931,20 +1078,14 @@ export function DevDashboardView() {
                         >
                           Kabupaten/Kota
                         </label>
-                        <select
+                        <SearchableSelect
                           id="regRegId"
-                          className="w-full bg-slate-900 border border-slate-700 rounded-lg px-4 py-2"
                           value={regRegId}
-                          onChange={(e) => setRegRegId(e.target.value)}
+                          onChange={setRegRegId}
+                          options={regencies.map((r) => ({ id: r.id, name: r.name }))}
+                          placeholder="Pilih Kab/Kota"
                           disabled={!regProvId}
-                        >
-                          <option value="">Pilih Kab/Kota</option>
-                          {regencies.map((r) => (
-                            <option key={r.id} value={r.id}>
-                              {r.name}
-                            </option>
-                          ))}
-                        </select>
+                        />
                       </div>
                       <div className="space-y-1.5">
                         <label
@@ -953,20 +1094,14 @@ export function DevDashboardView() {
                         >
                           Sekolah
                         </label>
-                        <select
+                        <SearchableSelect
                           id="regSchoolId"
-                          className="w-full bg-slate-900 border border-slate-700 rounded-lg px-4 py-2"
                           value={regSchoolId}
-                          onChange={(e) => setRegSchoolId(e.target.value)}
+                          onChange={setRegSchoolId}
+                          options={schools.map((s) => ({ id: s.id, name: s.name }))}
+                          placeholder="Pilih Sekolah"
                           disabled={!regRegId}
-                        >
-                          <option value="">Pilih Sekolah</option>
-                          {schools.map((s) => (
-                            <option key={s.id} value={s.id}>
-                              {s.name}
-                            </option>
-                          ))}
-                        </select>
+                        />
                       </div>
                     </div>
                   </div>
@@ -1039,6 +1174,175 @@ export function DevDashboardView() {
                     </button>
                   </div>
                 </form>
+              </div>
+            </motion.div>
+          </div>
+        )}
+        {editingUserId !== null && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              className="absolute inset-0 bg-slate-900/40 backdrop-blur-sm"
+              onClick={() => setEditingUserId(null)}
+            />
+            <motion.div
+              initial={{ opacity: 0, scale: 0.95, y: 20 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.95, y: 20 }}
+              className="relative w-full max-w-2xl rounded-2xl bg-white dark:bg-slate-900 shadow-2xl overflow-hidden border border-brand-100 dark:border-slate-800 flex flex-col max-h-[90vh]"
+            >
+              <div className="flex items-center justify-between border-b border-brand-100 dark:border-slate-800 px-6 py-4 bg-slate-50 dark:bg-slate-900/50">
+                <h3 className="font-bold text-ink-900 dark:text-white flex items-center gap-2.5 text-lg">
+                  <div className="p-1.5 bg-brand-100 dark:bg-brand-500/20 rounded-lg text-brand-600">
+                    <Pencil className="h-5 w-5" />
+                  </div>
+                  Edit Pengguna
+                </h3>
+                <button
+                  onClick={() => setEditingUserId(null)}
+                  className="p-2 rounded-xl text-ink-400 hover:text-ink-700 hover:bg-slate-200 dark:hover:bg-slate-800 transition-colors"
+                >
+                  <X className="h-5 w-5" />
+                </button>
+              </div>
+
+              <div className="p-6 overflow-y-auto space-y-5 text-sm">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-xs font-bold text-ink-600 dark:text-slate-400 mb-1.5">
+                      Ubah Nama
+                    </label>
+                    <input
+                      value={editName}
+                      onChange={(e) => setEditName(e.target.value)}
+                      className="w-full px-3.5 py-2.5 rounded-xl border border-brand-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-ink-900 dark:text-white outline-none focus:ring-2 focus:ring-brand-100 focus:border-brand-300 transition-all"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-xs font-bold text-ink-600 dark:text-slate-400 mb-1.5">
+                      Ganti Sandi (Opsional)
+                    </label>
+                    <input
+                      value={editPassword}
+                      onChange={(e) => setEditPassword(e.target.value)}
+                      placeholder="Kata sandi baru..."
+                      className="w-full px-3.5 py-2.5 rounded-xl border border-brand-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-ink-900 dark:text-white outline-none focus:ring-2 focus:ring-brand-100 focus:border-brand-300 transition-all"
+                    />
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                  <div>
+                    <label className="block text-xs font-bold text-ink-600 dark:text-slate-400 mb-1.5">
+                      Provinsi
+                    </label>
+                    <select
+                      value={editProvId}
+                      onChange={(e) => {
+                        setEditProvId(e.target.value);
+                        setEditRegId("");
+                        setEditSchoolId("");
+                      }}
+                      className="w-full px-3.5 py-2.5 rounded-xl border border-brand-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-ink-900 dark:text-white outline-none focus:ring-2 focus:ring-brand-100"
+                    >
+                      <option value="">Pilih Provinsi...</option>
+                      {allProvinces.map((p) => (
+                        <option key={p.id} value={p.id}>
+                          {p.name}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                  <div>
+                    <label className="block text-xs font-bold text-ink-600 dark:text-slate-400 mb-1.5">
+                      Kab/Kota
+                    </label>
+                    <select
+                      className="w-full px-3.5 py-2.5 rounded-xl border border-brand-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-ink-900 dark:text-white outline-none focus:ring-2 focus:ring-brand-100 disabled:opacity-50"
+                      value={editRegId}
+                      onChange={(e) => {
+                        setEditRegId(e.target.value);
+                        setEditSchoolId("");
+                      }}
+                      disabled={!editProvId}
+                    >
+                      <option value="">Pilih Kab/Kota</option>
+                      {editRegencies.map((r) => (
+                        <option key={r.id} value={r.id}>
+                          {r.name}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                  <div>
+                    <label className="block text-xs font-bold text-ink-600 dark:text-slate-400 mb-1.5">
+                      Sekolah
+                    </label>
+                    <select
+                      value={editSchoolId}
+                      onChange={(e) => setEditSchoolId(e.target.value)}
+                      disabled={!editRegId}
+                      className="w-full px-3.5 py-2.5 rounded-xl border border-brand-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-ink-900 dark:text-white disabled:opacity-50 outline-none focus:ring-2 focus:ring-brand-100"
+                    >
+                      <option value="">Pilih Sekolah...</option>
+                      {editSchoolsList.map((s) => (
+                        <option key={s.id} value={s.id}>
+                          {s.name}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <div>
+                    <label className="block text-xs font-bold text-ink-600 dark:text-slate-400 mb-1.5">
+                      Tingkat Kelas
+                    </label>
+                    <select
+                      value={editGrade}
+                      onChange={(e) =>
+                        setEditGrade(e.target.value as "X" | "XI" | "XII")
+                      }
+                      className="w-full px-3.5 py-2.5 rounded-xl border border-brand-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-ink-900 dark:text-white outline-none focus:ring-2 focus:ring-brand-100"
+                    >
+                      <option value="X">Kelas X</option>
+                      <option value="XI">Kelas XI</option>
+                      <option value="XII">Kelas XII</option>
+                    </select>
+                  </div>
+                  <div>
+                    <label className="block text-xs font-bold text-ink-600 dark:text-slate-400 mb-1.5">
+                      No. Ruang
+                    </label>
+                    <input
+                      type="text"
+                      value={editSection}
+                      onChange={(e) => setEditSection(e.target.value)}
+                      placeholder="Contoh: MIPA 4"
+                      className="w-full px-3.5 py-2.5 rounded-xl border border-brand-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-ink-900 dark:text-white outline-none focus:ring-2 focus:ring-brand-100"
+                    />
+                  </div>
+                </div>
+
+                <div className="pt-4 border-t border-slate-200 dark:border-slate-800 flex justify-end gap-3">
+                  <button
+                    onClick={() => setEditingUserId(null)}
+                    className="px-6 py-2.5 text-sm font-bold text-ink-600 hover:bg-slate-200 bg-slate-100 dark:bg-slate-800 dark:text-slate-300 dark:hover:bg-slate-700 rounded-xl transition-colors"
+                  >
+                    Batal
+                  </button>
+                  <button
+                    onClick={() => {
+                      if (editingUserId) handleSaveEdit(editingUserId);
+                    }}
+                    className="px-6 py-2.5 text-sm font-bold text-white bg-brand-600 hover:bg-brand-700 rounded-xl flex items-center gap-2 transition-all shadow-sm focus:ring-4 focus:ring-brand-500/30"
+                  >
+                    <Save className="h-4 w-4" /> Simpan Perubahan
+                  </button>
+                </div>
               </div>
             </motion.div>
           </div>

@@ -15,7 +15,7 @@ export async function getBaseSchools() {
 
   const finalPath = path.resolve(
     __dirname,
-    "../../data/final/schools-final.json",
+    "../../../../data/final/schools-final.json",
   );
   if (fs.existsSync(finalPath)) {
     try {
@@ -27,7 +27,7 @@ export async function getBaseSchools() {
     }
   }
 
-  const litePath = path.resolve(__dirname, "../data/schools-lite.json");
+  const litePath = path.resolve(__dirname, "../../../../data/schools-lite.json");
   if (fs.existsSync(litePath)) {
     try {
       console.log("Loading 215k LITE dataset into memory...");
@@ -63,6 +63,7 @@ function enrichSchool(school) {
     ...school,
     id: school.id || school.school_id,
     name: school.name || school.school_name,
+    level: school.level || school.school_level,
     earthquake_hazard: { ...notAvailableHazard },
     flood_hazard: { ...notAvailableHazard },
     tsunami_hazard: { ...notAvailableHazard },
@@ -165,6 +166,53 @@ router.get("/search", async (req, res) => {
   res.json({ schools: results.slice(0, 100).map(enrichSchool) });
 });
 
+router.get("/map", async (req, res) => {
+  try {
+    const schools = await getBaseSchools();
+    
+    // Optimized map payload: Send as an array of tuples to save massive JSON bandwidth
+    // Tuple format: [id, lat, lng, category, name]
+    // Categories: 1=TK/PAUD, 2=SD/MI, 3=SMP/MTs, 4=SMA/SMK/MA, 0=Other
+    
+    const mapSchools = [];
+    
+    for (let i = 0; i < schools.length; i++) {
+      const s = schools[i];
+      const lat = parseFloat(s.latitude || s.lat);
+      const lng = parseFloat(s.longitude || s.lng);
+      
+      if (!isNaN(lat) && !isNaN(lng)) {
+        const name = (s.name || s.school_name || "").toUpperCase();
+        let cat = 0;
+        
+        if (name.includes("TK ") || name.includes("PAUD") || name.includes("KB ")) {
+          cat = 1;
+        } else if (name.includes("SDN ") || name.includes("SD ") || name.includes("MI ")) {
+          cat = 2;
+        } else if (name.includes("SMP") || name.includes("MTS")) {
+          cat = 3;
+        } else if (name.includes("SMA") || name.includes("SMK") || name.includes("MA ")) {
+          cat = 4;
+        }
+        
+        mapSchools.push([
+          s.id || s.school_id,
+          lat,
+          lng,
+          cat,
+          s.name || s.school_name
+        ]);
+      }
+    }
+      
+    // No limits applied (Tanpa Batas). Sends all 215k+ valid coordinates.
+    res.json({ schools: mapSchools });
+  } catch (error) {
+    console.error("Error fetching map schools:", error);
+    res.status(503).json({ success: false, error: "Failed to load map data" });
+  }
+});
+
 router.get("/:id", async (req, res) => {
   const schools = await getBaseSchools();
   const school = schools.find(
@@ -252,6 +300,51 @@ router.post("/:id/risk/refresh", async (req, res) => {
   } catch (error) {
     console.error("Risk Refresh Error:", error);
     res.status(500).json({ error: "Failed to refresh disaster analysis" });
+  }
+});
+
+router.put("/:id/coordinates", async (req, res) => {
+  try {
+    const { lat, lng } = req.body;
+    if (typeof lat !== "number" || typeof lng !== "number") {
+      return res.status(400).json({ error: "lat and lng must be numbers" });
+    }
+
+    const db = await readDB();
+    const schoolId = req.params.id;
+    let schoolInDb = db.schools.find((s) => s.id === schoolId || s.school_id === schoolId);
+
+    if (!schoolInDb) {
+      const schools = await getBaseSchools();
+      const school = schools.find((s) => (s.id || s.school_id) === schoolId);
+      if (!school) {
+        return res.status(404).json({ error: "School not found" });
+      }
+      schoolInDb = { ...school };
+      db.schools.push(schoolInDb);
+    }
+
+    schoolInDb.latitude = lat;
+    schoolInDb.longitude = lng;
+    schoolInDb.lat = lat;
+    schoolInDb.lng = lng;
+
+    await writeDB({ schools: db.schools });
+
+    if (_localSchoolsCache) {
+      const cacheIdx = _localSchoolsCache.findIndex((s) => (s.id || s.school_id) === schoolId);
+      if (cacheIdx !== -1) {
+        _localSchoolsCache[cacheIdx].latitude = lat;
+        _localSchoolsCache[cacheIdx].longitude = lng;
+        _localSchoolsCache[cacheIdx].lat = lat;
+        _localSchoolsCache[cacheIdx].lng = lng;
+      }
+    }
+
+    res.json({ success: true, school: enrichSchool(schoolInDb) });
+  } catch (error) {
+    console.error("Update Coordinates Error:", error);
+    res.status(500).json({ error: "Failed to update coordinates" });
   }
 });
 

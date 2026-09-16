@@ -1,7 +1,12 @@
 import express from "express";
 import cors from "cors";
 import dotenv from "dotenv";
-dotenv.config({ path: [".env.local", ".env"] });
+import path from "path";
+import { fileURLToPath } from "url";
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
+dotenv.config({ path: [path.join(__dirname, "../.env.local"), path.join(__dirname, "../.env")] });
 
 import authRoutes from "./routes/auth.js";
 import profileRoutes from "./routes/profile.js";
@@ -13,6 +18,9 @@ import usersRoutes from "./routes/users.js";
 import analyticsRoutes from "./routes/analytics.js";
 import classesRoutes from "./routes/classes.js";
 import sessionsRoutes from "./routes/sessions.js";
+import mountainsRoutes from "./routes/mountains.js";
+import quizHistoryRoutes from "./routes/quizHistory.js";
+import spatialRoutes from "./routes/spatialRoutes.js";
 
 const app = express();
 const PORT = process.env.PORT || 3001;
@@ -53,6 +61,9 @@ app.use("/api/users", usersRoutes);
 app.use("/api/analytics", analyticsRoutes);
 app.use("/api/classes", classesRoutes);
 app.use("/api/sessions", sessionsRoutes);
+app.use("/api/mountains", mountainsRoutes);
+app.use("/api/quiz-history", quizHistoryRoutes);
+app.use("/api/spatial", spatialRoutes);
 
 app.get("/api/debug", async (req, res) => {
   const dbUrl = process.env.DATABASE_URL || process.env.POSTGRES_URL;

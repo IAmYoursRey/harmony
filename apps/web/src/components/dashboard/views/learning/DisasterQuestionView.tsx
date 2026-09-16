@@ -67,18 +67,10 @@ const TOPICS = [
   {
     id: "gempa",
     label: "Gempa Bumi",
-    icon: Zap,
+    icon: Mountain,
     color: "text-amber-600",
     bg: "bg-amber-50 dark:bg-amber-500/10",
     border: "border-amber-200 dark:border-amber-500/20",
-  },
-  {
-    id: "banjir",
-    label: "Banjir",
-    icon: Waves,
-    color: "text-blue-600",
-    bg: "bg-blue-50 dark:bg-blue-500/10",
-    border: "border-blue-200 dark:border-blue-500/20",
   },
   {
     id: "tsunami",
@@ -89,12 +81,36 @@ const TOPICS = [
     border: "border-cyan-200 dark:border-cyan-500/20",
   },
   {
-    id: "kebakaran",
-    label: "Kebakaran",
+    id: "erupsi",
+    label: "Gunung Meletus",
     icon: Flame,
     color: "text-red-600",
     bg: "bg-red-50 dark:bg-red-500/10",
     border: "border-red-200 dark:border-red-500/20",
+  },
+  {
+    id: "banjir",
+    label: "Banjir",
+    icon: CloudRain,
+    color: "text-blue-600",
+    bg: "bg-blue-50 dark:bg-blue-500/10",
+    border: "border-blue-200 dark:border-blue-500/20",
+  },
+  {
+    id: "longsor",
+    label: "Tanah Longsor",
+    icon: Trees,
+    color: "text-emerald-600",
+    bg: "bg-emerald-50 dark:bg-emerald-500/10",
+    border: "border-emerald-200 dark:border-emerald-500/20",
+  },
+  {
+    id: "kekeringan",
+    label: "Kekeringan",
+    icon: Zap,
+    color: "text-yellow-600",
+    bg: "bg-yellow-50 dark:bg-yellow-500/10",
+    border: "border-yellow-200 dark:border-yellow-500/20",
   },
   {
     id: "angin",
@@ -105,9 +121,17 @@ const TOPICS = [
     border: "border-indigo-200 dark:border-indigo-500/20",
   },
   {
-    id: "longsor",
-    label: "Tanah Longsor",
-    icon: AlertTriangle,
+    id: "abrasi",
+    label: "Gelombang Pasang",
+    icon: Waves,
+    color: "text-teal-600",
+    bg: "bg-teal-50 dark:bg-teal-500/10",
+    border: "border-teal-200 dark:border-teal-500/20",
+  },
+  {
+    id: "kebakaran",
+    label: "Kebakaran Hutan dan Lahan",
+    icon: Flame,
     color: "text-orange-600",
     bg: "bg-orange-50 dark:bg-orange-500/10",
     border: "border-orange-200 dark:border-orange-500/20",
@@ -132,7 +156,15 @@ type QuizPhase =
   "topic-select" | "loading" | "answering" | "evaluating" | "results";
 
 type DisasterType =
-  "earthquake" | "flood" | "tsunami" | "landslide" | "volcano" | "fire";
+  | "earthquake"
+  | "tsunami"
+  | "volcano"
+  | "flood"
+  | "landslide"
+  | "drought"
+  | "typhoon"
+  | "tidal_wave"
+  | "forest_fire";
 
 interface DisasterOption {
   id: DisasterType;
@@ -148,17 +180,9 @@ const disasterOptions: DisasterOption[] = [
     id: "earthquake",
     label: "Gempa Bumi",
     icon: Mountain,
-    accent: "from-orange-500 to-red-600",
+    accent: "from-amber-500 to-orange-600",
     difficulty: "Level 4 · Tinggi",
     desc: "Simulasikan aksi berlindung dan rute evakuasi gempa tektonik.",
-  },
-  {
-    id: "flood",
-    label: "Banjir",
-    icon: CloudRain,
-    accent: "from-blue-400 to-indigo-600",
-    difficulty: "Level 3 · Sedang",
-    desc: "Simulasi kesiapsiagaan menghadapi luapan air sungai.",
   },
   {
     id: "tsunami",
@@ -169,14 +193,6 @@ const disasterOptions: DisasterOption[] = [
     desc: "Latihan mendeteksi tanda pasang surut air laut dan lari ke dataran tinggi.",
   },
   {
-    id: "landslide",
-    label: "Tanah Longsor",
-    icon: Trees,
-    accent: "from-emerald-600 to-teal-800",
-    difficulty: "Level 3 · Sedang",
-    desc: "Deteksi retakan tanah di lereng bukit.",
-  },
-  {
     id: "volcano",
     label: "Gunung Meletus",
     icon: Flame,
@@ -185,12 +201,52 @@ const disasterOptions: DisasterOption[] = [
     desc: "Simulasi menghadapi hujan abu vulkanik dan gas beracun.",
   },
   {
-    id: "fire",
-    label: "Kebakaran Gedung",
-    icon: Flame,
-    accent: "from-red-500 to-orange-600",
+    id: "flood",
+    label: "Banjir",
+    icon: CloudRain,
+    accent: "from-blue-400 to-indigo-600",
     difficulty: "Level 3 · Sedang",
-    desc: "Evakuasi mandiri melalui lorong penuh asap tebal.",
+    desc: "Simulasi kesiapsiagaan menghadapi luapan air sungai.",
+  },
+  {
+    id: "landslide",
+    label: "Tanah Longsor",
+    icon: Trees,
+    accent: "from-emerald-600 to-teal-800",
+    difficulty: "Level 3 · Sedang",
+    desc: "Deteksi retakan tanah di lereng bukit dan rute evakuasi aman.",
+  },
+  {
+    id: "drought",
+    label: "Kekeringan",
+    icon: Zap,
+    accent: "from-yellow-500 to-amber-700",
+    difficulty: "Level 2 · Ringan",
+    desc: "Manajemen dan konservasi air di musim kemarau panjang.",
+  },
+  {
+    id: "typhoon",
+    label: "Angin Puting Beliung",
+    icon: Wind,
+    accent: "from-indigo-500 to-purple-700",
+    difficulty: "Level 3 · Sedang",
+    desc: "Prosedur keselamatan saat terjadi pusaran angin kencang.",
+  },
+  {
+    id: "tidal_wave",
+    label: "Gelombang Pasang",
+    icon: Waves,
+    accent: "from-teal-500 to-cyan-700",
+    difficulty: "Level 3 · Sedang",
+    desc: "Kesiapsiagaan di wilayah pesisir dari ancaman gelombang laut.",
+  },
+  {
+    id: "forest_fire",
+    label: "Kebakaran Hutan dan Lahan",
+    icon: Flame,
+    accent: "from-orange-500 to-red-700",
+    difficulty: "Level 4 · Tinggi",
+    desc: "Pencegahan dan evakuasi di area rawan kebakaran lahan/hutan.",
   },
 ];
 
@@ -560,7 +616,7 @@ const simSteps: Record<DisasterType, SimStep[]> = {
         "Hujan lebat terjadi di puncak gunung setelah erupsi selesai. Apa bahaya sekunder yang wajib dihindari?",
       options: [
         {
-          text: "Aliran sungai yang berhulu di gunung (potensi lahar dingin)",
+          text: "Aliran sungai yang berhulu di gunung",
           correct: true,
           feedback:
             "Benar! Lahar dingin berupa banjir lumpur batu bersuhu dingin meluncur di sepanjang sungai.",
@@ -580,7 +636,7 @@ const simSteps: Record<DisasterType, SimStep[]> = {
       ],
     },
   ],
-  fire: [
+  forest_fire: [
     {
       title: "Langkah 1 · Bunyi Alarm Kebakaran",
       instruction:
@@ -615,13 +671,13 @@ const simSteps: Record<DisasterType, SimStep[]> = {
           text: "Merangkak/menunduk serendah mungkin sambil menutup hidung dengan kain basah",
           correct: true,
           feedback:
-            "Benar! Udara bersih berada di bagian bawah (dekat lantai). Kain basah menyaring racun.",
+            "Benar! Udara bersih berada di bagian bawah. Kain basah menyaring racun.",
         },
         {
           text: "Berlari tegak secepat mungkin sambil bernapas dalam-dalam",
           correct: false,
           feedback:
-            "Menghirup asap beracun (karbon monoksida) dapat menyebabkan pingsan seketika.",
+            "Menghirup asap beracun dapat menyebabkan pingsan seketika.",
         },
         {
           text: "Berteriak meminta tolong dengan mulut terbuka lebar",
@@ -646,7 +702,7 @@ const simSteps: Record<DisasterType, SimStep[]> = {
           text: "Segera buka pintu lebar-lebar untuk melihat kondisi api",
           correct: false,
           feedback:
-            'Membuka pintu akan memicu "backdraft" (ledakan api akibat suplai oksigen mendadak).',
+            'Membuka pintu akan memicu "backdraft".',
         },
         {
           text: "Menyiram pintu dengan seember air lalu membukanya",
@@ -656,6 +712,75 @@ const simSteps: Record<DisasterType, SimStep[]> = {
         },
       ],
     },
+  ],
+  drought: [
+    {
+      title: "Langkah 1 · Manajemen Air",
+      instruction: "Sumber air bersih mulai mengering. Tindakan mitigasi yang tepat adalah?",
+      options: [
+        {
+          text: "Membatasi penggunaan air bersih hanya untuk kebutuhan krusial",
+          correct: true,
+          feedback: "Benar! Konservasi air adalah langkah paling penting saat kekeringan."
+        },
+        {
+          text: "Tetap menyiram jalanan agar tidak berdebu",
+          correct: false,
+          feedback: "Pemborosan air bersih di saat kekeringan sangat tidak dianjurkan."
+        },
+        {
+          text: "Meminum genangan air sisa hujan",
+          correct: false,
+          feedback: "Air yang tidak diolah rentan membawa penyakit pencernaan."
+        }
+      ]
+    }
+  ],
+  typhoon: [
+    {
+      title: "Langkah 1 · Ancaman Angin Puting Beliung",
+      instruction: "Angin kencang berputar terlihat mendekati sekolah. Apa yang harus Anda lakukan?",
+      options: [
+        {
+          text: "Masuk ke ruangan kokoh dan jauhi jendela atau pintu kaca",
+          correct: true,
+          feedback: "Benar! Berlindung dari puing berterbangan yang memecahkan kaca."
+        },
+        {
+          text: "Lari ke tengah lapangan terbuka",
+          correct: false,
+          feedback: "Sangat berbahaya. Anda bisa tersambar benda terbang atau kilat."
+        },
+        {
+          text: "Berlindung di bawah pohon besar yang rimbun",
+          correct: false,
+          feedback: "Pohon besar berisiko tinggi tumbang diterjang angin kencang."
+        }
+      ]
+    }
+  ],
+  tidal_wave: [
+    {
+      title: "Langkah 1 · Gelombang Pasang",
+      instruction: "Peringatan gelombang laut tinggi dikeluarkan oleh BMKG. Apa tindakan kesiapsiagaan Anda di pesisir?",
+      options: [
+        {
+          text: "Menjauhi bibir pantai dan berlindung di dataran yang lebih tinggi/jauh dari pesisir",
+          correct: true,
+          feedback: "Benar! Menghindar adalah cara terbaik sebelum hantaman abrasi merusak bangunan pesisir."
+        },
+        {
+          text: "Pergi ke pantai untuk menonton gelombang pasang",
+          correct: false,
+          feedback: "Sangat berbahaya! Gelombang pasang bisa menyeret Anda ke laut dalam sekejap."
+        },
+        {
+          text: "Melaut dengan kapal kecil karena ikan akan banyak bermunculan",
+          correct: false,
+          feedback: "Kapal kecil rentan terbalik diterjang gelombang tinggi."
+        }
+      ]
+    }
   ],
 };
 
@@ -706,10 +831,10 @@ const learningMaterials = [
       {
         title: "Bagaimana Tsunami Terjadi?",
         content:
-          "Tsunami adalah gelombang raksasa yang dipicu oleh gempa bumi tektonik bawah laut (kedalaman < 70 km, kekuatan > 7.0 SR, dengan patahan vertikal), longsor bawah laut, atau letusan gunung berapi bawah laut.",
+          "Tsunami adalah gelombang raksasa yang dipicu oleh gempa bumi tektonik bawah laut, longsor bawah laut, atau letusan gunung berapi bawah laut.",
       },
       {
-        title: "Membaca Tanda Alam (Water Retreat)",
+        title: "Membaca Tanda Alam",
         content:
           "Jika pantai mendadak surut secara drastis setelah gempa bumi, jangan dekati pantai. Itu adalah isyarat bahwa gelombang tsunami raksasa sedang mengumpulkan energi untuk menerjang daratan.",
       },
@@ -813,6 +938,25 @@ export function DisasterQuestionView() {
         weak,
         strong,
       );
+
+      // Save history for teacher review
+      try {
+        await fetch("http://localhost:3001/api/quiz-history", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            userId: currentUser.id,
+            topicId: selectedTopic,
+            questions: quizQuestions,
+            answers: quizAnswers,
+            evaluations: evals,
+            score: totalScore
+          })
+        });
+      } catch (e) {
+        console.error("Failed to save quiz history", e);
+      }
+
       refreshProfile();
     }
     setQuizPhase("results");

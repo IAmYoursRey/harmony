@@ -163,36 +163,39 @@ export function LeaderboardView() {
           </div>
 
           {/* Tabs */}
-          <div className="flex bg-brand-50 dark:bg-slate-800 p-1 rounded-xl">
+          <div className="grid grid-cols-3 bg-brand-50 dark:bg-slate-800 p-1 rounded-xl w-full sm:w-auto">
             <button
               onClick={() => setActiveTab("school")}
-              className={`flex items-center gap-2 px-4 py-2 text-sm font-semibold rounded-lg transition-all ${
+              className={`flex items-center justify-center gap-1.5 px-2 py-2 text-xs sm:text-sm font-semibold rounded-lg transition-all ${
                 activeTab === "school"
                   ? "bg-white dark:bg-slate-700 text-brand-600 shadow-sm"
                   : "text-ink-500 hover:text-ink-700 dark:text-slate-400"
               }`}
             >
-              <School className="h-4 w-4" /> Sekolah
+              <School className="h-3.5 w-3.5 sm:h-4 sm:w-4 shrink-0" />{" "}
+              <span className="truncate">Sekolah</span>
             </button>
             <button
               onClick={() => setActiveTab("regency")}
-              className={`flex items-center gap-2 px-4 py-2 text-sm font-semibold rounded-lg transition-all ${
+              className={`flex items-center justify-center gap-1.5 px-2 py-2 text-xs sm:text-sm font-semibold rounded-lg transition-all ${
                 activeTab === "regency"
                   ? "bg-white dark:bg-slate-700 text-brand-600 shadow-sm"
                   : "text-ink-500 hover:text-ink-700 dark:text-slate-400"
               }`}
             >
-              <MapPin className="h-4 w-4" /> Kab/Kota
+              <MapPin className="h-3.5 w-3.5 sm:h-4 sm:w-4 shrink-0" />{" "}
+              <span className="truncate">Kab/Kota</span>
             </button>
             <button
               onClick={() => setActiveTab("province")}
-              className={`flex items-center gap-2 px-4 py-2 text-sm font-semibold rounded-lg transition-all ${
+              className={`flex items-center justify-center gap-1.5 px-2 py-2 text-xs sm:text-sm font-semibold rounded-lg transition-all ${
                 activeTab === "province"
                   ? "bg-white dark:bg-slate-700 text-brand-600 shadow-sm"
                   : "text-ink-500 hover:text-ink-700 dark:text-slate-400"
               }`}
             >
-              <Map className="h-4 w-4" /> Provinsi
+              <Map className="h-3.5 w-3.5 sm:h-4 sm:w-4 shrink-0" />{" "}
+              <span className="truncate">Provinsi</span>
             </button>
           </div>
         </div>
@@ -382,7 +385,7 @@ function LeaderboardProfileModal({
                 <School className="h-3.5 w-3.5" /> {user.schoolName}
               </span>
               <span className="flex items-center gap-1">
-                &bull; Kelas {user.grade} {user.classSection}
+                &bull; Kelas {user.grade}{user.classSection ? ` - ${user.classSection}` : ""}
               </span>
             </div>
           </div>

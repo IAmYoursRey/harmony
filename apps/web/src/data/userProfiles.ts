@@ -22,7 +22,6 @@ export interface UserProfile {
   schoolName?: string;
   province?: string;
   regency?: string;
-  /** classId links a student to a Class entity (classes[] in database). Optional for backward compatibility with legacy profiles. */
   classId?: string;
   supervisedClasses?: { grade: 'X' | 'XI' | 'XII'; section: string }[];
   dateOfBirth?: string;
@@ -35,6 +34,7 @@ export interface UserProfile {
   lastUpdated: string;
   activities?: { title: string; status: string; timestamp: string; type: 'quiz' | 'simulation' }[];
   pointsHistory?: { date: string; points: number }[];
+  isPublic?: boolean;
 }
 
 export function createInitialTopicScore(): TopicScore {
@@ -60,7 +60,7 @@ export async function getProfile(): Promise<UserProfile | undefined> {
 }
 
 export async function createProfile(
-  userId: string, // Not strictly needed as token provides it, but keeping signature
+  userId: string,
   gender: Gender,
   grade: 'X' | 'XI' | 'XII',
   classSection: string,
@@ -85,7 +85,7 @@ export async function updateProfile(
   updates: Partial<Omit<UserProfile, 'userId'>>,
   targetUserId?: string
 ): Promise<UserProfile | undefined> {
-  try {
+  try {
     const data = await apiClient.post('/api/profile', updates);
     return data.profile;
   } catch {
@@ -107,7 +107,7 @@ export function buildAISummary(profile: UserProfile | null, userName?: string): 
   const nameStr = userName ? `Siswa bernama ${userName} ` : 'Siswa ';
   return `${nameStr} berada di kelas ${profile.grade} ${profile.classSection}. ` +
          `Total Poin: ${profile.totalPoints}. ` +
-         `Topik lemah: ${Object.values(profile.topicScores).flatMap(t => t.weakTopics).join(', ') || 'Belum ada'}.`;
+         `Topik lemah: ${profile.topicScores ? Object.values(profile.topicScores).flatMap(t => t.weakTopics).join(', ') : 'Belum ada'}.`;
 }
 
 export async function recordQuizSession(
@@ -119,17 +119,24 @@ export async function recordQuizSession(
 ): Promise<void> {
   const profile = await getProfile();
   if (!profile) return;
+  
+  if (!profile.topicScores) {
+    profile.topicScores = {};
+  }
+  
   const current = profile.topicScores[topic] || createInitialTopicScore();
   current.totalAttempts += 1;
   current.totalScore += score;
   current.averageScore = current.totalScore / current.totalAttempts;
   current.lastAttempt = new Date().toISOString();
   current.isFirstAttempt = false;
-  current.sessionsAtCurrentLevel += 1;
+  current.sessionsAtCurrentLevel += 1;
+  
   const weakSet = new Set([...current.weakTopics, ...weakSubTopics]);
   strongSubTopics.forEach(s => weakSet.delete(s));
   current.weakTopics = Array.from(weakSet);
-  current.strongTopics = Array.from(new Set([...current.strongTopics, ...strongSubTopics]));
+  current.strongTopics = Array.from(new Set([...current.strongTopics, ...strongSubTopics]));
+  
   const activities = profile.activities || [];
   activities.unshift({
     title: `Quiz: ${topic}`,
@@ -168,7 +175,8 @@ export async function recordSmartSimulationAnswers(
   if (!profile) return;
   
   const newMastered = Array.from(new Set([...(profile.masteredConcepts || []), ...masteredConcepts]));
-  const newTotal = profile.totalPoints + pointsEarned;
+  const newTotal = profile.totalPoints + pointsEarned;
+
   const activities = profile.activities || [];
   activities.unshift({
     title: `Smart Simulation`,

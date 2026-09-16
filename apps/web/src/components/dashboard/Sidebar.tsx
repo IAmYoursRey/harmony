@@ -10,6 +10,7 @@ interface SidebarProps {
   onSelect: () => void;
   mobileOpen: boolean;
   onCloseMobile: () => void;
+  forceOverlay?: boolean;
 }
 
 export function Sidebar({
@@ -17,6 +18,7 @@ export function Sidebar({
   onSelect,
   mobileOpen,
   onCloseMobile,
+  forceOverlay = false,
 }: SidebarProps) {
   const { t } = useI18n();
   const { currentUser, logout } = useAuth();
@@ -32,14 +34,16 @@ export function Sidebar({
       {/* Mobile overlay */}
       <div
         onClick={onCloseMobile}
-        className={`fixed inset-0 z-40 bg-ink-950/40 backdrop-blur-sm transition-opacity dark:bg-black/60 lg:hidden ${
+        className={`fixed inset-0 z-40 bg-ink-950/40 backdrop-blur-sm transition-opacity dark:bg-black/60 ${forceOverlay ? "" : "lg:hidden"} ${
           mobileOpen ? "opacity-100" : "pointer-events-none opacity-0"
         }`}
       />
 
       <aside
-        className={`fixed inset-y-0 left-0 z-50 flex w-72 flex-col bg-white/80 backdrop-blur-xl border-r border-brand-100 transition-transform duration-300 dark:border-slate-700 dark:bg-slate-900/80 lg:static lg:z-0 lg:translate-x-0 ${
-          mobileOpen ? "translate-x-0" : "-translate-x-full lg:translate-x-0"
+        className={`fixed inset-y-0 left-0 z-50 flex w-72 flex-col bg-white/80 backdrop-blur-xl border-r border-brand-100 transition-transform duration-300 dark:border-slate-700 dark:bg-slate-900/80 ${
+          forceOverlay ? "" : "lg:static lg:z-0 lg:translate-x-0"
+        } ${
+          mobileOpen ? "translate-x-0" : "-translate-x-full"
         }`}
       >
         {/* Logo */}
@@ -56,7 +60,7 @@ export function Sidebar({
           </Link>
           <button
             onClick={onCloseMobile}
-            className="flex h-9 w-9 items-center justify-center rounded-lg text-ink-500 hover:bg-brand-50 dark:text-slate-400 dark:hover:bg-slate-800 lg:hidden"
+            className={`flex h-9 w-9 items-center justify-center rounded-lg text-ink-500 hover:bg-brand-50 dark:text-slate-400 dark:hover:bg-slate-800 ${forceOverlay ? "" : "lg:hidden"}`}
             aria-label="Close menu"
           >
             <X className="h-5 w-5" />
@@ -111,7 +115,13 @@ export function Sidebar({
           <div className="glass rounded-xl p-4">
             <div className="flex items-center gap-2.5">
               <span
-                className={`flex h-9 w-9 items-center justify-center rounded-lg text-xs font-extrabold text-white ${currentUser?.role === "dev" ? "bg-gradient-to-br from-red-500 to-red-700" : currentUser?.role === "teacher" ? "bg-gradient-to-br from-amber-500 to-amber-700" : "bg-gradient-to-br from-brand-500 to-brand-700"}`}
+                className={`flex h-9 w-9 items-center justify-center rounded-lg text-xs font-extrabold text-white ${
+                  currentUser?.role === "developer"
+                    ? "bg-gradient-to-br from-red-500 to-red-700"
+                    : currentUser?.role === "teacher"
+                      ? "bg-gradient-to-br from-amber-500 to-amber-700"
+                      : "bg-gradient-to-br from-brand-500 to-brand-700"
+                }`}
               >
                 {currentUser?.name?.substring(0, 2).toUpperCase() || "GS"}
               </span>
@@ -119,13 +129,21 @@ export function Sidebar({
                 <p className="truncate text-xs font-bold text-ink-900 dark:text-white">
                   {currentUser?.name || "Pengguna"}
                 </p>
-                <p className="truncate text-[11px] text-ink-500 dark:text-slate-400 uppercase tracking-wider">
-                  {currentUser?.role === "dev"
-                    ? t("role.dev", "Pengembang")
+                <div
+                  className={`mt-1 inline-flex items-center rounded-md px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-wider ${
+                    currentUser?.role === "developer"
+                      ? "bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400"
+                      : currentUser?.role === "teacher"
+                        ? "bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400"
+                        : "bg-brand-100 text-brand-700 dark:bg-brand-900/30 dark:text-brand-400"
+                  }`}
+                >
+                  {currentUser?.role === "developer"
+                    ? t("role.developer", "Developer")
                     : currentUser?.role === "teacher"
-                      ? t("role.teacher", "Guru")
-                      : t("role.student", "Peserta Didik")}
-                </p>
+                      ? t("role.teacher", "Teacher")
+                      : t("role.student", "Student")}
+                </div>
               </div>
             </div>
           </div>

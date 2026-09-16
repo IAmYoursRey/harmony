@@ -1,5 +1,5 @@
 import { readDB, writeDB, pool, timeoutQuery } from "../repositories/repository.js";
-import { getIO } from "./socket.js";
+import { getIO } from "../sockets/socket.js";
 
 const activeSessions = new Map();
 

@@ -14,7 +14,7 @@ router.get("/", verifyToken, async (req, res) => {
   const callerRole = req.user.role;
   const classes = db.classes || [];
 
-  if (callerRole === "dev") {
+  if (callerRole === "dev" || callerRole === "developer") {
     return res.json({ classes });
   }
 

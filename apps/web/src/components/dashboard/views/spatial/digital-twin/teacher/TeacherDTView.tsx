@@ -31,7 +31,7 @@ export function TeacherDTView() {
     async (isBackground = false) => {
       if (
         !schoolId ||
-        (currentUser?.role !== "teacher" && currentUser?.role !== "dev")
+        (currentUser?.role !== "teacher" && currentUser?.role !== "developer")
       )
         return;
       if (!isBackground && maps.length === 0) {

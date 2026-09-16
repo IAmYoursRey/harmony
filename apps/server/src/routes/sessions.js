@@ -2,7 +2,7 @@ import express from "express";
 import { v4 as uuidv4 } from "uuid";
 import { pool, timeoutQuery } from "../repositories/repository.js";
 import { verifyToken } from "../middleware/authMiddleware.js";
-import { initGameSession, endGameSession } from "../gameManager.js";
+import { initGameSession, endGameSession } from "../game/gameManager.js";
 
 const router = express.Router();
 
@@ -11,7 +11,7 @@ function generateJoinCode() {
 }
 
 router.post("/", verifyToken, async (req, res) => {
-  if (req.user.role !== "teacher" && req.user.role !== "dev") {
+  if (req.user.role !== "teacher" && req.user.role !== "dev" && req.user.role !== "developer") {
     return res.status(403).json({ error: "Only teachers can create sessions" });
   }
   const { schoolId, classId, mapId, scenarioId, settings } = req.body;

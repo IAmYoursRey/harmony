@@ -12,8 +12,10 @@ import {
   type UserAccount,
   authenticateAccount,
   registerAccount,
+  registerGoogleAccount,
   getToken,
   clearSession,
+  updateAccount,
 } from "@/data/accounts";
 import {
   type UserProfile,
@@ -66,8 +68,27 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     loadUser();
   }, []);
 
-  const login = async (email: string, password: string) => {
-    const result = await authenticateAccount(email, password);
+  const login = async (token: string, role?: string) => {
+    // Only verifies and returns status, DOES NOT set currentUser yet to allow confirmation screen
+    const result = await authenticateAccount(token, role);
+    return result;
+  };
+
+  const finalizeLogin = async (account: UserAccount) => {
+    setCurrentUser(account);
+    const prof = await getProfile();
+    setCurrentProfile(prof ?? null);
+  };
+
+  const registerGoogle = async (
+    token: string, 
+    role?: string,
+    name?: string,
+    schoolId?: string,
+    grade?: string,
+    classSection?: string
+  ) => {
+    const result = await registerGoogleAccount(token, role, name, schoolId, grade, classSection);
     if (result.success && result.account) {
       setCurrentUser(result.account);
       const prof = await getProfile();
@@ -80,7 +101,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     name: string,
     email: string,
     password: string,
-    role: "student" | "teacher" | "dev",
+    role: "student" | "teacher" | "developer",
     gender: Gender,
     grade: "X" | "XI" | "XII",
     classSection: string,
@@ -125,7 +146,17 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     email?: string;
     password?: string;
   }) => {
-    return { success: false, error: "Not implemented" };
+    if (!currentUser) return { success: false, error: "Not logged in" };
+    try {
+      const result = await updateAccount(currentUser.id, updates);
+      if (result.success && result.account) {
+        setCurrentUser(result.account);
+        return { success: true };
+      }
+      return { success: false, error: result.error };
+    } catch (err: any) {
+      return { success: false, error: err.message };
+    }
   };
 
   const updateUserProfileLocal = async (updates: Partial<UserProfile>) => {
@@ -140,7 +171,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         currentProfile,
         isLoading,
         login,
+        finalizeLogin,
         register,
+        registerGoogle,
         logout,
         refreshProfile,
         updateUserAccount: updateUserAccountLocal,

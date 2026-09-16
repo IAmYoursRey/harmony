@@ -103,8 +103,8 @@ export function AILearningView() {
             </h2>
             {currentProfile && (
               <p className="text-xs text-brand-100 mt-0.5">
-                Kelas {currentProfile.grade} · {currentProfile.totalPoints} poin
-                · {currentProfile.badges.length} lencana
+                Kelas {currentProfile.grade} · {currentProfile.totalPoints || 0} poin
+                · {currentProfile.badges?.length || 0} lencana
               </p>
             )}
           </div>

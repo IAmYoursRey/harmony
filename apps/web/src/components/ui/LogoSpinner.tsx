@@ -20,7 +20,7 @@ export function LogoSpinner({ size = "md" }: { size?: "sm" | "md" | "lg" }) {
 
       {/* Static Logo in the middle */}
       <img
-        src="/logo.jpg"
+        src="/logo.png"
         alt="Loading..."
         className={`${imgSizes[size]} rounded-full object-cover shadow-sm`}
       />

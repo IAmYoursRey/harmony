@@ -122,7 +122,7 @@ export function GSSView() {
     const fetchGSS = async () => {
       setLoading(true);
       const schoolId =
-        currentUser?.role === "teacher" || currentUser?.role === "dev"
+        currentUser?.role === "teacher" || currentUser?.role === "developer"
           ? selection?.school?.id || currentProfile?.schoolId
           : undefined;
       const data = await getGSS(schoolId);

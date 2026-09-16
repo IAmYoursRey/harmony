@@ -86,6 +86,7 @@ import { useI18n } from "@/hooks/useI18n";
 import { useNavigate } from "react-router-dom";
 import { useSchool } from "@/hooks/useSchool";
 import { ProgressRing } from "@/components/dashboard/Charts";
+import { apiClient } from "@/services/apiClient";
 
 interface ProfileData {
   fullName: string;
@@ -112,7 +113,7 @@ function EditableField({
 }) {
   return (
     <div className="flex items-center gap-3 rounded-xl border border-brand-100 bg-white/60 p-3 dark:border-slate-700 dark:bg-slate-800/60">
-      <span className="flex h-9 w-9 items-center justify-center rounded-lg bg-brand-100 text-brand-600 dark:bg-slate-700 dark:text-brand-400">
+      <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-brand-100 text-brand-600 dark:bg-slate-700 dark:text-brand-400">
         <Icon className="h-4 w-4" />
       </span>
       <div className="min-w-0 flex-1">
@@ -128,25 +129,62 @@ function EditableField({
   );
 }
 
-export function ProfileView() {
-  function Card({
-    children,
-    className = "",
-  }: {
-    children: React.ReactNode;
-    className?: string;
-  }) {
-    return (
-      <div
-        className={`glass rounded-2xl p-5 transition-all hover:shadow-glass dark:bg-slate-900/60 ${className}`}
-      >
-        {children}
+function EditableSelect({
+  icon: Icon,
+  label,
+  value,
+  options,
+  onChange,
+}: {
+  icon: LucideIcon;
+  label: string;
+  value: string;
+  options: { label: string; value: string }[];
+  onChange: (v: string) => void;
+}) {
+  return (
+    <div className="flex items-center gap-3 rounded-xl border border-brand-100 bg-white/60 p-3 dark:border-slate-700 dark:bg-slate-800/60">
+      <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-brand-100 text-brand-600 dark:bg-slate-700 dark:text-brand-400">
+        <Icon className="h-4 w-4" />
+      </span>
+      <div className="min-w-0 flex-1">
+        <p className="text-xs text-ink-500 dark:text-slate-400">{label}</p>
+        <select
+          value={value}
+          onChange={(e) => onChange(e.target.value)}
+          className="w-full bg-transparent text-sm font-semibold text-ink-900 outline-none dark:text-white"
+        >
+          {options.map((opt) => (
+            <option key={opt.value} value={opt.value} className="text-ink-900 dark:text-slate-900">
+              {opt.label}
+            </option>
+          ))}
+        </select>
       </div>
-    );
-  }
+    </div>
+  );
+}
+
+function Card({
+  children,
+  className = "",
+}: {
+  children: React.ReactNode;
+  className?: string;
+}) {
+  return (
+    <div
+      className={`glass rounded-2xl p-5 transition-all hover:shadow-glass dark:bg-slate-900/60 ${className}`}
+    >
+      {children}
+    </div>
+  );
+}
+
+export function ProfileView() {
   const { show } = useToast();
   const navigate = useNavigate();
-  const { t, locale, setLocale } = useI18n();
+  const { t, locale } = useI18n();
   const { currentUser, currentProfile, updateUserAccount, updateUserProfile } =
     useAuth();
   const [editing, setEditing] = useState(false);
@@ -169,8 +207,23 @@ export function ProfileView() {
     digest: true,
     contacts: true,
     location: false,
+    isPublic: currentProfile?.isPublic ?? true,
   });
   const fileInputRef = useRef<HTMLInputElement>(null);
+  
+  const [quizHistories, setQuizHistories] = useState<any[]>([]);
+  const [expandedQuizId, setExpandedQuizId] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (currentUser?.id) {
+      apiClient.get(`/api/quiz-history/student/${currentUser.id}`).then((res: any) => {
+        if (res.success && res.data) {
+          setQuizHistories(res.data.sort((a: any, b: any) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()));
+        }
+      });
+    }
+  }, [currentUser?.id]);
+
 
   const startEdit = () => {
     setDraft(data);
@@ -187,14 +240,17 @@ export function ProfileView() {
 
   const saveChanges = async () => {
     try {
-      const accountUpdates: { name?: string; password?: string } = {};
+      const accountUpdates: { name?: string; email?: string; password?: string } = {};
       if (draft.fullName !== currentUser?.name)
         accountUpdates.name = draft.fullName;
+      if (draft.email !== currentUser?.email)
+        accountUpdates.email = draft.email;
       if (draft.password !== "••••••••" && draft.password.trim() !== "")
         accountUpdates.password = draft.password;
 
       if (Object.keys(accountUpdates).length > 0) {
-        await updateUserAccount(accountUpdates);
+        const result = await updateUserAccount(accountUpdates);
+        if (!result.success) throw new Error(result.error || "Gagal memperbarui info akun.");
       }
 
       const profileUpdates: Partial<UserProfile> = {};
@@ -202,6 +258,8 @@ export function ProfileView() {
         profileUpdates.phone = draft.phone;
       if (draft.avatar !== currentProfile?.avatar)
         profileUpdates.avatar = draft.avatar ?? undefined;
+      if (draft.className !== currentProfile?.grade)
+        profileUpdates.grade = draft.className as any;
 
       if (Object.keys(profileUpdates).length > 0) {
         updateUserProfile(profileUpdates);
@@ -370,11 +428,11 @@ export function ProfileView() {
             </h2>
             <div className="mt-1.5 flex flex-wrap gap-2">
               <span className="inline-flex items-center gap-1 rounded-full bg-brand-50 px-2.5 py-1 text-xs font-semibold text-brand-700 dark:bg-brand-500/20 dark:text-brand-300">
-                {currentUser?.role === "dev"
-                  ? t("role.dev", "Pengembang")
+                {currentUser?.role === "developer"
+                  ? t("role.developer", "Developer")
                   : currentUser?.role === "teacher"
-                    ? t("role.teacher", "Guru")
-                    : t("role.student", "Peserta Didik")}
+                    ? t("role.teacher", "Teacher")
+                    : t("role.student", "Student")}
               </span>
               <span className="inline-flex items-center gap-1 rounded-full bg-slate-100 px-2.5 py-1 text-xs font-medium text-slate-600 dark:bg-slate-800 dark:text-slate-300">
                 <MapPin className="h-3 w-3" />{" "}
@@ -499,7 +557,7 @@ export function ProfileView() {
                   onChange={(v) => setDraft({ ...draft, fullName: v })}
                 />
 
-                {currentUser?.role === "dev" ? (
+                {currentUser?.role === "developer" ? (
                   <EditableField
                     icon={School}
                     label="School"
@@ -552,10 +610,15 @@ export function ProfileView() {
                   </div>
                 )}
 
-                <EditableField
+                <EditableSelect
                   icon={BookOpen}
                   label="Class"
                   value={draft.className}
+                  options={[
+                    { label: "Kelas X", value: "X" },
+                    { label: "Kelas XI", value: "XI" },
+                    { label: "Kelas XII", value: "XII" },
+                  ]}
                   onChange={(v) => setDraft({ ...draft, className: v })}
                 />
                 <EditableField
@@ -580,10 +643,10 @@ export function ProfileView() {
             ) : (
               <>
                 <div className="flex items-center gap-3 rounded-xl border border-brand-50 p-3 dark:border-slate-800">
-                  <span className="flex h-9 w-9 items-center justify-center rounded-lg bg-brand-100 text-brand-600 dark:bg-slate-800 dark:text-brand-400">
+                  <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-brand-100 text-brand-600 dark:bg-slate-800 dark:text-brand-400">
                     <Target className="h-4 w-4" />
                   </span>
-                  <div>
+                  <div className="min-w-0 flex-1">
                     <p className="text-xs text-ink-500 dark:text-slate-400">
                       Full Name
                     </p>
@@ -593,11 +656,11 @@ export function ProfileView() {
                   </div>
                 </div>
                 <div className="flex items-center gap-3 rounded-xl border border-brand-50 p-3 dark:border-slate-800 justify-between">
-                  <div className="flex items-center gap-3">
-                    <span className="flex h-9 w-9 items-center justify-center rounded-lg bg-brand-100 text-brand-600 dark:bg-slate-800 dark:text-brand-400">
+                  <div className="flex items-center gap-3 min-w-0 flex-1">
+                    <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-brand-100 text-brand-600 dark:bg-slate-800 dark:text-brand-400">
                       <School className="h-4 w-4" />
                     </span>
-                    <div>
+                    <div className="min-w-0 flex-1">
                       <p className="text-xs text-ink-500 dark:text-slate-400">
                         School
                       </p>
@@ -618,10 +681,10 @@ export function ProfileView() {
                   )}
                 </div>
                 <div className="flex items-center gap-3 rounded-xl border border-brand-50 p-3 dark:border-slate-800">
-                  <span className="flex h-9 w-9 items-center justify-center rounded-lg bg-brand-100 text-brand-600 dark:bg-slate-800 dark:text-brand-400">
+                  <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-brand-100 text-brand-600 dark:bg-slate-800 dark:text-brand-400">
                     <BookOpen className="h-4 w-4" />
                   </span>
-                  <div>
+                  <div className="min-w-0 flex-1">
                     <p className="text-xs text-ink-500 dark:text-slate-400">
                       Class
                     </p>
@@ -631,10 +694,10 @@ export function ProfileView() {
                   </div>
                 </div>
                 <div className="flex items-center gap-3 rounded-xl border border-brand-50 p-3 dark:border-slate-800">
-                  <span className="flex h-9 w-9 items-center justify-center rounded-lg bg-brand-100 text-brand-600 dark:bg-slate-800 dark:text-brand-400">
+                  <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-brand-100 text-brand-600 dark:bg-slate-800 dark:text-brand-400">
                     <Mail className="h-4 w-4" />
                   </span>
-                  <div>
+                  <div className="min-w-0 flex-1">
                     <p className="text-xs text-ink-500 dark:text-slate-400">
                       Email
                     </p>
@@ -644,10 +707,10 @@ export function ProfileView() {
                   </div>
                 </div>
                 <div className="flex items-center gap-3 rounded-xl border border-brand-50 p-3 dark:border-slate-800">
-                  <span className="flex h-9 w-9 items-center justify-center rounded-lg bg-brand-100 text-brand-600 dark:bg-slate-800 dark:text-brand-400">
+                  <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-brand-100 text-brand-600 dark:bg-slate-800 dark:text-brand-400">
                     <Phone className="h-4 w-4" />
                   </span>
-                  <div>
+                  <div className="min-w-0 flex-1">
                     <p className="text-xs text-ink-500 dark:text-slate-400">
                       Phone Number
                     </p>
@@ -657,10 +720,10 @@ export function ProfileView() {
                   </div>
                 </div>
                 <div className="flex items-center gap-3 rounded-xl border border-brand-50 p-3 dark:border-slate-800">
-                  <span className="flex h-9 w-9 items-center justify-center rounded-lg bg-brand-100 text-brand-600 dark:bg-slate-800 dark:text-brand-400">
+                  <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-brand-100 text-brand-600 dark:bg-slate-800 dark:text-brand-400">
                     <Lock className="h-4 w-4" />
                   </span>
-                  <div>
+                  <div className="min-w-0 flex-1">
                     <p className="text-xs text-ink-500 dark:text-slate-400">
                       Password
                     </p>
@@ -829,6 +892,12 @@ export function ProfileView() {
                 label: "Location sharing",
                 desc: "For risk-based recommendations",
               },
+              {
+                key: "isPublic" as const,
+                icon: Users,
+                label: "Jadikan Profil Publik",
+                desc: "Tampilkan profil di klasemen umum",
+              },
             ].map((s) => (
               <div
                 key={s.key}
@@ -846,16 +915,20 @@ export function ProfileView() {
                   </p>
                 </div>
                 <button
-                  onClick={() =>
-                    setPrefs((p) => ({ ...p, [s.key]: !p[s.key] }))
-                  }
+                  onClick={() => {
+                    const newVal = !prefs[s.key as keyof typeof prefs];
+                    setPrefs((p) => ({ ...p, [s.key]: newVal }));
+                    if (s.key === "isPublic") {
+                      updateUserProfile({ isPublic: newVal });
+                    }
+                  }}
                   role="switch"
-                  aria-checked={prefs[s.key]}
+                  aria-checked={prefs[s.key as keyof typeof prefs]}
                   aria-label={s.label}
-                  className={`relative h-6 w-11 rounded-full transition-colors ${prefs[s.key] ? "bg-brand-600" : "bg-brand-100 dark:bg-slate-700"}`}
+                  className={`relative h-6 w-11 rounded-full transition-colors ${prefs[s.key as keyof typeof prefs] ? "bg-brand-600" : "bg-brand-100 dark:bg-slate-700"}`}
                 >
                   <span
-                    className={`absolute top-0.5 h-5 w-5 rounded-full bg-white shadow-sm transition-all ${prefs[s.key] ? "left-[22px]" : "left-0.5"}`}
+                    className={`absolute top-0.5 h-5 w-5 rounded-full bg-white shadow-sm transition-all ${prefs[s.key as keyof typeof prefs] ? "left-[22px]" : "left-0.5"}`}
                   />
                 </button>
               </div>
@@ -909,6 +982,81 @@ export function ProfileView() {
           </div>
         </Card>
       </div>
+
+      {/* Quiz History Section */}
+      <Card className="mt-6">
+        <div className="mb-4 flex items-center justify-between border-b border-brand-100 pb-4 dark:border-slate-800">
+          <h3 className="font-display text-base font-bold text-ink-900 dark:text-white flex items-center gap-2">
+            <Brain className="h-5 w-5 text-brand-600" /> Riwayat Kuis & Subtes
+          </h3>
+        </div>
+        {quizHistories.length === 0 ? (
+          <p className="py-6 text-center text-sm text-ink-500 dark:text-slate-400">
+            Belum ada riwayat kuis.
+          </p>
+        ) : (
+          <div className="space-y-4">
+            {quizHistories.map((qh) => (
+              <div key={qh.id} className="rounded-xl border border-brand-100 bg-white p-4 shadow-sm dark:border-slate-800 dark:bg-slate-900">
+                <div 
+                  className="flex cursor-pointer items-center justify-between"
+                  onClick={() => setExpandedQuizId(expandedQuizId === qh.id ? null : qh.id)}
+                >
+                  <div>
+                    <h4 className="font-bold text-ink-900 dark:text-white capitalize">
+                      {qh.topicId.replace(/-/g, " ")}
+                    </h4>
+                    <p className="text-xs text-ink-500">
+                      {new Date(qh.createdAt).toLocaleString()}
+                    </p>
+                  </div>
+                  <div className="flex items-center gap-4">
+                    <span className="font-display text-lg font-bold text-brand-600 dark:text-brand-400">
+                      {qh.score}%
+                    </span>
+                    <span className="text-ink-400 transition-transform">
+                      {expandedQuizId === qh.id ? "▲" : "▼"}
+                    </span>
+                  </div>
+                </div>
+
+                {expandedQuizId === qh.id && (
+                  <div className="mt-4 space-y-3 border-t border-slate-100 pt-4 dark:border-slate-800">
+                    {qh.evaluations.map((ev: any, idx: number) => {
+                      const q = qh.questions.find((q: any) => q.id === ev.questionId);
+                      const ans = qh.answers[ev.questionId];
+                      return (
+                        <div key={ev.questionId} className="rounded-lg bg-slate-50 p-3 dark:bg-slate-800/50">
+                          <p className="text-sm font-semibold text-ink-900 dark:text-white mb-2">
+                            {idx + 1}. {q?.text || "Unknown Question"}
+                          </p>
+                          <div className="grid gap-2 sm:grid-cols-2 text-sm">
+                            <div className="rounded border border-slate-200 bg-white p-2 dark:border-slate-700 dark:bg-slate-900">
+                              <span className="block text-xs font-bold text-slate-500 mb-1">Jawaban Kamu:</span>
+                              <span className="text-ink-700 dark:text-slate-300">{ans}</span>
+                            </div>
+                            <div className={`rounded border p-2 ${ev.isCorrect ? 'border-emerald-200 bg-emerald-50 dark:border-emerald-900 dark:bg-emerald-900/20' : 'border-rose-200 bg-rose-50 dark:border-rose-900 dark:bg-rose-900/20'}`}>
+                              <span className={`block text-xs font-bold mb-1 ${ev.isCorrect ? 'text-emerald-700' : 'text-rose-700'}`}>
+                                Evaluasi AI: {ev.isCorrect ? 'Benar' : 'Salah'}
+                              </span>
+                              <span className="text-ink-700 dark:text-slate-300">{ev.feedback}</span>
+                              {ev.overriddenByTeacher && (
+                                <span className="mt-2 block text-[10px] font-bold text-amber-600 bg-amber-100 px-2 py-1 rounded inline-block">
+                                  Dikoreksi oleh Guru
+                                </span>
+                              )}
+                            </div>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
+              </div>
+            ))}
+          </div>
+        )}
+      </Card>
     </div>
   );
 }

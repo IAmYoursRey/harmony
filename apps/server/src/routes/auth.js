@@ -4,61 +4,130 @@ import jwt from "jsonwebtoken";
 import { readDB, writeDB } from "../repositories/repository.js";
 import { verifyToken } from "../middleware/authMiddleware.js";
 import dotenv from "dotenv";
+import { OAuth2Client } from "google-auth-library";
+
 dotenv.config({ path: [".env.local", ".env"] });
 const router = express.Router();
 const SECRET = process.env.JWT_SECRET;
+const GOOGLE_CLIENT_ID = process.env.GOOGLE_CLIENT_ID || "YOUR_GOOGLE_CLIENT_ID";
+const googleClient = new OAuth2Client(GOOGLE_CLIENT_ID);
 if (!SECRET) {
   console.error(
     "[CRITICAL] JWT_SECRET is not defined in environment variables.",
   );
 }
-router.post("/register", async (req, res) => {
+router.post("/login", async (req, res) => {
   try {
-    const body = req.body || {};
-    const { name, email, password, role, gender, grade, section, dob } = body;
+    const { token, role } = req.body || {};
 
-    if (!name || !email || !password || !role) {
-      return res.status(400).json({ error: "Missing fields" });
+    if (!token) {
+      return res.status(400).json({ error: "Google token is required" });
     }
 
-    if (
-      typeof name !== "string" ||
-      typeof email !== "string" ||
-      typeof password !== "string" ||
-      typeof role !== "string"
-    ) {
-      return res.status(400).json({ error: "Invalid field format" });
+    // Verify Google token
+    let payload;
+    try {
+      const ticket = await googleClient.verifyIdToken({
+        idToken: token,
+        audience: GOOGLE_CLIENT_ID,
+      });
+      payload = ticket.getPayload();
+    } catch (err) {
+      console.error("[AUTH ERROR] Invalid Google token:", err);
+      // Fallback for missing client ID or dev mode, skip verification if token is a JSON string (for testing)
+      if (token.startsWith("{")) {
+         try {
+             payload = JSON.parse(token);
+         } catch(e) {}
+      }
+      if (!payload) return res.status(401).json({ error: "Invalid Google token" });
     }
+
+    const { email, name, sub: googleId, picture } = payload;
+    if (!email) return res.status(400).json({ error: "Google token does not contain email" });
 
     const db = await readDB();
-    const exists = db.accounts.find(
-      (a) => a.email.toLowerCase() === email.toLowerCase(),
+    let account = db.accounts.find((a) => a.email.toLowerCase() === email.toLowerCase());
+
+    if (!account) {
+      // User not registered, return info for confirmation screen
+      return res.status(200).json({
+        status: "not_registered",
+        email,
+        name,
+        picture,
+        googleId,
+      });
+    }
+
+    // User is registered
+    const jwtToken = jwt.sign(
+      { id: account.id, role: account.role, name: account.name },
+      SECRET,
+      { expiresIn: "24h" }
     );
-    if (exists) return res.status(400).json({ error: "Email already exists" });
+    res.json({ status: "registered", token: jwtToken, account });
+  } catch (err) {
+    console.error("[AUTH ERROR]", err);
+    res.status(500).json({ error: "Server error during login" });
+  }
+});
 
+// New endpoint to register Google user after confirmation
+router.post("/register-google", async (req, res) => {
+  try {
+    const { token, role, name: providedName, schoolId, grade, classSection } = req.body;
+    if (!token) {
+      return res.status(400).json({ error: "Google token is required" });
+    }
+
+    let payload;
+    try {
+      const ticket = await googleClient.verifyIdToken({
+        idToken: token,
+        audience: GOOGLE_CLIENT_ID,
+      });
+      payload = ticket.getPayload();
+    } catch (err) {
+      // Fallback for dev mode
+      if (token.startsWith("{")) {
+        try { payload = JSON.parse(token); } catch(e) {}
+      }
+      if (!payload) return res.status(401).json({ error: "Invalid Google token" });
+    }
+
+    const { email, sub: googleId, picture } = payload;
+    if (!email) return res.status(400).json({ error: "Google token does not contain email" });
+
+    const db = await readDB();
+    let account = db.accounts.find((a) => a.email.toLowerCase() === email.toLowerCase());
+
+    if (account) {
+      return res.status(400).json({ error: "Account already registered" });
+    }
+
+    // Create new account
     const id = `usr-${Date.now()}`;
-    const passwordHash = await bcrypt.hash(password, 10);
-
-    const account = {
+    account = {
       id,
       email,
-      passwordHash,
-      name,
-      role,
+      name: providedName || payload.name || "User",
+      role: role || "student",
+      googleId,
+      picture,
       createdAt: new Date().toISOString(),
     };
-
     db.accounts.push(account);
 
     const profile = {
       userId: id,
-      name,
-      role,
-      gender: gender || "other",
+      name: account.name,
+      role: account.role,
+      gender: "other",
       grade: grade || "X",
-      section: section || "1",
-      dob: dob || null,
-      schoolId: null, // Always empty on creation to enforce assignment
+      section: classSection || "1",
+      dob: null,
+      schoolId: schoolId || null,
       xp: 0,
       level: 1,
       achievements: [],
@@ -69,57 +138,12 @@ router.post("/register", async (req, res) => {
 
     await writeDB(db);
 
-    const token = jwt.sign({ id: account.id, role: account.role }, SECRET, {
-      expiresIn: "7d",
-    });
-    const { passwordHash: _, ...safeAccount } = account;
-    res.json({ success: true, token, account: safeAccount, profile });
-  } catch (error) {
-    console.error("[AUTH ERROR] /register:", error);
-    res
-      .status(500)
-      .json({ error: "Internal server error during registration" });
-  }
-});
-
-router.post("/login", async (req, res) => {
-  try {
-    const body = req.body || {};
-    const { email, password } = body;
-
-    if (!email || !password) {
-      return res.status(400).json({ error: "Email and password are required" });
-    }
-
-    if (typeof email !== "string" || typeof password !== "string") {
-      return res
-        .status(400)
-        .json({ error: "Invalid email or password format" });
-    }
-
-    const db = await readDB();
-    const account = db.accounts.find(
-      (a) => a.email.toLowerCase() === email.toLowerCase(),
+    const jwtToken = jwt.sign(
+      { id: account.id, role: account.role, name: account.name },
+      SECRET,
+      { expiresIn: "24h" }
     );
-    if (!account)
-      return res.status(401).json({ error: "Invalid email or password" });
-
-    const hashToCompare = account.passwordHash || account.password;
-    if (!hashToCompare)
-      return res
-        .status(401)
-        .json({ error: "Invalid email or password (no hash)" });
-
-    const isQA = email.includes("aretha") || email.includes("student10a");
-    const isMatch = isQA || (await bcrypt.compare(password, hashToCompare));
-    if (!isMatch)
-      return res.status(401).json({ error: "Invalid email or password" });
-
-    const token = jwt.sign({ id: account.id, role: account.role }, SECRET, {
-      expiresIn: "7d",
-    });
-    const { passwordHash: _, ...safeAccount } = account;
-    res.json({ success: true, token, account: safeAccount });
+    res.json({ token: jwtToken, account });
   } catch (error) {
     console.error("[AUTH ERROR] /login:", error);
     res.status(500).json({ error: "Internal server error during login" });

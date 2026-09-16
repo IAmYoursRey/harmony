@@ -232,6 +232,17 @@ function ClassSelector({
     {} as Record<string, any[]>,
   );
 
+  Object.keys(grouped).forEach((grade) => {
+    grouped[grade].sort((a: any, b: any) => {
+      const numA = parseInt(a.section);
+      const numB = parseInt(b.section);
+      if (!isNaN(numA) && !isNaN(numB)) {
+        return numA - numB;
+      }
+      return String(a.section).localeCompare(String(b.section));
+    });
+  });
+
   return (
     <div className="relative" ref={dropdownRef}>
       <button
@@ -300,6 +311,176 @@ function ClassSelector({
   );
 }
 
+function TeacherStudentDetailModal({
+  student,
+  onClose,
+}: {
+  student: any;
+  onClose: () => void;
+}) {
+  const [quizHistories, setQuizHistories] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [expandedQuizId, setExpandedQuizId] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (student?.id) {
+      setLoading(true);
+      apiClient.get(`/api/quiz-history/student/${student.id}`).then((res: any) => {
+        if (res.success && res.data) {
+          setQuizHistories(res.data.sort((a: any, b: any) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()));
+        }
+        setLoading(false);
+      }).catch(() => setLoading(false));
+    }
+  }, [student]);
+
+  const handleOverride = async (historyId: string, questionId: string, isCorrect: boolean) => {
+    try {
+      const res = await apiClient.put(`/api/quiz-history/${historyId}/override`, {
+        questionId,
+        isCorrect,
+        pointsAdjustment: isCorrect ? 100 : -100 // Adjust as needed
+      });
+      if (res.success) {
+        alert("Penilaian AI berhasil dikoreksi");
+        setQuizHistories(prev => 
+          prev.map(h => {
+            if (h.id === historyId) {
+              const newEvals = [...h.evaluations];
+              const eIdx = newEvals.findIndex(e => e.questionId === questionId);
+              if (eIdx !== -1) {
+                newEvals[eIdx] = { ...newEvals[eIdx], isCorrect, overriddenByTeacher: true };
+              }
+              return { ...h, evaluations: newEvals };
+            }
+            return h;
+          })
+        );
+      }
+    } catch (e) {
+      console.error(e);
+      alert("Gagal mengoreksi");
+    }
+  };
+
+  return (
+    <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
+      <div
+        className="absolute inset-0 bg-slate-900/60 backdrop-blur-sm"
+        onClick={onClose}
+      />
+      <motion.div
+        initial={{ opacity: 0, scale: 0.95 }}
+        animate={{ opacity: 1, scale: 1 }}
+        exit={{ opacity: 0, scale: 0.95 }}
+        className="relative flex max-h-[90vh] w-full max-w-3xl flex-col rounded-2xl bg-white shadow-glass-xl dark:bg-slate-900 overflow-hidden"
+      >
+        <div className="flex items-center justify-between border-b border-brand-50 p-6 dark:border-slate-800">
+          <div>
+            <h3 className="font-display text-xl font-bold text-ink-900 dark:text-white">
+              Detail Siswa: {student.name}
+            </h3>
+            <p className="text-sm text-ink-500 dark:text-slate-400">
+              Menampilkan riwayat jawaban & evaluasi AI
+            </p>
+          </div>
+          <button
+            onClick={onClose}
+            className="rounded-full p-2 text-ink-400 hover:bg-slate-100 dark:hover:bg-slate-800"
+          >
+            <X className="h-5 w-5" />
+          </button>
+        </div>
+        
+        <div className="flex-1 overflow-y-auto p-6">
+          {loading ? (
+            <div className="flex justify-center p-8"><Spinner /></div>
+          ) : quizHistories.length === 0 ? (
+            <p className="text-center text-ink-500">Belum ada riwayat kuis.</p>
+          ) : (
+            <div className="space-y-4">
+              {quizHistories.map((qh) => (
+                <div key={qh.id} className="rounded-xl border border-brand-100 bg-white p-4 shadow-sm dark:border-slate-800 dark:bg-slate-800/40">
+                  <div 
+                    className="flex cursor-pointer items-center justify-between"
+                    onClick={() => setExpandedQuizId(expandedQuizId === qh.id ? null : qh.id)}
+                  >
+                    <div>
+                      <h4 className="font-bold text-ink-900 dark:text-white capitalize">
+                        {qh.topicId.replace(/-/g, " ")}
+                      </h4>
+                      <p className="text-xs text-ink-500">
+                        {new Date(qh.createdAt).toLocaleString()}
+                      </p>
+                    </div>
+                    <div className="flex items-center gap-4">
+                      <span className="font-display text-lg font-bold text-brand-600 dark:text-brand-400">
+                        {qh.score}%
+                      </span>
+                      <span className="text-ink-400 transition-transform">
+                        {expandedQuizId === qh.id ? "▲" : "▼"}
+                      </span>
+                    </div>
+                  </div>
+
+                  {expandedQuizId === qh.id && (
+                    <div className="mt-4 space-y-3 border-t border-slate-100 pt-4 dark:border-slate-700">
+                      {qh.evaluations.map((ev: any, idx: number) => {
+                        const q = qh.questions.find((q: any) => q.id === ev.questionId);
+                        const ans = qh.answers[ev.questionId];
+                        return (
+                          <div key={ev.questionId} className="rounded-lg bg-slate-50 p-3 dark:bg-slate-800">
+                            <p className="text-sm font-semibold text-ink-900 dark:text-white mb-2">
+                              {idx + 1}. {q?.text || "Unknown Question"}
+                            </p>
+                            <div className="grid gap-2 sm:grid-cols-2 text-sm">
+                              <div className="rounded border border-slate-200 bg-white p-2 dark:border-slate-700 dark:bg-slate-900">
+                                <span className="block text-xs font-bold text-slate-500 mb-1">Jawaban Murid:</span>
+                                <span className="text-ink-700 dark:text-slate-300">{ans}</span>
+                              </div>
+                              <div className={`rounded border p-2 ${ev.isCorrect ? 'border-emerald-200 bg-emerald-50 dark:border-emerald-900 dark:bg-emerald-900/20' : 'border-rose-200 bg-rose-50 dark:border-rose-900 dark:bg-rose-900/20'}`}>
+                                <span className={`block text-xs font-bold mb-1 ${ev.isCorrect ? 'text-emerald-700' : 'text-rose-700'}`}>
+                                  Evaluasi AI: {ev.isCorrect ? 'Benar' : 'Salah'}
+                                </span>
+                                <span className="text-ink-700 dark:text-slate-300 mb-3 block">{ev.feedback}</span>
+                                
+                                <div className="border-t border-slate-200 pt-2 dark:border-slate-700 mt-2 flex items-center justify-between">
+                                  <span className="text-[10px] font-bold uppercase text-slate-500">Aksi Guru:</span>
+                                  <div className="flex gap-2">
+                                    <button 
+                                      onClick={() => handleOverride(qh.id, ev.questionId, true)}
+                                      disabled={ev.isCorrect}
+                                      className={`text-xs px-2 py-1 rounded font-bold ${ev.isCorrect ? 'opacity-50 cursor-not-allowed bg-emerald-100 text-emerald-700' : 'bg-emerald-100 text-emerald-700 hover:bg-emerald-200'}`}
+                                    >Benarkan</button>
+                                    <button 
+                                      onClick={() => handleOverride(qh.id, ev.questionId, false)}
+                                      disabled={!ev.isCorrect}
+                                      className={`text-xs px-2 py-1 rounded font-bold ${!ev.isCorrect ? 'opacity-50 cursor-not-allowed bg-rose-100 text-rose-700' : 'bg-rose-100 text-rose-700 hover:bg-rose-200'}`}
+                                    >Salahkan</button>
+                                  </div>
+                                </div>
+                                {ev.overriddenByTeacher && (
+                                  <span className="mt-2 block text-[10px] font-bold text-amber-600 bg-amber-100 px-2 py-1 rounded w-fit">
+                                    Telah dikoreksi
+                                  </span>
+                                )}
+                              </div>
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  )}
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      </motion.div>
+    </div>
+  );
+}
+
 export function TeacherDashboardView() {
   const { t, locale, setLocale } = useI18n();
   const { currentUser, currentProfile, refreshProfile } = useAuth();
@@ -319,6 +500,7 @@ export function TeacherDashboardView() {
     "overview" | "classes" | "students"
   >((searchParams.get("tab") as any) || "overview");
   const [studentFilterIdx, setStudentFilterIdx] = useState<number>(-1);
+  const [selectedStudentForDetail, setSelectedStudentForDetail] = useState<any>(null);
   const [isAddingStudent, setIsAddingStudent] = useState(false);
   const [regName, setRegName] = useState("");
   const [regEmail, setRegEmail] = useState("");
@@ -334,7 +516,7 @@ export function TeacherDashboardView() {
     mutate: mutateClasses,
   } = useData<any>(
     currentUser &&
-      (currentUser.role === "teacher" || currentUser.role === "dev")
+      (currentUser.role === "teacher" || currentUser.role === "developer")
       ? "/api/classes"
       : null,
   );
@@ -346,7 +528,7 @@ export function TeacherDashboardView() {
     mutate: mutateUsers,
   } = useData<any>(
     currentUser &&
-      (currentUser.role === "teacher" || currentUser.role === "dev")
+      (currentUser.role === "teacher" || currentUser.role === "developer")
       ? "/api/users"
       : null,
   );
@@ -359,7 +541,7 @@ export function TeacherDashboardView() {
   const errorUsers = !!errorUsersRaw;
 
   const teacherClasses =
-    currentUser?.role === "dev"
+    currentUser?.role === "developer"
       ? classes
       : classes.filter((c: any) => c.teacherId === currentUser?.id);
   const selectedClass = teacherClasses[selectedClassIdx];
@@ -1184,7 +1366,8 @@ export function TeacherDashboardView() {
                         {dashboardData.students.map((s: any, idx: number) => (
                           <tr
                             key={s.id}
-                            className="border-b border-brand-50/50 transition-colors hover:bg-brand-50/40 dark:border-slate-800 dark:hover:bg-slate-800/40"
+                            onClick={() => setSelectedStudentForDetail(s)}
+                            className="cursor-pointer border-b border-brand-50/50 transition-colors hover:bg-brand-50/80 dark:border-slate-800 dark:hover:bg-slate-800/80"
                           >
                             <td className="py-3 pr-4">
                               <span
@@ -1226,6 +1409,13 @@ export function TeacherDashboardView() {
                   </div>
                 )}
               </Card>
+
+              {selectedStudentForDetail && (
+                <TeacherStudentDetailModal
+                  student={selectedStudentForDetail}
+                  onClose={() => setSelectedStudentForDetail(null)}
+                />
+              )}
 
               {/* Charts row — only show when real hazard breakdown data exists */}
               {dashboardData.students.length > 0 &&

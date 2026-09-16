@@ -9,7 +9,7 @@ dotenv.config({ path: [".env.local", ".env"] });
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const isVercel =
   process.env.VERCEL === "1" || process.env.NODE_ENV === "production";
-const sourceDbPath = path.join(__dirname, "database.json");
+const sourceDbPath = path.join(__dirname, "..", "database", "data", "database.json");
 
 const DEFAULT_DB = {
   accounts: [],
@@ -23,6 +23,8 @@ const DEFAULT_DB = {
   schools: [],
   classes: [],
   schoolDisasterAnalysis: {},
+  quizHistories: [],
+  spatialCache: {},
 };
 
 let inMemoryCache = null;
@@ -74,6 +76,8 @@ async function initPg() {
       CREATE TABLE IF NOT EXISTS dt_results ( id VARCHAR(255) PRIMARY KEY, data JSONB NOT NULL );
       CREATE TABLE IF NOT EXISTS surveys ( id VARCHAR(255) PRIMARY KEY, data JSONB NOT NULL );
       CREATE TABLE IF NOT EXISTS school_disaster_analysis ( school_id VARCHAR(255) PRIMARY KEY, data JSONB NOT NULL );
+      CREATE TABLE IF NOT EXISTS quiz_histories ( id VARCHAR(255) PRIMARY KEY, data JSONB NOT NULL );
+      CREATE TABLE IF NOT EXISTS spatial_cache ( id VARCHAR(255) PRIMARY KEY, data JSONB NOT NULL, created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP );
       
       -- Phase 1 Digital Twin Relational Tables
       CREATE TABLE IF NOT EXISTS digital_twin_maps (
@@ -259,7 +263,7 @@ async function initPg() {
   }
 }
 
-async function uploadBase64(base64Str, filename) {
+export async function uploadBase64(base64Str, filename) {
   if (
     !base64Str ||
     !base64Str.startsWith("data:image") ||
@@ -323,6 +327,9 @@ export async function readDB() {
       const analysisRes = await timeoutQuery(
         pool.query("SELECT data, school_id FROM school_disaster_analysis"),
       );
+      const spatialRes = await timeoutQuery(
+        pool.query("SELECT id, data FROM spatial_cache"),
+      );
 
       db.accounts = accountsRes.rows.map((r) => r.data);
       db.profiles = profilesRes.rows.map((r) => r.data);
@@ -338,6 +345,7 @@ export async function readDB() {
       analysisRes.rows.forEach(
         (r) => (db.schoolDisasterAnalysis[r.school_id] = r.data),
       );
+      spatialRes.rows.forEach((r) => (db.spatialCache[r.id] = r.data));
 
       return db;
     } catch (e) {
@@ -491,4 +499,49 @@ export async function writeDB(db) {
     console.error("Failed to write local database:", err);
     return false;
   }
+}
+
+export async function getSpatialCache(id) {
+  if (pool) {
+    try {
+      const res = await timeoutQuery(
+        pool.query("SELECT data FROM spatial_cache WHERE id = $1", [id])
+      );
+      if (res.rows.length > 0) return res.rows[0].data;
+      return null;
+    } catch (e) {
+      console.error("PG getSpatialCache error:", e);
+      return null;
+    }
+  }
+  
+  if (!inMemoryCache) {
+    await readDB();
+  }
+  return inMemoryCache?.spatialCache?.[id] || null;
+}
+
+export async function setSpatialCache(id, data) {
+  if (pool) {
+    try {
+      await timeoutQuery(
+        pool.query(
+          "INSERT INTO spatial_cache (id, data) VALUES ($1, $2) ON CONFLICT (id) DO UPDATE SET data = EXCLUDED.data",
+          [id, JSON.stringify(data)]
+        )
+      );
+      return true;
+    } catch (e) {
+      console.error("PG setSpatialCache error:", e);
+      return false;
+    }
+  }
+
+  if (!inMemoryCache) await readDB();
+  if (inMemoryCache) {
+    if (!inMemoryCache.spatialCache) inMemoryCache.spatialCache = {};
+    inMemoryCache.spatialCache[id] = data;
+    await writeDB({});
+  }
+  return true;
 }

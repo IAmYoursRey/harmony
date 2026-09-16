@@ -22,13 +22,13 @@ const DisasterQuestionView = lazy(() =>
     default: m.DisasterQuestionView,
   })),
 );
-const GeoRiskMapView = lazy(() =>
-  import("@/components/dashboard/views/SpatialViews").then((m) => ({
-    default: m.GeoRiskMapView,
+const MapsView = lazy(() =>
+  import("@/components/dashboard/views/spatial/MapsView").then((m) => ({
+    default: m.MapsView,
   })),
 );
 const DigitalTwinView = lazy(() =>
-  import("@/components/dashboard/views/SpatialViews").then((m) => ({
+  import("@/components/dashboard/views/spatial/DigitalTwinView").then((m) => ({
     default: m.DigitalTwinView,
   })),
 );
@@ -132,10 +132,10 @@ export default function App() {
             }
           />
           <Route
-            path="geo-risk-map"
+            path="maps"
             element={
               <Suspense fallback={<PageSkeleton />}>
-                <GeoRiskMapView />
+                <MapsView />
               </Suspense>
             }
           />

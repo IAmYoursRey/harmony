@@ -30,7 +30,7 @@ router.get("/", verifyToken, async (req, res) => {
   const db = await readDB();
   const callerRole = req.user.role;
 
-  if (callerRole === "dev") {
+  if (callerRole === "dev" || callerRole === "developer") {
     const safeAccounts = db.accounts.map((a) => {
       const { passwordHash: _, ...safe } = a;
       return safe;
@@ -191,7 +191,7 @@ router.put("/:id", verifyToken, async (req, res) => {
     targetAccount.passwordHash = await bcrypt.hash(password, 10);
   }
 
-  if (schoolId !== undefined && callerRole === "dev") {
+  if (schoolId !== undefined && (callerRole === "dev" || callerRole === "developer")) {
     targetProfile.schoolId = schoolId;
   }
 
@@ -228,7 +228,7 @@ router.post("/me/school", verifyToken, async (req, res) => {
   if (
     profile.schoolId &&
     profile.schoolId !== "unknown" &&
-    req.user.role !== "dev"
+    req.user.role !== "dev" && req.user.role !== "developer"
   ) {
     return res.status(403).json({
       error: "School already assigned. Only a DEV can change your school.",
@@ -249,6 +249,33 @@ router.post("/me/school", verifyToken, async (req, res) => {
   await writeDB(db);
 
   return res.json({ success: true, profile: db.profiles[profileIndex] });
+});
+
+router.delete("/:id", verifyToken, async (req, res) => {
+  const targetUserId = req.params.id;
+  const callerRole = req.user.role;
+  
+  if (callerRole !== "developer" && callerRole !== "dev") {
+    return res.status(403).json({ error: "Only developers can delete accounts" });
+  }
+
+  const db = await readDB();
+  const accountIndex = db.accounts.findIndex((a) => a.id === targetUserId);
+  if (accountIndex === -1) {
+    return res.status(404).json({ error: "User not found" });
+  }
+
+  // Remove from accounts
+  db.accounts.splice(accountIndex, 1);
+  
+  // Remove from profiles
+  const profileIndex = db.profiles.findIndex((p) => p.userId === targetUserId);
+  if (profileIndex !== -1) {
+    db.profiles.splice(profileIndex, 1);
+  }
+
+  await writeDB(db);
+  res.json({ success: true, message: "Account deleted successfully" });
 });
 
 export default router;

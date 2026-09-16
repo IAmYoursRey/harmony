@@ -44,7 +44,7 @@ export default function SchoolSelectionPage() {
       if (!currentUser) {
         navigate("/login");
       } else if (
-        currentUser.role !== "dev" &&
+        currentUser.role !== "developer" &&
         currentProfile?.schoolId &&
         currentProfile.schoolId !== "unknown"
       ) {

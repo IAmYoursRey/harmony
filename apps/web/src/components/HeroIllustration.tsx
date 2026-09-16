@@ -144,111 +144,90 @@ export function HeroIllustration() {
         </text>
       </g>
 
-      {/* School building (center) */}
-      <g transform="translate(180,120)">
-        {/* shadow */}
+      {/* Isometric Map & Disaster Zones (center) */}
+      <g transform="translate(140, 150)">
+        {/* Map Base Shadow */}
         <ellipse
-          cx="100"
-          cy="190"
-          rx="110"
-          ry="14"
+          cx="140"
+          cy="120"
+          rx="150"
+          ry="40"
           fill="hsl(var(--brand-700))"
-          opacity="0.12"
+          opacity="0.2"
           filter="url(#soft)"
         />
-        {/* main block */}
-        <rect x="20" y="60" width="160" height="120" rx="8" fill="url(#bldg)" />
-        <rect
-          x="20"
-          y="60"
-          width="160"
-          height="120"
-          rx="8"
-          fill="url(#bldgLight)"
-          opacity="0.18"
-        />
-        {/* roof */}
-        <path d="M0 64 L100 10 L200 64 Z" fill="hsl(var(--brand-800))" />
-        <path d="M0 64 L100 10 L200 64 Z" fill="#ffffff" opacity="0.12" />
-        {/* flag */}
-        <line
-          x1="100"
-          y1="10"
-          x2="100"
-          y2="-20"
-          stroke="hsl(var(--brand-800))"
-          strokeWidth="3"
-        />
-        <path d="M100 -20 L124 -14 L100 -8 Z" fill="#ef4444" />
-        {/* door */}
-        <rect
-          x="86"
-          y="130"
-          width="28"
-          height="50"
-          rx="4"
-          fill="hsl(var(--brand-900))"
-        />
-        <circle cx="107" cy="156" r="2" fill="#fbbf24" />
-        {/* windows */}
-        {[
-          [40, 80],
-          [82, 80],
-          [124, 80],
-          [40, 116],
-          [124, 116],
-        ].map(([x, y], i) => (
-          <g key={i}>
-            <rect
-              x={x}
-              y={y}
-              width="24"
-              height="22"
-              rx="3"
-              fill="hsl(var(--brand-200))"
-              opacity="0.9"
-            />
-            <line
-              x1={x + 12}
-              y1={y}
-              x2={x + 12}
-              y2={y + 22}
-              stroke="hsl(var(--brand-800))"
-              strokeWidth="1.5"
-            />
-            <line
-              x1={x}
-              y1={y + 11}
-              x2={x + 24}
-              y2={y + 11}
-              stroke="hsl(var(--brand-800))"
-              strokeWidth="1.5"
-            />
-          </g>
-        ))}
-        {/* steps */}
-        <rect
-          x="76"
-          y="180"
-          width="48"
-          height="6"
-          rx="2"
-          fill="hsl(var(--brand-900))"
-          opacity="0.5"
-        />
-        {/* SCHOOL label */}
+        
+        {/* Map Base Layers (3D effect) */}
+        <path d="M140 20 L280 80 L140 140 L0 80 Z" fill="hsl(var(--brand-200))" opacity="0.6" />
+        <path d="M140 40 L280 100 L140 160 L0 100 Z" fill="hsl(var(--brand-100))" opacity="0.8" />
+        
+        {/* Top Terrain Layer */}
+        <path d="M140 0 L280 60 L140 120 L0 60 Z" fill="url(#bldg)" />
+        
+        {/* Map Grid */}
+        <path d="M70 30 L140 60 M210 90 L140 120 M35 45 L175 105 M105 15 L245 75" stroke="#ffffff" strokeWidth="1.5" strokeOpacity="0.25" />
+        <path d="M105 105 L245 45 M35 75 L175 15 M70 90 L210 30" stroke="#ffffff" strokeWidth="1.5" strokeOpacity="0.25" />
+
+        {/* Contour lines (topography) */}
+        <path d="M100 40 Q140 20 180 50 T240 50" fill="none" stroke="hsl(var(--brand-300))" strokeWidth="2" strokeOpacity="0.7" />
+        <path d="M80 60 Q130 50 180 80 T260 70" fill="none" stroke="hsl(var(--brand-300))" strokeWidth="2" strokeOpacity="0.5" />
+        <path d="M50 75 Q100 80 140 100 T210 95" fill="none" stroke="hsl(var(--brand-300))" strokeWidth="2" strokeOpacity="0.3" />
+        
+        {/* Glowing Radar / Sonar effect on map */}
+        <circle cx="140" cy="60" r="40" fill="none" stroke="hsl(var(--brand-400))" strokeWidth="2" opacity="0.6">
+          <animate attributeName="r" values="0; 80; 0" dur="4s" repeatCount="indefinite" />
+          <animate attributeName="opacity" values="0.8; 0; 0.8" dur="4s" repeatCount="indefinite" />
+        </circle>
+        
+        {/* Disaster Marker: Fire / Heat Zone (Right) */}
+        <g transform="translate(200, 45)">
+          <path d="M0 -22 Q12 -5 0 0 Q-12 -5 0 -22" fill="#ef4444" />
+          <circle cx="0" cy="-2" r="3" fill="#ffffff" />
+          <circle cx="0" cy="-2" r="14" fill="#ef4444" opacity="0.3">
+            <animate attributeName="r" values="6;20;6" dur="2s" repeatCount="indefinite" />
+            <animate attributeName="opacity" values="0.6;0;0.6" dur="2s" repeatCount="indefinite" />
+          </circle>
+        </g>
+        
+        {/* Disaster Marker: Flood Zone (Left) */}
+        <g transform="translate(80, 85)">
+          <path d="M0 -22 Q12 -5 0 0 Q-12 -5 0 -22" fill="#0ea5e9" />
+          <circle cx="0" cy="-2" r="3" fill="#ffffff" />
+          <path d="M-12 8 Q0 2 12 8" fill="none" stroke="#0ea5e9" strokeWidth="2.5" strokeLinecap="round" />
+          <path d="M-8 14 Q0 8 8 14" fill="none" stroke="#38bdf8" strokeWidth="2.5" strokeLinecap="round" />
+          <circle cx="0" cy="-2" r="16" fill="#0ea5e9" opacity="0.2">
+            <animate attributeName="r" values="10;24;10" dur="2.5s" repeatCount="indefinite" />
+          </circle>
+        </g>
+        
+        {/* Disaster Marker: Earthquake / Fault Line Zone (Center) */}
+        <g transform="translate(130, 40)">
+          <path d="M0 -22 Q12 -5 0 0 Q-12 -5 0 -22" fill="#f59e0b" />
+          <circle cx="0" cy="-2" r="3" fill="#ffffff" />
+          <path d="M-18 10 L-6 16 L6 4 L18 10" fill="none" stroke="#f59e0b" strokeWidth="2.5" strokeLinecap="round" />
+          <circle cx="0" cy="-2" r="20" fill="none" stroke="#f59e0b" strokeWidth="1.5" strokeDasharray="3 3" opacity="0.8">
+            <animateTransform attributeName="transform" type="rotate" from="0 0 -2" to="360 0 -2" dur="8s" repeatCount="indefinite" />
+          </circle>
+        </g>
+        
+        {/* Central Data Pillar */}
+        <rect x="136" y="-40" width="8" height="100" fill="url(#shieldG)" opacity="0.9" />
+        <polygon points="132,-40 148,-40 140,-55" fill="#22d3ee" />
+        
+        {/* Hologram Text / Label */}
         <text
-          x="100"
-          y="52"
+          x="140"
+          y="-70"
           textAnchor="middle"
           fontFamily="Plus Jakarta Sans, sans-serif"
-          fontSize="11"
-          fontWeight="700"
+          fontSize="14"
+          fontWeight="800"
           fill="#ffffff"
-          letterSpacing="2"
+          letterSpacing="3"
         >
-          SCHOOL
+          MAP ZONE
         </text>
+        <rect x="90" y="-60" width="100" height="2" fill="hsl(var(--brand-300))" opacity="0.8" />
       </g>
 
       {/* AI neural node (top-left) */}

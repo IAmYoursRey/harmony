@@ -23,67 +23,67 @@ import { useI18n } from "@/hooks/useI18n";
 
 const technologies: {
   icon: LucideIcon;
-  labelKey: string;
-  descKey: string;
-  featuresKey: string[];
+  label: string;
+  desc: string;
+  features: string[];
 }[] = [
   {
     icon: Brain,
-    labelKey: "about.tech.ai.label",
-    descKey: "about.tech.ai.desc",
-    featuresKey: [
-      "about.tech.ai.f1",
-      "about.tech.ai.f2",
-      "about.tech.ai.f3",
-      "about.tech.ai.f4",
+    label: "Kecerdasan Buatan (AI)",
+    desc: "AI menganalisis data risiko bencana untuk memprediksi dampak kerusakan dan rute evakuasi secara otomatis.",
+    features: [
+      "Rekomendasi Rute Evakuasi",
+      "Analisis Risiko Berbasis Data",
+      "Simulasi Kesiapsiagaan Real-time",
+      "Deteksi Dini Bahaya",
     ],
   },
   {
     icon: Boxes,
-    labelKey: "about.tech.dt.label",
-    descKey: "about.tech.dt.desc",
-    featuresKey: [
-      "about.tech.dt.f1",
-      "about.tech.dt.f2",
-      "about.tech.dt.f3",
-      "about.tech.dt.f4",
+    label: "Digital Twin",
+    desc: "Simulasi wilayah 3D yang memungkinkan simulasi bencana skala nyata berdasarkan topografi yang akurat.",
+    features: [
+      "Pemodelan Kota 3D",
+      "Simulasi Gempa & Banjir",
+      "Visualisasi Dampak Skala Nyata",
+      "Perencanaan Tata Ruang",
     ],
   },
   {
     icon: Satellite,
-    labelKey: "about.tech.geo.label",
-    descKey: "about.tech.geo.desc",
-    featuresKey: [
-      "about.tech.geo.f1",
-      "about.tech.geo.f2",
-      "about.tech.geo.f3",
-      "about.tech.geo.f4",
+    label: "Teknologi Geospasial",
+    desc: "Pemetaan akurat dari data satelit yang mengintegrasikan informasi topografi, kawasan hutan, dan demografi.",
+    features: [
+      "Pemetaan Hutan & Cagar Alam",
+      "Zonasi Rawan Bencana",
+      "Integrasi OpenStreetMap",
+      "Monitoring Titik Panas",
     ],
   },
 ];
 
 const sdgs: {
   number: number;
-  titleKey: string;
-  descKey: string;
+  title: string;
+  desc: string;
   icon: LucideIcon;
 }[] = [
   {
     number: 4,
-    titleKey: "sdgs.sdg4.title",
-    descKey: "sdgs.sdg4.desc",
+    title: "Pendidikan Berkualitas",
+    desc: "Memastikan edukasi kebencanaan yang inklusif dan merata untuk seluruh lapisan masyarakat.",
     icon: BookOpen,
   },
   {
     number: 11,
-    titleKey: "sdgs.sdg11.title",
-    descKey: "sdgs.sdg11.desc",
+    title: "Kota dan Permukiman Inklusif",
+    desc: "Membangun kota dan permukiman yang tangguh, aman, dan siaga bencana.",
     icon: Building2,
   },
   {
     number: 13,
-    titleKey: "sdgs.sdg13.title",
-    descKey: "sdgs.sdg13.desc",
+    title: "Penanganan Perubahan Iklim",
+    desc: "Mengambil langkah urgensi untuk mengatasi perubahan iklim dan dampaknya terhadap bencana.",
     icon: Leaf,
   },
 ];
@@ -91,34 +91,34 @@ const sdgs: {
 const team: {
   initials: string;
   name: string;
-  roleKey: string;
-  subtitleKey: string;
+  role: string;
+  subtitle: string;
   icon: LucideIcon;
-  bioKey: string;
+  bio: string;
 }[] = [
   {
-    initials: "AN",
-    name: "Alvira Fitriatun Nizha",
-    roleKey: "about.team.an.role",
-    subtitleKey: "about.team.an.subtitle",
-    icon: Code2,
-    bioKey: "about.team.an.bio",
-  },
-  {
-    initials: "AK",
-    name: "Aretha Kirana Putri Junaidi",
-    roleKey: "about.team.ak.role",
-    subtitleKey: "about.team.ak.subtitle",
-    icon: Palette,
-    bioKey: "about.team.ak.bio",
-  },
-  {
-    initials: "SN",
-    name: "Sinta Nadhifah",
-    roleKey: "about.team.sn.role",
-    subtitleKey: "about.team.sn.subtitle",
+    initials: "GEO",
+    name: "Geospatial Data",
+    role: "Analis Data",
+    subtitle: "Pemetaan Wilayah",
     icon: BarChart3,
-    bioKey: "about.team.sn.bio",
+    bio: "Bertanggung jawab memproses titik data satelit dan topografi.",
+  },
+  {
+    initials: "RA",
+    name: "Raihan Ansari",
+    role: "Lead Developer",
+    subtitle: "Rekayasa Perangkat Lunak",
+    icon: Code2,
+    bio: "Pengembang utama arsitektur platform dan integrasi digital twin.",
+  },
+  {
+    initials: "AI",
+    name: "Harmony AI",
+    role: "Sistem Pakar",
+    subtitle: "Prediksi Kebencanaan",
+    icon: Sparkles,
+    bio: "Otak kecerdasan buatan untuk mengelola perhitungan model AI.",
   },
 ];
 
@@ -365,15 +365,15 @@ export function AboutSection() {
         <div className="relative flex flex-col items-center gap-8 lg:flex-row lg:items-center lg:justify-between">
           <div className="max-w-lg text-center lg:text-left">
             <span className="inline-flex items-center gap-1.5 rounded-full bg-white/15 px-3 py-1 text-xs font-semibold backdrop-blur-sm">
-              <Globe className="h-3.5 w-3.5" /> {t("about.badge")}
+              <Globe className="h-3.5 w-3.5" /> Platform Edukasi Bencana
             </span>
             <h1 className="mt-4 font-display text-3xl font-extrabold tracking-tight sm:text-4xl lg:text-5xl">
-              {t("nav.about")}
+              Tentang
               <br />
               <span className="text-brand-200">Harmony Edu</span>
             </h1>
             <p className="mt-4 text-base leading-relaxed text-brand-100 sm:text-lg">
-              {t("about.tagline")}
+              Membangun komunitas sekolah yang tangguh terhadap bencana melalui kekuatan AI, Digital Twin, dan Teknologi Geospasial.
             </p>
             <div className="mt-5 flex flex-wrap justify-center gap-2.5 lg:justify-start">
               {[
@@ -406,17 +406,17 @@ export function AboutSection() {
                 <Eye className="h-5 w-5" />
               </span>
               <div>
-                <SectionLabel>{t("about.vision.label")}</SectionLabel>
+                <SectionLabel>Visi Kami</SectionLabel>
               </div>
             </div>
             <h2 className="font-display text-xl font-extrabold text-ink-900 dark:text-white">
-              {t("about.vision.title")}
+              Kesiapsiagaan Bencana untuk Semua
             </h2>
             <p className="mt-3 text-sm leading-relaxed text-ink-600 dark:text-slate-300">
-              {t("about.vision.desc")}
+              Menjadi pionir dalam pemetaan kebencanaan cerdas yang mengubah cara masyarakat Indonesia memahami dan menghadapi potensi bencana alam.
             </p>
             <div className="mt-4 flex items-center gap-2 text-xs font-semibold text-brand-600">
-              <ArrowRight className="h-3.5 w-3.5" /> {t("about.vision.action")}
+              <ArrowRight className="h-3.5 w-3.5" /> Arah Kebijakan
             </div>
           </div>
         </Card>
@@ -429,17 +429,17 @@ export function AboutSection() {
                 <Target className="h-5 w-5" />
               </span>
               <div>
-                <SectionLabel>{t("about.mission.label")}</SectionLabel>
+                <SectionLabel>Misi Kami</SectionLabel>
               </div>
             </div>
             <h2 className="font-display text-xl font-extrabold text-ink-900 dark:text-white">
-              {t("about.mission.title")}
+              Inovasi Teknologi Geospasial
             </h2>
             <p className="mt-3 text-sm leading-relaxed text-ink-600 dark:text-slate-300">
-              {t("about.mission.desc")}
+              Membangun simulasi dan visualisasi berbasis data nyata untuk membantu pengambil keputusan dan institusi pendidikan memitigasi bencana.
             </p>
             <div className="mt-4 flex items-center gap-2 text-xs font-semibold text-brand-600">
-              <ArrowRight className="h-3.5 w-3.5" /> {t("about.mission.action")}
+              <ArrowRight className="h-3.5 w-3.5" /> Tujuan Implementasi
             </div>
           </div>
         </Card>
@@ -454,20 +454,20 @@ export function AboutSection() {
               <BookOpen className="h-5 w-5" />
             </span>
             <div>
-              <SectionLabel>{t("about.bg.label")}</SectionLabel>
+              <SectionLabel>Latar Belakang</SectionLabel>
               <h2 className="mt-0.5 font-display text-xl font-extrabold text-ink-900 dark:text-white">
-                {t("about.bg.title")}
+                Mengapa Kami Ada
               </h2>
             </div>
           </div>
           <div className="grid gap-5 lg:grid-cols-2">
             <div className="space-y-3 text-sm leading-relaxed text-ink-600 dark:text-slate-300">
-              <p>{t("about.bg.p1")}</p>
-              <p dangerouslySetInnerHTML={{ __html: t("about.bg.p2") }} />
+              <p>Berada di wilayah Cincin Api Pasifik (Ring of Fire), Indonesia adalah salah satu negara dengan risiko bencana paling tinggi di dunia. Oleh karena itu, edukasi dan simulasi bencana mutlak diperlukan.</p>
+              <p>Meskipun demikian, akses ke simulasi bencana yang akurat seringkali terkendala oleh minimnya data interaktif. <strong>Harmony Edu hadir menjembatani jarak ini.</strong></p>
             </div>
             <div className="space-y-3 text-sm leading-relaxed text-ink-600 dark:text-slate-300">
-              <p>{t("about.bg.p3")}</p>
-              <p>{t("about.bg.p4")}</p>
+              <p>Mengintegrasikan data peta batas desa, hutan, dan kerawanan bencana real-time untuk pemodelan Digital Twin.</p>
+              <p>Kami memberdayakan pengguna melalui analisis data yang cepat dan presisi berbasis kecerdasan buatan.</p>
             </div>
           </div>
           <div className="mt-5 flex flex-wrap gap-2">
@@ -489,20 +489,20 @@ export function AboutSection() {
       <div>
         <div className="mb-5 text-center">
           <SectionLabel>
-            <Sparkles className="h-3.5 w-3.5" /> {t("about.coretech.label")}
+            <Sparkles className="h-3.5 w-3.5" /> Core Technology
           </SectionLabel>
           <h2 className="mt-2 font-display text-2xl font-extrabold text-ink-900 dark:text-white">
-            {t("about.coretech.title")}
+            3 Pilar Inovasi Kami
           </h2>
           <p className="mt-2 text-sm text-ink-500 dark:text-slate-400">
-            {t("about.coretech.desc")}
+            Menggabungkan kecerdasan buatan dan visualisasi geospasial.
           </p>
         </div>
 
         <div className="grid gap-5 lg:grid-cols-3">
           {technologies.map((tc) => (
             <Card
-              key={tc.labelKey}
+              key={tc.label}
               className="group flex flex-col hover:-translate-y-1"
             >
               <div
@@ -511,13 +511,13 @@ export function AboutSection() {
                 <tc.icon className="h-7 w-7" />
               </div>
               <h3 className="font-display text-base font-bold text-ink-900 dark:text-white">
-                {t(tc.labelKey)}
+                {tc.label}
               </h3>
               <p className="mt-2 flex-1 text-sm leading-relaxed text-ink-600 dark:text-slate-300">
-                {t(tc.descKey)}
+                {tc.desc}
               </p>
               <ul className="mt-4 space-y-1.5">
-                {tc.featuresKey.map((fKey) => (
+                {tc.features.map((fKey) => (
                   <li
                     key={fKey}
                     className="flex items-center gap-2 text-xs text-ink-600 dark:text-slate-300"
@@ -525,7 +525,7 @@ export function AboutSection() {
                     <span
                       className={`h-1.5 w-1.5 shrink-0 rounded-full bg-gradient-to-br from-brand-500 to-brand-600`}
                     />
-                    {t(fKey)}
+                    {fKey}
                   </li>
                 ))}
               </ul>
@@ -538,10 +538,10 @@ export function AboutSection() {
       <div>
         <div className="mb-5 text-center">
           <SectionLabel>
-            <Globe className="h-3.5 w-3.5" /> {t("sdgs.badge")}
+            <Globe className="h-3.5 w-3.5" /> Sustainable Development Goals
           </SectionLabel>
           <h2 className="mt-2 font-display text-2xl font-extrabold text-ink-900 dark:text-white">
-            {t("sdgs.title")}
+            Dampak Kami bagi SDGs
           </h2>
         </div>
 
@@ -565,11 +565,11 @@ export function AboutSection() {
                     <s.icon className="h-4 w-4" />
                   </span>
                   <h3 className="font-display text-sm font-bold text-ink-900 dark:text-white">
-                    {t(s.titleKey)}
+                    {s.title}
                   </h3>
                 </div>
                 <p className="mt-2 text-xs leading-relaxed text-ink-600 dark:text-slate-300">
-                  {t(s.descKey)}
+                  {s.desc}
                 </p>
               </div>
             </Card>
@@ -581,21 +581,20 @@ export function AboutSection() {
       <div>
         <div className="mb-5 text-center">
           <SectionLabel>
-            <Users className="h-3.5 w-3.5" /> {t("about.team.label")}
+            <Users className="h-3.5 w-3.5" /> Tim Kami
           </SectionLabel>
           <h2 className="mt-2 font-display text-2xl font-extrabold text-ink-900 dark:text-white">
-            {t("about.team.title")}
+            Tim Pengembang & Riset
           </h2>
           <p className="mt-2 text-sm text-ink-500 dark:text-slate-400">
-            Research & Development Team · SMA Negeri 1 Ngoro, Mojokerto, East
-            Java
+            Research & Development Team · SMA Negeri 1 Ngoro, Mojokerto, Jawa Timur
           </p>
         </div>
 
         <div className="grid gap-5 sm:grid-cols-3">
-          {team.map((m) => (
+          {team.map((m, i) => (
             <Card
-              key={m.initials}
+              key={i}
               className="group flex flex-col items-center text-center hover:-translate-y-1"
             >
               <div className="relative">
@@ -612,13 +611,13 @@ export function AboutSection() {
                 {m.name}
               </h3>
               <p className="mt-1 text-sm font-semibold text-brand-600">
-                {t(m.roleKey)}
+                {m.role}
               </p>
               <p className="mt-0.5 text-xs text-ink-500 dark:text-slate-400">
-                {t(m.subtitleKey)}
+                {m.subtitle}
               </p>
               <p className="mt-3 text-xs leading-relaxed text-ink-500 dark:text-slate-400">
-                {t(m.bioKey)}
+                {m.bio}
               </p>
             </Card>
           ))}
@@ -627,7 +626,7 @@ export function AboutSection() {
         <div className="mt-6 flex items-center justify-center gap-2.5 rounded-2xl border border-brand-100 bg-brand-50/60 py-4 px-6 dark:border-brand-900/40 dark:bg-slate-800/40">
           <MapPin className="h-4 w-4 text-brand-500" />
           <p className="text-sm font-medium text-ink-600 dark:text-slate-300">
-            {t("about.footer")}
+            Dikembangkan secara eksklusif untuk edukasi dan kesiapsiagaan bencana geospasial di Indonesia.
           </p>
         </div>
       </div>

@@ -339,7 +339,7 @@ export function Phase1Workspace() {
               : "Pilih sekolah terlebih dahulu"}
           </p>
         </div>
-        {(role === "teacher" || role === "dev") && activeSchool && (
+        {(role === "teacher" || role === "developer") && activeSchool && (
           <button
             onClick={() => setShowCreate(true)}
             className="flex items-center gap-2 bg-brand-600 hover:bg-brand-700 text-white px-4 py-2 rounded-xl transition-colors font-medium shadow-sm"
@@ -443,7 +443,7 @@ export function Phase1Workspace() {
                 >
                   <Edit className="h-4 w-4" /> Buka Map
                 </button>
-                {(role === "teacher" || role === "dev") && (
+                {(role === "teacher" || role === "developer") && (
                   <button
                     onClick={() => requestDelete(map.id)}
                     className="p-2 text-rose-500 hover:bg-rose-50 dark:hover:bg-rose-900/20 rounded-lg transition-colors"

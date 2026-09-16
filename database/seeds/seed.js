@@ -1,7 +1,7 @@
 import fs from "fs";
 import path from "path";
 
-const dbPath = path.resolve("database.json");
+const dbPath = path.resolve("apps", "server", "src", "database", "data", "database.json");
 const db = JSON.parse(fs.readFileSync(dbPath, "utf8"));
 
 const TEACHER_ID = "seed-raihanansari6678";

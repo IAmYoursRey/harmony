@@ -18,7 +18,7 @@ export function Navbar() {
   const [scrolled, setScrolled] = useState(false);
   const [open, setOpen] = useState(false);
   const { theme, toggle } = useTheme();
-  const { locale, setLocale, t } = useI18n();
+  const { locale, t } = useI18n();
   const navigate = useNavigate();
 
   useEffect(() => {
@@ -63,14 +63,7 @@ export function Navbar() {
 
         <div className="hidden items-center gap-3 md:flex">
           <ThemePicker />
-          <button
-            onClick={() => setLocale(locale === "id" ? "en" : "id")}
-            className="p-2 text-slate-500 hover:text-brand-600 transition-colors flex items-center justify-center"
-          >
-            <span className="text-xs font-bold font-mono">
-              {locale.toUpperCase()}
-            </span>
-          </button>
+
           <button
             onClick={toggle}
             className="flex h-10 w-10 items-center justify-center rounded-full text-ink-600 transition-colors hover:bg-brand-50 dark:text-slate-300 dark:hover:bg-slate-800"
@@ -84,32 +77,15 @@ export function Navbar() {
           </button>
           <button
             onClick={() => navigate("/login")}
-            className="flex items-center gap-1.5 text-sm font-semibold text-ink-700 transition-colors hover:text-brand-600 dark:text-slate-200 dark:hover:text-brand-400"
-          >
-            <ShieldCheck className="h-4 w-4" />
-            {t("landing.start_learning")}
-          </button>
-          <button
-            onClick={() => navigate("/login")}
             className="rounded-full bg-brand-600 px-5 py-2.5 text-sm font-semibold text-white shadow-glass transition-all hover:bg-brand-700 hover:shadow-glow hover:-translate-y-0.5"
           >
-            {t("landing.teacher_login")}
+            Masuk
           </button>
         </div>
 
         <div className="flex items-center gap-2 md:hidden">
           <ThemePicker />
-          <button
-            onClick={() => setLocale(locale === "id" ? "en" : "id")}
-            className="flex w-full items-center gap-3 rounded-lg px-4 py-3 text-slate-700 hover:bg-slate-50"
-          >
-            <Globe className="h-5 w-5 text-slate-400" />
-            <span>
-              {locale === "id"
-                ? "Switch to English"
-                : "Ganti ke Bahasa Indonesia"}
-            </span>
-          </button>
+
           <button
             onClick={toggle}
             className="flex h-10 w-10 items-center justify-center rounded-lg text-ink-700 transition-colors hover:bg-brand-50 dark:text-slate-300 dark:hover:bg-slate-800"
@@ -158,7 +134,7 @@ export function Navbar() {
               }}
               className="mt-3 block w-full rounded-full bg-brand-600 px-5 py-3 text-center text-sm font-semibold text-white"
             >
-              Login Guru
+              Login
             </button>
           </div>
         </div>

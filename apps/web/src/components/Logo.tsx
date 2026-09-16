@@ -11,7 +11,7 @@ interface LogoIconProps {
 export function LogoIcon({ size = 40, className = "" }: LogoIconProps) {
   return (
     <img
-      src="/logo.jpg"
+      src="/logo.png"
       alt="Harmony Edu"
       style={{ width: size, height: size }}
       className={`rounded-[20%] object-cover ${className}`}

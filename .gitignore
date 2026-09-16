@@ -36,3 +36,9 @@ apps/server/src/database/data/database.json
 
 .vercel
 data/
+
+# Large GeoJSON files
+apps/web/public/desa-extract/indonesia_villages_border.geojson
+apps/web/public/indonesia-desa.geojson
+apps/web/public/indonesia-desa.topojson
+apps/web/public/indonesia-desa.zip

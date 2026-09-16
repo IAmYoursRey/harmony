@@ -16,6 +16,7 @@ import {
   Compass,
   Medal,
   Rocket,
+  Globe,
   type LucideIcon,
 } from "lucide-react";
 import { useMemo } from "react";
@@ -150,10 +151,10 @@ function getDashboardData(userId: string, baseScore: number, profile: any) {
         bg: "bg-brand-100 text-brand-600 dark:bg-brand-900/40 dark:text-brand-400",
       },
       {
-        icon: Shield,
-        label: "Risk Awareness",
+        icon: Globe,
+        label: "Geospatial Awareness",
         value: `${baseScore}%`,
-        sub: "Based on school",
+        sub: "Real-time Map Data",
         color: "from-brand-500 to-brand-600",
         bg: "bg-brand-100 text-brand-600 dark:bg-brand-900/40 dark:text-brand-400",
       },
@@ -360,127 +361,135 @@ export function DashboardView() {
       {/* ── Welcome Card ────────────────────────────────────────────────────── */}
       <div className="relative overflow-hidden rounded-2xl bg-gradient-to-br from-brand-600 via-brand-700 to-brand-900 p-6 text-white shadow-glass-lg sm:p-8">
         <div className="absolute inset-0 bg-grid-pattern bg-[size:36px_36px] opacity-15" />
-        <div className="absolute -right-10 -top-10 h-56 w-56 rounded-full bg-white/10 blur-3xl" />
-        <div className="absolute -bottom-16 right-32 h-40 w-40 rounded-full bg-brand-400/20 blur-2xl" />
+        <div className="absolute -right-10 -top-10 h-56 w-56 rounded-full bg-white/10 blur-3xl pointer-events-none" />
+        <div className="absolute -bottom-16 right-32 h-40 w-40 rounded-full bg-brand-400/20 blur-2xl pointer-events-none" />
 
-        <div className="relative flex flex-col gap-6 lg:flex-row lg:items-center lg:justify-between">
-          <div className="flex items-start gap-4">
-            <span className="flex h-16 w-16 shrink-0 items-center justify-center rounded-2xl bg-gradient-to-br from-white/30 to-white/10 text-2xl font-extrabold backdrop-blur-md ring-1 ring-white/20">
-              {currentUser?.name?.substring(0, 2).toUpperCase() || "GS"}
-            </span>
-            <div>
-              <div className="inline-flex items-center gap-1.5 rounded-full bg-white/15 px-3 py-1 text-xs font-semibold backdrop-blur-sm">
-                <Sparkles className="h-3.5 w-3.5" />{" "}
-                {currentUser?.role === "dev"
-                  ? "Developer"
-                  : currentUser?.role === "teacher"
-                    ? "Guru"
-                    : t("dashboard.student_researcher")}
+        <div className="relative z-10 flex flex-col gap-6">
+          {/* Top Header: Avatar + Text + Illustration */}
+          <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-6">
+            <div className="flex items-center gap-4">
+              <span className="flex h-16 w-16 shrink-0 items-center justify-center rounded-2xl bg-gradient-to-br from-white/30 to-white/10 text-2xl font-extrabold backdrop-blur-md ring-1 ring-white/20">
+                {currentUser?.name?.substring(0, 2).toUpperCase() || "GS"}
+              </span>
+              <div className="min-w-0 flex-1">
+                <div className="inline-flex items-center gap-1.5 rounded-full bg-white/15 px-3 py-1 text-xs font-semibold backdrop-blur-sm">
+                  <Sparkles className="h-3.5 w-3.5 shrink-0" />
+                  <span className="truncate">
+                    {currentUser?.role === "developer"
+                      ? "Developer"
+                      : currentUser?.role === "teacher"
+                        ? "Guru"
+                        : t("dashboard.student_researcher")}
+                  </span>
+                </div>
+                <h2 className="mt-2 font-display text-2xl font-extrabold tracking-tight uppercase sm:text-3xl truncate">
+                  {currentUser?.name || "Pengguna"}
+                </h2>
+                <p className="mt-1 text-sm text-brand-200 truncate">
+                  {currentUser?.role === "developer"
+                    ? t("role.developer", "Developer")
+                    : currentUser?.role === "teacher"
+                      ? t("role.teacher", "Teacher")
+                      : t("role.student", "Student")}{" "}
+                  &bull;{" "}
+                  {currentProfile?.schoolId &&
+                  currentProfile.schoolId !== "unknown"
+                    ? selection?.school?.name || currentProfile.schoolId
+                    : "Wilayah Indonesia"}
+                </p>
               </div>
-              <p className="mt-2.5 text-sm font-medium text-brand-200">
-                {t("dashboard.welcome")},
-              </p>
-              <h2 className="font-display text-2xl font-extrabold tracking-tight uppercase sm:text-3xl">
-                {currentUser?.name || "Pengguna"}
-              </h2>
-              <p className="mt-1 text-sm text-brand-200">
-                {currentUser?.role === "dev"
-                  ? t("role.dev")
-                  : currentUser?.role === "teacher"
-                    ? t("role.teacher")
-                    : t("role.student")}{" "}
-                &bull;{" "}
-                {currentProfile?.schoolId &&
-                currentProfile.schoolId !== "unknown"
-                  ? selection?.school?.name || currentProfile.schoolId
-                  : t("school.unknown", "Belum Memilih Sekolah")}
-              </p>
+            </div>
 
-              {/* Score badges */}
-              <div className="mt-4 flex flex-wrap gap-3">
-                <div className="flex items-center gap-2.5 rounded-xl bg-white/10 px-4 py-2.5 backdrop-blur-sm ring-1 ring-white/15">
-                  <Zap className="h-5 w-5 text-brand-300" />
-                  <div>
-                    <p className="text-[10px] uppercase tracking-wider text-brand-200">
-                      {t("dashboard.score")}
-                    </p>
-                    <p className="font-display text-lg font-extrabold">
-                      {currentScore}
-                      <span className="text-sm text-brand-300">/100</span>
-                    </p>
-                  </div>
-                </div>
-                <div className="flex items-center gap-2.5 rounded-xl bg-white/10 px-4 py-2.5 backdrop-blur-sm ring-1 ring-white/15">
-                  <TrendingUp className="h-5 w-5 text-brand-300" />
-                  <div>
-                    <p className="text-[10px] uppercase tracking-wider text-brand-200">
-                      {t("dashboard.previous_score")}
-                    </p>
-                    <p className="font-display text-lg font-extrabold">
-                      {previousScore}
-                      <span className="text-sm text-brand-300">/100</span>
-                    </p>
-                  </div>
-                </div>
-                <div className="flex items-center gap-2.5 rounded-xl bg-brand-400/20 px-4 py-2.5 backdrop-blur-sm ring-1 ring-brand-300/30">
-                  <TrendingUp className="h-5 w-5 text-brand-300" />
-                  <div>
-                    <p className="text-[10px] uppercase tracking-wider text-brand-200">
-                      {t("dashboard.improvement_label")}
-                    </p>
-                    <p className="font-display text-lg font-extrabold">
-                      +{improvement}{" "}
-                      <span className="text-sm text-brand-300">
-                        ({improvementPct}%)
-                      </span>
-                    </p>
-                  </div>
-                </div>
-                <div className="flex items-center gap-2.5 rounded-xl bg-white/10 px-4 py-2.5 backdrop-blur-sm ring-1 ring-white/15">
-                  <Shield className="h-5 w-5 text-brand-300" />
-                  <div>
-                    <p className="text-[10px] uppercase tracking-wider text-brand-200">
-                      {t("dashboard.preparedness")}
-                    </p>
-                    <p className="font-display text-lg font-extrabold">
-                      {hasPoints
-                        ? t("dashboard.highly_resilient", "Highly Resilient")
-                        : t("dashboard.not_started", "Belum Dimulai")}
-                    </p>
-                  </div>
-                </div>
+            {/* Illustration */}
+            <div className="hidden shrink-0 lg:block">
+              <WelcomeIllustration />
+            </div>
+          </div>
+
+          {/* Score badges */}
+          <div className="flex flex-wrap gap-3">
+            <div className="flex items-center gap-2.5 rounded-xl bg-white/10 px-4 py-2.5 backdrop-blur-sm ring-1 ring-white/15">
+              <Zap className="h-5 w-5 text-brand-300 shrink-0" />
+              <div>
+                <p className="text-[10px] uppercase tracking-wider text-brand-200">
+                  {t("dashboard.score")}
+                </p>
+                <p className="font-display text-lg font-extrabold">
+                  {currentScore}
+                  <span className="text-sm text-brand-300">/100</span>
+                </p>
+              </div>
+            </div>
+            <div className="flex items-center gap-2.5 rounded-xl bg-white/10 px-4 py-2.5 backdrop-blur-sm ring-1 ring-white/15">
+              <TrendingUp className="h-5 w-5 text-brand-300 shrink-0" />
+              <div>
+                <p className="text-[10px] uppercase tracking-wider text-brand-200">
+                  {t("dashboard.previous_score")}
+                </p>
+                <p className="font-display text-lg font-extrabold">
+                  {previousScore}
+                  <span className="text-sm text-brand-300">/100</span>
+                </p>
+              </div>
+            </div>
+            <div className="flex items-center gap-2.5 rounded-xl bg-brand-400/20 px-4 py-2.5 backdrop-blur-sm ring-1 ring-brand-300/30">
+              <TrendingUp className="h-5 w-5 text-brand-300 shrink-0" />
+              <div>
+                <p className="text-[10px] uppercase tracking-wider text-brand-200">
+                  {t("dashboard.improvement_label")}
+                </p>
+                <p className="font-display text-lg font-extrabold">
+                  +{improvement}{" "}
+                  <span className="text-sm text-brand-300">
+                    {improvementPct}%
+                  </span>
+                </p>
+              </div>
+            </div>
+            <div className="flex items-center gap-2.5 rounded-xl bg-white/10 px-4 py-2.5 backdrop-blur-sm ring-1 ring-white/15">
+              <Shield className="h-5 w-5 text-brand-300 shrink-0" />
+              <div>
+                <p className="text-[10px] uppercase tracking-wider text-brand-200">
+                  {t("dashboard.preparedness")}
+                </p>
+                <p className="font-display text-lg font-extrabold">
+                  {hasPoints
+                    ? t("dashboard.highly_resilient", "Highly Resilient")
+                    : t("dashboard.not_started", "Belum Dimulai")}
+                </p>
               </div>
             </div>
           </div>
 
-          {/* Illustration */}
-          <div className="hidden shrink-0 sm:block">
-            <WelcomeIllustration />
+          {/* CTA buttons */}
+          <div className="flex flex-wrap gap-2.5">
+            <Link
+              to="/app/maps"
+              className="inline-flex items-center gap-2 rounded-full bg-brand-500 border border-white/20 px-5 py-2.5 text-sm font-semibold text-white shadow-glow transition-all hover:-translate-y-0.5 hover:bg-brand-400"
+            >
+              <Globe className="h-4 w-4 shrink-0" /> Peta Bencana Real-time
+            </Link>
+            <Link
+              to="/app/simulation/join"
+              className="inline-flex items-center gap-2 rounded-full border border-white/30 bg-white/10 px-5 py-2.5 text-sm font-semibold text-white backdrop-blur-sm transition-all hover:bg-white/20"
+            >
+              <Play className="h-4 w-4 fill-white shrink-0" /> Join Session
+            </Link>
+            <Link
+              to="/app/simulation"
+              className="inline-flex items-center gap-2 rounded-full bg-white px-5 py-2.5 text-sm font-semibold text-brand-700 transition-all hover:-translate-y-0.5 hover:shadow-glow"
+            >
+              <Play className="h-4 w-4 fill-brand-600 text-brand-600 shrink-0" />{" "}
+              {t("dashboard.start_simulation")}
+            </Link>
+            <Link
+              to="/app/ai-learning"
+              className="inline-flex items-center gap-2 rounded-full border border-white/30 bg-white/10 px-5 py-2.5 text-sm font-semibold text-white backdrop-blur-sm transition-all hover:bg-white/20"
+            >
+              {t("dashboard.continue_learning")}{" "}
+              <ArrowRight className="h-4 w-4 shrink-0" />
+            </Link>
           </div>
-        </div>
-
-        {/* CTA buttons */}
-        <div className="relative mt-5 flex flex-wrap gap-2.5">
-          <Link
-            to="/app/simulation/join"
-            className="inline-flex items-center gap-2 rounded-full bg-brand-500 border border-white/20 px-5 py-2.5 text-sm font-semibold text-white shadow-glow transition-all hover:-translate-y-0.5 hover:bg-brand-400"
-          >
-            <Play className="h-4 w-4 fill-white" /> Join Session
-          </Link>
-          <Link
-            to="/app/simulation"
-            className="inline-flex items-center gap-2 rounded-full bg-white px-5 py-2.5 text-sm font-semibold text-brand-700 transition-all hover:-translate-y-0.5 hover:shadow-glow"
-          >
-            <Play className="h-4 w-4 fill-brand-600 text-brand-600" />{" "}
-            {t("dashboard.start_simulation")}
-          </Link>
-          <Link
-            to="/app/ai-learning"
-            className="inline-flex items-center gap-2 rounded-full border border-white/30 bg-white/10 px-5 py-2.5 text-sm font-semibold text-white backdrop-blur-sm transition-all hover:bg-white/20"
-          >
-            {t("dashboard.continue_learning")}{" "}
-            <ArrowRight className="h-4 w-4" />
-          </Link>
         </div>
       </div>
 
@@ -496,11 +505,10 @@ export function DashboardView() {
             />
             <div>
               <h3 className="font-display text-base font-bold text-ink-900 dark:text-white">
-                {t("dashboard.learning_progress")}
+                Kesiapan Menghadapi Bencana
               </h3>
               <p className="text-sm text-ink-500 dark:text-slate-400">
-                {t("dashboard.current_score")}: {currentScore}/100 ·{" "}
-                {t("dashboard.previous_score")}: {previousScore}/100
+                Skor Kesiapan Saat Ini: {currentScore}/100 · Skor Sebelumnya: {previousScore}/100
               </p>
               <div className="mt-2 flex items-center gap-2">
                 <span className="inline-flex items-center gap-1 rounded-full bg-brand-100 px-3 py-1 text-xs font-bold text-brand-700 dark:bg-brand-950/40 dark:text-brand-400">
@@ -511,11 +519,10 @@ export function DashboardView() {
             </div>
           </div>
           <Link
-            to="/app/ai-learning"
+            to="/app/maps"
             className="inline-flex items-center gap-2 rounded-full bg-brand-600 px-6 py-3 text-sm font-semibold text-white shadow-glass transition-all hover:bg-brand-700 hover:-translate-y-0.5"
           >
-            <Play className="h-4 w-4 fill-white" />{" "}
-            {t("dashboard.continue_learning")}
+            <Globe className="h-4 w-4 text-white" /> Simulasi Geospasial
           </Link>
         </div>
       </div>
@@ -555,8 +562,8 @@ export function DashboardView() {
       <div className="grid gap-6 lg:grid-cols-3">
         {/* Weekly Learning Progress — Line Chart */}
         <Card className="lg:col-span-1">
-          <SectionTitle action="Details" to="/app/ai-learning">
-            Weekly Learning Progress
+          <SectionTitle action="Peta Interaktif" to="/app/maps">
+            Aktivitas Simulasi Mingguan
           </SectionTitle>
           <LineChart
             data={d.weeklyLearning}
@@ -564,17 +571,17 @@ export function DashboardView() {
             color="hsl(var(--brand-600))"
           />
           <div className="mt-3 flex items-center justify-between text-xs">
-            <span className="text-ink-500 dark:text-slate-400">This week</span>
+            <span className="text-ink-500 dark:text-slate-400">Minggu ini</span>
             <span className="flex items-center gap-1 font-semibold text-brand-600">
-              <TrendingUp className="h-3.5 w-3.5" /> +18% vs last week
+              <TrendingUp className="h-3.5 w-3.5" /> +18% dari minggu lalu
             </span>
           </div>
         </Card>
 
         {/* Disaster Knowledge — Radar Chart */}
         <Card className="lg:col-span-1">
-          <SectionTitle action="Details" to="/app/gss">
-            Disaster Knowledge
+          <SectionTitle action="Laporan Data" to="/app/gss">
+            Pemahaman Kebencanaan Geospasial
           </SectionTitle>
           <RadarChart
             data={d.radarData}
@@ -583,10 +590,10 @@ export function DashboardView() {
           />
         </Card>
 
-        {/* School Preparedness — Donut Chart */}
+        {/* Wilayah Preparedness — Donut Chart */}
         <Card className="lg:col-span-1">
-          <SectionTitle action="Details" to="/app/resilience">
-            School Preparedness
+          <SectionTitle action="Buka Peta" to="/app/maps">
+            Kesiapan Wilayah
           </SectionTitle>
           <div className="flex items-center justify-center py-2">
             <DonutChart data={d.donutData} size={180} stroke={28} />
@@ -606,30 +613,22 @@ export function DashboardView() {
               </span>
               <div>
                 <span className="text-[10px] font-bold uppercase tracking-widest text-brand-600">
-                  AI Powered
+                  Real-time Data
                 </span>
                 <h3 className="font-display text-sm font-bold text-ink-900 dark:text-white">
-                  Harmony AI Recommendation
+                  Pemantauan Geospasial
                 </h3>
               </div>
             </div>
             <p className="text-sm leading-relaxed text-ink-600 dark:text-slate-300">
-              Based on your learning progress and your school's geospatial risk
-              profile, we recommend completing the{" "}
-              <strong className="text-ink-900 dark:text-white">
-                Tsunami Simulation
-              </strong>{" "}
-              and{" "}
-              <strong className="text-ink-900 dark:text-white">
-                Earthquake Preparedness
-              </strong>{" "}
-              modules this week.
+              Berdasarkan pemantauan peta interaktif dan data sensor kebencanaan secara real-time, 
+              kami menyarankan Anda untuk memantau zona <strong className="text-ink-900 dark:text-white">Rawan Gempa</strong> dan mempelajari rute <strong className="text-ink-900 dark:text-white">Evakuasi Tsunami</strong> di wilayah Anda.
             </p>
             <Link
-              to="/app/ai-learning"
+              to="/app/maps"
               className="group mt-5 inline-flex w-full items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-brand-600 to-brand-700 px-5 py-3 text-sm font-semibold text-white shadow-glass transition-all hover:-translate-y-0.5 hover:shadow-glow"
             >
-              <Rocket className="h-4 w-4" /> Start Recommendation
+              <Globe className="h-4 w-4" /> Buka Peta Sekarang
               <ArrowRight className="h-4 w-4 transition-transform group-hover:translate-x-1" />
             </Link>
           </div>
@@ -637,16 +636,13 @@ export function DashboardView() {
 
         {/* Recent Activities */}
         <Card className="lg:col-span-2">
-          <SectionTitle action="View all" to="/app/ai-learning">
-            Recent Learning Activities
+          <SectionTitle action="Peta Utama" to="/app/maps">
+            Aktivitas Mitigasi Terbaru
           </SectionTitle>
           <div className="space-y-3">
             {d.activities.length === 0 ? (
               <div className="py-6 text-center text-sm text-ink-500 dark:text-slate-400">
-                {t(
-                  "dashboard.no_activities",
-                  "No activities found. Start learning to see your progress here.",
-                )}
+                Belum ada aktivitas mitigasi. Buka Peta Interaktif untuk memulai pantauan wilayah.
               </div>
             ) : (
               d.activities.map((a: any, i: number) => (
@@ -679,7 +675,7 @@ export function DashboardView() {
 
       {/* ── Achievements ────────────────────────────────────────────────────── */}
       <Card>
-        <SectionTitle>Achievement Badges</SectionTitle>
+        <SectionTitle>Lencana Kesiagaan Wilayah</SectionTitle>
         <div className="grid grid-cols-3 gap-4 sm:grid-cols-6">
           {d.badges.map((b: any) => (
             <div
@@ -701,8 +697,8 @@ export function DashboardView() {
 
       {/* ── Trend sparkline ─────────────────────────────────────────────────── */}
       <Card>
-        <SectionTitle action="Full report" to="/app/gss">
-          Research Engagement Trend
+        <SectionTitle action="Laporan Penuh" to="/app/gss">
+          Tren Aktivitas Pemantauan
         </SectionTitle>
         <div className="flex items-end justify-between">
           <div>
@@ -710,11 +706,11 @@ export function DashboardView() {
               +42%
             </p>
             <p className="text-xs text-ink-500 dark:text-slate-400">
-              Engagement growth vs last month
+              Peningkatan aktivitas pemantauan dibanding bulan lalu
             </p>
           </div>
           <span className="hidden text-xs text-ink-400 sm:block">
-            Last 12 weeks
+            12 minggu terakhir
           </span>
         </div>
         <div className="mt-3">

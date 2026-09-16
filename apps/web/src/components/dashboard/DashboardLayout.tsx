@@ -25,7 +25,7 @@ export function DashboardLayout() {
   if (
     !isLoading &&
     currentUser &&
-    currentUser.role !== "dev" &&
+    currentUser.role !== "developer" &&
     (!currentProfile?.schoolId || currentProfile.schoolId === "unknown")
   ) {
     return <Navigate to="/school-selection" replace />;
@@ -97,17 +97,20 @@ export function DashboardLayout() {
           onSelect={() => setMobileOpen(false)}
           mobileOpen={mobileOpen}
           onCloseMobile={() => setMobileOpen(false)}
+          forceOverlay={activeId === "maps"}
         />
 
         <div className="flex min-w-0 flex-1 flex-col overflow-hidden">
-          <Topbar
-            onOpenMobile={() => setMobileOpen(true)}
-            title={current?.label ?? "Dashboard"}
-          />
+          {activeId !== "maps" && (
+            <Topbar
+              onOpenMobile={() => setMobileOpen(true)}
+              title={current?.label ?? "Dashboard"}
+            />
+          )}
 
-          <main className="flex-1 overflow-y-auto px-4 pt-6 pb-24 sm:px-6 sm:py-8 lg:px-8">
-            <div key={activeId} className="page-enter">
-              <Outlet />
+          <main className={activeId === "maps" ? "flex-1 relative overflow-hidden" : "flex-1 overflow-y-auto px-4 pt-6 pb-24 sm:px-6 sm:py-8 lg:px-8"}>
+            <div key={activeId} className={activeId === "maps" ? "h-full w-full" : "page-enter"}>
+              <Outlet context={{ setMobileOpen }} />
             </div>
           </main>
         </div>

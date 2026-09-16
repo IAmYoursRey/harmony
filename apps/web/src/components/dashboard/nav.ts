@@ -19,25 +19,25 @@ export interface NavItem {
   id: string;
   label: string;
   icon: LucideIcon;
-  roles?: ("student" | "teacher" | "dev")[];
-  labelOverrides?: Partial<Record<"student" | "teacher" | "dev", string>>;
+  roles?: ("student" | "teacher" | "developer")[];
+  labelOverrides?: Partial<Record<"student" | "teacher" | "developer", string>>;
 }
 
 export const navItems: NavItem[] = [
   {
     id: "dev-dashboard",
-    label: "Dev Panel",
+    label: "User Account",
     icon: ShieldAlert,
-    roles: ["dev"],
+    roles: ["developer"],
   },
   { id: "dashboard", label: "Dashboard", icon: LayoutDashboard },
   { id: "ai-learning", label: "AI Learning", icon: Brain },
-  { id: "geo-risk-map", label: "Geo Risk Map", icon: Map },
+  { id: "maps", label: "Maps", icon: Map },
   {
     id: "digital-twin",
     label: "Kembaran Digital",
     icon: Boxes,
-    roles: ["teacher", "dev", "student"],
+    roles: ["teacher", "developer", "student"],
   },
   {
     id: "student-game",
@@ -53,7 +53,7 @@ export const navItems: NavItem[] = [
     id: "teacher",
     label: "Teacher Dashboard",
     icon: GraduationCap,
-    roles: ["teacher", "dev"],
+    roles: ["teacher", "developer"],
   },
   { id: "profile", label: "Profile", icon: User },
 ];

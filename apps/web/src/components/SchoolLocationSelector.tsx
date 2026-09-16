@@ -48,17 +48,17 @@ import { useToast } from "@/hooks/useToast";
 import { useUserLocation } from "@/hooks/useUserLocation";
 import { formatDistance } from "@/utils/geoUtils";
 
-interface SearchableDropdownProps {
+export interface SearchableDropdownProps {
   label: string;
   icon: LucideIcon;
   value: string;
   options: { id: string; name: string }[];
   placeholder: string;
-  onChange: (id: string) => void;
+  onChange: (value: string) => void;
   disabled?: boolean;
 }
 
-function SearchableDropdown({
+export function SearchableDropdown({
   label,
   icon: Icon,
   value,

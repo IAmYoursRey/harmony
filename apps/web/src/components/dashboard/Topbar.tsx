@@ -23,7 +23,7 @@ interface TopbarProps {
 export function Topbar({ onOpenMobile, title }: TopbarProps) {
   const { theme, toggle } = useTheme();
   const { currentUser } = useAuth();
-  const { locale, setLocale } = useI18n();
+  const { locale } = useI18n();
   const navigate = useNavigate();
   const [search, setSearch] = useState("");
   const [notificationsOpen, setNotificationsOpen] = useState(false);
@@ -122,15 +122,7 @@ export function Topbar({ onOpenMobile, title }: TopbarProps) {
       {/* Theme picker */}
       <ThemePicker />
 
-      {/* Language toggle */}
-      <button
-        onClick={() => setLocale(locale === "id" ? "en" : "id")}
-        className="flex h-10 items-center justify-center gap-1.5 rounded-full px-3 text-sm font-bold text-ink-600 transition-colors hover:bg-brand-50 dark:text-slate-300 dark:hover:bg-slate-800"
-        aria-label="Toggle language"
-      >
-        <Globe className="h-4 w-4" />
-        <span className="uppercase">{locale}</span>
-      </button>
+
 
       {/* Dark mode toggle */}
       <button
@@ -183,12 +175,16 @@ export function Topbar({ onOpenMobile, title }: TopbarProps) {
         aria-label="Open profile"
         className="flex items-center gap-2 rounded-full border border-brand-100 bg-white/70 py-1.5 pl-1.5 pr-3 transition-colors hover:bg-white dark:border-slate-700 dark:bg-slate-800/70 dark:hover:bg-slate-800"
       >
-        <span className="flex h-8 w-8 items-center justify-center rounded-full bg-gradient-to-br from-brand-500 to-brand-700 text-xs font-bold text-white">
-          {currentUser?.name
-            ?.split(" ")
-            .map((n) => n[0])
-            .join("") || "U"}
-        </span>
+          <span className={`flex h-8 w-8 items-center justify-center rounded-full text-xs font-bold text-white ${
+            currentUser?.role === "developer" ? "bg-gradient-to-br from-red-500 to-red-700" :
+            currentUser?.role === "teacher" ? "bg-gradient-to-br from-amber-500 to-amber-700" :
+            "bg-gradient-to-br from-brand-500 to-brand-700"
+          }`}>
+            {currentUser?.name
+              ?.split(" ")
+              .map((n) => n[0])
+              .join("") || "U"}
+          </span>
         <span className="hidden text-sm font-semibold text-ink-800 dark:text-slate-200 sm:block">
           {displayName}
         </span>

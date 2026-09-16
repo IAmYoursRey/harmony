@@ -11,7 +11,8 @@ function getCallerSchoolId(db, userId) {
 }
 
 router.get("/system", verifyToken, async (req, res) => {
-  if (req.user.role !== "dev") {
+  console.log("[DEBUG] /system route hit. req.user:", req.user);
+  if (req.user.role !== "dev" && req.user.role !== "developer") {
     return res.status(403).json({ error: "Access denied" });
   }
 
@@ -43,7 +44,7 @@ router.get("/system", verifyToken, async (req, res) => {
 });
 
 router.get("/class", verifyToken, async (req, res) => {
-  if (req.user.role !== "teacher" && req.user.role !== "dev") {
+  if (req.user.role !== "teacher" && req.user.role !== "dev" && req.user.role !== "developer") {
     return res.status(403).json({ error: "Access denied" });
   }
 

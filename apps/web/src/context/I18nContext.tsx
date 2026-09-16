@@ -7,6 +7,7 @@ const dictionaries: Record<Language, Dictionary> = {
   id: {
     "nav.dashboard": "Dasbor",
     "nav.ai-learning": "Pembelajaran AI",
+    "nav.maps": "Maps",
     "nav.geo-risk-map": "Peta Risiko Geo",
     "nav.digital-twin": "Kembaran Digital",
     "nav.student-game": "Gabung Room / Game",
@@ -27,7 +28,7 @@ const dictionaries: Record<Language, Dictionary> = {
     "nav.teacher": "Dasbor Guru",
     "nav.profile": "Profil Saya",
     "nav.about": "Tentang Kami",
-    "nav.dev-dashboard": "Dev Panel",
+    "nav.dev-dashboard": "User Account",
 
     "landing.features": "Fitur",
     "landing.technology": "Teknologi",
@@ -109,9 +110,9 @@ const dictionaries: Record<Language, Dictionary> = {
     "school.assembly_pt": "Titik Kumpul",
     "school.shelter": "Tempat Penampungan Terdekat",
     "school.est_time": "Est. Waktu Evakuasi",
-    "role.teacher": "Guru / Pendidik",
-    "role.student": "Peserta Didik",
-    "role.dev": "Pengembang",
+    "role.teacher": "Teacher",
+    "role.student": "Student",
+    "role.developer": "Developer",
 
     "sri.title": "Indeks Kesiapan Pintar",
     "sri.out_of": "dari 100",
@@ -349,6 +350,7 @@ const dictionaries: Record<Language, Dictionary> = {
   en: {
     "nav.dashboard": "Dashboard",
     "nav.ai-learning": "AI Learning",
+    "nav.maps": "Maps",
     "nav.geo-risk-map": "Geo Risk Map",
     "nav.digital-twin": "Digital Twin",
     "nav.student-game": "Join Room / Game",
@@ -364,7 +366,7 @@ const dictionaries: Record<Language, Dictionary> = {
     "nav.teacher": "Teacher Dashboard",
     "nav.profile": "My Profile",
     "nav.about": "About Us",
-    "nav.dev-dashboard": "Dev Panel",
+    "nav.dev-dashboard": "User Account",
 
     "landing.features": "Features",
     "landing.technology": "Technology",
@@ -456,9 +458,9 @@ const dictionaries: Record<Language, Dictionary> = {
     "school.assembly_pt": "Assembly Point",
     "school.shelter": "Nearest Shelter",
     "school.est_time": "Est. Evac Time",
-    "role.teacher": "Teacher / Educator",
+    "role.teacher": "Teacher",
     "role.student": "Student",
-    "role.dev": "Developer",
+    "role.developer": "Developer",
 
     "sri.title": "Smart Readiness Index",
     "sri.out_of": "out of 100",
@@ -708,7 +710,7 @@ const dictionaries: Record<Language, Dictionary> = {
 };
 
 export function I18nProvider({ children }: { children: ReactNode }) {
-  const [locale, setLocaleState] = useState<Language>("id");
+  const [locale, setLocaleState] = useState<Language>("en");
 
   useEffect(() => {
     const saved = window.localStorage.getItem("language") as Language | null;
@@ -726,7 +728,7 @@ export function I18nProvider({ children }: { children: ReactNode }) {
     key: string,
     variablesOrDefault?: string | Record<string, string | number>,
   ) => {
-    let text = dictionaries[locale]?.[key] || dictionaries["id"]?.[key];
+    let text = dictionaries[locale]?.[key] || dictionaries["en"]?.[key];
     if (!text && typeof variablesOrDefault === "string") {
       text = variablesOrDefault;
     } else if (!text) {

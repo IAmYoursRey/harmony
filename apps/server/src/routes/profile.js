@@ -1,5 +1,5 @@
 import express from "express";
-import { readDB, writeDB } from "../repositories/repository.js";
+import { readDB, writeDB, uploadBase64 } from "../repositories/repository.js";
 import { verifyToken } from "../middleware/authMiddleware.js";
 import { getBaseSchools } from "./schools.js";
 
@@ -17,6 +17,10 @@ router.post("/", verifyToken, async (req, res) => {
   const index = db.profiles.findIndex((p) => p.userId === req.user.id);
 
   const { schoolId, ...safeBody } = req.body;
+
+  if (safeBody.avatar && safeBody.avatar.startsWith("data:image")) {
+    safeBody.avatar = await uploadBase64(safeBody.avatar, `avatar_${req.user.id}_${Date.now()}`);
+  }
 
   if (index === -1) {
     const newProfile = {
@@ -74,6 +78,14 @@ router.get("/all", verifyToken, async (req, res) => {
     );
   }
 
+  const requesterAccount = db.accounts.find((a) => a.id === req.user.id);
+  const isTeacher = requesterAccount && requesterAccount.role === "teacher";
+
+  if (!isTeacher) {
+    // For non-teachers, only show profiles that are public (isPublic is true or undefined/default true)
+    filteredProfiles = filteredProfiles.filter((p) => p.isPublic !== false);
+  }
+
   res.json({ profiles: filteredProfiles });
 });
 
@@ -97,8 +109,7 @@ router.get("/gss", verifyToken, async (req, res) => {
     userIds = [req.user.id];
   }
 
-  if (targetProfiles.length === 0)
-    return res.status(404).json({ error: "No profiles found" });
+  // If no profiles found, the logic below will safely calculate 0 for all metrics
 
   const dtResults = (db.dtResults || []).filter((r) =>
     userIds.includes(r.userId),
