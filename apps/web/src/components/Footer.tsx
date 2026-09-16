@@ -68,6 +68,27 @@ const socials = [
 
 export function Footer() {
   const { t } = useI18n();
+
+  const handleLinkClick = (e: React.MouseEvent<HTMLAnchorElement>, to: string) => {
+    if (to.startsWith("/#")) {
+      const id = to.replace("/#", "");
+      if (window.location.pathname === "/" || window.location.pathname === "") {
+        e.preventDefault();
+        const el = document.getElementById(id);
+        if (el) {
+          const headerOffset = 80;
+          const elementPosition = el.getBoundingClientRect().top;
+          const offsetPosition = elementPosition + window.pageYOffset - headerOffset;
+          window.scrollTo({
+            top: offsetPosition,
+            behavior: "smooth",
+          });
+          window.history.pushState(null, "", `#${id}`);
+        }
+      }
+    }
+  };
+
   return (
     <footer
       id="contact"
@@ -120,6 +141,7 @@ export function Footer() {
                   <li key={link.label}>
                     <Link
                       to={link.to}
+                      onClick={(e) => handleLinkClick(e, link.to)}
                       className="text-sm text-ink-400 transition-colors hover:text-brand-400"
                     >
                       {t(link.label)}

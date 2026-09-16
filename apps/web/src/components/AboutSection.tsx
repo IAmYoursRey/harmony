@@ -355,7 +355,7 @@ function HeroIllustration() {
 export function AboutSection() {
   const { t } = useI18n();
   return (
-    <section id="about" className="space-y-8 section-container py-24">
+    <section id="about" className="space-y-8 section-container scroll-mt-20 sm:scroll-mt-24 py-24">
       {/* ── Hero banner ─────────────────────────────────────────────────────── */}
       <div className="relative overflow-hidden rounded-2xl bg-gradient-to-br from-brand-600 via-brand-700 to-brand-900 p-8 text-white shadow-glass-lg sm:p-10">
         <div className="absolute inset-0 bg-grid-pattern bg-[size:40px_40px] opacity-15" />

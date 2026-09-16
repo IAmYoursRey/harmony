@@ -47,7 +47,7 @@ const features: Feature[] = [
 
 export function Features() {
   return (
-    <section id="features" className="relative py-20 sm:py-28">
+    <section id="features" className="relative scroll-mt-20 sm:scroll-mt-24 py-20 sm:py-28">
       <div className="absolute inset-0 -z-10 bg-gradient-to-b from-white via-brand-50/40 to-white dark:from-slate-900 dark:via-slate-800/40 dark:to-slate-900" />
       <div className="section-container">
         <Reveal className="mx-auto max-w-2xl text-center">

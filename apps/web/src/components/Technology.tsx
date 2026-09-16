@@ -58,7 +58,7 @@ export function Technology() {
   return (
     <section
       id="how-it-works"
-      className="relative overflow-hidden py-20 sm:py-28"
+      className="relative scroll-mt-20 sm:scroll-mt-24 overflow-hidden py-20 sm:py-28"
     >
       <div className="absolute inset-0 -z-10 bg-gradient-to-b from-brand-950 to-brand-900" />
       <div className="absolute inset-0 -z-10 bg-grid-pattern bg-[size:44px_44px] opacity-20" />

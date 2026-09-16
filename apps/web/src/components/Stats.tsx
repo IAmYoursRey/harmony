@@ -87,7 +87,7 @@ function StatCard({
 export function Stats() {
   const { locale } = useI18n();
   return (
-    <section id="impact" className="relative py-16 sm:py-20">
+    <section id="impact" className="relative scroll-mt-20 sm:scroll-mt-24 py-16 sm:py-20">
       <div className="section-container">
         <Reveal className="mx-auto mb-10 max-w-2xl text-center">
           <span className="text-sm font-semibold uppercase tracking-wider text-brand-600 dark:text-brand-400">

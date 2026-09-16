@@ -28,7 +28,7 @@ const sdgs: SDG[] = [
 export function SDGs() {
   const { t } = useI18n();
   return (
-    <section id="sdgs" className="relative py-20 sm:py-28">
+    <section id="sdgs" className="relative scroll-mt-20 sm:scroll-mt-24 py-20 sm:py-28">
       <div className="section-container">
         <Reveal className="mx-auto max-w-2xl text-center">
           <span className="text-sm font-semibold uppercase tracking-wider text-brand-600 dark:text-brand-400">
