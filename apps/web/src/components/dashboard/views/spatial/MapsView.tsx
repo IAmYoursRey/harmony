@@ -17,10 +17,11 @@ import { Style, RegularShape, Fill, Stroke, Circle as CircleStyle } from "ol/sty
 import TopoJSON from "ol/format/TopoJSON";
 import { useEffect, useRef, useState, useMemo } from "react";
 import { apiClient } from "@/services/apiClient";
-import { Map as MapIcon, Mountain, GraduationCap, X, Menu, Building2, Settings, Search, MapPin, Activity, CloudRain, Thermometer, Wind, Cloud, Sun, Globe, TreePine, Map as MapIcon2, Newspaper, Palette } from "lucide-react";
+import { Map as MapIcon, Mountain, GraduationCap, X, Menu, Building2, Settings, Search, MapPin, Activity, CloudRain, Thermometer, Wind, Cloud, Sun, Globe, TreePine, Map as MapIcon2, Newspaper, Palette, Paintbrush } from "lucide-react";
 import { useNavigate, useOutletContext } from "react-router-dom";
 import { useAuth } from "@/hooks/useAuth";
 import { useSchool } from "@/hooks/useSchool";
+import { motion, AnimatePresence } from "framer-motion";
 
 
 
@@ -109,6 +110,7 @@ export function MapsView() {
   
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const [mapMode, setMapMode] = useState<'spatial' | 'news' | 'art'>('spatial');
+  const [isModeDropdownOpen, setIsModeDropdownOpen] = useState(false);
   
   const [showPanel, setShowPanel] = useState(false);
   const [showActive, setShowActive] = useStickyState(true, 'hm_showActive');
@@ -815,26 +817,154 @@ export function MapsView() {
         </div>
       )}
 
+      {/* Top Left Menu Button */}
+      <button 
+        onClick={() => setMobileOpen(true)}
+        className="absolute top-4 left-4 z-20 flex h-11 w-11 items-center justify-center rounded-xl bg-white shadow-glass backdrop-blur-md hover:bg-slate-50 dark:bg-slate-900/90 dark:border dark:border-slate-800 text-ink-700 dark:text-slate-300 transition-colors"
+        aria-label="Buka Menu"
+      >
+        <Menu className="h-5 w-5" />
+      </button>
+
       {/* Map Mode Switcher (Top Right) */}
-      <div className="absolute top-6 right-6 bg-white/90 dark:bg-slate-900/90 backdrop-blur-md rounded-2xl shadow-glass border border-slate-200/50 dark:border-slate-800/50 p-1.5 flex items-center gap-1 z-10">
-        <button 
-          onClick={() => setMapMode('spatial')}
-          className={`flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-semibold transition-all duration-300 ${mapMode === 'spatial' ? 'bg-indigo-500 text-white shadow-md' : 'text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800'}`}
-        >
-          <MapIcon2 className="w-4 h-4" /> Data
-        </button>
-        <button 
-          onClick={() => setMapMode('news')}
-          className={`flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-semibold transition-all duration-300 ${mapMode === 'news' ? 'bg-indigo-500 text-white shadow-md' : 'text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800'}`}
-        >
-          <Newspaper className="w-4 h-4" /> Berita
-        </button>
-        <button 
-          onClick={() => setMapMode('art')}
-          className={`flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-semibold transition-all duration-300 ${mapMode === 'art' ? 'bg-indigo-500 text-white shadow-md' : 'text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800'}`}
-        >
-          <Palette className="w-4 h-4" /> Art
-        </button>
+      <div className="absolute top-4 right-4 z-20">
+        {/* Desktop View: Full Segmented Tabs */}
+        <div className="hidden md:flex items-center gap-1 bg-white/90 dark:bg-slate-900/90 backdrop-blur-md rounded-2xl shadow-glass border border-slate-200/50 dark:border-slate-800/50 p-1.5">
+          <button 
+            onClick={() => setMapMode('spatial')}
+            className={`flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-semibold transition-all duration-300 ${mapMode === 'spatial' ? 'bg-indigo-500 text-white shadow-md' : 'text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800'}`}
+          >
+            <MapIcon2 className="w-4 h-4" /> Data
+          </button>
+          <button 
+            onClick={() => setMapMode('news')}
+            className={`flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-semibold transition-all duration-300 ${mapMode === 'news' ? 'bg-indigo-500 text-white shadow-md' : 'text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800'}`}
+          >
+            <Newspaper className="w-4 h-4" /> Berita
+          </button>
+          <button 
+            onClick={() => setMapMode('art')}
+            className={`flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-semibold transition-all duration-300 ${mapMode === 'art' ? 'bg-indigo-500 text-white shadow-md' : 'text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800'}`}
+          >
+            <Paintbrush className="w-4 h-4" /> Art
+          </button>
+        </div>
+
+        {/* Mobile View: Compact Square Button + Slide Down Dropdown */}
+        <div className="relative md:hidden">
+          <button
+            onClick={() => setIsModeDropdownOpen((prev) => !prev)}
+            className="flex h-11 w-11 items-center justify-center rounded-xl bg-white shadow-glass backdrop-blur-md hover:bg-slate-50 dark:bg-slate-900/90 dark:border dark:border-slate-800 text-slate-700 dark:text-slate-200 transition-all active:scale-95"
+            aria-label="Pilih Mode Peta"
+            title="Pilih Mode Peta"
+          >
+            {mapMode === 'spatial' && <MapIcon2 className="h-5 w-5 text-indigo-500" />}
+            {mapMode === 'news' && <Newspaper className="h-5 w-5 text-indigo-500" />}
+            {mapMode === 'art' && <Paintbrush className="h-5 w-5 text-indigo-500" />}
+          </button>
+
+          {/* Backdrop to close dropdown on tap outside */}
+          {isModeDropdownOpen && (
+            <div 
+              className="fixed inset-0 z-30" 
+              onClick={() => setIsModeDropdownOpen(false)} 
+            />
+          )}
+
+          {/* Slide-Down Menu */}
+          <AnimatePresence>
+            {isModeDropdownOpen && (
+              <motion.div
+                initial={{ opacity: 0, y: -8, scale: 0.95 }}
+                animate={{ opacity: 1, y: 0, scale: 1 }}
+                exit={{ opacity: 0, y: -8, scale: 0.95 }}
+                transition={{ duration: 0.18, ease: "easeOut" }}
+                className="absolute top-full mt-2 right-0 z-40 w-56 rounded-2xl bg-white/95 p-2 shadow-2xl backdrop-blur-md border border-slate-200/80 dark:bg-slate-900/95 dark:border-slate-800 origin-top-right flex flex-col gap-1"
+              >
+                <div className="px-3 py-1.5 border-b border-slate-100 dark:border-slate-800/80">
+                  <p className="text-[10px] font-bold uppercase tracking-wider text-slate-400">
+                    Mode Peta
+                  </p>
+                </div>
+
+                {/* Option 1: Peta Bencana */}
+                <button
+                  onClick={() => {
+                    setMapMode('spatial');
+                    setIsModeDropdownOpen(false);
+                  }}
+                  className={`flex items-center gap-3 px-3 py-2.5 rounded-xl text-left transition-all ${
+                    mapMode === 'spatial'
+                      ? 'bg-indigo-50 dark:bg-indigo-950/50 text-indigo-600 dark:text-indigo-400 font-bold'
+                      : 'text-slate-700 dark:text-slate-300 hover:bg-slate-100/70 dark:hover:bg-slate-800/70 font-medium'
+                  }`}
+                >
+                  <div className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-lg ${
+                    mapMode === 'spatial'
+                      ? 'bg-indigo-500 text-white shadow-sm'
+                      : 'bg-slate-100 dark:bg-slate-800 text-slate-500 dark:text-slate-400'
+                  }`}>
+                    <MapIcon2 className="h-4.5 w-4.5" />
+                  </div>
+                  <div className="min-w-0 flex-1">
+                    <p className="text-xs font-semibold leading-tight">Peta Bencana</p>
+                    <p className="text-[10px] text-slate-400 dark:text-slate-500">Data spasial & gempa</p>
+                  </div>
+                </button>
+
+                {/* Option 2: Peta Berita */}
+                <button
+                  onClick={() => {
+                    setMapMode('news');
+                    setIsModeDropdownOpen(false);
+                  }}
+                  className={`flex items-center gap-3 px-3 py-2.5 rounded-xl text-left transition-all ${
+                    mapMode === 'news'
+                      ? 'bg-indigo-50 dark:bg-indigo-950/50 text-indigo-600 dark:text-indigo-400 font-bold'
+                      : 'text-slate-700 dark:text-slate-300 hover:bg-slate-100/70 dark:hover:bg-slate-800/70 font-medium'
+                  }`}
+                >
+                  <div className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-lg ${
+                    mapMode === 'news'
+                      ? 'bg-indigo-500 text-white shadow-sm'
+                      : 'bg-slate-100 dark:bg-slate-800 text-slate-500 dark:text-slate-400'
+                  }`}>
+                    <Newspaper className="h-4.5 w-4.5" />
+                  </div>
+                  <div className="min-w-0 flex-1">
+                    <p className="text-xs font-semibold leading-tight">Peta Berita</p>
+                    <p className="text-[10px] text-slate-400 dark:text-slate-500">Kabar berita terkini</p>
+                  </div>
+                </button>
+
+                {/* Option 3: Harmony Art */}
+                <button
+                  onClick={() => {
+                    setMapMode('art');
+                    setIsModeDropdownOpen(false);
+                  }}
+                  className={`flex items-center gap-3 px-3 py-2.5 rounded-xl text-left transition-all ${
+                    mapMode === 'art'
+                      ? 'bg-indigo-50 dark:bg-indigo-950/50 text-indigo-600 dark:text-indigo-400 font-bold'
+                      : 'text-slate-700 dark:text-slate-300 hover:bg-slate-100/70 dark:hover:bg-slate-800/70 font-medium'
+                  }`}
+                >
+                  <div className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-lg ${
+                    mapMode === 'art'
+                      ? 'bg-indigo-500 text-white shadow-sm'
+                      : 'bg-slate-100 dark:bg-slate-800 text-slate-500 dark:text-slate-400'
+                  }`}>
+                    <Paintbrush className="h-4.5 w-4.5" />
+                  </div>
+                  <div className="min-w-0 flex-1">
+                    <p className="text-xs font-semibold leading-tight">Harmony Art</p>
+                    <p className="text-[10px] text-slate-400 dark:text-slate-500">Kanvas kreasi interaktif</p>
+                  </div>
+                </button>
+              </motion.div>
+            )}
+          </AnimatePresence>
+        </div>
       </div>
 
       {/* Custom OpenLayers Styles */}
@@ -878,24 +1008,16 @@ export function MapsView() {
 
       {mapMode === 'spatial' && (
         <>
-          {/* Top Left Menu Button */}
-      <button 
-        onClick={() => setMobileOpen(true)}
-        className="absolute top-4 left-4 z-10 flex h-10 w-10 items-center justify-center rounded-xl bg-white shadow-glass backdrop-blur-md hover:bg-slate-50 dark:bg-slate-900/90 dark:border dark:border-slate-800 text-ink-700 dark:text-slate-300 transition-colors"
-      >
-        <Menu className="h-5 w-5" />
-      </button>
-
       {/* Loading Indicator for Map Layers */}
       {activeLayerLoads > 0 && (
-        <div className="absolute top-4 right-4 z-50 flex items-center gap-2 rounded-full bg-white px-4 py-2 shadow-glass backdrop-blur-md dark:bg-slate-900/90 dark:border dark:border-slate-800 animate-in fade-in slide-in-from-top-4 duration-300">
+        <div className="absolute top-16 right-4 sm:top-20 z-30 flex items-center gap-2 rounded-full bg-white px-4 py-2 shadow-glass backdrop-blur-md dark:bg-slate-900/90 dark:border dark:border-slate-800 animate-in fade-in slide-in-from-top-4 duration-300">
            <div className="h-4 w-4 animate-spin rounded-full border-2 border-brand-500 border-t-transparent"></div>
            <span className="text-xs font-bold text-ink-900 dark:text-white">Memuat Data Peta...</span>
         </div>
       )}
 
-      {/* Top Left Search Bar (Beside Menu Button) */}
-      <div className="absolute top-4 left-16 z-10 w-[calc(100%-5rem)] sm:w-80 md:w-96 transition-all duration-300">
+      {/* Top Search Bar (Beside Menu Button, leaving room for right-side switcher on mobile) */}
+      <div className="absolute top-4 left-16 z-10 w-[calc(100%-8.5rem)] md:w-80 lg:w-96 transition-all duration-300">
         <div className="relative">
           <div className="flex h-11 w-full items-center overflow-hidden rounded-full bg-white px-4 shadow-glass backdrop-blur-md dark:bg-slate-900/90 dark:border dark:border-slate-800 focus-within:ring-2 focus-within:ring-brand-500 transition-shadow">
             <Search className="h-4 w-4 text-slate-400" />

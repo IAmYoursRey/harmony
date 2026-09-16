@@ -23,6 +23,7 @@ dist-ssr/
 
 # Build cache
 .vite/
+.vercel/
 
 # AI Agent & one-time utility scripts
 .agents/
@@ -34,8 +35,8 @@ scratch/
 !.env.example
 apps/server/src/database/data/database.json
 
-# data/ 
-# We need data/ to be committed so Vercel can serve mountains.json and schools-lite.json statically!
+# Root data/ directory (contains 100MB+ enriched/validated raw datasets)
+data/
 
 # Data Sensitif & Scratch
 *.xlsx

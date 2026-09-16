@@ -56,6 +56,8 @@ import {
   Flame,
   Medal,
   Save,
+  Eye,
+  EyeOff,
   type LucideIcon,
 } from "lucide-react";
 import {
@@ -94,7 +96,7 @@ interface ProfileData {
   className: string;
   email: string;
   phone: string;
-  password: string;
+  password?: string;
   avatar: string | null;
 }
 
@@ -104,12 +106,16 @@ function EditableField({
   value,
   onChange,
   type = "text",
+  placeholder,
+  rightElement,
 }: {
   icon: LucideIcon;
   label: string;
   value: string;
   onChange: (v: string) => void;
   type?: string;
+  placeholder?: string;
+  rightElement?: React.ReactNode;
 }) {
   return (
     <div className="flex items-center gap-3 rounded-xl border border-brand-100 bg-white/60 p-3 dark:border-slate-700 dark:bg-slate-800/60">
@@ -118,12 +124,16 @@ function EditableField({
       </span>
       <div className="min-w-0 flex-1">
         <p className="text-xs text-ink-500 dark:text-slate-400">{label}</p>
-        <input
-          type={type}
-          value={value}
-          onChange={(e) => onChange(e.target.value)}
-          className="w-full bg-transparent text-sm font-semibold text-ink-900 outline-none dark:text-white"
-        />
+        <div className="relative flex items-center gap-2">
+          <input
+            type={type}
+            value={value}
+            onChange={(e) => onChange(e.target.value)}
+            placeholder={placeholder}
+            className="w-full bg-transparent text-sm font-semibold text-ink-900 placeholder:text-xs placeholder:font-normal placeholder:text-ink-400 outline-none dark:text-white dark:placeholder:text-slate-500"
+          />
+          {rightElement}
+        </div>
       </div>
     </div>
   );
@@ -188,6 +198,7 @@ export function ProfileView() {
   const { currentUser, currentProfile, updateUserAccount, updateUserProfile } =
     useAuth();
   const [editing, setEditing] = useState(false);
+  const [showPassword, setShowPassword] = useState(false);
 
   const initialData: ProfileData = {
     fullName: currentUser?.name || "Guest User",
@@ -195,7 +206,7 @@ export function ProfileView() {
     className: currentProfile?.grade || "Umum",
     email: currentUser?.email || "guest@harmony.edu",
     phone: currentProfile?.phone || "-",
-    password: "••••••••",
+    password: "",
     avatar: currentProfile?.avatar || null,
   };
 
@@ -226,7 +237,8 @@ export function ProfileView() {
 
 
   const startEdit = () => {
-    setDraft(data);
+    setDraft({ ...data, password: "" });
+    setShowPassword(false);
     setEditing(true);
   };
 
@@ -240,13 +252,25 @@ export function ProfileView() {
 
   const saveChanges = async () => {
     try {
+      if (draft.password && draft.password.trim() !== "") {
+        if (draft.password.trim().length < 6) {
+          show(
+            locale === "en"
+              ? "Password must be at least 6 characters"
+              : "Password minimal 6 karakter",
+            "error",
+          );
+          return;
+        }
+      }
+
       const accountUpdates: { name?: string; email?: string; password?: string } = {};
       if (draft.fullName !== currentUser?.name)
         accountUpdates.name = draft.fullName;
       if (draft.email !== currentUser?.email)
         accountUpdates.email = draft.email;
-      if (draft.password !== "••••••••" && draft.password.trim() !== "")
-        accountUpdates.password = draft.password;
+      if (draft.password && draft.password.trim() !== "")
+        accountUpdates.password = draft.password.trim();
 
       if (Object.keys(accountUpdates).length > 0) {
         const result = await updateUserAccount(accountUpdates);
@@ -265,7 +289,9 @@ export function ProfileView() {
         updateUserProfile(profileUpdates);
       }
 
-      setData(draft);
+      setData({ ...draft, password: "" });
+      setDraft({ ...draft, password: "" });
+      setShowPassword(false);
       setEditing(false);
       setSaved(true);
       show("Profil berhasil diperbarui", "success");
@@ -276,7 +302,8 @@ export function ProfileView() {
   };
 
   const cancelEdit = () => {
-    setDraft(data);
+    setDraft({ ...data, password: "" });
+    setShowPassword(false);
     setEditing(false);
   };
 
@@ -635,9 +662,34 @@ export function ProfileView() {
                 />
                 <EditableField
                   icon={Lock}
-                  label="Password"
-                  value={draft.password}
+                  label={
+                    locale === "en"
+                      ? "Password (New)"
+                      : "Password (Ganti Sandi)"
+                  }
+                  value={draft.password || ""}
                   onChange={(v) => setDraft({ ...draft, password: v })}
+                  type={showPassword ? "text" : "password"}
+                  placeholder={
+                    locale === "en"
+                      ? "Leave blank to keep unchanged"
+                      : "Kosongkan jika tidak diubah"
+                  }
+                  rightElement={
+                    <button
+                      type="button"
+                      onClick={() => setShowPassword((prev) => !prev)}
+                      className="p-1 text-ink-400 transition-colors hover:text-ink-700 dark:text-slate-400 dark:hover:text-slate-200"
+                      aria-label={showPassword ? "Hide password" : "Show password"}
+                      title={showPassword ? "Hide password" : "Show password"}
+                    >
+                      {showPassword ? (
+                        <EyeOff className="h-4 w-4" />
+                      ) : (
+                        <Eye className="h-4 w-4" />
+                      )}
+                    </button>
+                  }
                 />
               </>
             ) : (
@@ -727,9 +779,15 @@ export function ProfileView() {
                     <p className="text-xs text-ink-500 dark:text-slate-400">
                       Password
                     </p>
-                    <p className="truncate text-sm font-semibold text-ink-900 dark:text-white">
-                      {data.password}
-                    </p>
+                    <div className="flex items-center gap-2">
+                      <p className="truncate text-sm font-semibold text-ink-900 dark:text-white">
+                        {locale === "en" ? "Protected" : "Tersimpan aman"}
+                      </p>
+                      <span className="inline-flex items-center gap-1 rounded-full bg-emerald-50 px-2 py-0.5 text-[10px] font-semibold text-emerald-700 dark:bg-emerald-950/40 dark:text-emerald-400">
+                        <CheckCircle2 className="h-2.5 w-2.5" />
+                        {locale === "en" ? "Encrypted" : "Terenkripsi"}
+                      </span>
+                    </div>
                   </div>
                 </div>
               </>
