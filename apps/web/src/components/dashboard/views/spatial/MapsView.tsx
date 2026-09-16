@@ -37,20 +37,101 @@ const createEmptyLayer = (layerName: string, minZoomLevel: number, styleResolver
   });
 };
 
-// Helper hook for localStorage persistence
-function useStickyState<T>(defaultValue: T, key: string): [T, React.Dispatch<React.SetStateAction<T>>] {
-  const [value, setValue] = useState<T>(() => {
-    try {
-      const stickyValue = window.localStorage.getItem(key);
-      return stickyValue !== null ? JSON.parse(stickyValue) : defaultValue;
-    } catch (e) {
-      return defaultValue;
+// Map Layer Settings Definition & Defaults (All OFF by default for optimal performance)
+export interface MapLayerSettings {
+  showActive: boolean;
+  showInactive: boolean;
+  showPeaks: boolean;
+  showSD: boolean;
+  showSMP: boolean;
+  showSMA: boolean;
+  showTectonic: boolean;
+  showEarthquakes: boolean;
+  showForests: boolean;
+  showKota: boolean;
+  showKabupaten: boolean;
+  showDesa: boolean;
+}
+
+const DEFAULT_MAP_SETTINGS: MapLayerSettings = {
+  showActive: false,
+  showInactive: false,
+  showPeaks: false,
+  showSD: false,
+  showSMP: false,
+  showSMA: false,
+  showTectonic: false,
+  showEarthquakes: false,
+  showForests: false,
+  showKota: false,
+  showKabupaten: false,
+  showDesa: false,
+};
+
+function getSynchronousUserId(): string {
+  try {
+    const token = typeof window !== 'undefined' ? window.localStorage.getItem('harmony_token') : null;
+    if (token) {
+      const parts = token.split('.');
+      if (parts.length === 3) {
+        const payload = JSON.parse(atob(parts[1]));
+        if (payload?.id) return String(payload.id);
+      }
     }
-  });
+  } catch (e) {}
+  return '';
+}
+
+// Clean up legacy global keys so previous versions do not force 'true'
+if (typeof window !== 'undefined' && !window.localStorage.getItem('hm_migrated_v2')) {
+  try {
+    ['hm_showActive', 'hm_showInactive', 'hm_showPeaks', 'hm_showSD', 'hm_showSMP', 'hm_showSMA', 'hm_showTectonic', 'hm_showEarthquakes', 'hm_showForests', 'hm_showKota', 'hm_showKabupaten', 'hm_showDesa'].forEach(k => window.localStorage.removeItem(k));
+    window.localStorage.setItem('hm_migrated_v2', 'true');
+  } catch (e) {}
+}
+
+function useUserMapSettings(userId: string, profileMapSettings?: Partial<MapLayerSettings>) {
+  const getStoredSettings = (uid: string): MapLayerSettings => {
+    try {
+      const key = `hm_user_layers_${uid}`;
+      const stored = window.localStorage.getItem(key);
+      if (stored !== null) {
+        return { ...DEFAULT_MAP_SETTINGS, ...JSON.parse(stored) };
+      }
+      if (profileMapSettings) {
+        return { ...DEFAULT_MAP_SETTINGS, ...profileMapSettings };
+      }
+    } catch (e) {}
+    return DEFAULT_MAP_SETTINGS;
+  };
+
+  const [settings, setSettings] = useState<MapLayerSettings>(() => getStoredSettings(userId));
+
   useEffect(() => {
-    window.localStorage.setItem(key, JSON.stringify(value));
-  }, [key, value]);
-  return [value, setValue];
+    setSettings(getStoredSettings(userId));
+  }, [userId, profileMapSettings]);
+
+  const updateSetting = <K extends keyof MapLayerSettings>(
+    key: K,
+    value: boolean | ((prev: boolean) => boolean)
+  ) => {
+    setSettings((prev) => {
+      const nextVal = typeof value === 'function' ? (value as any)(prev[key]) : value;
+      const nextSettings = { ...prev, [key]: nextVal };
+      try {
+        window.localStorage.setItem(`hm_user_layers_${userId}`, JSON.stringify(nextSettings));
+      } catch (e) {}
+
+      // Persist to server profile if user is authenticated
+      if (userId && userId !== 'guest') {
+        apiClient.post('/api/profile', { mapSettings: nextSettings }).catch(() => {});
+      }
+
+      return nextSettings;
+    });
+  };
+
+  return { settings, updateSetting };
 }
 
 // Reusable Toggle Component
@@ -87,7 +168,7 @@ export function MapsView() {
   const activeSchoolLayerRef = useRef<VectorLayer<VectorSource> | null>(null);
   const navigate = useNavigate();
   const { setMobileOpen } = useOutletContext<{ setMobileOpen: (v: boolean) => void }>();
-  const { currentProfile } = useAuth();
+  const { currentProfile, currentUser } = useAuth();
   const { setSelection } = useSchool();
   
   // Custom Event Listener for popup buttons
@@ -113,16 +194,30 @@ export function MapsView() {
   const [isModeDropdownOpen, setIsModeDropdownOpen] = useState(false);
   
   const [showPanel, setShowPanel] = useState(false);
-  const [showActive, setShowActive] = useStickyState(true, 'hm_showActive');
-  const [showInactive, setShowInactive] = useStickyState(true, 'hm_showInactive');
-  const [showPeaks, setShowPeaks] = useStickyState(false, 'hm_showPeaks');
-  const [showSD, setShowSD] = useStickyState(true, 'hm_showSD');
-  const [showSMP, setShowSMP] = useStickyState(true, 'hm_showSMP');
-  const [showSMA, setShowSMA] = useStickyState(true, 'hm_showSMA');
+
+  // Per-User Settings: defaults to all OFF for new accounts/users
+  const activeUserId = currentProfile?.userId || currentUser?.id || getSynchronousUserId() || 'guest';
+  const profileMapSettings = (currentProfile as any)?.mapSettings;
+  const { settings, updateSetting } = useUserMapSettings(activeUserId, profileMapSettings);
+
+  const showActive = settings.showActive;
+  const setShowActive = (v: boolean | ((prev: boolean) => boolean)) => updateSetting('showActive', v);
+  const showInactive = settings.showInactive;
+  const setShowInactive = (v: boolean | ((prev: boolean) => boolean)) => updateSetting('showInactive', v);
+  const showPeaks = settings.showPeaks;
+  const setShowPeaks = (v: boolean | ((prev: boolean) => boolean)) => updateSetting('showPeaks', v);
+  const showSD = settings.showSD;
+  const setShowSD = (v: boolean | ((prev: boolean) => boolean)) => updateSetting('showSD', v);
+  const showSMP = settings.showSMP;
+  const setShowSMP = (v: boolean | ((prev: boolean) => boolean)) => updateSetting('showSMP', v);
+  const showSMA = settings.showSMA;
+  const setShowSMA = (v: boolean | ((prev: boolean) => boolean)) => updateSetting('showSMA', v);
 
   // Geological & Atmospheric States
-  const [showTectonic, setShowTectonic] = useStickyState(false, 'hm_showTectonic');
-  const [showEarthquakes, setShowEarthquakes] = useStickyState(false, 'hm_showEarthquakes');
+  const showTectonic = settings.showTectonic;
+  const setShowTectonic = (v: boolean | ((prev: boolean) => boolean)) => updateSetting('showTectonic', v);
+  const showEarthquakes = settings.showEarthquakes;
+  const setShowEarthquakes = (v: boolean | ((prev: boolean) => boolean)) => updateSetting('showEarthquakes', v);
   const [showWindyModal, setShowWindyModal] = useState(false);
   const [windyOverlay, setWindyOverlay] = useState<string>('rain');
 
@@ -130,10 +225,14 @@ export function MapsView() {
   const tectonicLayerRef = useRef<VectorLayer<VectorSource> | null>(null);
   const earthquakeLayerRef = useRef<VectorLayer<VectorSource> | null>(null);
   const eqAnimIdRef = useRef<number | null>(null);
-  const [showForests, setShowForests] = useStickyState(false, 'hm_showForests');
-  const [showKota, setShowKota] = useStickyState(false, 'hm_showKota');
-  const [showKabupaten, setShowKabupaten] = useStickyState(false, 'hm_showKabupaten');
-  const [showDesa, setShowDesa] = useStickyState(false, 'hm_showDesa');
+  const showForests = settings.showForests;
+  const setShowForests = (v: boolean | ((prev: boolean) => boolean)) => updateSetting('showForests', v);
+  const showKota = settings.showKota;
+  const setShowKota = (v: boolean | ((prev: boolean) => boolean)) => updateSetting('showKota', v);
+  const showKabupaten = settings.showKabupaten;
+  const setShowKabupaten = (v: boolean | ((prev: boolean) => boolean)) => updateSetting('showKabupaten', v);
+  const showDesa = settings.showDesa;
+  const setShowDesa = (v: boolean | ((prev: boolean) => boolean)) => updateSetting('showDesa', v);
 
   const forestLayerRef = useRef<VectorLayer<VectorSource> | null>(null);
   const kotaLayerRef = useRef<VectorLayer<VectorSource> | null>(null);
@@ -545,6 +644,12 @@ export function MapsView() {
           return;
         }
 
+        // If no school layer is activated, clear immediately and skip 200k array processing
+        if (!showSD && !showSMP && !showSMA) {
+          vectorSource.clear();
+          return;
+        }
+
         const extent = view.calculateExtent(map.getSize());
         const lonLatExtent = transformExtent(extent, 'EPSG:3857', 'EPSG:4326');
         const [minLng, minLat, maxLng, maxLat] = lonLatExtent;
@@ -561,9 +666,15 @@ export function MapsView() {
           
           if (cat === 1) continue; // Skip TK entirely
           
+          const isActiveSchool = (id === userSchoolId);
+          if (!isActiveSchool) {
+            if (cat === 2 && !showSD) continue;
+            if (cat === 3 && !showSMP) continue;
+            if ((cat === 4 || cat === 0) && !showSMA) continue;
+          }
+          
           // BBox check
           if (lng >= minLng && lng <= maxLng && lat >= minLat && lat <= maxLat) {
-            const isActiveSchool = (id === userSchoolId);
             const feature = new Feature({
               geometry: new Point(fromLonLat([lng, lat])),
               name: s[4],
@@ -597,7 +708,7 @@ export function MapsView() {
       return () => {
         map.un('moveend', updateVisibleSchools);
       };
-  }, [mapReady, schools, userSchoolId]);
+  }, [mapReady, schools, userSchoolId, showSD, showSMP, showSMA]);
 
   // Update Schools Style dynamically (Fast Toggle without object recreation)
   useEffect(() => {
@@ -1100,7 +1211,10 @@ export function MapsView() {
                 {schools.length} Schools • {mountains.length} Mountains
               </p>
               <p className="text-[10px] text-brand-500 font-medium mt-1">
-                * Zoom in to see all schools
+                * Aktifkan fitur di bawah untuk menampilkan layer
+              </p>
+              <p className="text-[10px] text-emerald-600 dark:text-emerald-400 font-semibold mt-0.5 flex items-center gap-1">
+                <span>✓</span> Pengaturan otomatis tersimpan per akun
               </p>
             </div>
           </div>
