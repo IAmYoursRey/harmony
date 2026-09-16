@@ -40,13 +40,13 @@ const technologies: {
   },
   {
     icon: Boxes,
-    label: "Digital Twin",
-    desc: "Simulasi wilayah 3D yang memungkinkan simulasi bencana skala nyata berdasarkan topografi yang akurat.",
+    label: "Harmony Twin",
+    desc: "Simulasi 2D berbasis game pada denah lingkungan sekolah yang memungkinkan latihan evakuasi dan kesiapsiagaan bencana secara interaktif.",
     features: [
-      "Pemodelan Kota 3D",
-      "Simulasi Gempa & Banjir",
-      "Visualisasi Dampak Skala Nyata",
-      "Perencanaan Tata Ruang",
+      "Simulasi 2D Berbasis Game",
+      "Rute Evakuasi Interaktif",
+      "Latihan Mitigasi Bencana",
+      "Pemodelan Denah Sekolah",
     ],
   },
   {
@@ -100,17 +100,17 @@ const team: {
     initials: "MD",
     name: "M. David Silva W.",
     role: "Data & Research Analyst",
-    subtitle: "Geospatial Data Collection",
+    subtitle: "Pengumpulan Data Geospasial",
     icon: BarChart3,
-    bio: "Responsible for collecting, validating, and managing geospatial field data across Indonesia.",
+    bio: "Bertanggung jawab mengumpulkan, memvalidasi, dan mengelola data geospasial serta titik lapangan di seluruh Indonesia.",
   },
   {
     initials: "AF",
     name: "Alvira Fitriatun Nizha",
     role: "Project Leader & Ideator",
-    subtitle: "Principal Coordinator",
+    subtitle: "Koordinator Utama Riset",
     icon: Sparkles,
-    bio: "Originated the concept of Harmony and leads the team as the project's chief coordinator.",
+    bio: "Penggagas ide konsep Harmony dan memimpin koordinasi riset, strategi edukasi, serta pengembangan platform.",
   },
   {
     initials: "RA",
@@ -118,7 +118,7 @@ const team: {
     role: "Lead Software Engineer",
     subtitle: "Full Stack & UI/UX Developer",
     icon: Code2,
-    bio: "Architected and built the entire platform — from backend systems to the interactive geospatial interface.",
+    bio: "Pengembang utama arsitektur platform, rekayasa perangkat lunak, dan integrasi Harmony Twin.",
   },
 ];
 
@@ -373,12 +373,12 @@ export function AboutSection() {
               <span className="text-brand-200">Harmony Edu</span>
             </h1>
             <p className="mt-4 text-base leading-relaxed text-brand-100 sm:text-lg">
-              Membangun komunitas sekolah yang tangguh terhadap bencana melalui kekuatan AI, Digital Twin, dan Teknologi Geospasial.
+              Membangun komunitas sekolah yang tangguh terhadap bencana melalui kekuatan AI, Harmony Twin, dan Teknologi Geospasial.
             </p>
             <div className="mt-5 flex flex-wrap justify-center gap-2.5 lg:justify-start">
               {[
                 "Artificial Intelligence",
-                "Digital Twin",
+                "Harmony Twin",
                 "Geospatial Technology",
               ].map((tech) => (
                 <span
@@ -466,7 +466,7 @@ export function AboutSection() {
               <p>Meskipun demikian, akses ke simulasi bencana yang akurat seringkali terkendala oleh minimnya data interaktif. <strong>Harmony Edu hadir menjembatani jarak ini.</strong></p>
             </div>
             <div className="space-y-3 text-sm leading-relaxed text-ink-600 dark:text-slate-300">
-              <p>Mengintegrasikan data peta batas desa, hutan, dan kerawanan bencana real-time untuk pemodelan Digital Twin.</p>
+              <p>Mengintegrasikan data denah sekolah dan kerawanan bencana real-time untuk pemodelan Harmony Twin.</p>
               <p>Kami memberdayakan pengguna melalui analisis data yang cepat dan presisi berbasis kecerdasan buatan.</p>
             </div>
           </div>

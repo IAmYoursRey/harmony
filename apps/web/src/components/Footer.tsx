@@ -16,7 +16,7 @@ import { useI18n } from "@/hooks/useI18n";
 
 const poweredBy = [
   { icon: Brain, label: "Artificial Intelligence" },
-  { icon: Boxes, label: "Digital Twin" },
+  { icon: Boxes, label: "Harmony Twin" },
   { icon: Satellite, label: "Geospatial Technology" },
 ];
 
@@ -85,7 +85,7 @@ export function Footer() {
             </Link>
             <p className="mt-4 max-w-sm text-sm leading-relaxed text-ink-400">
               Smart Disaster Education for a Resilient Future. Powered by
-              Artificial Intelligence, Digital Twin, and Geospatial Technology —
+              Artificial Intelligence, Harmony Twin, and Geospatial Technology —
               building resilience through immersive learning for schools across
               Indonesia.
             </p>

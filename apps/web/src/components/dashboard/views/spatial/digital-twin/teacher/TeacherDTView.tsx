@@ -92,7 +92,7 @@ export function TeacherDTView() {
         <div className="absolute inset-0 bg-grid-pattern bg-[size:36px_36px] opacity-10" />
         <div className="relative">
           <div className="inline-flex items-center gap-1.5 rounded-full bg-white/15 px-3 py-1 text-xs font-semibold backdrop-blur-sm mb-3">
-            <Swords className="h-3.5 w-3.5" /> Digital Twin — Panel Guru
+            <Swords className="h-3.5 w-3.5" /> Harmony Twin — Panel Guru
           </div>
           <h2 className="font-display text-2xl font-extrabold">
             Manajemen Simulasi Evakuasi

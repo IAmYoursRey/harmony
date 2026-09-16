@@ -20,7 +20,7 @@ export function CTA() {
             </h2>
             <p className="mt-4 text-brand-100 sm:text-lg">
               Start exploring AI-driven simulations, geospatial maps, and
-              Digital Twin scenarios — and help your community prepare before
+              Harmony Twin scenarios — and help your community prepare before
               disaster strikes.
             </p>
             <div className="mt-8 flex flex-col items-center justify-center gap-3 sm:flex-row">

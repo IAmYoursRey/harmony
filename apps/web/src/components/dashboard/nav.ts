@@ -35,7 +35,7 @@ export const navItems: NavItem[] = [
   { id: "maps", label: "Maps", icon: Map },
   {
     id: "digital-twin",
-    label: "Kembaran Digital",
+    label: "Harmony Twin",
     icon: Boxes,
     roles: ["teacher", "developer", "student"],
   },

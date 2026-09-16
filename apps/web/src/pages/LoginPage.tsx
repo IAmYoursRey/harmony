@@ -390,7 +390,7 @@ export default function LoginPage() {
         {/* Tech badges */}
         <div className="mt-6 flex items-center justify-center gap-4 text-xs text-ink-400 dark:text-slate-500">
           <span className="flex items-center gap-1.5"><Brain className="h-3.5 w-3.5" /> AI</span>
-          <span className="flex items-center gap-1.5"><Boxes className="h-3.5 w-3.5" /> Digital Twin</span>
+          <span className="flex items-center gap-1.5"><Boxes className="h-3.5 w-3.5" /> Harmony Twin</span>
           <span className="flex items-center gap-1.5"><Satellite className="h-3.5 w-3.5" /> Geospasial</span>
           <span className="flex items-center gap-1.5"><ShieldCheck className="h-3.5 w-3.5" /> SPAB</span>
         </div>

@@ -331,7 +331,7 @@ export function Phase1Workspace() {
         <div>
           <h2 className="text-2xl font-bold text-slate-800 dark:text-white flex items-center gap-2">
             <Globe className="h-6 w-6 text-brand-600" />
-            Kembaran Digital (Phase 1 Sandbox)
+            Harmony Twin (Phase 1 Sandbox)
           </h2>
           <p className="text-slate-500 dark:text-slate-400">
             {activeSchool
@@ -406,7 +406,7 @@ export function Phase1Workspace() {
       ) : maps.length === 0 ? (
         <div className="glass rounded-2xl p-12 text-center text-slate-500">
           <MapIcon className="h-12 w-12 mx-auto mb-4 opacity-50" />
-          <p>Belum ada Digital Twin map untuk sekolah ini.</p>
+          <p>Belum ada Harmony Twin map untuk sekolah ini.</p>
         </div>
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">

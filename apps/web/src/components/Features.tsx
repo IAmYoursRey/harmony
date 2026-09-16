@@ -31,9 +31,9 @@ const features: Feature[] = [
   },
   {
     icon: Boxes,
-    title: "Digital Twin School",
+    title: "Harmony Twin School",
     description:
-      "A 3D digital replica of each campus lets students simulate floods, earthquakes, and evacuations safely before disaster ever strikes.",
+      "An interactive 2D game-based simulation of the school floor plan that lets students practice disaster evacuation and emergency response safely.",
     accent: "from-brand-500 to-brand-600",
   },
   {

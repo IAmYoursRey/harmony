@@ -17,7 +17,7 @@ import { useI18n } from "@/hooks/useI18n";
 
 const pillars = [
   { icon: Brain, label: "Artificial Intelligence" },
-  { icon: Boxes, label: "Digital Twin" },
+  { icon: Boxes, label: "Harmony Twin" },
   { icon: Satellite, label: "Geospatial Technology" },
 ];
 
@@ -38,8 +38,8 @@ const featureCards = [
   },
   {
     icon: Boxes,
-    title: "Digital Twin School",
-    description: "Simulasi virtual lingkungan sekolah.",
+    title: "Harmony Twin School",
+    description: "Simulasi 2D virtual lingkungan sekolah & rute evakuasi.",
     to: "/app/digital-twin",
     accent: "from-brand-500 to-brand-600",
   },
@@ -123,7 +123,7 @@ export function Hero() {
               className="mx-auto mt-5 max-w-xl text-sm leading-relaxed text-ink-600 sm:text-base lg:mx-0 dark:text-slate-300"
             >
               Platform pembelajaran kebencanaan berbasis Artificial Intelligence
-              (AI), Digital Twin, dan Data Geospasial yang mendukung peningkatan
+              (AI), Harmony Twin, dan Data Geospasial yang mendukung peningkatan
               literasi kebencanaan, kesiapsiagaan peserta didik, serta
               implementasi Program Satuan Pendidikan Aman Bencana (SPAB).
             </motion.p>
@@ -249,8 +249,8 @@ export function Hero() {
                   ? "Mesin Pembelajaran AI"
                   : c.title === "GeoSpatial Risk Mapping"
                     ? "Pemetaan Risiko Geo"
-                    : c.title === "Digital Twin School"
-                      ? "Kembaran Digital Sekolah"
+                    : c.title === "Harmony Twin School"
+                      ? "Harmony Twin Sekolah"
                       : "Indeks Kesiapan Pintar"}
               </h3>
               <p className="mt-2 text-sm leading-relaxed text-ink-600 dark:text-slate-300">

@@ -34,9 +34,9 @@ const steps: Step[] = [
   {
     icon: Boxes,
     step: "03",
-    title: "Digital Twin Simulation",
+    title: "Harmony Twin Simulation",
     description:
-      "A 3D twin of the campus replays the disaster, letting students practice evacuation and response in a safe virtual environment.",
+      "A 2D game-based simulation of the campus layout replays disaster scenarios, letting students practice evacuation routes and emergency procedures safely.",
   },
   {
     icon: ClipboardCheck,
