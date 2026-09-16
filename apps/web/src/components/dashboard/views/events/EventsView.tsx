@@ -101,8 +101,7 @@ export function EventsView() {
 
   const canEdit =
     currentUser?.role === "teacher" ||
-    currentUser?.role === "developer" ||
-    currentUser?.role === "dev";
+    currentUser?.role === "developer";
 
   const fetchEvents = async () => {
     try {

@@ -123,9 +123,10 @@ export function LeaderboardView() {
       return [];
 
     // Filter out teachers: student leaderboard is exclusively for students
-    const filteredProfiles = profilesData.profiles.filter(
-      (p: UserProfile) => p.role !== "teacher"
-    );
+    const filteredProfiles = profilesData.profiles.filter((p: UserProfile) => {
+      const acc = accountsData.accounts.find((a: UserAccount) => a.id === p.userId);
+      return acc ? acc.role !== "teacher" : true;
+    });
 
     const mapped = filteredProfiles.map((p: UserProfile) => {
       const acc = accountsData.accounts.find(

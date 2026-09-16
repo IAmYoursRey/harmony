@@ -1100,13 +1100,15 @@ export function DisasterQuestionView() {
           });
         } else if (selectedType) {
           if (!newTopicScores[selectedType]) newTopicScores[selectedType] = createInitialTopicScore();
-          newTopicScores[selectedType].averageScore = scoreEarned;
-          newTopicScores[selectedType].attempts = (newTopicScores[selectedType].attempts || 0) + 1;
+          const cur = newTopicScores[selectedType];
+          cur.totalAttempts = (cur.totalAttempts || 0) + 1;
+          cur.totalScore = (cur.totalScore || 0) + scoreEarned;
+          cur.averageScore = Math.round(cur.totalScore / cur.totalAttempts);
+          cur.lastAttempt = new Date().toISOString();
         }
 
         updateUserProfile({
           totalPoints: newTotal,
-          xp: (currentProfile.xp || 0) + pointsEarned,
           topicScores: newTopicScores,
         });
       }
