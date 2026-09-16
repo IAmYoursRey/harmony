@@ -1254,10 +1254,6 @@ export function MapsView() {
             className="flex-1 w-full h-full relative order-1 md:order-none min-h-[50vh]"
             style={{ WebkitOverflowScrolling: 'touch', overflow: 'hidden' }}
           >
-            {/* Mobile Hint for 2-finger panning */}
-            <div className="absolute top-2 left-1/2 -translate-x-1/2 bg-slate-900/70 backdrop-blur text-white text-[10px] px-3 py-1.5 rounded-full pointer-events-none z-10 md:hidden animate-pulse flex items-center gap-1.5 border border-white/10 shadow-lg">
-              <span className="font-bold">💡 Gunakan 2 jari</span> untuk menggeser peta
-            </div>
 
             <iframe 
               width="100%" 
