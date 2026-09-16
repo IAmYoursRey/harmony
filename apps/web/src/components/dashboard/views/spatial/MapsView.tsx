@@ -22,6 +22,7 @@ import { useNavigate, useOutletContext } from "react-router-dom";
 import { useAuth } from "@/hooks/useAuth";
 import { useSchool } from "@/hooks/useSchool";
 import { motion, AnimatePresence } from "framer-motion";
+import { GlobeView3D } from "./GlobeView3D";
 
 
 
@@ -209,12 +210,12 @@ export function MapsView() {
     }
   });
 
-  const [globeType, setGlobeType] = useState<'sphere' | 'perspective'>(() => {
+  const [globeType, setGlobeType] = useState<'globe' | 'perspective'>(() => {
     try {
       const stored = window.localStorage.getItem(`hm_globetype_${activeUserId}`);
-      return stored === 'perspective' ? 'perspective' : 'sphere';
+      return stored === 'perspective' ? 'perspective' : 'globe';
     } catch (e) {
-      return 'sphere';
+      return 'globe';
     }
   });
 
@@ -229,11 +230,21 @@ export function MapsView() {
         setIs3D(stored === 'true');
       }
       const storedType = window.localStorage.getItem(`hm_globetype_${activeUserId}`);
-      if (storedType === 'perspective' || storedType === 'sphere') {
-        setGlobeType(storedType);
+      if (storedType === 'perspective' || storedType === 'globe') {
+        setGlobeType(storedType as 'globe' | 'perspective');
       }
     } catch (e) {}
   }, [activeUserId]);
+
+  const handleSetGlobeType = (type: 'globe' | 'perspective') => {
+    setGlobeType(type);
+    try {
+      window.localStorage.setItem(`hm_globetype_${activeUserId}`, type);
+    } catch (e) {}
+    if (type !== 'globe') {
+      setTimeout(() => { mapRef.current?.updateSize(); }, 750);
+    }
+  };
 
   const handleToggle3D = (val: boolean) => {
     setIs3D(val);
@@ -244,20 +255,9 @@ export function MapsView() {
     try {
       window.localStorage.setItem(`hm_is3d_${activeUserId}`, String(val));
     } catch (e) {}
-    // Update map canvas sizing smoothly after CSS perspective transition
-    setTimeout(() => {
-      mapRef.current?.updateSize();
-    }, 750);
-  };
-
-  const handleSetGlobeType = (type: 'sphere' | 'perspective') => {
-    setGlobeType(type);
-    try {
-      window.localStorage.setItem(`hm_globetype_${activeUserId}`, type);
-    } catch (e) {}
-    setTimeout(() => {
-      mapRef.current?.updateSize();
-    }, 750);
+    if (globeType !== 'globe') {
+      setTimeout(() => { mapRef.current?.updateSize(); }, 750);
+    }
   };
 
   const rotateMapBy = (deltaDeg: number) => {
@@ -370,6 +370,8 @@ export function MapsView() {
       } catch (_) {}
     }
   };
+
+
 
   const showActive = settings.showActive;
   const setShowActive = (v: boolean | ((prev: boolean) => boolean)) => updateSetting('showActive', v);
@@ -917,7 +919,7 @@ export function MapsView() {
       const source = tectonicLayerRef.current.getSource();
       if (showTectonic && source && source.getFeatures().length === 0) {
         setActiveLayerLoads(prev => prev + 1);
-        fetch('https://raw.githubusercontent.com/fraxen/tectonicplates/master/GeoJSON/PB2002_boundaries.json')
+        fetch('/data/tectonic-plates.json')
           .then(r => r.json())
           .then(data => {
             const features = new GeoJSON().readFeatures(data, { featureProjection: 'EPSG:3857' });
@@ -946,11 +948,11 @@ export function MapsView() {
 
       earthquakeLayerRef.current.setVisible(showEarthquakes);
 
-      // Animation Loop
-      if (showEarthquakes) {
+      // Animation Loop (paused when 3D globe is active to prevent lag)
+      if (showEarthquakes && !(is3D && globeType === 'globe')) {
         let lastRender = 0;
         const animateEq = (timestamp: number) => {
-          if (earthquakeLayerRef.current?.getVisible()) {
+          if (earthquakeLayerRef.current?.getVisible() && !(is3D && globeType === 'globe')) {
             if (timestamp - lastRender >= 100) {
               earthquakeLayerRef.current.changed();
               lastRender = timestamp;
@@ -965,7 +967,7 @@ export function MapsView() {
       }
     }
 
-  }, [showTectonic, showEarthquakes]);
+  }, [showTectonic, showEarthquakes, is3D, globeType]);
 
   
   // ================= LAYER UPDATES (ADMIN & LANDUSE BOUNDARIES) ================= //
@@ -1100,37 +1102,55 @@ export function MapsView() {
       )}
 
       {/* 3D Active Status Pill */}
-      {is3D && mapMode === 'spatial' && (
+      {is3D && mapMode === 'spatial' && globeType !== 'globe' && (
         <div className="pointer-events-none absolute top-16 left-1/2 -translate-x-1/2 z-20 flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-slate-900/90 backdrop-blur-md border border-indigo-500/50 text-[11px] font-bold text-indigo-200 shadow-xl animate-in fade-in duration-300">
           <Globe className={`w-3.5 h-3.5 text-sky-400 ${isOrbiting ? 'animate-spin' : ''}`} style={{ animationDuration: '4s' }} />
-          <span>{globeType === 'sphere' ? 'Bola Dunia 3D (360°)' : 'Perspektif 3D (360°)'}</span>
+          <span>Perspektif 3D (360°)</span>
           <span className="text-[10px] bg-indigo-500/30 text-indigo-300 px-1.5 py-0.2 rounded-md font-mono">
             {currentRotation}°
           </span>
         </div>
       )}
 
-      {/* Map Viewport & 3D Container */}
+      {/* Real 3D Globe (Three.js WebGL) */}
+      {is3D && mapMode === 'spatial' && globeType === 'globe' && (
+        <div className="absolute inset-0 z-5 animate-in fade-in duration-500">
+          <GlobeView3D 
+            mountains={mountains}
+            showActiveVolcanoes={showActive}
+            showInactiveVolcanoes={showInactive}
+            showPeaks={showPeaks}
+            showTectonicPlates={showTectonic}
+            showEarthquakes={showEarthquakes}
+            onSwitchTo2D={(lat, lng) => {
+              handleToggle3D(false);
+              mapRef.current?.getView().animate({
+                center: fromLonLat([lng, lat]),
+                zoom: 12,
+                duration: 900,
+              });
+            }}
+          />
+        </div>
+      )}
+
+      {/* 2D OpenLayers Map - Always rendered, hidden when true 3D globe is shown */}
       <div 
         className={`absolute inset-0 flex items-center justify-center transition-all duration-700 ${
-          is3D 
-            ? globeType === 'sphere' 
-              ? 'map-globe-sphere-wrapper' 
-              : 'map-viewport-3d' 
+          is3D && globeType !== 'globe'
+            ? 'map-viewport-3d' 
             : 'map-viewport-2d'
         }`}
         style={{
-          perspective: is3D ? (globeType === 'sphere' ? '1600px' : '1200px') : 'none',
-          perspectiveOrigin: '50% 50%'
+          perspective: (is3D && globeType !== 'globe') ? '1200px' : 'none',
+          perspectiveOrigin: '50% 50%',
+          opacity: (is3D && globeType === 'globe') ? 0 : 1,
+          pointerEvents: (is3D && globeType === 'globe') ? 'none' : 'auto',
         }}
       >
         <div 
-          className={`transition-all duration-700 ${
-            is3D 
-              ? globeType === 'sphere'
-                ? 'map-globe-sphere'
-                : 'w-full h-full map-tilt-3d'
-              : 'w-full h-full map-tilt-2d'
+          className={`w-full h-full transition-transform duration-700 ${
+            is3D && globeType !== 'globe' ? 'map-tilt-3d' : 'map-tilt-2d'
           }`}
         >
           <div 
@@ -1138,11 +1158,6 @@ export function MapsView() {
             className="w-full h-full" 
             style={{ opacity: mapMode === 'spatial' ? 1 : 0, pointerEvents: mapMode === 'spatial' ? 'auto' : 'none' }}
           />
-
-          {/* Spherical atmospheric specular shading overlay */}
-          {is3D && globeType === 'sphere' && (
-            <div className="pointer-events-none absolute inset-0 rounded-full globe-lens-overlay" />
-          )}
         </div>
       </div>
 
@@ -1316,33 +1331,6 @@ export function MapsView() {
 
       {/* Custom OpenLayers & 3D Tilt Styles */}
       <style>{`
-        .map-globe-sphere-wrapper {
-          overflow: hidden;
-          background: radial-gradient(circle at 50% 50%, rgba(15, 23, 42, 0.3) 0%, rgba(2, 6, 23, 0.98) 100%);
-        }
-        .map-globe-sphere {
-          width: min(84vw, 84vh);
-          height: min(84vw, 84vh);
-          max-width: 820px;
-          max-height: 820px;
-          border-radius: 50%;
-          overflow: hidden;
-          position: relative;
-          box-shadow: 
-            0 0 50px 10px rgba(56, 189, 248, 0.35),
-            0 0 110px 30px rgba(99, 102, 241, 0.22),
-            inset 0 0 60px 15px rgba(2, 6, 23, 0.85);
-          border: 2.5px solid rgba(125, 211, 252, 0.45);
-          transform: rotateX(15deg) scale(1.02);
-          transform-origin: 50% 50%;
-          transition: all 0.7s cubic-bezier(0.16, 1, 0.3, 1);
-        }
-        .globe-lens-overlay {
-          box-shadow: 
-            inset -35px -35px 80px rgba(2, 6, 23, 0.85),
-            inset 25px 25px 50px rgba(255, 255, 255, 0.22),
-            inset 0 0 35px rgba(56, 189, 248, 0.35);
-        }
         .map-viewport-3d {
           overflow: hidden;
         }
@@ -1522,14 +1510,14 @@ export function MapsView() {
                 {/* Toggle Shape (Sphere Globe / Perspective) */}
                 <button
                   type="button"
-                  onClick={() => handleSetGlobeType(globeType === 'sphere' ? 'perspective' : 'sphere')}
+                  onClick={() => handleSetGlobeType(globeType === 'globe' ? 'perspective' : 'globe')}
                   className="flex items-center gap-1 px-2.5 h-9 rounded-xl bg-indigo-50 dark:bg-indigo-950/60 hover:bg-indigo-100 text-indigo-600 dark:text-indigo-400 border border-indigo-200 dark:border-indigo-800/80 font-bold text-xs transition-all"
-                  title="Ganti Tipe 3D (Bola Lingkaran / Miring)"
+                  title="Ganti Tipe 3D (Globe Bola / Miring)"
                 >
-                  {globeType === 'sphere' ? (
+                  {globeType === 'globe' ? (
                     <>
                       <Globe className="h-3.5 w-3.5" />
-                      <span className="hidden sm:inline">Bola</span>
+                      <span className="hidden sm:inline">Globe</span>
                     </>
                   ) : (
                     <>
@@ -1551,7 +1539,7 @@ export function MapsView() {
                 ? 'bg-gradient-to-r from-indigo-600 via-brand-600 to-purple-600 text-white border-indigo-400/60 shadow-xl shadow-indigo-500/30 ring-2 ring-indigo-400/40'
                 : 'bg-white/95 dark:bg-slate-900/95 border-slate-200/80 dark:border-slate-800 text-slate-800 dark:text-slate-100 hover:bg-white dark:hover:bg-slate-800'
             }`}
-            title={is3D ? "Kembali ke Mode 2D (Datar)" : "Beralih ke Mode 3D (Bola Dunia 360°)"}
+            title={is3D ? "Kembali ke Mode 2D" : "Beralih ke Mode 3D Globe"}
             aria-label="Toggle Mode 2D/3D"
           >
             <div className={`flex h-6 w-6 items-center justify-center rounded-lg transition-transform group-hover:rotate-12 ${
@@ -1570,7 +1558,7 @@ export function MapsView() {
                     ? 'bg-white/25 text-white' 
                     : 'bg-indigo-100 dark:bg-indigo-900/50 text-indigo-600 dark:text-indigo-400'
                 }`}>
-                  {is3D ? (globeType === 'sphere' ? "Bola 360°" : "Miring") : "Flat"}
+                  {is3D ? (globeType === 'globe' ? "Globe 3D" : "3D Miring") : "Flat"}
                 </span>
               </div>
               <span className={`text-[10px] font-medium leading-none ${is3D ? 'text-indigo-100' : 'text-slate-400'}`}>
@@ -1636,16 +1624,16 @@ export function MapsView() {
                 type="button"
                 onClick={() => {
                   handleToggle3D(true);
-                  handleSetGlobeType('sphere');
+                  handleSetGlobeType('globe');
                 }}
                 className={`flex-1 flex items-center justify-center gap-1 py-1.5 rounded-lg text-[11px] font-bold transition-all ${
-                  is3D && globeType === 'sphere'
-                    ? 'bg-gradient-to-r from-indigo-500 to-sky-500 text-white shadow-sm shadow-indigo-500/30' 
+                  is3D && globeType === 'globe'
+                    ? 'bg-gradient-to-r from-sky-500 to-indigo-500 text-white shadow-sm shadow-sky-500/30' 
                     : 'text-slate-500 dark:text-slate-400 hover:text-slate-800 dark:hover:text-slate-200'
                 }`}
               >
                 <Globe className="w-3.5 h-3.5" />
-                <span>Bola 360°</span>
+                <span>Globe 3D</span>
               </button>
               <button
                 type="button"

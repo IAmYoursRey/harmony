@@ -33,10 +33,11 @@ scratch/
 .env
 .env.*
 !.env.example
-apps/server/src/database/data/database.json
+apps/server/src/database/data/
 
 # Root data/ directory (contains 100MB+ enriched/validated raw datasets)
-data/
+/data/
+!apps/web/public/data/
 
 # Data Sensitif & Scratch
 *.xlsx
