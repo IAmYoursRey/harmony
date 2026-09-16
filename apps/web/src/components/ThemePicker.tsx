@@ -84,7 +84,7 @@ export function ThemePicker() {
 
             <p className="mt-4 text-[11px] text-ink-500 dark:text-slate-400">
               Pilih warna favoritmu untuk menyesuaikan tampilan aplikasi
-              HarmonyEdu.
+              Harmony.
             </p>
           </motion.div>
         )}

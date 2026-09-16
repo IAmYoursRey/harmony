@@ -55,15 +55,15 @@ const socials = [
   {
     icon: Instagram,
     label: "Instagram",
-    href: "https://instagram.com/harmony.edu",
+    href: "https://instagram.com/harmony",
   },
   {
     icon: Linkedin,
     label: "LinkedIn",
-    href: "https://linkedin.com/company/harmony-edu",
+    href: "https://linkedin.com/company/harmony",
   },
-  { icon: Github, label: "GitHub", href: "https://github.com/harmony-edu" },
-  { icon: Mail, label: "Email", href: "mailto:hello@harmony.edu" },
+  { icon: Github, label: "GitHub", href: "https://github.com/harmony" },
+  { icon: Mail, label: "Email", href: "mailto:hello@harmony.app" },
 ];
 
 export function Footer() {
@@ -172,7 +172,7 @@ export function Footer() {
         {/* Bottom bar */}
         <div className="mt-6 flex flex-col items-center justify-between gap-4 border-t border-white/10 pt-6 sm:flex-row">
           <p className="flex items-center gap-1.5 text-xs text-ink-500">
-            <Info className="h-3.5 w-3.5" />© 2026 Harmony Edu. All Rights
+            <Info className="h-3.5 w-3.5" />© 2026 Harmony. All Rights
             Reserved.
           </p>
           <div className="flex items-center gap-3">

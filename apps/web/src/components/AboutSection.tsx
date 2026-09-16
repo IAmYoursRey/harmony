@@ -370,7 +370,7 @@ export function AboutSection() {
             <h1 className="mt-4 font-display text-3xl font-extrabold tracking-tight sm:text-4xl lg:text-5xl">
               Tentang
               <br />
-              <span className="text-brand-200">Harmony Edu</span>
+              <span className="text-brand-200">Harmony</span>
             </h1>
             <p className="mt-4 text-base leading-relaxed text-brand-100 sm:text-lg">
               Membangun komunitas sekolah yang tangguh terhadap bencana melalui kekuatan AI, Harmony Twin, dan Teknologi Geospasial.
@@ -463,7 +463,7 @@ export function AboutSection() {
           <div className="grid gap-5 lg:grid-cols-2">
             <div className="space-y-3 text-sm leading-relaxed text-ink-600 dark:text-slate-300">
               <p>Berada di wilayah Cincin Api Pasifik (Ring of Fire), Indonesia adalah salah satu negara dengan risiko bencana paling tinggi di dunia. Oleh karena itu, edukasi dan simulasi bencana mutlak diperlukan.</p>
-              <p>Meskipun demikian, akses ke simulasi bencana yang akurat seringkali terkendala oleh minimnya data interaktif. <strong>Harmony Edu hadir menjembatani jarak ini.</strong></p>
+              <p>Meskipun demikian, akses ke simulasi bencana yang akurat seringkali terkendala oleh minimnya data interaktif. <strong>Harmony hadir menjembatani jarak ini.</strong></p>
             </div>
             <div className="space-y-3 text-sm leading-relaxed text-ink-600 dark:text-slate-300">
               <p>Mengintegrasikan data denah sekolah dan kerawanan bencana real-time untuk pemodelan Harmony Twin.</p>

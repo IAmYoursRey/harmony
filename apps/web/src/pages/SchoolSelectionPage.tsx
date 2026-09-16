@@ -154,7 +154,6 @@ export default function SchoolSelectionPage() {
             <Logo variant="icon" size={36} />
             <span className="font-display text-lg font-extrabold tracking-tight text-ink-900 dark:text-white">
               Harmony
-              <span className="text-brand-600 dark:text-brand-400"> Edu</span>
             </span>
           </button>
           <div className="flex items-center gap-4">

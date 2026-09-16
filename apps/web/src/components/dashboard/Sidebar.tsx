@@ -55,7 +55,7 @@ export function Sidebar({
               className="transition-transform group-hover:scale-105"
             />
             <span className="font-display text-base font-extrabold tracking-tight text-ink-900 dark:text-white">
-              Harmony<span className="text-brand-600"> Edu</span>
+              Harmony
             </span>
           </Link>
           <button

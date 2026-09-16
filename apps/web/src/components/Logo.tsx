@@ -1,5 +1,5 @@
 /**
- * Harmony Edu official logo — premium SVG with two variants.
+ * Harmony official logo — premium SVG with two variants.
  * Icon-only (circular) for navbar/sidebar/mobile; full (icon + wordmark) for landing/footer.
  */
 
@@ -12,7 +12,7 @@ export function LogoIcon({ size = 40, className = "" }: LogoIconProps) {
   return (
     <img
       src="/logo.png"
-      alt="Harmony Edu"
+      alt="Harmony"
       style={{ width: size, height: size }}
       className={`rounded-[20%] object-cover ${className}`}
       aria-hidden

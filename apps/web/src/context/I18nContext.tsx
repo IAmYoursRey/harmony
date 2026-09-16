@@ -104,7 +104,7 @@ const dictionaries: Record<Language, Dictionary> = {
     "school.risk_level": "Risiko",
     "school.confirm_action": "Konfirmasi & Masuk Dashboard",
     "school.note":
-      "Memilih sekolah memungkinkan Harmony Edu untuk mempersonalisasi materi pembelajaran, peta risiko spasial, dan simulasi berdasarkan profil bencana khusus di wilayah Anda.",
+      "Memilih sekolah memungkinkan Harmony untuk mempersonalisasi materi pembelajaran, peta risiko spasial, dan simulasi berdasarkan profil bencana khusus di wilayah Anda.",
     "school.rec_modules": "Modul Pembelajaran Bencana yang Disarankan",
     "school.evac_info": "Informasi Evakuasi",
     "school.evac_route": "Rute Evakuasi",
@@ -201,8 +201,8 @@ const dictionaries: Record<Language, Dictionary> = {
     "about.team.label": "Kenali Tim Pengembang",
     "about.team.title": "Tim Riset & Pengembangan",
     "about.team.desc":
-      "Dikembangkan oleh Tim Riset Harmony Edu — menggabungkan AI, desain, dan data untuk membangun masa depan edukasi kesiapsiagaan bencana.",
-    "about.team.footer": "Dikembangkan oleh Tim Riset Harmony Edu",
+      "Dikembangkan oleh Tim Riset Harmony — menggabungkan AI, desain, dan data untuk membangun masa depan edukasi kesiapsiagaan bencana.",
+    "about.team.footer": "Dikembangkan oleh Tim Riset Harmony",
     "about.team.an.role": "Ketua Proyek",
     "about.team.an.subtitle": "Peneliti Peserta Didik",
     "about.team.ak.role": "Riset & Desainer UI/UX",
@@ -453,7 +453,7 @@ const dictionaries: Record<Language, Dictionary> = {
     "school.risk_level": "Risk Level",
     "school.confirm_action": "Confirm & Enter Dashboard",
     "school.note":
-      "Selecting a school enables Harmony Edu to personalize learning materials, geospatial risk maps, and simulations based on your region's specific disaster profile.",
+      "Selecting a school enables Harmony to personalize learning materials, geospatial risk maps, and simulations based on your region's specific disaster profile.",
     "school.rec_modules": "Recommended Disaster Learning Modules",
     "school.evac_info": "Evacuation Information",
     "school.evac_route": "Evacuation Route",
@@ -560,8 +560,8 @@ const dictionaries: Record<Language, Dictionary> = {
     "about.team.label": "Meet the Development Team",
     "about.team.title": "Research & Development Team",
     "about.team.desc":
-      "Developed by the Harmony Edu Research Team — combining AI, design, and data to build the future of disaster preparedness education.",
-    "about.team.footer": "Developed by the Harmony Edu Research Team",
+      "Developed by the Harmony Research Team — combining AI, design, and data to build the future of disaster preparedness education.",
+    "about.team.footer": "Developed by the Harmony Research Team",
     "about.team.an.role": "Project Leader",
     "about.team.an.subtitle": "Student Researcher",
     "about.team.ak.role": "Research & UI/UX Designer",

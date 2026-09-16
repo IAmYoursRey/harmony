@@ -1,5 +1,5 @@
 /**
- * Professional inline SVG illustration for the Harmony Edu hero.
+ * Professional inline SVG illustration for the Harmony hero.
  * Depicts a modern school building surrounded by AI, satellite, geospatial
  * map, shield, and disaster (storm/flood) motifs. All vector — no external
  * assets, scales crisply on every screen.

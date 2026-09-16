@@ -104,7 +104,7 @@ export function Hero() {
               transition={{ duration: 0.6, delay: 0.1 }}
               className="mt-6 font-display text-4xl font-extrabold leading-[1.12] tracking-tight text-ink-900 sm:text-5xl lg:text-6xl dark:text-white"
             >
-              Harmony Edu
+              Harmony
             </motion.h1>
 
             <motion.p
@@ -113,7 +113,7 @@ export function Hero() {
               transition={{ duration: 0.6, delay: 0.15 }}
               className="mt-3 font-display text-lg font-bold text-brand-600 sm:text-xl dark:text-brand-400"
             >
-              AI-Based Disaster Education Ecosystem
+              AI-Based Disaster & Geospatial Ecosystem
             </motion.p>
 
             <motion.p

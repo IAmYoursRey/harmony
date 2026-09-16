@@ -212,10 +212,9 @@ export default function LoginPage() {
           <Logo variant="icon" size={48} />
           <h1 className="mt-3 font-display text-2xl font-extrabold tracking-tight text-ink-900 dark:text-white">
             Harmony
-            <span className="text-brand-600 dark:text-brand-400">Edu</span>
           </h1>
           <p className="mt-1 text-sm text-ink-500 dark:text-slate-400">
-            Platform Pembelajaran Mitigasi Bencana Berbasis AI
+            Platform Mitigasi Bencana & Geospasial Berbasis AI
           </p>
         </div>
 
