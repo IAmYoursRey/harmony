@@ -27,7 +27,7 @@ export async function getBaseSchools() {
     }
   }
 
-  const litePath = path.resolve(__dirname, "../../../../data/schools-lite.json");
+  const litePath = path.resolve(__dirname, "../database/data/schools-lite.json");
   if (fs.existsSync(litePath)) {
     try {
       console.log("Loading 215k LITE dataset into memory...");

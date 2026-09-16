@@ -5,7 +5,7 @@
   "framework": null,
   "functions": {
     "api/**/*.js": {
-      "includeFiles": "apps/server/src/database/{database.json,data/schools-lite.json}"
+      "includeFiles": "apps/server/src/database/**"
     }
   },
   "rewrites": [

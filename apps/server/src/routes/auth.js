@@ -8,12 +8,12 @@ import { OAuth2Client } from "google-auth-library";
 
 dotenv.config({ path: [".env.local", ".env"] });
 const router = express.Router();
-const SECRET = process.env.JWT_SECRET;
+const SECRET = process.env.JWT_SECRET || "default_jwt_secret_for_development";
 const GOOGLE_CLIENT_ID = process.env.GOOGLE_CLIENT_ID || "YOUR_GOOGLE_CLIENT_ID";
 const googleClient = new OAuth2Client(GOOGLE_CLIENT_ID);
-if (!SECRET) {
-  console.error(
-    "[CRITICAL] JWT_SECRET is not defined in environment variables.",
+if (!process.env.JWT_SECRET) {
+  console.warn(
+    "[WARNING] JWT_SECRET is not defined in environment variables. Using fallback.",
   );
 }
 router.post("/login", async (req, res) => {

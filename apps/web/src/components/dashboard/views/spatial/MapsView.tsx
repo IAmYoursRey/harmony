@@ -20,6 +20,7 @@ import { apiClient } from "@/services/apiClient";
 import { Map as MapIcon, Mountain, GraduationCap, X, Menu, Building2, Settings, Search, MapPin, Activity, CloudRain, Thermometer, Wind, Cloud, Sun, Globe, TreePine, Map as MapIcon2, Newspaper, Palette } from "lucide-react";
 import { useNavigate, useOutletContext } from "react-router-dom";
 import { useAuth } from "@/hooks/useAuth";
+import { useSchool } from "@/hooks/useSchool";
 
 
 
@@ -86,11 +87,25 @@ export function MapsView() {
   const navigate = useNavigate();
   const { setMobileOpen } = useOutletContext<{ setMobileOpen: (v: boolean) => void }>();
   const { currentProfile } = useAuth();
+  const { setSelection } = useSchool();
   
+  // Custom Event Listener for popup buttons
+  useEffect(() => {
+    const handleViewProfile = (e: any) => {
+      if (e.detail?.id) {
+        setSelection({ id: e.detail.id, name: e.detail.name } as any);
+        navigate('/app/resilience');
+      }
+    };
+    window.addEventListener('view-school-profile', handleViewProfile);
+    return () => window.removeEventListener('view-school-profile', handleViewProfile);
+  }, [navigate, setSelection]);
+
   const userSchoolId = currentProfile?.schoolId;
 
   const [mountains, setMountains] = useState<any[]>([]);
   const [schools, setSchools] = useState<any[]>([]);
+  const [mapReady, setMapReady] = useState(false);
   
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const [mapMode, setMapMode] = useState<'spatial' | 'news' | 'art'>('spatial');
@@ -182,24 +197,49 @@ export function MapsView() {
     
     // Fetch mountains
     setActiveLayerLoads(prev => prev + 1);
-    apiClient.get('/api/mountains')
+    fetch('/data/mountains.json')
+      .then((res) => res.json())
       .then((data) => {
-        if (mounted && data?.mountains) {
-          setMountains(data.mountains);
+        if (mounted && data) {
+          setMountains(data);
         }
       })
+      .catch((err) => console.error("Failed to load mountains", err))
       .finally(() => {
         setActiveLayerLoads(prev => Math.max(0, prev - 1));
       });
 
-    // Fetch lightweight schools
+    // Fetch lightweight schools directly from static JSON for speed
     setActiveLayerLoads(prev => prev + 1);
-    apiClient.get('/api/schools/map')
+    fetch('/data/schools-lite.json')
+      .then((res) => res.json())
       .then((data) => {
-        if (mounted && data?.schools) {
-          setSchools(data.schools);
+        if (mounted && data && Array.isArray(data)) {
+          // Map to optimized tuple format [id, lat, lng, cat, name]
+          const mappedSchools = data.map((s: any) => {
+             const name = (s.name || s.school_name || "").toUpperCase();
+             let cat = 0;
+             if (name.includes("TK ") || name.includes("PAUD") || name.includes("KB ")) {
+               cat = 1;
+             } else if (name.includes("SDN ") || name.includes("SD ") || name.includes("MI ")) {
+               cat = 2;
+             } else if (name.includes("SMP") || name.includes("MTS")) {
+               cat = 3;
+             } else if (name.includes("SMA") || name.includes("SMK") || name.includes("MA ")) {
+               cat = 4;
+             }
+             return [
+               s.id || s.school_id,
+               parseFloat(s.latitude || s.lat),
+               parseFloat(s.longitude || s.lng),
+               cat,
+               s.name || s.school_name
+             ];
+          }).filter((s) => !isNaN(s[1]) && !isNaN(s[2])); // Only valid coords
+          setSchools(mappedSchools);
         }
       })
+      .catch((err) => console.error("Failed to load schools", err))
       .finally(() => {
         setActiveLayerLoads(prev => Math.max(0, prev - 1));
       });
@@ -381,55 +421,83 @@ export function MapsView() {
     map.addOverlay(popupOverlay);
     popupOverlayRef.current = popupOverlay;
 
+    // 4. Mountains Layer
+    const mountainSource = new VectorSource();
+    const mountainLayer = new VectorLayer({
+      source: mountainSource,
+      zIndex: 3,
+      style: (feature) => {
+        const type = feature.get('type');
+        const status = feature.get('status');
+        let color = '#94a3b8';
+        let zIndex = 1;
+        if (type === 'volcano') {
+          if (status === 'Active') {
+            color = '#ef4444';
+            zIndex = 3;
+          } else {
+            color = '#f97316';
+            zIndex = 2;
+          }
+        }
+        return new Style({
+          image: new RegularShape({
+            fill: new Fill({ color }),
+            stroke: new Stroke({ color: 'white', width: 1 }),
+            points: 3,
+            radius: type === 'volcano' && status === 'Active' ? 8 : 6,
+            angle: 0,
+          }),
+          zIndex
+        });
+      }
+    });
+    vectorLayerRef.current = mountainLayer;
+    map.addLayer(mountainLayer);
+
+    // 5. Schools Layer
+    const schoolsSource = new VectorSource();
+    const schoolsLayer = new VectorLayer({
+      source: schoolsSource,
+      zIndex: 3,
+      style: (feature, resolution) => {
+        const cat = feature.get('cat');
+        if (cat === 2) return styleSD;
+        if (cat === 3) return styleSMP;
+        return styleSMA;
+      }
+    });
+    schoolsLayerRef.current = schoolsLayer;
+    map.addLayer(schoolsLayer);
+
+    // 6. Active School Layer
+    const activeSchoolSource = new VectorSource();
+    const activeSchoolLayer = new VectorLayer({
+      source: activeSchoolSource,
+      style: styleActiveSchool,
+      zIndex: 4
+    });
+    activeSchoolLayerRef.current = activeSchoolLayer;
+    map.addLayer(activeSchoolLayer);
+
     mapRef.current = map;
+    setMapReady(true);
 
     return () => {
       map.setTarget(undefined);
       mapRef.current = null;
+      setMapReady(false);
+      vectorLayerRef.current = null;
+      schoolsLayerRef.current = null;
+      activeSchoolLayerRef.current = null;
+      tectonicLayerRef.current = null;
+      earthquakeLayerRef.current = null;
     };
   }, []);
 
   // Render Mountains Layer
   useEffect(() => {
-    const map = mapRef.current;
-    if (!map || mountains.length === 0) return;
-
-    if (!vectorLayerRef.current) {
-      const vectorSource = new VectorSource();
-      const vectorLayer = new VectorLayer({
-        source: vectorSource,
-        zIndex: 3, // Ensure it's above base map (1) and active boundaries (2)
-        style: (feature) => {
-          const type = feature.get('type');
-          const status = feature.get('status');
-
-          let color = '#94a3b8'; // gray
-          let zIndex = 1;
-          if (type === 'volcano') {
-            if (status === 'Active') {
-              color = '#ef4444'; // red
-              zIndex = 3;
-            } else {
-              color = '#f97316'; // orange
-              zIndex = 2;
-            }
-          }
-
-          return new Style({
-            image: new RegularShape({
-              fill: new Fill({ color }),
-              stroke: new Stroke({ color: 'white', width: 1 }),
-              points: 3,
-              radius: type === 'volcano' && status === 'Active' ? 8 : 6,
-              angle: 0,
-            }),
-            zIndex
-          });
-        }
-      });
-      map.addLayer(vectorLayer);
-      vectorLayerRef.current = vectorLayer;
-    }
+    if (!mapReady || mountains.length === 0 || !vectorLayerRef.current) return;
 
     const source = vectorLayerRef.current.getSource();
     if (!source) return;
@@ -453,33 +521,18 @@ export function MapsView() {
       features.push(feature);
     }
     source.addFeatures(features);
-  }, [mountains, showActive, showInactive, showPeaks]);
+  }, [mapReady, mountains, showActive, showInactive, showPeaks]);
 
   // Render Schools Layer (Dynamic BBox Filtering)
   useEffect(() => {
     const map = mapRef.current;
-    if (!map || schools.length === 0) return;
+    if (!mapReady || !map || schools.length === 0 || !schoolsLayerRef.current || !activeSchoolLayerRef.current) return;
 
-    if (!schoolsLayerRef.current) {
-      const vectorSource = new VectorSource();
-      const vectorLayer = new VectorLayer({
-        source: vectorSource,
-        minZoom: 9, // Changed to 9 based on dynamic loading optimization
-        zIndex: 3 // Ensure it's above base map (1) and active boundaries (2)
-      });
-      map.addLayer(vectorLayer);
-      schoolsLayerRef.current = vectorLayer;
+    const vectorSource = schoolsLayerRef.current.getSource();
+    const activeSource = activeSchoolLayerRef.current.getSource();
+    if (!vectorSource || !activeSource) return;
 
-      const activeSource = new VectorSource();
-      const activeLayer = new VectorLayer({
-        source: activeSource,
-        style: styleActiveSchool,
-        zIndex: 4 // always on top
-      });
-      map.addLayer(activeLayer);
-      activeSchoolLayerRef.current = activeLayer;
-
-      // Function to only render schools inside the camera view
+    // Function to only render schools inside the camera view
       const updateVisibleSchools = () => {
         const view = map.getView();
         const zoom = view.getZoom() || 0;
@@ -538,8 +591,11 @@ export function MapsView() {
       
       // Call every time the map moves
       map.on('moveend', updateVisibleSchools);
-    }
-  }, [schools, userSchoolId]);
+
+      return () => {
+        map.un('moveend', updateVisibleSchools);
+      };
+  }, [mapReady, schools, userSchoolId]);
 
   // Update Schools Style dynamically (Fast Toggle without object recreation)
   useEffect(() => {
@@ -683,7 +739,10 @@ export function MapsView() {
             btn.className = "mt-2 w-full bg-brand-600 hover:bg-brand-700 text-white text-[10px] font-bold py-1.5 px-3 rounded transition-colors";
             btn.innerText = "View Disaster Profile";
             btn.onclick = () => {
-               console.log("View school", feature.get('id'));
+               // Must dispatch custom event since this is inside a raw DOM element attached by OpenLayers
+               window.dispatchEvent(new CustomEvent('view-school-profile', { 
+                 detail: { id: feature.get('id'), name: feature.get('name') } 
+               }));
             };
             popupRef.current.querySelector('div')?.appendChild(btn);
 

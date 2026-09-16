@@ -34,8 +34,8 @@ scratch/
 !.env.example
 apps/server/src/database/data/database.json
 
-.vercel
-data/
+# data/ 
+# We need data/ to be committed so Vercel can serve mountains.json and schools-lite.json statically!
 
 # Data Sensitif & Scratch
 *.xlsx
@@ -44,7 +44,7 @@ ABSENSI SISWA KELAS X GASAL 2026-2027.xlsx
 token_resp.json
 test_map.json
 osm-temp.json
-schools-lite.json
+# schools-lite.json - we need this for Vercel static serving!
 
 # Large GeoJSON files
 apps/web/public/desa-extract/indonesia_villages_border.geojson
