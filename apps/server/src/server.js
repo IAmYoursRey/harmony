@@ -21,6 +21,7 @@ import sessionsRoutes from "./routes/sessions.js";
 import mountainsRoutes from "./routes/mountains.js";
 import quizHistoryRoutes from "./routes/quizHistory.js";
 import spatialRoutes from "./routes/spatialRoutes.js";
+import eventsRoutes from "./routes/events.js";
 
 const app = express();
 const PORT = process.env.PORT || 3001;
@@ -65,6 +66,7 @@ app.use("/api/sessions", sessionsRoutes);
 app.use("/api/mountains", mountainsRoutes);
 app.use("/api/quiz-history", quizHistoryRoutes);
 app.use("/api/spatial", spatialRoutes);
+app.use("/api/events", eventsRoutes);
 
 app.get("/api/debug", async (req, res) => {
   const dbUrl = process.env.DATABASE_URL || process.env.POSTGRES_URL;

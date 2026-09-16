@@ -1,5 +1,5 @@
 import express from "express";
-import { readDB, writeDB } from "../repositories/repository.js";
+import { readDB, writeDB, saveProfile } from "../repositories/repository.js";
 
 const router = express.Router();
 
@@ -27,9 +27,24 @@ router.post("/", async (req, res) => {
 
     histories.push(history);
     db.quizHistories = histories;
-    await writeDB(db);
 
-    res.json({ success: true, history });
+    // Award points and XP to student profile
+    const pointsEarned = Math.max(10, Math.round((score || 0) * 0.5));
+    const pIndex = (db.profiles || []).findIndex((p) => p.userId === userId);
+    if (pIndex !== -1) {
+      db.profiles[pIndex].totalPoints = (db.profiles[pIndex].totalPoints || 0) + pointsEarned;
+      db.profiles[pIndex].xp = (db.profiles[pIndex].xp || 0) + pointsEarned;
+      await saveProfile(db.profiles[pIndex]);
+    }
+
+    await writeDB({ quizHistories: db.quizHistories });
+
+    res.json({
+      success: true,
+      history,
+      pointsEarned,
+      newTotalPoints: pIndex !== -1 ? db.profiles[pIndex].totalPoints : undefined,
+    });
   } catch (error) {
     console.error("Error saving quiz history:", error);
     res.status(500).json({ error: "Failed to save quiz history" });

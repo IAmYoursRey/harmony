@@ -1,5 +1,5 @@
 import express from "express";
-import { readDB, writeDB, pool, timeoutQuery } from "../repositories/repository.js";
+import { readDB, writeDB, saveProfile, pool, timeoutQuery } from "../repositories/repository.js";
 import { verifyToken } from "../middleware/authMiddleware.js";
 import { initGameSession, endGameSession } from "../game/gameManager.js";
 
@@ -87,6 +87,114 @@ router.post("/:schoolId", verifyToken, async (req, res, next) => {
   const success = await writeDB(db);
   if (success) res.json({ success: true });
   else res.status(500).json({ error: "Failed to save digital twin" });
+});
+
+// GET /api/digital-twin/maps/public - Fetch all public/published maps
+router.get("/maps/public", verifyToken, async (req, res) => {
+  try {
+    const db = await readDB();
+    const publicMaps = [];
+
+    if (pool) {
+      try {
+        const result = await timeoutQuery(
+          pool.query(
+            "SELECT * FROM digital_twin_maps WHERE is_public = true OR status = 'published' ORDER BY updated_at DESC",
+          ),
+        );
+        for (const row of result.rows) {
+          publicMaps.push({
+            id: row.id,
+            schoolId: row.school_id,
+            name: row.name,
+            description: row.description || "",
+            gridWidth: row.width,
+            gridHeight: row.height,
+            cellScale: 1,
+            cellScaleUnit: "meter",
+            cells: {},
+            rooms: [],
+            doors: [],
+            safePoints: [],
+            spawnPoints: [],
+            isPublic: true,
+            authorName: row.author_name || "Teacher",
+            schoolName: row.school_name || "School",
+            createdAt: row.created_at,
+            updatedAt: row.updated_at,
+          });
+        }
+      } catch (e) {
+        console.error("Error querying public maps from pg:", e);
+      }
+    }
+
+    if (db.gridMaps) {
+      for (const map of Object.values(db.gridMaps)) {
+        if (map.isPublic && !publicMaps.some((m) => m.id === map.id)) {
+          publicMaps.push(map);
+        }
+      }
+    }
+
+    res.json({ data: publicMaps });
+  } catch (err) {
+    console.error("Error fetching public maps:", err);
+    res.status(500).json({ error: "Failed to fetch public maps" });
+  }
+});
+
+// POST /api/digital-twin/maps/:mapId/publish - Toggle map public status
+router.post("/maps/:mapId/publish", verifyToken, async (req, res) => {
+  try {
+    if (!requireTeacher(req, res)) return;
+    const { mapId } = req.params;
+    const { isPublic } = req.body;
+    const db = await readDB();
+
+    const profile = (db.profiles || []).find((p) => p.userId === req.user.id);
+    const authorName = profile?.name || req.user.name || "Teacher";
+    const schoolName = profile?.schoolName || "School";
+
+    let updated = false;
+
+    if (db.gridMaps && db.gridMaps[mapId]) {
+      db.gridMaps[mapId].isPublic = isPublic !== undefined ? Boolean(isPublic) : true;
+      db.gridMaps[mapId].authorName = authorName;
+      db.gridMaps[mapId].schoolName = schoolName;
+      updated = true;
+    }
+
+    if (pool) {
+      try {
+        await timeoutQuery(
+          pool.query(
+            "UPDATE digital_twin_maps SET is_public = $1, author_name = $2, school_name = $3, status = $4 WHERE id = $5",
+            [
+              Boolean(isPublic),
+              authorName,
+              schoolName,
+              isPublic ? "published" : "draft",
+              mapId,
+            ],
+          ),
+        );
+        updated = true;
+      } catch (e) {
+        console.error("Error updating pg map publish status:", e);
+      }
+    }
+
+    if (updated) {
+      await writeDB({ gridMaps: db.gridMaps });
+      res.json({ success: true, isPublic: Boolean(isPublic), authorName, schoolName });
+    } else {
+      res.status(404).json({ error: "Map not found" });
+    }
+  } catch (err) {
+    console.error("Error publishing map:", err);
+    res.status(500).json({ error: "Failed to publish map" });
+  }
 });
 
 router.get("/maps", verifyToken, async (req, res) => {
@@ -621,8 +729,28 @@ router.post("/rooms/:roomId/result", verifyToken, async (req, res) => {
 
   if (!db.dtResults) db.dtResults = [];
   db.dtResults.push(result);
-  if (await writeDB(db)) res.status(201).json({ data: result });
-  else res.status(500).json({ error: "Failed to save result" });
+
+  // Award points based on simulation outcome
+  let pointsEarned = 25; // Base participation points
+  if (outcome === "success") {
+    pointsEarned = 100 + Math.round((Number(hpRemaining) || 50) * 0.5);
+  }
+  const pIndex = (db.profiles || []).findIndex((p) => p.userId === req.user.id);
+  if (pIndex !== -1) {
+    db.profiles[pIndex].totalPoints = (db.profiles[pIndex].totalPoints || 0) + pointsEarned;
+    db.profiles[pIndex].xp = (db.profiles[pIndex].xp || 0) + pointsEarned;
+    await saveProfile(db.profiles[pIndex]);
+  }
+
+  if (await writeDB({ dtResults: db.dtResults })) {
+    res.status(201).json({
+      data: result,
+      pointsEarned,
+      newTotalPoints: pIndex !== -1 ? db.profiles[pIndex].totalPoints : undefined,
+    });
+  } else {
+    res.status(500).json({ error: "Failed to save result" });
+  }
 });
 
 router.get("/rooms/:roomId/results", verifyToken, async (req, res) => {

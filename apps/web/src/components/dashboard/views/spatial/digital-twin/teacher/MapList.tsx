@@ -1,9 +1,9 @@
 import { useState } from "react";
-import { Plus, Edit, Trash2, Copy, Map } from "lucide-react";
+import { Plus, Edit, Trash2, Copy, Map, Globe } from "lucide-react";
 import { useToast } from "@/hooks/useToast";
 import type { GridMap } from "../types";
 import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
-import { createMap, deleteMap } from "@/services/digitalTwinService";
+import { createMap, deleteMap, togglePublishMap } from "@/services/digitalTwinService";
 import { MapEditor } from "./MapEditor";
 
 interface Props {
@@ -201,9 +201,16 @@ export function MapList({ maps, schoolId, onRefresh }: Props) {
             >
               <div className="flex items-start justify-between gap-2">
                 <div>
-                  <h4 className="font-bold text-sm text-ink-900 dark:text-white">
-                    {map.name}
-                  </h4>
+                  <div className="flex items-center gap-2">
+                    <h4 className="font-bold text-sm text-ink-900 dark:text-white">
+                      {map.name}
+                    </h4>
+                    {map.isPublic && (
+                      <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-100 text-emerald-800 dark:bg-emerald-900/40 dark:text-emerald-300">
+                        <Globe className="h-3 w-3" /> Public
+                      </span>
+                    )}
+                  </div>
                   <p className="text-xs text-ink-500 mt-0.5">
                     {map.gridWidth} × {map.gridHeight} sel &bull; 1 sel ={" "}
                     {map.cellScale} {map.cellScaleUnit}
@@ -225,6 +232,31 @@ export function MapList({ maps, schoolId, onRefresh }: Props) {
                   className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-bold bg-brand-50 text-brand-700 rounded-lg hover:bg-brand-100 dark:bg-brand-900/20 dark:text-brand-400 flex-1 justify-center"
                 >
                   <Edit className="h-3.5 w-3.5" /> Edit Peta
+                </button>
+                <button
+                  onClick={async () => {
+                    try {
+                      await togglePublishMap(map.id, !map.isPublic);
+                      show(
+                        map.isPublic
+                          ? "Map unpublished from community"
+                          : "Map published! Other schools can now practice on this map.",
+                        "success"
+                      );
+                      onRefresh();
+                    } catch {
+                      show("Failed to update map publication", "error");
+                    }
+                  }}
+                  className={`flex items-center gap-1.5 px-3 py-1.5 text-xs font-bold rounded-lg transition-colors ${
+                    map.isPublic
+                      ? "bg-emerald-50 text-emerald-700 hover:bg-emerald-100 dark:bg-emerald-900/20 dark:text-emerald-400"
+                      : "bg-slate-100 text-ink-600 hover:bg-slate-200 dark:bg-slate-800 dark:text-slate-300"
+                  }`}
+                  title={map.isPublic ? "Unpublish map" : "Publish to community across all schools"}
+                >
+                  <Globe className="h-3.5 w-3.5" />
+                  <span>{map.isPublic ? "Published" : "Publish"}</span>
                 </button>
                 <button
                   onClick={() => setDeleteConfirm({ isOpen: true, map })}

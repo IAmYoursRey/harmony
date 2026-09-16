@@ -135,3 +135,18 @@ export async function syncPlayer(
   );
   return data;
 }
+
+export async function fetchPublicMaps(): Promise<GridMap[]> {
+  const { data } = await apiClient.get(`${BASE}/maps/public`);
+  return data || [];
+}
+
+export async function togglePublishMap(
+  mapId: string,
+  isPublic: boolean,
+): Promise<{ success: boolean; isPublic: boolean; authorName?: string; schoolName?: string }> {
+  const { data } = await apiClient.post(`${BASE}/maps/${mapId}/publish`, {
+    isPublic,
+  });
+  return data;
+}

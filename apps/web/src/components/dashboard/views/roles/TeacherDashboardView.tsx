@@ -482,7 +482,7 @@ function TeacherStudentDetailModal({
 }
 
 export function TeacherDashboardView() {
-  const { t, locale, setLocale } = useI18n();
+  const { t } = useI18n();
   const { currentUser, currentProfile, refreshProfile } = useAuth();
   const [exporting, setExporting] = useState(false);
 
@@ -1323,21 +1323,11 @@ export function TeacherDashboardView() {
                 <div className="flex items-center justify-between mb-4">
                   <h3 className="font-display text-base font-bold text-ink-900 dark:text-white flex items-center gap-2">
                     <Users className="h-4 w-4 text-brand-600" />
-                    Daftar Siswa — {selectedClass.name} (Kelas{" "}
-                    {selectedClass.grade} Ruang {selectedClass.section})
+                    Student Roster — {selectedClass.name} (Grade{" "}
+                    {selectedClass.grade} Section {selectedClass.section})
                   </h3>
-                  <button
-                    onClick={() => setLocale(locale === "id" ? "en" : "id")}
-                    className="flex items-center gap-2 p-2 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors"
-                    title={t("dashboard.language")}
-                  >
-                    <Globe className="w-4 h-4 text-slate-500" />
-                    <span className="text-xs font-bold font-mono text-slate-600 dark:text-slate-400">
-                      {locale.toUpperCase()}
-                    </span>
-                  </button>
                   <span className="text-xs font-semibold text-brand-600 bg-brand-50 dark:bg-brand-500/10 px-3 py-1 rounded-full">
-                    Total: {dashboardData.students.length} Siswa
+                    Total: {dashboardData.students.length} Students
                   </span>
                 </div>
 

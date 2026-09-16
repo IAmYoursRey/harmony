@@ -1,5 +1,5 @@
 import React, { useEffect, useState, useCallback } from "react";
-import { Map, Swords, Users } from "lucide-react";
+import { Map, Swords, Users, Globe, Play, BookOpen } from "lucide-react";
 import { useSchool } from "@/hooks/useSchool";
 import { useToast } from "@/hooks/useToast";
 import type { GridMap, DisasterSimulation, GameRoom } from "../types";
@@ -7,6 +7,7 @@ import {
   fetchMaps,
   fetchSimulations,
   fetchRooms,
+  fetchPublicMaps,
 } from "@/services/digitalTwinService";
 import { MapList } from "./MapList";
 import { SimulationCreator } from "./SimulationCreator";
@@ -14,15 +15,16 @@ import { RoomManager } from "./RoomManager";
 
 import { useAuth } from "@/hooks/useAuth";
 
-type Tab = "maps" | "simulations" | "rooms";
+type Tab = "maps" | "simulations" | "rooms" | "public_maps";
 
 export function TeacherDTView() {
   const { selection } = useSchool();
   const { currentUser } = useAuth();
-  const {} = useToast();
+  const { show } = useToast();
   const schoolId = selection?.school.id || "";
   const [tab, setTab] = useState<Tab>("maps");
   const [maps, setMaps] = useState<GridMap[]>([]);
+  const [publicMaps, setPublicMaps] = useState<GridMap[]>([]);
   const [simulations, setSimulations] = useState<DisasterSimulation[]>([]);
   const [rooms, setRooms] = useState<GameRoom[]>([]);
   const [loading, setLoading] = useState(false);
@@ -38,19 +40,22 @@ export function TeacherDTView() {
         setLoading(true);
       }
       try {
-        const [m, s, r] = await Promise.all([
+        const [m, s, r, pub] = await Promise.all([
           fetchMaps(schoolId),
           fetchSimulations(schoolId),
           fetchRooms(schoolId),
+          fetchPublicMaps().catch(() => []),
         ]);
         setMaps(m);
         setSimulations(s);
         setRooms(r);
+        setPublicMaps(pub);
       } catch (_e) {
         console.warn("Silent fail: Failed to load Digital Twin data", _e);
         setMaps([]);
         setSimulations([]);
         setRooms([]);
+        setPublicMaps([]);
       } finally {
         setLoading(false);
       }
@@ -68,20 +73,26 @@ export function TeacherDTView() {
     Icon: React.ElementType;
     count: number;
   }[] = [
-    { id: "maps", label: "Peta Grid", Icon: Map, count: maps.length },
+    { id: "maps", label: "My School Maps", Icon: Map, count: maps.length },
     {
       id: "simulations",
-      label: "Simulasi",
+      label: "Simulations",
       Icon: Swords,
       count: simulations.length,
     },
     {
       id: "rooms",
-      label: "Ruang Aktif",
+      label: "Active Sessions",
       Icon: Users,
       count: rooms.filter(
         (r) => r.status !== "FINISHED" && r.status !== "CANCELLED",
       ).length,
+    },
+    {
+      id: "public_maps",
+      label: "Public Community Maps",
+      Icon: Globe,
+      count: publicMaps.length,
     },
   ];
 
@@ -92,14 +103,13 @@ export function TeacherDTView() {
         <div className="absolute inset-0 bg-grid-pattern bg-[size:36px_36px] opacity-10" />
         <div className="relative">
           <div className="inline-flex items-center gap-1.5 rounded-full bg-white/15 px-3 py-1 text-xs font-semibold backdrop-blur-sm mb-3">
-            <Swords className="h-3.5 w-3.5" /> Harmony Twin — Panel Guru
+            <Swords className="h-3.5 w-3.5" /> Harmony Twin — Teacher Studio
           </div>
           <h2 className="font-display text-2xl font-extrabold">
-            Manajemen Simulasi Evakuasi
+            Evacuation Simulation & Map Manager
           </h2>
           <p className="mt-1 text-sm text-brand-100">
-            Buat peta, rancang skenario bencana, dan mulai sesi simulasi untuk
-            kelas Anda.
+            Build digital twin maps, configure disaster hazard scenarios, and share public maps with schools nationwide.
           </p>
         </div>
       </div>
@@ -136,7 +146,7 @@ export function TeacherDTView() {
       {/* Tab Content */}
       {loading ? (
         <div className="flex items-center justify-center h-32 text-ink-400">
-          Memuat...
+          Loading...
         </div>
       ) : (
         <>
@@ -159,6 +169,74 @@ export function TeacherDTView() {
               schoolId={schoolId}
               onRefresh={loadAll}
             />
+          )}
+          {tab === "public_maps" && (
+            <div className="space-y-4">
+              <div className="flex items-center justify-between">
+                <div>
+                  <h3 className="font-display text-base font-bold text-ink-900 dark:text-white flex items-center gap-2">
+                    <Globe className="h-4 w-4 text-brand-600" />
+                    Public Community Maps ({publicMaps.length})
+                  </h3>
+                  <p className="text-xs text-ink-500 dark:text-slate-400 mt-0.5">
+                    Maps published by teachers from various schools for inter-school training and practice.
+                  </p>
+                </div>
+              </div>
+
+              {publicMaps.length === 0 ? (
+                <div className="flex flex-col items-center justify-center h-48 rounded-2xl border-2 border-dashed border-brand-200 dark:border-slate-700 text-ink-500">
+                  <Globe className="h-10 w-10 mb-2 opacity-40 text-brand-600" />
+                  <p className="text-sm font-semibold">No public maps available yet.</p>
+                  <p className="text-xs mt-1">Publish a map from "My School Maps" to share with other schools!</p>
+                </div>
+              ) : (
+                <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+                  {publicMaps.map((pubMap) => (
+                    <div
+                      key={pubMap.id}
+                      className="glass rounded-xl p-5 dark:bg-slate-900/60 space-y-3 border border-brand-100 dark:border-slate-800"
+                    >
+                      <div className="flex items-start justify-between gap-2">
+                        <div>
+                          <div className="flex items-center gap-2">
+                            <h4 className="font-bold text-sm text-ink-900 dark:text-white">
+                              {pubMap.name}
+                            </h4>
+                            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-100 text-emerald-800 dark:bg-emerald-900/40 dark:text-emerald-300">
+                              <Globe className="h-3 w-3" /> Shared
+                            </span>
+                          </div>
+                          <p className="text-xs text-ink-500 mt-1">
+                            By: {pubMap.authorName || "Teacher"} &bull; {pubMap.schoolName || "School"}
+                          </p>
+                          <p className="text-xs text-brand-600 font-semibold mt-0.5">
+                            Size: {pubMap.gridWidth} × {pubMap.gridHeight} cells &bull; 1 cell = {pubMap.cellScale} {pubMap.cellScaleUnit}
+                          </p>
+                        </div>
+                      </div>
+
+                      <div className="text-xs text-ink-400">
+                        {pubMap.rooms?.length || 0} rooms &bull; {pubMap.safePoints?.length || 0} evacuation points
+                      </div>
+
+                      <div className="pt-2 border-t border-slate-100 dark:border-slate-800">
+                        <button
+                          onClick={() => {
+                            show(`Loading drill for "${pubMap.name}"...`, "info");
+                            setTab("maps");
+                          }}
+                          className="w-full flex items-center justify-center gap-1.5 px-3 py-2 text-xs font-bold bg-brand-600 hover:bg-brand-700 text-white rounded-lg shadow-sm transition-all"
+                        >
+                          <Play className="h-3.5 w-3.5 fill-current" />
+                          <span>Practice on this Map</span>
+                        </button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
           )}
         </>
       )}

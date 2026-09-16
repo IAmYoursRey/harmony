@@ -12,6 +12,9 @@ const SchoolSelectionPage = lazy(() => import("@/pages/SchoolSelectionPage"));
 const DashboardView = lazy(
   () => import("@/components/dashboard/DashboardView"),
 );
+const EventsView = lazy(
+  () => import("@/components/dashboard/views/events/EventsView"),
+);
 const AILearningView = lazy(() =>
   import("@/components/dashboard/views/LearningViews").then((m) => ({
     default: m.AILearningView,
@@ -120,6 +123,14 @@ export default function App() {
             element={
               <Suspense fallback={<PageSkeleton />}>
                 <DashboardView />
+              </Suspense>
+            }
+          />
+          <Route
+            path="events"
+            element={
+              <Suspense fallback={<PageSkeleton />}>
+                <EventsView />
               </Suspense>
             }
           />

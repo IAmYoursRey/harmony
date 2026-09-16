@@ -107,6 +107,9 @@ export interface GridMap {
   safePoints: SafePoint[];
   spawnPoints: SpawnPoint[];
   referenceImageId?: string; // reference to existing mapImage if teacher wants overlay
+  isPublic?: boolean;
+  authorName?: string;
+  schoolName?: string;
   createdBy: string; // userId
   createdAt: string;
   updatedAt: string;

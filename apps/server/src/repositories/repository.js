@@ -25,6 +25,7 @@ const DEFAULT_DB = {
   schoolDisasterAnalysis: {},
   quizHistories: [],
   spatialCache: {},
+  events: [],
 };
 
 let inMemoryCache = null;
@@ -78,8 +79,30 @@ async function initPg() {
       CREATE TABLE IF NOT EXISTS school_disaster_analysis ( school_id VARCHAR(255) PRIMARY KEY, data JSONB NOT NULL );
       CREATE TABLE IF NOT EXISTS quiz_histories ( id VARCHAR(255) PRIMARY KEY, data JSONB NOT NULL );
       CREATE TABLE IF NOT EXISTS spatial_cache ( id VARCHAR(255) PRIMARY KEY, data JSONB NOT NULL, created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP );
+      CREATE TABLE IF NOT EXISTS events ( id VARCHAR(255) PRIMARY KEY, data JSONB NOT NULL );
       
-      -- Phase 1 Digital Twin Relational Tables
+      -- Safe migration for digital_twin_maps public sharing
+      DO $$
+      BEGIN
+        BEGIN
+          ALTER TABLE digital_twin_maps ADD COLUMN is_public BOOLEAN DEFAULT false;
+        EXCEPTION
+          WHEN duplicate_column THEN RAISE NOTICE 'column is_public already exists in digital_twin_maps.';
+          WHEN undefined_table THEN NULL;
+        END;
+        BEGIN
+          ALTER TABLE digital_twin_maps ADD COLUMN author_name VARCHAR(255);
+        EXCEPTION
+          WHEN duplicate_column THEN RAISE NOTICE 'column author_name already exists in digital_twin_maps.';
+          WHEN undefined_table THEN NULL;
+        END;
+        BEGIN
+          ALTER TABLE digital_twin_maps ADD COLUMN school_name VARCHAR(255);
+        EXCEPTION
+          WHEN duplicate_column THEN RAISE NOTICE 'column school_name already exists in digital_twin_maps.';
+          WHEN undefined_table THEN NULL;
+        END;
+      END $$;
       CREATE TABLE IF NOT EXISTS digital_twin_maps (
         id VARCHAR(255) PRIMARY KEY,
         school_id VARCHAR(255) NOT NULL,
@@ -331,6 +354,13 @@ export async function readDB() {
         pool.query("SELECT id, data FROM spatial_cache"),
       );
 
+      try {
+        const eventsRes = await timeoutQuery(pool.query("SELECT data FROM events"));
+        db.events = eventsRes.rows.map((r) => r.data);
+      } catch (_e) {
+        db.events = [];
+      }
+
       db.accounts = accountsRes.rows.map((r) => r.data);
       db.profiles = profilesRes.rows.map((r) => r.data);
       db.schools = schoolsRes.rows.map((r) => r.data);
@@ -373,7 +403,79 @@ export async function readDB() {
   return DEFAULT_DB;
 }
 
-export async function writeDB(db) {
+export async function saveAccount(account) {
+  if (inMemoryCache) {
+    if (!inMemoryCache.accounts) inMemoryCache.accounts = [];
+    const idx = inMemoryCache.accounts.findIndex((a) => a.id === account.id);
+    if (idx >= 0) inMemoryCache.accounts[idx] = account;
+    else inMemoryCache.accounts.push(account);
+  }
+  if (pool) {
+    await initPg();
+    await timeoutQuery(
+      pool.query(
+        `INSERT INTO accounts (id, data) VALUES ($1, $2) ON CONFLICT (id) DO UPDATE SET data = EXCLUDED.data`,
+        [account.id, JSON.stringify(account)],
+      ),
+    );
+    return true;
+  }
+  return true;
+}
+
+export async function saveProfile(profile) {
+  if (inMemoryCache) {
+    if (!inMemoryCache.profiles) inMemoryCache.profiles = [];
+    const idx = inMemoryCache.profiles.findIndex((p) => p.userId === profile.userId);
+    if (idx >= 0) inMemoryCache.profiles[idx] = profile;
+    else inMemoryCache.profiles.push(profile);
+  }
+  if (pool) {
+    await initPg();
+    await timeoutQuery(
+      pool.query(
+        `INSERT INTO profiles (user_id, data) VALUES ($1, $2) ON CONFLICT (user_id) DO UPDATE SET data = EXCLUDED.data`,
+        [profile.userId, JSON.stringify(profile)],
+      ),
+    );
+    return true;
+  }
+  return true;
+}
+
+export async function saveEvent(event) {
+  if (inMemoryCache) {
+    if (!inMemoryCache.events) inMemoryCache.events = [];
+    const idx = inMemoryCache.events.findIndex((e) => e.id === event.id);
+    if (idx >= 0) inMemoryCache.events[idx] = event;
+    else inMemoryCache.events.push(event);
+  }
+  if (pool) {
+    await initPg();
+    await timeoutQuery(
+      pool.query(
+        `INSERT INTO events (id, data) VALUES ($1, $2) ON CONFLICT (id) DO UPDATE SET data = EXCLUDED.data`,
+        [event.id, JSON.stringify(event)],
+      ),
+    );
+    return true;
+  }
+  return true;
+}
+
+export async function removeEvent(id) {
+  if (inMemoryCache && inMemoryCache.events) {
+    inMemoryCache.events = inMemoryCache.events.filter((e) => e.id !== id);
+  }
+  if (pool) {
+    await initPg();
+    await timeoutQuery(pool.query(`DELETE FROM events WHERE id = $1`, [id]));
+    return true;
+  }
+  return true;
+}
+
+export async function writeDB(db, tablesToUpdate = null) {
   const fullDb = { ...DEFAULT_DB, ...db };
   inMemoryCache = fullDb;
 
@@ -405,82 +507,104 @@ export async function writeDB(db) {
         }
       }
 
-      const queries = [];
+      const providedKeys = Object.keys(db);
+      const isSelective = tablesToUpdate || (providedKeys.length > 0 && providedKeys.length <= 6);
 
-      const insertArray = (tableName, array, idField = "id") => {
-        if (!array || !array.length) return;
+      const shouldUpdate = (tableName, keyName) => {
+        if (tablesToUpdate && Array.isArray(tablesToUpdate)) {
+          return tablesToUpdate.includes(tableName) || tablesToUpdate.includes(keyName);
+        }
+        if (isSelective) {
+          return providedKeys.includes(keyName) || providedKeys.includes(tableName);
+        }
+        // By default on full DB write, never re-sync huge static tables like schools
+        if (tableName === "schools") return false;
+        return true;
+      };
+
+      const tasks = [];
+
+      const insertArray = (tableName, keyName, array, idField = "id") => {
+        if (!array || !array.length || !shouldUpdate(tableName, keyName)) return;
         for (const item of array) {
-          queries.push(
+          tasks.push(() =>
             pool.query(
               `INSERT INTO ${tableName} (id, data) VALUES ($1, $2) ON CONFLICT (id) DO UPDATE SET data = EXCLUDED.data`,
               [item[idField], JSON.stringify(item)],
-            ),
+            )
           );
         }
       };
 
       const insertProfileArray = (array) => {
-        if (!array || !array.length) return;
+        if (!array || !array.length || !shouldUpdate("profiles", "profiles")) return;
         for (const item of array) {
-          queries.push(
+          tasks.push(() =>
             pool.query(
               `INSERT INTO profiles (user_id, data) VALUES ($1, $2) ON CONFLICT (user_id) DO UPDATE SET data = EXCLUDED.data`,
               [item.userId, JSON.stringify(item)],
-            ),
+            )
           );
         }
       };
 
-      const insertObject = (tableName, obj) => {
-        if (!obj) return;
+      const insertObject = (tableName, keyName, obj) => {
+        if (!obj || !shouldUpdate(tableName, keyName)) return;
         for (const [key, value] of Object.entries(obj)) {
-          queries.push(
+          tasks.push(() =>
             pool.query(
               `INSERT INTO ${tableName} (id, data) VALUES ($1, $2) ON CONFLICT (id) DO UPDATE SET data = EXCLUDED.data`,
               [key, JSON.stringify(value)],
-            ),
+            )
           );
         }
       };
 
       const insertTwins = (obj) => {
-        if (!obj) return;
+        if (!obj || !shouldUpdate("digital_twins", "digitalTwins")) return;
         for (const [key, value] of Object.entries(obj)) {
-          queries.push(
+          tasks.push(() =>
             pool.query(
               `INSERT INTO digital_twins (school_id, data) VALUES ($1, $2) ON CONFLICT (school_id) DO UPDATE SET data = EXCLUDED.data`,
               [key, JSON.stringify(value)],
-            ),
+            )
           );
         }
       };
 
       const insertAnalysis = (obj) => {
-        if (!obj) return;
+        if (!obj || !shouldUpdate("school_disaster_analysis", "schoolDisasterAnalysis")) return;
         for (const [key, value] of Object.entries(obj)) {
-          queries.push(
+          tasks.push(() =>
             pool.query(
               `INSERT INTO school_disaster_analysis (school_id, data) VALUES ($1, $2) ON CONFLICT (school_id) DO UPDATE SET data = EXCLUDED.data`,
               [key, JSON.stringify(value)],
-            ),
+            )
           );
         }
       };
 
-      insertArray("accounts", fullDb.accounts);
+      insertArray("accounts", "accounts", fullDb.accounts);
       insertProfileArray(fullDb.profiles);
-      insertArray("schools", fullDb.schools);
-      insertArray("classes", fullDb.classes);
-      insertArray("dt_results", fullDb.dtResults);
-      insertArray("surveys", fullDb.surveys);
+      insertArray("schools", "schools", fullDb.schools);
+      insertArray("classes", "classes", fullDb.classes);
+      insertArray("dt_results", "dtResults", fullDb.dtResults);
+      insertArray("surveys", "surveys", fullDb.surveys);
+      insertArray("events", "events", fullDb.events);
 
       insertTwins(fullDb.digitalTwins);
-      insertObject("grid_maps", fullDb.gridMaps);
-      insertObject("simulations", fullDb.simulations);
-      insertObject("dt_rooms", fullDb.dtRooms);
+      insertObject("grid_maps", "gridMaps", fullDb.gridMaps);
+      insertObject("simulations", "simulations", fullDb.simulations);
+      insertObject("dt_rooms", "dtRooms", fullDb.dtRooms);
       insertAnalysis(fullDb.schoolDisasterAnalysis);
 
-      await Promise.all(queries);
+      // Execute queries in small concurrent batches to prevent connection pool exhaustion
+      const batchSize = 10;
+      for (let i = 0; i < tasks.length; i += batchSize) {
+        const batch = tasks.slice(i, i + batchSize).map((fn) => timeoutQuery(fn()));
+        await Promise.all(batch);
+      }
+
       return true;
     } catch (e) {
       console.error("Vercel DB Write Error (falling back to memory/local):", e);

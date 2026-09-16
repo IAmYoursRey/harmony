@@ -1084,19 +1084,29 @@ export function DisasterQuestionView() {
       setPicked(null);
     } else {
       setPhase("result");
-      if (selectedType === "smart" && currentProfile) {
+      if (currentProfile) {
+        const totalAnswers = answers.length || 1;
         const scoreEarned =
-          Math.round((answers.filter(Boolean).length / answers.length) * 100) ||
+          Math.round((answers.filter(Boolean).length / totalAnswers) * 100) ||
           0;
-        const pointsEarned = Math.round(scoreEarned * 0.5);
+        const pointsEarned = Math.round(scoreEarned * 0.5) + (scoreEarned >= 80 ? 25 : 10);
         const newTotal = (currentProfile.totalPoints || 0) + pointsEarned;
-        const newTopicScores = { ...currentProfile.topicScores };
-        smartMastered.forEach((t) => {
-          if (!newTopicScores[t]) newTopicScores[t] = createInitialTopicScore();
-          newTopicScores[t].averageScore = 100;
-        });
+        const newTopicScores = { ...(currentProfile.topicScores || {}) };
+
+        if (selectedType === "smart") {
+          smartMastered.forEach((t) => {
+            if (!newTopicScores[t]) newTopicScores[t] = createInitialTopicScore();
+            newTopicScores[t].averageScore = 100;
+          });
+        } else if (selectedType) {
+          if (!newTopicScores[selectedType]) newTopicScores[selectedType] = createInitialTopicScore();
+          newTopicScores[selectedType].averageScore = scoreEarned;
+          newTopicScores[selectedType].attempts = (newTopicScores[selectedType].attempts || 0) + 1;
+        }
+
         updateUserProfile({
           totalPoints: newTotal,
+          xp: (currentProfile.xp || 0) + pointsEarned,
           topicScores: newTopicScores,
         });
       }

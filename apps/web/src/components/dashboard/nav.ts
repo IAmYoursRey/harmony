@@ -12,6 +12,7 @@ import {
   Info,
   GraduationCap,
   ShieldCheck,
+  Trophy,
   type LucideIcon,
 } from "lucide-react";
 
@@ -31,6 +32,7 @@ export const navItems: NavItem[] = [
     roles: ["developer"],
   },
   { id: "dashboard", label: "Dashboard", icon: LayoutDashboard },
+  { id: "events", label: "Events", icon: Trophy },
   { id: "ai-learning", label: "AI Learning", icon: Brain },
   { id: "maps", label: "Maps", icon: Map },
   {

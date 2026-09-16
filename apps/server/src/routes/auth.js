@@ -1,7 +1,7 @@
 import express from "express";
 import bcrypt from "bcryptjs";
 import jwt from "jsonwebtoken";
-import { readDB, writeDB } from "../repositories/repository.js";
+import { readDB, writeDB, saveAccount, saveProfile } from "../repositories/repository.js";
 import { verifyToken } from "../middleware/authMiddleware.js";
 import dotenv from "dotenv";
 import { OAuth2Client } from "google-auth-library";
@@ -136,7 +136,8 @@ router.post("/register-google", async (req, res) => {
     };
     db.profiles.push(profile);
 
-    await writeDB(db);
+    await saveAccount(account);
+    await saveProfile(profile);
 
     const jwtToken = jwt.sign(
       { id: account.id, role: account.role, name: account.name },

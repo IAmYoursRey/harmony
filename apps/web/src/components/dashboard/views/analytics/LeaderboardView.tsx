@@ -27,6 +27,7 @@ import {
   MapPin,
   School,
   Map,
+  Globe,
   X,
   Activity,
   Loader2,
@@ -83,12 +84,12 @@ function Card({
   );
 }
 
-type Tab = "national" | "province" | "regency" | "school";
+type Tab = "international" | "school" | "regency" | "province";
 
 export function LeaderboardView() {
   const { t } = useI18n();
   const { currentProfile, currentUser } = useAuth();
-  const [activeTab, setActiveTab] = useState<Tab>("school");
+  const [activeTab, setActiveTab] = useState<Tab>("international");
 
   const [selectedUser, setSelectedUser] = useState<string | null>(null);
 
@@ -121,7 +122,10 @@ export function LeaderboardView() {
     if (loading || !profilesData?.profiles || !accountsData?.accounts)
       return [];
 
-    const filteredProfiles = profilesData.profiles;
+    // Filter out teachers: student leaderboard is exclusively for students
+    const filteredProfiles = profilesData.profiles.filter(
+      (p: UserProfile) => p.role !== "teacher"
+    );
 
     const mapped = filteredProfiles.map((p: UserProfile) => {
       const acc = accountsData.accounts.find(
@@ -129,9 +133,9 @@ export function LeaderboardView() {
       );
       return {
         id: p.userId,
-        name: acc?.name || "Pengguna",
+        name: acc?.name || "Student",
         avatar: p.avatar,
-        totalPoints: p.totalPoints,
+        totalPoints: p.totalPoints || 0,
         schoolName: p.schoolName || p.schoolId,
         isCurrentUser: p.userId === currentProfile?.userId,
         grade: p.grade,
@@ -155,57 +159,68 @@ export function LeaderboardView() {
           <div>
             <h3 className="font-display text-lg font-bold text-ink-900 dark:text-white flex items-center gap-2">
               <Trophy className="h-5 w-5 text-amber-500" />
-              Papan Peringkat
+              Disaster Resilience Leaderboard
             </h3>
             <p className="text-sm text-ink-500 dark:text-slate-400 mt-1">
-              Top 10 pahlawan tangguh bencana terbaik
+              Top 10 disaster resilience student champions
             </p>
           </div>
 
           {/* Tabs */}
-          <div className="grid grid-cols-3 bg-brand-50 dark:bg-slate-800 p-1 rounded-xl w-full sm:w-auto">
+          <div className="grid grid-cols-2 sm:grid-cols-4 bg-brand-50 dark:bg-slate-800 p-1 rounded-xl w-full sm:w-auto gap-1">
+            <button
+              onClick={() => setActiveTab("international")}
+              className={`flex items-center justify-center gap-1.5 px-3 py-2 text-xs sm:text-sm font-semibold rounded-lg transition-all ${
+                activeTab === "international"
+                  ? "bg-white dark:bg-slate-700 text-brand-600 shadow-sm"
+                  : "text-ink-500 hover:text-ink-700 dark:text-slate-400"
+              }`}
+            >
+              <Globe className="h-3.5 w-3.5 sm:h-4 sm:w-4 shrink-0" />{" "}
+              <span className="truncate">Global</span>
+            </button>
             <button
               onClick={() => setActiveTab("school")}
-              className={`flex items-center justify-center gap-1.5 px-2 py-2 text-xs sm:text-sm font-semibold rounded-lg transition-all ${
+              className={`flex items-center justify-center gap-1.5 px-3 py-2 text-xs sm:text-sm font-semibold rounded-lg transition-all ${
                 activeTab === "school"
                   ? "bg-white dark:bg-slate-700 text-brand-600 shadow-sm"
                   : "text-ink-500 hover:text-ink-700 dark:text-slate-400"
               }`}
             >
               <School className="h-3.5 w-3.5 sm:h-4 sm:w-4 shrink-0" />{" "}
-              <span className="truncate">Sekolah</span>
+              <span className="truncate">School</span>
             </button>
             <button
               onClick={() => setActiveTab("regency")}
-              className={`flex items-center justify-center gap-1.5 px-2 py-2 text-xs sm:text-sm font-semibold rounded-lg transition-all ${
+              className={`flex items-center justify-center gap-1.5 px-3 py-2 text-xs sm:text-sm font-semibold rounded-lg transition-all ${
                 activeTab === "regency"
                   ? "bg-white dark:bg-slate-700 text-brand-600 shadow-sm"
                   : "text-ink-500 hover:text-ink-700 dark:text-slate-400"
               }`}
             >
               <MapPin className="h-3.5 w-3.5 sm:h-4 sm:w-4 shrink-0" />{" "}
-              <span className="truncate">Kab/Kota</span>
+              <span className="truncate">Regency</span>
             </button>
             <button
               onClick={() => setActiveTab("province")}
-              className={`flex items-center justify-center gap-1.5 px-2 py-2 text-xs sm:text-sm font-semibold rounded-lg transition-all ${
+              className={`flex items-center justify-center gap-1.5 px-3 py-2 text-xs sm:text-sm font-semibold rounded-lg transition-all ${
                 activeTab === "province"
                   ? "bg-white dark:bg-slate-700 text-brand-600 shadow-sm"
                   : "text-ink-500 hover:text-ink-700 dark:text-slate-400"
               }`}
             >
               <Map className="h-3.5 w-3.5 sm:h-4 sm:w-4 shrink-0" />{" "}
-              <span className="truncate">Provinsi</span>
+              <span className="truncate">Province</span>
             </button>
           </div>
         </div>
 
         <div className="space-y-3">
           {loading ? (
-            <LoadingState message="Memuat papan peringkat..." />
+            <LoadingState message="Loading leaderboard..." />
           ) : leaderboardData.length === 0 ? (
             <div className="py-8 text-center text-sm font-medium text-ink-500 dark:text-slate-400">
-              {t("survey.no_data", "Belum ada data untuk kategori ini.")}
+              No rankings available for this category yet.
             </div>
           ) : (
             leaderboardData.map((user, index) => (
@@ -251,7 +266,7 @@ export function LeaderboardView() {
                     </p>
                     {user.isCurrentUser && (
                       <span className="text-[10px] font-bold bg-brand-500 text-white px-2 py-0.5 rounded-full">
-                        Anda
+                        You
                       </span>
                     )}
                   </div>

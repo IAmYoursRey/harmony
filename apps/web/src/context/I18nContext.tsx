@@ -6,6 +6,7 @@ type Dictionary = Record<string, string>;
 const dictionaries: Record<Language, Dictionary> = {
   id: {
     "nav.dashboard": "Dasbor",
+    "nav.events": "Events",
     "nav.ai-learning": "Pembelajaran AI",
     "nav.maps": "Maps",
     "nav.geo-risk-map": "Peta Risiko Geo",
@@ -349,6 +350,7 @@ const dictionaries: Record<Language, Dictionary> = {
   },
   en: {
     "nav.dashboard": "Dashboard",
+    "nav.events": "Events",
     "nav.ai-learning": "AI Learning",
     "nav.maps": "Maps",
     "nav.geo-risk-map": "Geo Risk Map",
@@ -713,10 +715,9 @@ export function I18nProvider({ children }: { children: ReactNode }) {
   const [locale, setLocaleState] = useState<Language>("en");
 
   useEffect(() => {
-    const saved = window.localStorage.getItem("language") as Language | null;
-    if (saved && (saved === "id" || saved === "en")) {
-      setLocaleState(saved);
-    }
+    // Standardize to English
+    window.localStorage.setItem("language", "en");
+    setLocaleState("en");
   }, []);
 
   const setLocale = (newLocale: Language) => {
@@ -728,7 +729,7 @@ export function I18nProvider({ children }: { children: ReactNode }) {
     key: string,
     variablesOrDefault?: string | Record<string, string | number>,
   ) => {
-    let text = dictionaries[locale]?.[key] || dictionaries["en"]?.[key];
+    let text = dictionaries["en"]?.[key] || dictionaries[locale]?.[key];
     if (!text && typeof variablesOrDefault === "string") {
       text = variablesOrDefault;
     } else if (!text) {
