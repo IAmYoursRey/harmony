@@ -136,7 +136,7 @@ export default function LoginPage() {
         await finalizeLogin(googleData.account);
         setLoadingText("Membuka aplikasi...");
         show("Selamat datang kembali!", "success");
-        navigate("/app");
+        navigate("/app/maps");
       } catch (err: any) {
         show(err?.message || "Gagal masuk ke sistem. Silakan coba lagi.", "error");
         setLoading(false);
@@ -165,7 +165,7 @@ export default function LoginPage() {
       if (result.success) {
         setLoadingText("Menyiapkan dasbor...");
         show("Pendaftaran berhasil!", "success");
-        navigate("/app");
+        navigate("/app/maps");
       } else {
         show(result.error ?? "Gagal mendaftar", "error");
         setLoading(false);

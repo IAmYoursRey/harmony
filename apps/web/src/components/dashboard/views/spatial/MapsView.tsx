@@ -17,7 +17,7 @@ import { Style, RegularShape, Fill, Stroke, Circle as CircleStyle } from "ol/sty
 import TopoJSON from "ol/format/TopoJSON";
 import { useEffect, useRef, useState, useMemo } from "react";
 import { apiClient } from "@/services/apiClient";
-import { Map as MapIcon, Mountain, GraduationCap, X, Menu, Building2, Settings, Search, MapPin, Activity, CloudRain, Thermometer, Wind, Cloud, Sun, Globe, TreePine, Map as MapIcon2, Newspaper, Palette, Paintbrush } from "lucide-react";
+import { Map as MapIcon, Mountain, GraduationCap, X, Menu, Building2, Settings, Search, MapPin, Activity, CloudRain, Thermometer, Wind, Cloud, Sun, Globe, TreePine, Map as MapIcon2, Newspaper, Palette, Paintbrush, Box } from "lucide-react";
 import { useNavigate, useOutletContext } from "react-router-dom";
 import { useAuth } from "@/hooks/useAuth";
 import { useSchool } from "@/hooks/useSchool";
@@ -199,6 +199,35 @@ export function MapsView() {
   const activeUserId = currentProfile?.userId || currentUser?.id || getSynchronousUserId() || 'guest';
   const profileMapSettings = (currentProfile as any)?.mapSettings;
   const { settings, updateSetting } = useUserMapSettings(activeUserId, profileMapSettings);
+
+  // 3D Perspective Mode State (Persisted per user)
+  const [is3D, setIs3D] = useState<boolean>(() => {
+    try {
+      return window.localStorage.getItem(`hm_is3d_${activeUserId}`) === 'true';
+    } catch (e) {
+      return false;
+    }
+  });
+
+  useEffect(() => {
+    try {
+      const stored = window.localStorage.getItem(`hm_is3d_${activeUserId}`);
+      if (stored !== null) {
+        setIs3D(stored === 'true');
+      }
+    } catch (e) {}
+  }, [activeUserId]);
+
+  const handleToggle3D = (val: boolean) => {
+    setIs3D(val);
+    try {
+      window.localStorage.setItem(`hm_is3d_${activeUserId}`, String(val));
+    } catch (e) {}
+    // Update map canvas sizing smoothly after CSS perspective transition
+    setTimeout(() => {
+      mapRef.current?.updateSize();
+    }, 750);
+  };
 
   const showActive = settings.showActive;
   const setShowActive = (v: boolean | ((prev: boolean) => boolean)) => updateSetting('showActive', v);
@@ -902,13 +931,34 @@ export function MapsView() {
   }, []);
 
   return (
-    <div className="relative h-full w-full bg-slate-900">
-      {/* Map Container (OpenLayers) - Hidden when not in spatial mode */}
+    <div className="relative h-full w-full bg-slate-900 overflow-hidden select-none">
+      {/* 3D Atmospheric Depth & Horizon Glow */}
+      {is3D && mapMode === 'spatial' && (
+        <div className="pointer-events-none absolute inset-x-0 top-0 h-44 bg-gradient-to-b from-slate-950 via-slate-950/60 to-transparent z-10 transition-opacity duration-700" />
+      )}
+
+      {/* 3D Active Status Pill */}
+      {is3D && mapMode === 'spatial' && (
+        <div className="pointer-events-none absolute top-16 left-1/2 -translate-x-1/2 z-20 flex items-center gap-1.5 px-3 py-1 rounded-full bg-slate-900/80 backdrop-blur-md border border-indigo-500/40 text-[11px] font-bold text-indigo-300 shadow-lg animate-in fade-in duration-300">
+          <Box className="w-3.5 h-3.5 text-indigo-400" />
+          <span>Perspektif 3D Aktif</span>
+        </div>
+      )}
+
+      {/* Map Viewport & 3D Perspective Container */}
       <div 
-        ref={containerRef} 
-        className="absolute inset-0" 
-        style={{ opacity: mapMode === 'spatial' ? 1 : 0, pointerEvents: mapMode === 'spatial' ? 'auto' : 'none' }}
-      />
+        className={`absolute inset-0 transition-all duration-700 ${is3D ? 'map-viewport-3d' : 'map-viewport-2d'}`}
+        style={{
+          perspective: is3D ? '1200px' : 'none',
+          perspectiveOrigin: '50% 85%'
+        }}
+      >
+        <div 
+          ref={containerRef} 
+          className={`w-full h-full transition-transform duration-700 ${is3D ? 'map-tilt-3d' : 'map-tilt-2d'}`} 
+          style={{ opacity: mapMode === 'spatial' ? 1 : 0, pointerEvents: mapMode === 'spatial' ? 'auto' : 'none' }}
+        />
+      </div>
 
       {/* News Map Placeholder */}
       {mapMode === 'news' && (
@@ -1078,8 +1128,21 @@ export function MapsView() {
         </div>
       </div>
 
-      {/* Custom OpenLayers Styles */}
+      {/* Custom OpenLayers & 3D Tilt Styles */}
       <style>{`
+        .map-viewport-3d {
+          overflow: hidden;
+        }
+        .map-tilt-3d {
+          transform: rotateX(46deg) scale(1.36) translateY(-8%);
+          transform-origin: 50% 70%;
+          transition: transform 0.7s cubic-bezier(0.16, 1, 0.3, 1);
+        }
+        .map-tilt-2d {
+          transform: rotateX(0deg) scale(1) translateY(0);
+          transform-origin: 50% 50%;
+          transition: transform 0.7s cubic-bezier(0.16, 1, 0.3, 1);
+        }
         .ol-zoom {
           top: auto !important;
           bottom: 1.5rem !important;
@@ -1177,6 +1240,23 @@ export function MapsView() {
         </div>
       </div>
 
+      {/* 2D / 3D Quick Canvas Button (Above zoom controls) */}
+      {mapMode === 'spatial' && (
+        <button
+          type="button"
+          onClick={() => handleToggle3D(!is3D)}
+          className={`absolute bottom-24 left-6 z-10 flex h-9 w-9 items-center justify-center rounded-xl backdrop-blur-md shadow-md border transition-all ${
+            is3D 
+              ? 'bg-indigo-600 border-indigo-400 text-white shadow-indigo-500/30 ring-2 ring-indigo-400/40' 
+              : 'bg-white/90 dark:bg-slate-900/90 border-slate-200/60 dark:border-slate-800 text-slate-700 dark:text-slate-200 hover:bg-white dark:hover:bg-slate-800'
+          }`}
+          title={is3D ? "Beralih ke mode 2D" : "Beralih ke mode 3D"}
+          aria-label="Toggle Mode 2D/3D"
+        >
+          <span className="font-extrabold text-[11px] tracking-tight">{is3D ? "3D" : "2D"}</span>
+        </button>
+      )}
+
       {/* Floating Panel Toggle Button */}
       <button 
         onClick={() => setShowPanel(true)}
@@ -1199,23 +1279,47 @@ export function MapsView() {
             <X className="h-4 w-4" />
           </button>
           
-          <div className="mb-4 flex items-center gap-3 pr-6">
-            <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-brand-100 text-brand-600 dark:bg-brand-900/40 dark:text-brand-400">
-              <MapIcon className="h-5 w-5" />
-            </span>
-            <div>
-              <h2 className="font-display text-base font-bold text-ink-900 dark:text-white leading-tight">
-                Harmony Maps
-              </h2>
-              <p className="text-[11px] font-medium text-slate-500 dark:text-slate-400">
-                {schools.length} Schools • {mountains.length} Mountains
-              </p>
-              <p className="text-[10px] text-brand-500 font-medium mt-1">
-                * Aktifkan fitur di bawah untuk menampilkan layer
-              </p>
-              <p className="text-[10px] text-emerald-600 dark:text-emerald-400 font-semibold mt-0.5 flex items-center gap-1">
-                <span>✓</span> Pengaturan otomatis tersimpan per akun
-              </p>
+          <div className="mb-4 pr-6">
+            <div className="flex items-center gap-3">
+              <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-brand-100 text-brand-600 dark:bg-brand-900/40 dark:text-brand-400">
+                <MapIcon className="h-5 w-5" />
+              </span>
+              <div>
+                <h2 className="font-display text-base font-bold text-ink-900 dark:text-white leading-tight">
+                  Harmony Maps
+                </h2>
+                <p className="text-[11px] font-medium text-slate-500 dark:text-slate-400">
+                  {schools.length} Schools • {mountains.length} Mountains
+                </p>
+              </div>
+            </div>
+
+            {/* 2D / 3D Mode Selector */}
+            <div className="mt-3 flex items-center p-1 rounded-xl bg-slate-100 dark:bg-slate-800/80 border border-slate-200/60 dark:border-slate-700/60">
+              <button
+                type="button"
+                onClick={() => handleToggle3D(false)}
+                className={`flex-1 flex items-center justify-center gap-1.5 py-1.5 rounded-lg text-xs font-bold transition-all ${
+                  !is3D 
+                    ? 'bg-white dark:bg-slate-700 text-brand-600 dark:text-brand-400 shadow-sm' 
+                    : 'text-slate-500 dark:text-slate-400 hover:text-slate-800 dark:hover:text-slate-200'
+                }`}
+              >
+                <MapIcon className="w-3.5 h-3.5" />
+                <span>Mode 2D</span>
+              </button>
+              <button
+                type="button"
+                onClick={() => handleToggle3D(true)}
+                className={`flex-1 flex items-center justify-center gap-1.5 py-1.5 rounded-lg text-xs font-bold transition-all ${
+                  is3D 
+                    ? 'bg-gradient-to-r from-indigo-500 to-brand-500 text-white shadow-sm shadow-indigo-500/30' 
+                    : 'text-slate-500 dark:text-slate-400 hover:text-slate-800 dark:hover:text-slate-200'
+                }`}
+              >
+                <Box className="w-3.5 h-3.5" />
+                <span>Mode 3D</span>
+              </button>
             </div>
           </div>
 

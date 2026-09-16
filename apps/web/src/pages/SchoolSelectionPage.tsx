@@ -50,7 +50,7 @@ export default function SchoolSelectionPage() {
         currentProfile?.schoolId &&
         currentProfile.schoolId !== "unknown"
       ) {
-        navigate("/app");
+        navigate("/app/maps");
       }
     }
   }, [isLoading, currentUser, currentProfile, navigate]);
@@ -115,7 +115,7 @@ export default function SchoolSelectionPage() {
         setSelection(school);
         await refreshProfile();
         show(`Sekolah ${school.name} berhasil dipilih!`, "success");
-        navigate("/app");
+        navigate("/app/maps");
       } catch (err: any) {
         show(err.message || "Gagal menyimpan sekolah", "error");
         setIsSubmitting(false);

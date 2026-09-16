@@ -154,7 +154,7 @@ export function Sidebar({
               return (
                 <li key={item.id}>
                   <Link
-                    to={item.id === "dashboard" ? "/app" : `/app/${item.id}`}
+                    to={item.id === "dashboard" ? "/app/dashboard" : `/app/${item.id}`}
                     onClick={onSelect}
                     className={`group flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium transition-all ${
                       isActive
