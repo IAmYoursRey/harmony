@@ -17,7 +17,7 @@ import { Style, RegularShape, Fill, Stroke, Circle as CircleStyle } from "ol/sty
 import TopoJSON from "ol/format/TopoJSON";
 import { useEffect, useRef, useState, useMemo } from "react";
 import { apiClient } from "@/services/apiClient";
-import { Map as MapIcon, Mountain, GraduationCap, X, Menu, Building2, Settings, Search, MapPin, Activity, CloudRain, Thermometer, Wind, Cloud, Sun, Globe, TreePine, Map as MapIcon2, Newspaper, Palette, Paintbrush, Box } from "lucide-react";
+import { Map as MapIcon, Mountain, GraduationCap, X, Menu, Building2, Settings, Search, MapPin, Activity, CloudRain, Thermometer, Wind, Cloud, Sun, Globe, TreePine, Map as MapIcon2, Newspaper, Palette, Paintbrush, Box, Compass, RotateCcw, RotateCw } from "lucide-react";
 import { useNavigate, useOutletContext } from "react-router-dom";
 import { useAuth } from "@/hooks/useAuth";
 import { useSchool } from "@/hooks/useSchool";
@@ -200,7 +200,7 @@ export function MapsView() {
   const profileMapSettings = (currentProfile as any)?.mapSettings;
   const { settings, updateSetting } = useUserMapSettings(activeUserId, profileMapSettings);
 
-  // 3D Perspective Mode State (Persisted per user)
+  // 3D Perspective & Globe Mode State (Persisted per user)
   const [is3D, setIs3D] = useState<boolean>(() => {
     try {
       return window.localStorage.getItem(`hm_is3d_${activeUserId}`) === 'true';
@@ -209,17 +209,38 @@ export function MapsView() {
     }
   });
 
+  const [globeType, setGlobeType] = useState<'sphere' | 'perspective'>(() => {
+    try {
+      const stored = window.localStorage.getItem(`hm_globetype_${activeUserId}`);
+      return stored === 'perspective' ? 'perspective' : 'sphere';
+    } catch (e) {
+      return 'sphere';
+    }
+  });
+
+  const [currentRotation, setCurrentRotation] = useState<number>(0);
+  const [isOrbiting, setIsOrbiting] = useState<boolean>(false);
+  const orbitFrameRef = useRef<number | null>(null);
+
   useEffect(() => {
     try {
       const stored = window.localStorage.getItem(`hm_is3d_${activeUserId}`);
       if (stored !== null) {
         setIs3D(stored === 'true');
       }
+      const storedType = window.localStorage.getItem(`hm_globetype_${activeUserId}`);
+      if (storedType === 'perspective' || storedType === 'sphere') {
+        setGlobeType(storedType);
+      }
     } catch (e) {}
   }, [activeUserId]);
 
   const handleToggle3D = (val: boolean) => {
     setIs3D(val);
+    if (!val) {
+      setIsOrbiting(false);
+      resetRotationNorth();
+    }
     try {
       window.localStorage.setItem(`hm_is3d_${activeUserId}`, String(val));
     } catch (e) {}
@@ -227,6 +248,127 @@ export function MapsView() {
     setTimeout(() => {
       mapRef.current?.updateSize();
     }, 750);
+  };
+
+  const handleSetGlobeType = (type: 'sphere' | 'perspective') => {
+    setGlobeType(type);
+    try {
+      window.localStorage.setItem(`hm_globetype_${activeUserId}`, type);
+    } catch (e) {}
+    setTimeout(() => {
+      mapRef.current?.updateSize();
+    }, 750);
+  };
+
+  const rotateMapBy = (deltaDeg: number) => {
+    const view = mapRef.current?.getView();
+    if (!view) return;
+    const currentRot = view.getRotation() || 0;
+    const targetRot = currentRot + (deltaDeg * Math.PI) / 180;
+    view.animate({
+      rotation: targetRot,
+      duration: 350,
+      easing: (t) => t * (2 - t),
+    });
+  };
+
+  const resetRotationNorth = () => {
+    const view = mapRef.current?.getView();
+    if (!view) return;
+    view.animate({
+      rotation: 0,
+      duration: 400,
+      easing: (t) => t * (2 - t),
+    });
+  };
+
+  const toggleOrbit = () => {
+    setIsOrbiting((prev) => !prev);
+  };
+
+  // 360 Auto-Orbit Animation Loop
+  useEffect(() => {
+    if (!isOrbiting || !is3D) {
+      if (orbitFrameRef.current) {
+        cancelAnimationFrame(orbitFrameRef.current);
+        orbitFrameRef.current = null;
+      }
+      return;
+    }
+
+    let lastTime = performance.now();
+    const animateOrbit = (now: number) => {
+      const dt = (now - lastTime) / 1000;
+      lastTime = now;
+      const view = mapRef.current?.getView();
+      if (view) {
+        const rotSpeed = 0.22; // ~12.5 deg/sec
+        const nextRot = (view.getRotation() || 0) + rotSpeed * dt;
+        view.setRotation(nextRot);
+        const deg = Math.round((((nextRot % (2 * Math.PI)) + 2 * Math.PI) % (2 * Math.PI) * 180) / Math.PI);
+        setCurrentRotation(deg);
+      }
+      orbitFrameRef.current = requestAnimationFrame(animateOrbit);
+    };
+
+    orbitFrameRef.current = requestAnimationFrame(animateOrbit);
+
+    return () => {
+      if (orbitFrameRef.current) {
+        cancelAnimationFrame(orbitFrameRef.current);
+        orbitFrameRef.current = null;
+      }
+    };
+  }, [isOrbiting, is3D]);
+
+  // Sync rotation on manual gesture or view changes
+  useEffect(() => {
+    if (!mapReady || !mapRef.current) return;
+    const view = mapRef.current.getView();
+    const key = view.on('change:rotation', () => {
+      const rot = view.getRotation() || 0;
+      const deg = Math.round((((rot % (2 * Math.PI)) + 2 * Math.PI) % (2 * Math.PI) * 180) / Math.PI);
+      setCurrentRotation(deg);
+    });
+    return () => {
+      if (key) view.un('change:rotation', (key as any).listener);
+    };
+  }, [mapReady]);
+
+  // Pointer drag to rotate 360° on Right Click or Shift + Drag
+  const isPointerRotating = useRef(false);
+  const pointerStartX = useRef(0);
+  const pointerStartRot = useRef(0);
+
+  const handlePointerDown = (e: React.PointerEvent) => {
+    if (!is3D) return;
+    if (e.button === 2 || (e.button === 0 && e.shiftKey)) {
+      e.preventDefault();
+      isPointerRotating.current = true;
+      pointerStartX.current = e.clientX;
+      pointerStartRot.current = mapRef.current?.getView()?.getRotation() || 0;
+      (e.currentTarget as HTMLElement).setPointerCapture(e.pointerId);
+    }
+  };
+
+  const handlePointerMove = (e: React.PointerEvent) => {
+    if (isPointerRotating.current && mapRef.current) {
+      const deltaX = e.clientX - pointerStartX.current;
+      const deltaRot = (deltaX / 300) * (2 * Math.PI);
+      const newRot = pointerStartRot.current + deltaRot;
+      mapRef.current.getView().setRotation(newRot);
+      const deg = Math.round((((newRot % (2 * Math.PI)) + 2 * Math.PI) % (2 * Math.PI) * 180) / Math.PI);
+      setCurrentRotation(deg);
+    }
+  };
+
+  const handlePointerUp = (e: React.PointerEvent) => {
+    if (isPointerRotating.current) {
+      isPointerRotating.current = false;
+      try {
+        (e.currentTarget as HTMLElement).releasePointerCapture(e.pointerId);
+      } catch (_) {}
+    }
   };
 
   const showActive = settings.showActive;
@@ -931,33 +1073,77 @@ export function MapsView() {
   }, []);
 
   return (
-    <div className="relative h-full w-full bg-slate-900 overflow-hidden select-none">
-      {/* 3D Atmospheric Depth & Horizon Glow */}
+    <div 
+      onPointerDown={handlePointerDown}
+      onPointerMove={handlePointerMove}
+      onPointerUp={handlePointerUp}
+      onContextMenu={(e) => { if (is3D) e.preventDefault(); }}
+      className="relative h-full w-full bg-slate-950 overflow-hidden select-none"
+    >
+      {/* 3D Deep Cosmos Stars Backdrop when in 3D Mode */}
       {is3D && mapMode === 'spatial' && (
+        <div className="pointer-events-none absolute inset-0 z-0 overflow-hidden bg-slate-950 transition-opacity duration-700">
+          <div 
+            className="absolute inset-0 opacity-45"
+            style={{
+              backgroundImage: 'radial-gradient(1.5px 1.5px at 25px 35px, #ffffff, rgba(0,0,0,0)), radial-gradient(1px 1px at 90px 145px, #93c5fd, rgba(0,0,0,0)), radial-gradient(1.5px 1.5px at 160px 75px, #e2e8f0, rgba(0,0,0,0)), radial-gradient(2px 2px at 250px 195px, #60a5fa, rgba(0,0,0,0)), radial-gradient(1px 1px at 330px 55px, #ffffff, rgba(0,0,0,0)), radial-gradient(1.5px 1.5px at 410px 230px, #cbd5e1, rgba(0,0,0,0))',
+              backgroundSize: '450px 300px'
+            }}
+          />
+          <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[700px] h-[700px] rounded-full bg-sky-500/10 blur-[130px] pointer-events-none" />
+        </div>
+      )}
+
+      {/* 3D Atmospheric Depth & Horizon Glow for Perspective mode */}
+      {is3D && mapMode === 'spatial' && globeType === 'perspective' && (
         <div className="pointer-events-none absolute inset-x-0 top-0 h-44 bg-gradient-to-b from-slate-950 via-slate-950/60 to-transparent z-10 transition-opacity duration-700" />
       )}
 
       {/* 3D Active Status Pill */}
       {is3D && mapMode === 'spatial' && (
-        <div className="pointer-events-none absolute top-16 left-1/2 -translate-x-1/2 z-20 flex items-center gap-1.5 px-3 py-1 rounded-full bg-slate-900/80 backdrop-blur-md border border-indigo-500/40 text-[11px] font-bold text-indigo-300 shadow-lg animate-in fade-in duration-300">
-          <Box className="w-3.5 h-3.5 text-indigo-400" />
-          <span>Perspektif 3D Aktif</span>
+        <div className="pointer-events-none absolute top-16 left-1/2 -translate-x-1/2 z-20 flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-slate-900/90 backdrop-blur-md border border-indigo-500/50 text-[11px] font-bold text-indigo-200 shadow-xl animate-in fade-in duration-300">
+          <Globe className={`w-3.5 h-3.5 text-sky-400 ${isOrbiting ? 'animate-spin' : ''}`} style={{ animationDuration: '4s' }} />
+          <span>{globeType === 'sphere' ? 'Bola Dunia 3D (360°)' : 'Perspektif 3D (360°)'}</span>
+          <span className="text-[10px] bg-indigo-500/30 text-indigo-300 px-1.5 py-0.2 rounded-md font-mono">
+            {currentRotation}°
+          </span>
         </div>
       )}
 
-      {/* Map Viewport & 3D Perspective Container */}
+      {/* Map Viewport & 3D Container */}
       <div 
-        className={`absolute inset-0 transition-all duration-700 ${is3D ? 'map-viewport-3d' : 'map-viewport-2d'}`}
+        className={`absolute inset-0 flex items-center justify-center transition-all duration-700 ${
+          is3D 
+            ? globeType === 'sphere' 
+              ? 'map-globe-sphere-wrapper' 
+              : 'map-viewport-3d' 
+            : 'map-viewport-2d'
+        }`}
         style={{
-          perspective: is3D ? '1200px' : 'none',
-          perspectiveOrigin: '50% 85%'
+          perspective: is3D ? (globeType === 'sphere' ? '1600px' : '1200px') : 'none',
+          perspectiveOrigin: '50% 50%'
         }}
       >
         <div 
-          ref={containerRef} 
-          className={`w-full h-full transition-transform duration-700 ${is3D ? 'map-tilt-3d' : 'map-tilt-2d'}`} 
-          style={{ opacity: mapMode === 'spatial' ? 1 : 0, pointerEvents: mapMode === 'spatial' ? 'auto' : 'none' }}
-        />
+          className={`transition-all duration-700 ${
+            is3D 
+              ? globeType === 'sphere'
+                ? 'map-globe-sphere'
+                : 'w-full h-full map-tilt-3d'
+              : 'w-full h-full map-tilt-2d'
+          }`}
+        >
+          <div 
+            ref={containerRef} 
+            className="w-full h-full" 
+            style={{ opacity: mapMode === 'spatial' ? 1 : 0, pointerEvents: mapMode === 'spatial' ? 'auto' : 'none' }}
+          />
+
+          {/* Spherical atmospheric specular shading overlay */}
+          {is3D && globeType === 'sphere' && (
+            <div className="pointer-events-none absolute inset-0 rounded-full globe-lens-overlay" />
+          )}
+        </div>
       </div>
 
       {/* News Map Placeholder */}
@@ -1130,6 +1316,33 @@ export function MapsView() {
 
       {/* Custom OpenLayers & 3D Tilt Styles */}
       <style>{`
+        .map-globe-sphere-wrapper {
+          overflow: hidden;
+          background: radial-gradient(circle at 50% 50%, rgba(15, 23, 42, 0.3) 0%, rgba(2, 6, 23, 0.98) 100%);
+        }
+        .map-globe-sphere {
+          width: min(84vw, 84vh);
+          height: min(84vw, 84vh);
+          max-width: 820px;
+          max-height: 820px;
+          border-radius: 50%;
+          overflow: hidden;
+          position: relative;
+          box-shadow: 
+            0 0 50px 10px rgba(56, 189, 248, 0.35),
+            0 0 110px 30px rgba(99, 102, 241, 0.22),
+            inset 0 0 60px 15px rgba(2, 6, 23, 0.85);
+          border: 2.5px solid rgba(125, 211, 252, 0.45);
+          transform: rotateX(15deg) scale(1.02);
+          transform-origin: 50% 50%;
+          transition: all 0.7s cubic-bezier(0.16, 1, 0.3, 1);
+        }
+        .globe-lens-overlay {
+          box-shadow: 
+            inset -35px -35px 80px rgba(2, 6, 23, 0.85),
+            inset 25px 25px 50px rgba(255, 255, 255, 0.22),
+            inset 0 0 35px rgba(56, 189, 248, 0.35);
+        }
         .map-viewport-3d {
           overflow: hidden;
         }
@@ -1240,21 +1453,132 @@ export function MapsView() {
         </div>
       </div>
 
-      {/* 2D / 3D Quick Canvas Button (Above zoom controls) */}
+      {/* 2D / 3D & 360° Quick Floating Widget (Elevated safely above zoom buttons) */}
       {mapMode === 'spatial' && (
-        <button
-          type="button"
-          onClick={() => handleToggle3D(!is3D)}
-          className={`absolute bottom-24 left-6 z-10 flex h-9 w-9 items-center justify-center rounded-xl backdrop-blur-md shadow-md border transition-all ${
-            is3D 
-              ? 'bg-indigo-600 border-indigo-400 text-white shadow-indigo-500/30 ring-2 ring-indigo-400/40' 
-              : 'bg-white/90 dark:bg-slate-900/90 border-slate-200/60 dark:border-slate-800 text-slate-700 dark:text-slate-200 hover:bg-white dark:hover:bg-slate-800'
-          }`}
-          title={is3D ? "Beralih ke mode 2D" : "Beralih ke mode 3D"}
-          aria-label="Toggle Mode 2D/3D"
-        >
-          <span className="font-extrabold text-[11px] tracking-tight">{is3D ? "3D" : "2D"}</span>
-        </button>
+        <div className="absolute bottom-36 left-6 z-20 flex flex-col gap-2 items-start">
+          {/* 360° Orbit & Compass Controls (Smoothly visible when 3D is active) */}
+          <AnimatePresence>
+            {is3D && (
+              <motion.div
+                initial={{ opacity: 0, y: 12, scale: 0.9 }}
+                animate={{ opacity: 1, y: 0, scale: 1 }}
+                exit={{ opacity: 0, y: 8, scale: 0.9 }}
+                transition={{ duration: 0.2 }}
+                className="flex items-center gap-1.5 p-1.5 rounded-2xl bg-white/95 dark:bg-slate-900/95 backdrop-blur-xl shadow-2xl border border-slate-200/80 dark:border-slate-800"
+              >
+                {/* Compass / Reset to North Button */}
+                <button
+                  type="button"
+                  onClick={resetRotationNorth}
+                  className="group relative flex h-9 w-9 items-center justify-center rounded-xl bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 transition-all text-slate-700 dark:text-slate-200"
+                  title={`Arah: ${currentRotation}°. Klik untuk reset ke Utara (0°)`}
+                  aria-label="Reset arah ke Utara"
+                >
+                  <div 
+                    className="transition-transform duration-300 flex items-center justify-center"
+                    style={{ transform: `rotate(${-currentRotation}deg)` }}
+                  >
+                    <Compass className="h-5 w-5 text-indigo-500 group-hover:text-indigo-600 dark:text-indigo-400" />
+                  </div>
+                </button>
+
+                {/* Rotate -45 deg */}
+                <button
+                  type="button"
+                  onClick={() => rotateMapBy(-45)}
+                  className="flex h-9 w-9 items-center justify-center rounded-xl bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 transition-all text-slate-700 dark:text-slate-200"
+                  title="Putar 360° ke Kiri (-45°)"
+                  aria-label="Putar kiri"
+                >
+                  <RotateCcw className="h-4 w-4" />
+                </button>
+
+                {/* Auto Orbit 360 Toggle */}
+                <button
+                  type="button"
+                  onClick={toggleOrbit}
+                  className={`flex items-center gap-1.5 px-3 h-9 rounded-xl font-bold text-xs transition-all ${
+                    isOrbiting
+                      ? 'bg-gradient-to-r from-emerald-500 to-teal-500 text-white shadow-md shadow-emerald-500/30 ring-2 ring-emerald-400/40'
+                      : 'bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200'
+                  }`}
+                  title={isOrbiting ? "Hentikan rotasi 360°" : "Mulai putaran otomatis 360°"}
+                >
+                  <Globe className={`h-3.5 w-3.5 ${isOrbiting ? 'animate-spin' : ''}`} style={{ animationDuration: '3s' }} />
+                  <span>{isOrbiting ? "Orbit On" : "360°"}</span>
+                </button>
+
+                {/* Rotate +45 deg */}
+                <button
+                  type="button"
+                  onClick={() => rotateMapBy(45)}
+                  className="flex h-9 w-9 items-center justify-center rounded-xl bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 transition-all text-slate-700 dark:text-slate-200"
+                  title="Putar 360° ke Kanan (+45°)"
+                  aria-label="Putar kanan"
+                >
+                  <RotateCw className="h-4 w-4" />
+                </button>
+
+                {/* Toggle Shape (Sphere Globe / Perspective) */}
+                <button
+                  type="button"
+                  onClick={() => handleSetGlobeType(globeType === 'sphere' ? 'perspective' : 'sphere')}
+                  className="flex items-center gap-1 px-2.5 h-9 rounded-xl bg-indigo-50 dark:bg-indigo-950/60 hover:bg-indigo-100 text-indigo-600 dark:text-indigo-400 border border-indigo-200 dark:border-indigo-800/80 font-bold text-xs transition-all"
+                  title="Ganti Tipe 3D (Bola Lingkaran / Miring)"
+                >
+                  {globeType === 'sphere' ? (
+                    <>
+                      <Globe className="h-3.5 w-3.5" />
+                      <span className="hidden sm:inline">Bola</span>
+                    </>
+                  ) : (
+                    <>
+                      <Box className="h-3.5 w-3.5" />
+                      <span className="hidden sm:inline">Miring</span>
+                    </>
+                  )}
+                </button>
+              </motion.div>
+            )}
+          </AnimatePresence>
+
+          {/* Main 2D / 3D Mode Toggle Button */}
+          <button
+            type="button"
+            onClick={() => handleToggle3D(!is3D)}
+            className={`group flex items-center gap-2.5 px-3.5 py-2.5 rounded-2xl backdrop-blur-xl shadow-glass border transition-all duration-300 hover:scale-105 active:scale-95 ${
+              is3D
+                ? 'bg-gradient-to-r from-indigo-600 via-brand-600 to-purple-600 text-white border-indigo-400/60 shadow-xl shadow-indigo-500/30 ring-2 ring-indigo-400/40'
+                : 'bg-white/95 dark:bg-slate-900/95 border-slate-200/80 dark:border-slate-800 text-slate-800 dark:text-slate-100 hover:bg-white dark:hover:bg-slate-800'
+            }`}
+            title={is3D ? "Kembali ke Mode 2D (Datar)" : "Beralih ke Mode 3D (Bola Dunia 360°)"}
+            aria-label="Toggle Mode 2D/3D"
+          >
+            <div className={`flex h-6 w-6 items-center justify-center rounded-lg transition-transform group-hover:rotate-12 ${
+              is3D ? 'bg-white/20 text-white' : 'bg-brand-100 dark:bg-brand-900/50 text-brand-600 dark:text-brand-400'
+            }`}>
+              {is3D ? <Globe className="h-4 w-4" /> : <Box className="h-4 w-4" />}
+            </div>
+            
+            <div className="flex flex-col items-start text-left">
+              <div className="flex items-center gap-1.5">
+                <span className="text-xs font-black tracking-wide">
+                  {is3D ? "Mode 3D" : "Mode 2D"}
+                </span>
+                <span className={`text-[9px] font-extrabold uppercase px-1.5 py-0.2 rounded-md ${
+                  is3D 
+                    ? 'bg-white/25 text-white' 
+                    : 'bg-indigo-100 dark:bg-indigo-900/50 text-indigo-600 dark:text-indigo-400'
+                }`}>
+                  {is3D ? (globeType === 'sphere' ? "Bola 360°" : "Miring") : "Flat"}
+                </span>
+              </div>
+              <span className={`text-[10px] font-medium leading-none ${is3D ? 'text-indigo-100' : 'text-slate-400'}`}>
+                {is3D ? "Rotasi 360° Aktif" : "Ketuk untuk 3D"}
+              </span>
+            </div>
+          </button>
+        </div>
       )}
 
       {/* Floating Panel Toggle Button */}
@@ -1299,26 +1623,44 @@ export function MapsView() {
               <button
                 type="button"
                 onClick={() => handleToggle3D(false)}
-                className={`flex-1 flex items-center justify-center gap-1.5 py-1.5 rounded-lg text-xs font-bold transition-all ${
+                className={`flex-1 flex items-center justify-center gap-1 py-1.5 rounded-lg text-[11px] font-bold transition-all ${
                   !is3D 
                     ? 'bg-white dark:bg-slate-700 text-brand-600 dark:text-brand-400 shadow-sm' 
                     : 'text-slate-500 dark:text-slate-400 hover:text-slate-800 dark:hover:text-slate-200'
                 }`}
               >
                 <MapIcon className="w-3.5 h-3.5" />
-                <span>Mode 2D</span>
+                <span>2D Datar</span>
               </button>
               <button
                 type="button"
-                onClick={() => handleToggle3D(true)}
-                className={`flex-1 flex items-center justify-center gap-1.5 py-1.5 rounded-lg text-xs font-bold transition-all ${
-                  is3D 
-                    ? 'bg-gradient-to-r from-indigo-500 to-brand-500 text-white shadow-sm shadow-indigo-500/30' 
+                onClick={() => {
+                  handleToggle3D(true);
+                  handleSetGlobeType('sphere');
+                }}
+                className={`flex-1 flex items-center justify-center gap-1 py-1.5 rounded-lg text-[11px] font-bold transition-all ${
+                  is3D && globeType === 'sphere'
+                    ? 'bg-gradient-to-r from-indigo-500 to-sky-500 text-white shadow-sm shadow-indigo-500/30' 
+                    : 'text-slate-500 dark:text-slate-400 hover:text-slate-800 dark:hover:text-slate-200'
+                }`}
+              >
+                <Globe className="w-3.5 h-3.5" />
+                <span>Bola 360°</span>
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  handleToggle3D(true);
+                  handleSetGlobeType('perspective');
+                }}
+                className={`flex-1 flex items-center justify-center gap-1 py-1.5 rounded-lg text-[11px] font-bold transition-all ${
+                  is3D && globeType === 'perspective'
+                    ? 'bg-gradient-to-r from-indigo-500 to-purple-500 text-white shadow-sm shadow-indigo-500/30' 
                     : 'text-slate-500 dark:text-slate-400 hover:text-slate-800 dark:hover:text-slate-200'
                 }`}
               >
                 <Box className="w-3.5 h-3.5" />
-                <span>Mode 3D</span>
+                <span>3D Miring</span>
               </button>
             </div>
           </div>
