@@ -9,7 +9,7 @@ const dictionaries: Record<Language, Dictionary> = {
     "nav.ai-learning": "Pembelajaran AI",
     "nav.maps": "Maps",
     "nav.geo-risk-map": "Peta Risiko Geo",
-    "nav.digital-twin": "Kembaran Digital",
+    "nav.digital-twin": "Harmony Twin",
     "nav.student-game": "Gabung Room / Game",
     "spatial.digital_twin_requires_school":
       "Fitur Kembaran Digital membutuhkan data sekolah. Silakan hubungi Admin untuk mengatur sekolah Anda.",
@@ -352,7 +352,7 @@ const dictionaries: Record<Language, Dictionary> = {
     "nav.ai-learning": "AI Learning",
     "nav.maps": "Maps",
     "nav.geo-risk-map": "Geo Risk Map",
-    "nav.digital-twin": "Digital Twin",
+    "nav.digital-twin": "Harmony Twin",
     "nav.student-game": "Join Room / Game",
     "spatial.digital_twin_requires_school":
       "The Digital Twin feature requires school data. Please contact Dev to set up your school.",
