@@ -13,6 +13,7 @@ import {
   ArrowRight,
   Building2,
   Map as MapIcon,
+  Loader2,
 } from "lucide-react";
 import { Logo } from "@/components/Logo";
 import { useToast } from "@/hooks/useToast";
@@ -38,6 +39,7 @@ export default function SchoolSelectionPage() {
   const { t } = useI18n();
 
   const [step, setStep] = useState<Step>(1);
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   useEffect(() => {
     if (!isLoading) {
@@ -107,6 +109,7 @@ export default function SchoolSelectionPage() {
     if (!school || !provinceId || !regencyId) return;
 
     if (currentUser) {
+      setIsSubmitting(true);
       try {
         await apiClient.post("/api/users/me/school", { schoolId: school.id });
         setSelection(school);
@@ -115,6 +118,7 @@ export default function SchoolSelectionPage() {
         navigate("/app");
       } catch (err: any) {
         show(err.message || "Gagal menyimpan sekolah", "error");
+        setIsSubmitting(false);
       }
     } else {
       navigate("/login");
@@ -619,11 +623,21 @@ export default function SchoolSelectionPage() {
                     </button>
                     <button
                       onClick={handleConfirm}
-                      className="group inline-flex flex-1 items-center justify-center gap-2 rounded-xl bg-brand-600 px-6 py-3 text-sm font-semibold text-white shadow-glass transition-all hover:bg-brand-700 hover:shadow-glow hover:-translate-y-0.5"
+                      disabled={isSubmitting}
+                      className="group inline-flex flex-1 items-center justify-center gap-2 rounded-xl bg-brand-600 px-6 py-3 text-sm font-semibold text-white shadow-glass transition-all hover:bg-brand-700 hover:shadow-glow hover:-translate-y-0.5 disabled:opacity-75 disabled:cursor-wait"
                     >
-                      <ShieldCheck className="h-4 w-4" />{" "}
-                      {t("school.confirm_action")}
-                      <ArrowRight className="h-4 w-4 transition-transform group-hover:translate-x-1" />
+                      {isSubmitting ? (
+                        <>
+                          <Loader2 className="h-4 w-4 animate-spin text-white" />
+                          <span>Menyimpan & Menyiapkan Dasbor...</span>
+                        </>
+                      ) : (
+                        <>
+                          <ShieldCheck className="h-4 w-4" />{" "}
+                          {t("school.confirm_action")}
+                          <ArrowRight className="h-4 w-4 transition-transform group-hover:translate-x-1" />
+                        </>
+                      )}
                     </button>
                   </div>
                 </motion.div>

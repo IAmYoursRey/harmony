@@ -1,7 +1,7 @@
 import { useState, useEffect, useMemo, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import { motion, AnimatePresence } from "framer-motion";
-import { Brain, Satellite, Boxes, ShieldCheck, ArrowLeft, LogOut, CheckCircle2, ChevronDown, Search, GraduationCap, BookOpen, MapPin, Building2, School as SchoolIcon } from "lucide-react";
+import { Brain, Satellite, Boxes, ShieldCheck, ArrowLeft, LogOut, CheckCircle2, ChevronDown, Search, GraduationCap, BookOpen, MapPin, Building2, School as SchoolIcon, Loader2 } from "lucide-react";
 import { Logo } from "@/components/Logo";
 import { useToast } from "@/hooks/useToast";
 import { ThemePicker } from "@/components/ThemePicker";
@@ -28,6 +28,10 @@ export default function LoginPage() {
   const [authStatus, setAuthStatus] = useState<AuthStatus>("initial");
   const [googleData, setGoogleData] = useState<any>(null);
   const [loading, setLoading] = useState(false);
+  const [loadingText, setLoadingText] = useState("");
+  const [loadingProvinces, setLoadingProvinces] = useState(false);
+  const [loadingCities, setLoadingCities] = useState(false);
+  const [loadingSchools, setLoadingSchools] = useState(false);
 
   // Registration Data
   const [regName, setRegName] = useState("");
@@ -43,12 +47,18 @@ export default function LoginPage() {
   const [schools, setSchools] = useState<School[]>([]);
 
   useEffect(() => {
-    fetchProvinces().then(setProvinces);
+    setLoadingProvinces(true);
+    fetchProvinces()
+      .then(setProvinces)
+      .finally(() => setLoadingProvinces(false));
   }, []);
 
   useEffect(() => {
     if (regProv) {
-      fetchRegencies(regProv).then(setCities);
+      setLoadingCities(true);
+      fetchRegencies(regProv)
+        .then(setCities)
+        .finally(() => setLoadingCities(false));
     } else {
       setCities([]);
     }
@@ -56,7 +66,10 @@ export default function LoginPage() {
 
   useEffect(() => {
     if (regProv && regCity) {
-      fetchSchools(regProv, regCity).then(setSchools);
+      setLoadingSchools(true);
+      fetchSchools(regProv, regCity)
+        .then(setSchools)
+        .finally(() => setLoadingSchools(false));
     } else {
       setSchools([]);
     }
@@ -80,27 +93,33 @@ export default function LoginPage() {
       return;
     }
     setLoading(true);
-    const result = await login(credentialResponse.credential);
-    setLoading(false);
-    
-    if (result.success) {
-      if (result.status === "not_registered") {
-        setGoogleData({
-          token: credentialResponse.credential,
-          email: result.email,
-          name: result.name,
-          picture: result.picture,
-        });
-        setRegName(result.name || "");
-        setAuthStatus("not_registered");
-      } else if (result.status === "registered") {
-        setGoogleData({
-          account: result.account,
-        });
-        setAuthStatus("registered");
+    setLoadingText("Memverifikasi akun Google...");
+    try {
+      const result = await login(credentialResponse.credential);
+      if (result.success) {
+        if (result.status === "not_registered") {
+          setGoogleData({
+            token: credentialResponse.credential,
+            email: result.email,
+            name: result.name,
+            picture: result.picture,
+          });
+          setRegName(result.name || "");
+          setAuthStatus("not_registered");
+        } else if (result.status === "registered") {
+          setGoogleData({
+            account: result.account,
+          });
+          setAuthStatus("registered");
+        }
+      } else {
+        show(result.error ?? "Gagal masuk", "error");
       }
-    } else {
-      show(result.error ?? "Gagal masuk", "error");
+    } catch (e: any) {
+      show(e?.message || "Terjadi kesalahan saat memverifikasi akun", "error");
+    } finally {
+      setLoading(false);
+      setLoadingText("");
     }
   };
 
@@ -112,9 +131,17 @@ export default function LoginPage() {
   const handleLanjutMasuk = async () => {
     if (googleData?.account) {
       setLoading(true);
-      await finalizeLogin(googleData.account);
-      show("Selamat datang kembali!", "success");
-      navigate("/app");
+      setLoadingText("Menghubungkan akun ke dasbor...");
+      try {
+        await finalizeLogin(googleData.account);
+        setLoadingText("Membuka aplikasi...");
+        show("Selamat datang kembali!", "success");
+        navigate("/app");
+      } catch (err: any) {
+        show(err?.message || "Gagal masuk ke sistem. Silakan coba lagi.", "error");
+        setLoading(false);
+        setLoadingText("");
+      }
     }
   };
 
@@ -124,21 +151,30 @@ export default function LoginPage() {
       return;
     }
     setLoading(true);
-    const result = await registerGoogle(
-      googleData.token, 
-      regRole, 
-      regName, 
-      regSchool, 
-      "X", 
-      "1"
-    );
-    setLoading(false);
-    
-    if (result.success) {
-      show("Pendaftaran berhasil!", "success");
-      navigate("/app");
-    } else {
-      show(result.error ?? "Gagal mendaftar", "error");
+    setLoadingText("Mendaftarkan akun & menyiapkan profil...");
+    try {
+      const result = await registerGoogle(
+        googleData.token, 
+        regRole, 
+        regName, 
+        regSchool, 
+        "X", 
+        "1"
+      );
+      
+      if (result.success) {
+        setLoadingText("Menyiapkan dasbor...");
+        show("Pendaftaran berhasil!", "success");
+        navigate("/app");
+      } else {
+        show(result.error ?? "Gagal mendaftar", "error");
+        setLoading(false);
+        setLoadingText("");
+      }
+    } catch (e: any) {
+      show(e?.message || "Terjadi kesalahan saat mendaftar", "error");
+      setLoading(false);
+      setLoadingText("");
     }
   };
 
@@ -202,7 +238,17 @@ export default function LoginPage() {
                   Silakan masuk menggunakan akun Google Anda
                 </p>
                 {loading ? (
-                  <div className="h-8 w-8 animate-spin rounded-full border-4 border-brand-200 border-t-brand-600" />
+                  <div className="flex flex-col items-center justify-center gap-3 py-6">
+                    <Loader2 className="h-10 w-10 animate-spin text-brand-600" />
+                    <div className="space-y-1 text-center">
+                      <p className="text-sm font-semibold text-brand-600 dark:text-brand-400 animate-pulse">
+                        {loadingText || "Memverifikasi akun Google..."}
+                      </p>
+                      <p className="text-xs text-ink-400 dark:text-slate-500">
+                        Mohon tunggu beberapa saat...
+                      </p>
+                    </div>
+                  </div>
                 ) : (
                   <GoogleLogin
                     onSuccess={handleGoogleSuccess}
@@ -259,13 +305,37 @@ export default function LoginPage() {
                   </p>
                 </div>
                 <div className="flex w-full flex-col gap-3 sm:flex-row">
-                  <button onClick={handleCancel} className="flex-1 rounded-xl border border-ink-200 bg-white px-4 py-2.5 text-sm font-semibold text-ink-700 hover:bg-ink-50 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-300 flex items-center justify-center gap-2">
+                  <button
+                    onClick={handleCancel}
+                    disabled={loading}
+                    className="flex-1 rounded-xl border border-ink-200 bg-white px-4 py-2.5 text-sm font-semibold text-ink-700 hover:bg-ink-50 disabled:opacity-50 disabled:cursor-not-allowed dark:border-slate-700 dark:bg-slate-800 dark:text-slate-300 flex items-center justify-center gap-2"
+                  >
                     <LogOut className="h-4 w-4" /> Keluar
                   </button>
-                  <button onClick={handleLanjutMasuk} className="flex-1 rounded-xl bg-brand-600 px-4 py-2.5 text-sm font-semibold text-white hover:bg-brand-700 flex items-center justify-center gap-2">
-                    <CheckCircle2 className="h-4 w-4" /> Lanjut masuk
+                  <button
+                    onClick={handleLanjutMasuk}
+                    disabled={loading}
+                    className="flex-1 rounded-xl bg-brand-600 px-4 py-2.5 text-sm font-semibold text-white hover:bg-brand-700 disabled:opacity-75 disabled:cursor-wait flex items-center justify-center gap-2 shadow-md shadow-brand-500/20 transition-all"
+                  >
+                    {loading ? (
+                      <>
+                        <Loader2 className="h-4 w-4 animate-spin text-white" />
+                        <span>{loadingText || "Memproses..."}</span>
+                      </>
+                    ) : (
+                      <>
+                        <CheckCircle2 className="h-4 w-4" />
+                        <span>Lanjut masuk</span>
+                      </>
+                    )}
                   </button>
                 </div>
+                {loading && (
+                  <div className="flex w-full items-center justify-center gap-2.5 rounded-xl border border-brand-200 bg-brand-50/80 px-4 py-3 text-xs font-medium text-brand-700 dark:border-brand-900/50 dark:bg-brand-950/40 dark:text-brand-300 shadow-sm animate-pulse">
+                    <Loader2 className="h-4 w-4 animate-spin text-brand-600 dark:text-brand-400 shrink-0" />
+                    <span>{loadingText || "Sedang memuat data akun dan mengarahkan ke dasbor..."}</span>
+                  </div>
+                )}
               </motion.div>
             )}
 
@@ -340,7 +410,7 @@ export default function LoginPage() {
                       icon={MapPin}
                       value={regProv}
                       options={provinces}
-                      placeholder="Pilih Provinsi"
+                      placeholder={loadingProvinces ? "Memuat provinsi..." : "Pilih Provinsi"}
                       onChange={(val) => {
                         setRegProv(val);
                         setRegCity("");
@@ -353,12 +423,18 @@ export default function LoginPage() {
                       icon={Building2}
                       value={regCity}
                       options={cities}
-                      placeholder="Pilih Kota/Kabupaten"
+                      placeholder={
+                        !regProv
+                          ? "Pilih provinsi terlebih dahulu"
+                          : loadingCities
+                          ? "Memuat kabupaten/kota..."
+                          : "Pilih Kota/Kabupaten"
+                      }
                       onChange={(val) => {
                         setRegCity(val);
                         setRegSchool("");
                       }}
-                      disabled={!regProv}
+                      disabled={!regProv || loadingCities}
                     />
                     
                     <SearchableDropdown
@@ -366,19 +442,50 @@ export default function LoginPage() {
                       icon={SchoolIcon}
                       value={regSchool}
                       options={filteredSchools.map(s => ({ id: s.id, name: s.name }))}
-                      placeholder="Pilih Sekolah"
+                      placeholder={
+                        !regCity
+                          ? "Pilih kota/kabupaten terlebih dahulu"
+                          : loadingSchools
+                          ? "Memuat daftar sekolah..."
+                          : "Pilih Sekolah"
+                      }
                       onChange={setRegSchool}
-                      disabled={!regCity}
+                      disabled={!regCity || loadingSchools}
                     />
+
+                    {loadingSchools && (
+                      <p className="text-xs text-brand-600 dark:text-brand-400 animate-pulse flex items-center gap-1.5 mt-1">
+                        <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                        <span>Mengambil basis data sekolah...</span>
+                      </p>
+                    )}
                   </div>
                 </div>
 
                 <div className="flex w-full flex-col gap-3 sm:flex-row mt-4">
-                  <button onClick={() => setAuthStatus("register_level")} className="flex-1 rounded-xl border border-ink-200 bg-white px-4 py-2.5 text-sm font-semibold text-ink-700 hover:bg-ink-50 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-300 flex items-center justify-center gap-2">
+                  <button
+                    onClick={() => setAuthStatus("register_level")}
+                    disabled={loading}
+                    className="flex-1 rounded-xl border border-ink-200 bg-white px-4 py-2.5 text-sm font-semibold text-ink-700 hover:bg-ink-50 disabled:opacity-50 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-300 flex items-center justify-center gap-2"
+                  >
                     Kembali
                   </button>
-                  <button onClick={submitRegistration} disabled={loading || !regSchool} className="flex-1 rounded-xl bg-brand-600 px-4 py-2.5 text-sm font-semibold text-white hover:bg-brand-700 disabled:opacity-50 flex items-center justify-center gap-2">
-                    {loading ? "Menyimpan..." : "Selesai"}
+                  <button
+                    onClick={submitRegistration}
+                    disabled={loading || !regSchool}
+                    className="flex-1 rounded-xl bg-brand-600 px-4 py-2.5 text-sm font-semibold text-white hover:bg-brand-700 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2 shadow-md shadow-brand-500/20 transition-all"
+                  >
+                    {loading ? (
+                      <>
+                        <Loader2 className="h-4 w-4 animate-spin text-white" />
+                        <span>{loadingText || "Menyimpan..."}</span>
+                      </>
+                    ) : (
+                      <>
+                        <CheckCircle2 className="h-4 w-4" />
+                        <span>Selesai</span>
+                      </>
+                    )}
                   </button>
                 </div>
               </motion.div>

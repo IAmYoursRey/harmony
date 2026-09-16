@@ -51,10 +51,18 @@ export function DashboardSkeleton() {
 
 import { LogoSpinner } from "@/components/ui/LogoSpinner";
 
-export function PageSkeleton() {
+export function PageSkeleton({ label = "Memuat halaman..." }: { label?: string }) {
   return (
-    <div className="flex h-[calc(100vh-4rem)] items-center justify-center">
+    <div className="flex h-[calc(100vh-4rem)] flex-col items-center justify-center gap-4">
       <LogoSpinner size="lg" />
+      <div className="flex flex-col items-center gap-1">
+        <p className="text-sm font-semibold text-brand-600 dark:text-brand-400 animate-pulse">
+          {label}
+        </p>
+        <p className="text-xs text-ink-400 dark:text-slate-500">
+          Mohon tunggu beberapa saat...
+        </p>
+      </div>
     </div>
   );
 }

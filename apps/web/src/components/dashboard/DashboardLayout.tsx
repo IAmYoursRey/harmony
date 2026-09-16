@@ -4,6 +4,7 @@ import { Topbar } from "@/components/dashboard/Topbar";
 import { navItems } from "@/components/dashboard/nav";
 import { useState } from "react";
 import { useAuth } from "@/hooks/useAuth";
+import { LogoSpinner } from "@/components/ui/LogoSpinner";
 
 export function DashboardLayout() {
   const [mobileOpen, setMobileOpen] = useState(false);
@@ -55,18 +56,16 @@ export function DashboardLayout() {
               onOpenMobile={() => setMobileOpen(true)}
               title={current?.label ?? "Dashboard"}
             />
-            <main className="flex-1 overflow-y-auto px-4 pt-6 pb-24 sm:px-6 sm:py-8 lg:px-8">
-              <div className="page-enter">
-                <div className="space-y-6 animate-pulse">
-                  <div className="h-48 w-full rounded-2xl bg-slate-200 dark:bg-slate-800"></div>
-                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-                    {[1, 2, 3, 4].map((i) => (
-                      <div
-                        key={i}
-                        className="h-32 rounded-2xl bg-slate-200 dark:bg-slate-800"
-                      ></div>
-                    ))}
-                  </div>
+            <main className="flex-1 overflow-y-auto px-4 pt-6 pb-24 sm:px-6 sm:py-8 lg:px-8 flex items-center justify-center">
+              <div className="flex flex-col items-center justify-center gap-4 rounded-3xl glass p-8 text-center max-w-sm shadow-glass">
+                <LogoSpinner size="lg" />
+                <div className="space-y-1.5">
+                  <h3 className="font-display text-base font-bold text-ink-900 dark:text-white animate-pulse">
+                    Memuat Dasbor & Profil...
+                  </h3>
+                  <p className="text-xs text-ink-500 dark:text-slate-400">
+                    Menghubungkan sesi Anda dengan aman
+                  </p>
                 </div>
               </div>
             </main>
