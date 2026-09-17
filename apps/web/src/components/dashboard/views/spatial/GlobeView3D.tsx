@@ -366,7 +366,7 @@ export function GlobeView3D({
   showPeaks = true,
   showTectonicPlates = true,
   showEarthquakes = true,
-  showEarthSensors = true,
+  showEarthSensors = false,
   onSelectSensor,
   activeRouteCoords,
   initialCenter,

@@ -807,7 +807,7 @@ const DEFAULT_MAP_SETTINGS: MapLayerSettings = {
   showSMA: false,
   showTectonic: false,
   showEarthquakes: false,
-  showTsunamiSensors: true,
+  showTsunamiSensors: false,
   showForests: false,
   showKota: false,
   showKabupaten: false,
@@ -829,10 +829,19 @@ function getSynchronousUserId(): string {
 }
 
 // Clean up legacy global keys so previous versions do not force 'true'
-if (typeof window !== 'undefined' && !window.localStorage.getItem('hm_migrated_v2')) {
+if (typeof window !== 'undefined' && !window.localStorage.getItem('hm_migrated_v3')) {
   try {
-    ['hm_showActive', 'hm_showInactive', 'hm_showPeaks', 'hm_showSD', 'hm_showSMP', 'hm_showSMA', 'hm_showTectonic', 'hm_showEarthquakes', 'hm_showForests', 'hm_showKota', 'hm_showKabupaten', 'hm_showDesa'].forEach(k => window.localStorage.removeItem(k));
-    window.localStorage.setItem('hm_migrated_v2', 'true');
+    ['hm_showActive', 'hm_showInactive', 'hm_showPeaks', 'hm_showSD', 'hm_showSMP', 'hm_showSMA', 'hm_showTectonic', 'hm_showEarthquakes', 'hm_showForests', 'hm_showKota', 'hm_showKabupaten', 'hm_showDesa', 'hm_equator_zones'].forEach(k => window.localStorage.removeItem(k));
+    Object.keys(window.localStorage).forEach((k) => {
+      if (k.startsWith('hm_user_layers_')) {
+        try {
+          const parsed = JSON.parse(window.localStorage.getItem(k) || '{}');
+          parsed.showTsunamiSensors = false;
+          window.localStorage.setItem(k, JSON.stringify(parsed));
+        } catch (e) {}
+      }
+    });
+    window.localStorage.setItem('hm_migrated_v3', 'true');
   } catch (e) {}
 }
 
@@ -1216,7 +1225,7 @@ export function MapsView() {
   const setShowTectonic = (v: boolean | ((prev: boolean) => boolean)) => updateSetting('showTectonic', v);
   const showEarthquakes = settings.showEarthquakes;
   const setShowEarthquakes = (v: boolean | ((prev: boolean) => boolean)) => updateSetting('showEarthquakes', v);
-  const showTsunamiSensors = settings.showTsunamiSensors ?? true;
+  const showTsunamiSensors = settings.showTsunamiSensors ?? false;
   const setShowTsunamiSensors = (v: boolean | ((prev: boolean) => boolean)) => updateSetting('showTsunamiSensors', v);
 
   // Weather Map Layer Integration (Native OpenLayers Doppler Radar & Windy ECMWF Studio)
@@ -1293,12 +1302,12 @@ export function MapsView() {
   const userMarkerLayerRef = useRef<VectorLayer<VectorSource> | null>(null);
   const watchIdRef = useRef<number | null>(null);
 
-  // Garis Khatulistiwa, Garis Balik Tropis & Batas Zona Iklim State
+  // Garis Khatulistiwa, Garis Balik Tropis & Batas Zona Iklim State (Default OFF)
   const [showEquatorZones, setShowEquatorZones] = useState<boolean>(() => {
     try {
-      return window.localStorage.getItem('hm_equator_zones') !== 'false';
+      return window.localStorage.getItem('hm_equator_zones') === 'true';
     } catch (e) {
-      return true;
+      return false;
     }
   });
   const [showEquatorGuide, setShowEquatorGuide] = useState<boolean>(false);
@@ -4292,7 +4301,16 @@ export function MapsView() {
             <div className="pt-2 border-t border-slate-800 flex items-center justify-between gap-2">
               <button
                 type="button"
-                onClick={() => setShowEquatorZones((prev) => !prev)}
+                onClick={() => {
+                  setShowEquatorZones((prev) => {
+                    const next = !prev;
+                    try { window.localStorage.setItem('hm_equator_zones', String(next)); } catch (e) {}
+                    if (equatorLayerRef.current) {
+                      equatorLayerRef.current.setVisible(next);
+                    }
+                    return next;
+                  });
+                }}
                 className={`flex-1 py-1.5 px-2 rounded-xl text-[10px] font-bold transition-colors ${
                   showEquatorZones
                     ? 'bg-amber-500/20 text-amber-300 border border-amber-500/40'
