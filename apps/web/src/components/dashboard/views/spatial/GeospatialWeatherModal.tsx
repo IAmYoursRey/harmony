@@ -361,38 +361,43 @@ export const GeospatialWeatherModal: React.FC<GeospatialWeatherModalProps> = ({
     };
   }, [data]);
 
+  const hourlyChartData = useMemo(() => {
+    if (!data) return [];
+    return data.hourly.map((h) => {
+      const e = (h.humidity / 100) * 6.105 * Math.exp((17.27 * h.temperature) / (237.7 + h.temperature));
+      const apparentTemp = h.apparentTemp ?? (Math.round((h.temperature + 0.33 * e - 0.7 * (h.windSpeed / 3.6) - 4.0) * 10) / 10);
+      let intensityLabel = 'Cerah / Berawan';
+      let intensityColor = '#94a3b8';
+      if (h.precipitation > 20) {
+        intensityLabel = 'Sangat Lebat (BMKG)';
+        intensityColor = '#ef4444';
+      } else if (h.precipitation > 10) {
+        intensityLabel = 'Lebat (BMKG)';
+        intensityColor = '#f97316';
+      } else if (h.precipitation > 5) {
+        intensityLabel = 'Sedang (BMKG)';
+        intensityColor = '#fbbf24';
+      } else if (h.precipitation > 1) {
+        intensityLabel = 'Ringan (BMKG)';
+        intensityColor = '#38bdf8';
+      } else if (h.precipitation > 0) {
+        intensityLabel = 'Gerimis / Ringan (BMKG)';
+        intensityColor = '#6ee7b7';
+      }
+      return {
+        ...h,
+        apparentTemp,
+        windGustEstimated: Math.round(h.windSpeed * 1.45),
+        intensityLabel,
+        intensityColor,
+      };
+    });
+  }, [data]);
+
   const chartData = useMemo(() => {
     if (!data) return [];
     if (timeframe === 'hourly') {
-      return data.hourly.map((h) => {
-        const e = (h.humidity / 100) * 6.105 * Math.exp((17.27 * h.temperature) / (237.7 + h.temperature));
-        const apparentTemp = h.apparentTemp ?? (Math.round((h.temperature + 0.33 * e - 0.7 * (h.windSpeed / 3.6) - 4.0) * 10) / 10);
-        let intensityLabel = 'Cerah / Berawan';
-        let intensityColor = '#94a3b8';
-        if (h.precipitation > 20) {
-          intensityLabel = 'Sangat Lebat (BMKG)';
-          intensityColor = '#ef4444';
-        } else if (h.precipitation > 10) {
-          intensityLabel = 'Lebat (BMKG)';
-          intensityColor = '#f97316';
-        } else if (h.precipitation > 5) {
-          intensityLabel = 'Sedang (BMKG)';
-          intensityColor = '#fbbf24';
-        } else if (h.precipitation > 1) {
-          intensityLabel = 'Ringan (BMKG)';
-          intensityColor = '#38bdf8';
-        } else if (h.precipitation > 0) {
-          intensityLabel = 'Gerimis / Ringan (BMKG)';
-          intensityColor = '#6ee7b7';
-        }
-        return {
-          ...h,
-          apparentTemp,
-          windGustEstimated: Math.round(h.windSpeed * 1.45),
-          intensityLabel,
-          intensityColor,
-        };
-      });
+      return hourlyChartData;
     }
     const sliceCount = timeframe === 'daily' ? 7 : 14;
     return data.daily.slice(0, sliceCount).map((d) => ({
@@ -400,7 +405,7 @@ export const GeospatialWeatherModal: React.FC<GeospatialWeatherModalProps> = ({
       apparentTempMax: Math.round((d.tempMax + 2.1) * 10) / 10,
       windGustMax: Math.round(d.windSpeedMax * 1.4),
     }));
-  }, [data, timeframe]);
+  }, [data, timeframe, hourlyChartData]);
 
   const chartSummary = useMemo(() => {
     if (!chartData || chartData.length === 0) return null;
@@ -1252,7 +1257,7 @@ export const GeospatialWeatherModal: React.FC<GeospatialWeatherModalProps> = ({
                     <div className="h-72 w-full">
                       {mainVisualGraph === 'temp' && (
                         <ResponsiveContainer width="100%" height="100%">
-                          <AreaChart data={chartData}>
+                          <AreaChart data={hourlyChartData}>
                             <defs>
                               <linearGradient id="tempGradient" x1="0" y1="0" x2="0" y2="1">
                                 <stop offset="5%" stopColor="#f59e0b" stopOpacity={0.4} />
@@ -1264,7 +1269,7 @@ export const GeospatialWeatherModal: React.FC<GeospatialWeatherModalProps> = ({
                             <YAxis stroke="#94a3b8" unit="°C" domain={['auto', 'auto']} tick={{ fontSize: 11 }} />
                             <Tooltip
                               contentStyle={{ backgroundColor: '#0f172a', borderColor: '#334155', borderRadius: '12px', color: '#fff', fontSize: '12px' }}
-                              formatter={(value: any, name: string) => [`${value}°C`, name === 'temperature' ? 'Suhu Udara' : 'Terasa Seperti']}
+                              formatter={(value: any, name?: any) => [`${value}°C`, name === 'temperature' ? 'Suhu Udara' : 'Terasa Seperti']}
                             />
                             <Legend wrapperStyle={{ fontSize: '11px', paddingTop: '8px' }} />
                             <Area type="monotone" dataKey="temperature" name="Suhu (°C)" stroke="#f59e0b" strokeWidth={3} fill="url(#tempGradient)" />
@@ -1275,14 +1280,14 @@ export const GeospatialWeatherModal: React.FC<GeospatialWeatherModalProps> = ({
 
                       {mainVisualGraph === 'rain' && (
                         <ResponsiveContainer width="100%" height="100%">
-                          <ComposedChart data={chartData}>
+                          <ComposedChart data={hourlyChartData}>
                             <CartesianGrid strokeDasharray="3 3" opacity={0.15} />
                             <XAxis dataKey="label" stroke="#94a3b8" tick={{ fontSize: 11 }} />
                             <YAxis yAxisId="mm" stroke="#0284c7" unit=" mm" domain={[0, 'auto']} tick={{ fontSize: 11 }} />
                             <YAxis yAxisId="prob" orientation="right" stroke="#38bdf8" unit="%" domain={[0, 100]} tick={{ fontSize: 11 }} />
                             <Tooltip
                               contentStyle={{ backgroundColor: '#0f172a', borderColor: '#334155', borderRadius: '12px', color: '#fff', fontSize: '12px' }}
-                              formatter={(value: any, name: string) => [
+                              formatter={(value: any, name?: any) => [
                                 name === 'precipitation' ? `${value} mm/jam` : `${value}%`,
                                 name === 'precipitation' ? 'Intensitas Curah Hujan' : 'Peluang Hujan'
                               ]}
@@ -1296,7 +1301,7 @@ export const GeospatialWeatherModal: React.FC<GeospatialWeatherModalProps> = ({
 
                       {mainVisualGraph === 'cloud' && (
                         <ResponsiveContainer width="100%" height="100%">
-                          <AreaChart data={chartData}>
+                          <AreaChart data={hourlyChartData}>
                             <defs>
                               <linearGradient id="cloudGradient" x1="0" y1="0" x2="0" y2="1">
                                 <stop offset="5%" stopColor="#64748b" stopOpacity={0.35} />
@@ -1308,7 +1313,7 @@ export const GeospatialWeatherModal: React.FC<GeospatialWeatherModalProps> = ({
                             <YAxis stroke="#94a3b8" unit="%" domain={[0, 100]} tick={{ fontSize: 11 }} />
                             <Tooltip
                               contentStyle={{ backgroundColor: '#0f172a', borderColor: '#334155', borderRadius: '12px', color: '#fff', fontSize: '12px' }}
-                              formatter={(value: any, name: string) => [`${value}%`, name === 'cloudCover' ? 'Tutupan Awan' : 'Kelembapan Udara']}
+                              formatter={(value: any, name?: any) => [`${value}%`, name === 'cloudCover' ? 'Tutupan Awan' : 'Kelembapan Udara']}
                             />
                             <Legend wrapperStyle={{ fontSize: '11px', paddingTop: '8px' }} />
                             <Area type="monotone" dataKey="cloudCover" name="Tutupan Awan (%)" stroke="#64748b" strokeWidth={2.5} fill="url(#cloudGradient)" />
@@ -1319,7 +1324,7 @@ export const GeospatialWeatherModal: React.FC<GeospatialWeatherModalProps> = ({
 
                       {mainVisualGraph === 'all' && (
                         <ResponsiveContainer width="100%" height="100%">
-                          <ComposedChart data={chartData}>
+                          <ComposedChart data={hourlyChartData}>
                             <CartesianGrid strokeDasharray="3 3" opacity={0.15} />
                             <XAxis dataKey="label" stroke="#94a3b8" tick={{ fontSize: 11 }} />
                             <YAxis yAxisId="temp" stroke="#f59e0b" unit="°C" domain={['auto', 'auto']} tick={{ fontSize: 11 }} />
