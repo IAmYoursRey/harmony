@@ -3662,8 +3662,8 @@ export function MapsView() {
         .ol-zoom {
           ${weatherMapOverlay !== 'none' ? 'display: none !important;' : `
           top: auto !important;
-          bottom: 5.5rem !important;
-          left: 1.25rem !important;
+          bottom: 8.5rem !important;
+          left: 1rem !important;
           z-index: 25 !important;
           `}
         }
@@ -4168,9 +4168,9 @@ export function MapsView() {
         )}
       </AnimatePresence>
 
-      {/* Tombol Bulat Pojok Kiri Bawah: Transparansi Sumber Data Resmi (BMKG, PVMBG, BIG, BNPB, Kemendikbud) */}
+      {/* Tombol Bulat Pojok Kiri: Transparansi Sumber Data Resmi (BMKG, PVMBG, BIG, BNPB, Kemendikbud) */}
       {weatherMapOverlay === 'none' && (
-        <div className="absolute bottom-3 sm:bottom-4 left-3 sm:left-4 z-30 pointer-events-auto">
+        <div className="absolute bottom-14 sm:bottom-16 left-3 sm:left-4 z-30 pointer-events-auto">
           <div className="relative group">
             <button
               type="button"
@@ -4209,9 +4209,9 @@ export function MapsView() {
         </div>
       )}
 
-      {/* Bottom-Left Unified Status & Intelligence Bar (Digeser ke kanan agar bebas tabrakan) */}
+      {/* Bottom-Left Unified Status & Intelligence Bar */}
       {weatherMapOverlay === 'none' && (
-        <div className="absolute bottom-3 sm:bottom-4 left-15 sm:left-17 z-20 flex flex-wrap items-center gap-2 max-w-[calc(100vw-12rem)] pointer-events-auto">
+        <div className="absolute bottom-3 sm:bottom-4 left-3 sm:left-4 z-20 flex flex-wrap items-center gap-2 max-w-[calc(100vw-8rem)] pointer-events-auto">
           {/* 1. Basemap Provenance Pill */}
           <button
             type="button"
