@@ -48,6 +48,7 @@ import {
   BarChart,
   LineChart,
   AreaChart,
+  ComposedChart,
   Bar,
   Line,
   Area,
@@ -83,17 +84,18 @@ interface GeospatialWeatherModalProps {
   earthquakes?: any[];
   schools?: any[];
   asPage?: boolean;
+  initialDomain?: StudioDomain;
 }
 
 type StudioDomain =
+  | 'weather'
+  | 'bmkg'
   | 'remote_sensing'
   | 'terrain'
   | 'positioning'
   | 'hydrology'
   | 'analytics'
   | 'field_survey'
-  | 'weather'
-  | 'bmkg'
   | 'charts'
   | 'fusion'
   | 'catalog';
@@ -117,6 +119,34 @@ interface StudioDomainDef {
 }
 
 const STUDIO_DOMAINS: StudioDomainDef[] = [
+  // Prioritas Utama: Cuaca & Visualisasi Intuitif
+  {
+    id: 'weather',
+    name: 'Ringkasan Cuaca & Grafik',
+    badge: 'Live Konsensus',
+    icon: Cloud,
+    pillar: 'atmosfer',
+    pillarLabel: 'Atmosfer & Cuaca',
+    badgeColor: {
+      active: 'bg-sky-500/15 text-sky-600 dark:text-sky-400 border-sky-500/30',
+      inactive: 'bg-slate-100 text-slate-500 dark:bg-slate-800 dark:text-slate-400 border-slate-200 dark:border-slate-700',
+      indicator: 'bg-sky-500',
+    },
+  },
+  {
+    id: 'bmkg',
+    name: 'Satu Peta MKG',
+    badge: 'BMKG Intel',
+    icon: Radio,
+    pillar: 'atmosfer',
+    pillarLabel: 'Atmosfer & MKG',
+    badgeColor: {
+      active: 'bg-indigo-500/15 text-indigo-600 dark:text-indigo-400 border-indigo-500/30',
+      inactive: 'bg-slate-100 text-slate-500 dark:bg-slate-800 dark:text-slate-400 border-slate-200 dark:border-slate-700',
+      indicator: 'bg-indigo-500',
+    },
+  },
+
   // Pilar 1: Observasi Bumi (5)
   {
     id: 'remote_sensing',
@@ -181,34 +211,6 @@ const STUDIO_DOMAINS: StudioDomainDef[] = [
       active: 'bg-teal-500/15 text-teal-600 dark:text-teal-400 border-teal-500/30',
       inactive: 'bg-slate-100 text-slate-500 dark:bg-slate-800 dark:text-slate-400 border-slate-200 dark:border-slate-700',
       indicator: 'bg-teal-500',
-    },
-  },
-
-  // Pilar 2: Atmosfer & Konsensus Cuaca (2)
-  {
-    id: 'weather',
-    name: 'Cuaca Konsensus',
-    badge: '9 Model NWP',
-    icon: Cloud,
-    pillar: 'atmosfer',
-    pillarLabel: 'Atmosfer & MKG',
-    badgeColor: {
-      active: 'bg-indigo-500/15 text-indigo-600 dark:text-indigo-400 border-indigo-500/30',
-      inactive: 'bg-slate-100 text-slate-500 dark:bg-slate-800 dark:text-slate-400 border-slate-200 dark:border-slate-700',
-      indicator: 'bg-indigo-500',
-    },
-  },
-  {
-    id: 'bmkg',
-    name: 'Satu Peta MKG',
-    badge: 'BMKG Intel',
-    icon: Radio,
-    pillar: 'atmosfer',
-    pillarLabel: 'Atmosfer & MKG',
-    badgeColor: {
-      active: 'bg-sky-500/15 text-sky-600 dark:text-sky-400 border-sky-500/30',
-      inactive: 'bg-slate-100 text-slate-500 dark:bg-slate-800 dark:text-slate-400 border-slate-200 dark:border-slate-700',
-      indicator: 'bg-sky-500',
     },
   },
 
@@ -278,9 +280,10 @@ export const GeospatialWeatherModal: React.FC<GeospatialWeatherModalProps> = ({
   earthquakes = [],
   schools = [],
   asPage = false,
+  initialDomain = 'weather',
 }) => {
-  // Domain selection (Default to remote sensing or weather)
-  const [activeDomain, setActiveDomain] = useState<StudioDomain>('remote_sensing');
+  // Domain selection (Default ke weather - cuaca konsensus & grafik)
+  const [activeDomain, setActiveDomain] = useState<StudioDomain>(initialDomain || 'weather');
   const [domainPillarFilter, setDomainPillarFilter] = useState<'all' | 'observasi' | 'atmosfer' | 'analitik'>('all');
   const domainTabsScrollRef = useRef<HTMLDivElement>(null);
 
@@ -312,13 +315,58 @@ export const GeospatialWeatherModal: React.FC<GeospatialWeatherModalProps> = ({
   const [activeWeatherTab, setActiveWeatherTab] = useState<TabCategory>('overview');
   const [selectedHour, setSelectedHour] = useState<number>(new Date().getHours());
   const [chartMetric, setChartMetric] = useState<WeatherChartMetric>('temperature');
+  const [mainVisualGraph, setMainVisualGraph] = useState<'temp' | 'rain' | 'cloud' | 'all'>('temp');
+  const [showAdvancedScience, setShowAdvancedScience] = useState(false);
+
+  // Intisari cepat & padat untuk pengguna umum
+  const weatherInsights = useMemo(() => {
+    if (!data?.hourly || data.hourly.length === 0) return null;
+
+    const hourlyList = data.hourly;
+    const peakHeat = hourlyList.reduce((max, h) => (h.temperature > max.temperature ? h : max), hourlyList[0]);
+    const minHeat = hourlyList.reduce((min, h) => (h.temperature < min.temperature ? h : min), hourlyList[0]);
+    const peakRain = hourlyList.reduce((max, h) => ((h.precipitation || 0) > (max.precipitation || 0) ? h : max), hourlyList[0]);
+    const peakRainProb = hourlyList.reduce((max, h) => ((h.precipitationProb || 0) > (max.precipitationProb || 0) ? h : max), hourlyList[0]);
+
+    const rainHours = hourlyList.filter((h) => (h.precipitation || 0) > 0 || (h.precipitationProb || 0) >= 50);
+    let rainWindowText = 'Cenderung kering sepanjang hari';
+    if (rainHours.length > 0) {
+      const firstH = rainHours[0].label;
+      const lastH = rainHours[rainHours.length - 1].label;
+      const maxP = Math.max(...rainHours.map((h) => h.precipitation || 0));
+      const rainType = maxP >= 5.0 ? 'Hujan lebat' : (maxP >= 1.0 ? 'Hujan sedang' : 'Gerimis / hujan ringan');
+      rainWindowText = `${rainType} sekitar pukul ${firstH === lastH ? firstH : `${firstH} - ${lastH}`} WIB`;
+    }
+
+    const avgCloud = Math.round(
+      hourlyList.reduce((acc, h) => acc + (h.cloudCover ?? 25), 0) / hourlyList.length
+    );
+    let cloudStatus = 'Cerah Berawan';
+    if (avgCloud >= 75) cloudStatus = 'Mendung / Berawan Tebal';
+    else if (avgCloud >= 40) cloudStatus = 'Sebagian Berawan';
+    else if (avgCloud <= 20) cloudStatus = 'Langit Cerah Terbuka';
+
+    return {
+      peakHeatHour: peakHeat.label,
+      peakHeatTemp: peakHeat.temperature,
+      minHeatHour: minHeat.label,
+      minHeatTemp: minHeat.temperature,
+      peakRainHour: peakRain.label,
+      peakRainAmount: peakRain.precipitation,
+      peakRainProb: peakRainProb.precipitationProb,
+      peakRainProbHour: peakRainProb.label,
+      rainWindowText,
+      avgCloud,
+      cloudStatus,
+    };
+  }, [data]);
 
   const chartData = useMemo(() => {
     if (!data) return [];
     if (timeframe === 'hourly') {
       return data.hourly.map((h) => {
         const e = (h.humidity / 100) * 6.105 * Math.exp((17.27 * h.temperature) / (237.7 + h.temperature));
-        const apparentTemp = Math.round((h.temperature + 0.33 * e - 0.7 * (h.windSpeed / 3.6) - 4.0) * 10) / 10;
+        const apparentTemp = h.apparentTemp ?? (Math.round((h.temperature + 0.33 * e - 0.7 * (h.windSpeed / 3.6) - 4.0) * 10) / 10);
         let intensityLabel = 'Cerah / Berawan';
         let intensityColor = '#94a3b8';
         if (h.precipitation > 20) {
@@ -334,7 +382,7 @@ export const GeospatialWeatherModal: React.FC<GeospatialWeatherModalProps> = ({
           intensityLabel = 'Ringan (BMKG)';
           intensityColor = '#38bdf8';
         } else if (h.precipitation > 0) {
-          intensityLabel = 'Sangat Ringan (BMKG)';
+          intensityLabel = 'Gerimis / Ringan (BMKG)';
           intensityColor = '#6ee7b7';
         }
         return {
@@ -371,32 +419,29 @@ export const GeospatialWeatherModal: React.FC<GeospatialWeatherModalProps> = ({
         maxProb: `${maxProb}% (${peakRainHour})`,
         maxWind: `${maxWind} km/h`,
       };
-    } else {
-      const dailyList = chartData as any[];
-      const maxTemp = Math.max(...dailyList.map((d) => d.tempMax));
-      const minTemp = Math.min(...dailyList.map((d) => d.tempMin));
-      const totalRain = dailyList.reduce((acc, d) => acc + (d.precipitationSum || 0), 0);
-      const maxProb = Math.max(...dailyList.map((d) => d.precipitationProbMax || 0));
-      const maxWind = Math.max(...dailyList.map((d) => d.windSpeedMax || 0));
-      const peakDay = dailyList.find((d) => d.precipitationProbMax === maxProb)?.dayName || 'Hari Ini';
-      return {
-        maxTemp: `${maxTemp}°C`,
-        minTemp: `${minTemp}°C`,
-        totalRain: `${totalRain.toFixed(1)} mm`,
-        maxProb: `${maxProb}% (${peakDay})`,
-        maxWind: `${maxWind} km/h`,
-      };
     }
+    const dailyList = chartData as any[];
+    const maxTemp = Math.max(...dailyList.map((d) => d.tempMax));
+    const minTemp = Math.min(...dailyList.map((d) => d.tempMin));
+    const totalRain = dailyList.reduce((acc, d) => acc + (d.precipitationSum || 0), 0);
+    const maxProb = Math.max(...dailyList.map((d) => d.precipitationProbMax || 0));
+    return {
+      maxTemp: `${maxTemp}°C`,
+      minTemp: `${minTemp}°C`,
+      totalRain: `${totalRain.toFixed(1)} mm`,
+      maxProb: `${maxProb}%`,
+      maxWind: `${Math.max(...dailyList.map((d) => d.windSpeedMax))} km/h`,
+    };
   }, [chartData, timeframe]);
 
   const handleReverifyAi = async () => {
     if (!data || isVerifyingAi) return;
     setIsVerifyingAi(true);
     try {
-      const updated = await weatherAggregatorService.reverifyWithAi(data);
-      setData(updated);
-    } catch (err) {
-      console.error('Failed to reverify with AI:', err);
+      const verified = await weatherAggregatorService.reverifyWithAi(data);
+      setData(verified);
+    } catch (e) {
+      console.error('Failed to reverify with AI NWP', e);
     } finally {
       setIsVerifyingAi(false);
     }
@@ -412,27 +457,32 @@ export const GeospatialWeatherModal: React.FC<GeospatialWeatherModalProps> = ({
     return searchIndonesianPlaces(locationSearchQuery, selectedCategory, selectedIsland);
   }, [locationSearchQuery, selectedCategory, selectedIsland]);
 
-  const handleSelectPlace = (place: GeoPlace | { id: string; name: string; lat: number; lng: number; description?: string; province?: string }) => {
+  const handleSelectUserGps = () => {
+    setSelectedRegionId('user');
+    setActiveLat(lat);
+    setActiveLng(lng);
+    setActiveRegionName(userPreciseLocation?.shortDisplay || locationName || 'Lokasi Geospasial Pengguna');
+    if (activeDomain === 'weather') {
+      loadWeather(lat, lng, userPreciseLocation?.shortDisplay || locationName || 'Lokasi Geospasial Pengguna');
+    }
+  };
+
+  const handleSelectPlace = (place: GeoPlace) => {
     setSelectedRegionId(place.id);
     setActiveLat(place.lat);
     setActiveLng(place.lng);
-    const label = 'province' in place && place.province && !place.name.includes(place.province)
-      ? `${place.name} (${place.province})`
-      : place.name;
+    const label = `${place.name}, ${place.province}`;
     setActiveRegionName(label);
-    setIsLocationPickerOpen(false);
     if (activeDomain === 'weather') {
       loadWeather(place.lat, place.lng, label);
     }
   };
 
-  const handleSelectUserGps = () => {
-    setSelectedRegionId('user');
+  const handleSearchSelect = (lat: number, lng: number, label: string) => {
+    setSelectedRegionId('custom');
     setActiveLat(lat);
     setActiveLng(lng);
-    const label = userPreciseLocation?.shortDisplay || locationName || 'Lokasi GPS Pengguna';
     setActiveRegionName(label);
-    setIsLocationPickerOpen(false);
     if (activeDomain === 'weather') {
       loadWeather(lat, lng, label);
     }
@@ -449,10 +499,15 @@ export const GeospatialWeatherModal: React.FC<GeospatialWeatherModalProps> = ({
     }
   };
 
-  const loadWeather = async (targetLat = activeLat, targetLng = activeLng, targetName = activeRegionName) => {
+  const loadWeather = async (
+    targetLat = activeLat,
+    targetLng = activeLng,
+    targetName = activeRegionName,
+    forceRefresh = false
+  ) => {
     setLoading(true);
     try {
-      const res = await weatherAggregatorService.fetchConsensusWeather(targetLat, targetLng, targetName);
+      const res = await weatherAggregatorService.fetchConsensusWeather(targetLat, targetLng, targetName, forceRefresh);
       setData(res);
     } catch (err) {
       console.error('Failed to load geospatial weather', err);
@@ -468,9 +523,10 @@ export const GeospatialWeatherModal: React.FC<GeospatialWeatherModalProps> = ({
       setActiveRegionName(locationName || 'Lokasi Geospasial Pengguna');
       setSelectedRegionId('user');
       setSelectedHour(new Date().getHours());
+      setActiveDomain(initialDomain || 'weather');
       loadWeather(lat, lng, locationName);
     }
-  }, [isOpen, lat, lng, locationName]);
+  }, [isOpen, lat, lng, locationName, initialDomain]);
 
   // If switched to weather tab and no data yet, load it
   useEffect(() => {
@@ -532,10 +588,10 @@ export const GeospatialWeatherModal: React.FC<GeospatialWeatherModalProps> = ({
 
           {activeDomain === 'weather' && (
             <button
-              onClick={() => loadWeather(activeLat, activeLng, activeRegionName)}
+              onClick={() => loadWeather(activeLat, activeLng, activeRegionName, true)}
               disabled={loading}
               className="p-2 rounded-xl text-slate-500 hover:text-slate-800 dark:text-slate-400 dark:hover:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors"
-              title="Perbarui Data Cuaca"
+              title="Perbarui Data Cuaca (Bypass Cache)"
             >
               <RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} />
             </button>
@@ -975,150 +1031,428 @@ export const GeospatialWeatherModal: React.FC<GeospatialWeatherModalProps> = ({
                 </div>
               )}
 
-              {/* OVERVIEW SUB-TAB */}
+              {/* OVERVIEW SUB-TAB: RINGKASAN INTUITIF & GRAFIK STANDAR */}
               {activeWeatherTab === 'overview' && (
-                <div className="space-y-5">
-                  {/* Global Fusion & Observation Confidence Banner */}
-                  <div className="p-3.5 rounded-2xl bg-gradient-to-r from-indigo-500/10 via-purple-500/10 to-pink-500/10 border border-indigo-200/80 dark:border-indigo-900/40 flex flex-col sm:flex-row sm:items-center justify-between gap-2.5">
-                    <div className="flex items-center gap-2.5">
-                      <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-xl bg-indigo-600 text-white shadow-xs">
-                        <Globe className="w-4 h-4" />
-                      </div>
+                <div className="space-y-4">
+                  {/* 1. KARTU INTISARI 4 METRIK POKOK (Suhu, Hujan, Awan, Angin) */}
+                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+                    {/* Kartu 1: Suhu & Jam Panas */}
+                    <div className="p-4 rounded-2xl bg-gradient-to-br from-amber-500/10 via-orange-500/5 to-transparent border border-amber-500/30 flex flex-col justify-between">
                       <div>
-                        <div className="flex items-center gap-2">
-                          <span className="text-xs font-bold text-slate-900 dark:text-white">
-                            Asimilasi Fusi Multi-Sumber &amp; Intelijensi Kesenjangan
+                        <div className="flex items-center justify-between text-amber-600 dark:text-amber-400 mb-1">
+                          <span className="text-xs font-bold flex items-center gap-1.5">
+                            <Sun className="w-4 h-4 text-amber-500" />
+                            Suhu & Rasa Panas
                           </span>
-                          <span className="text-[10px] font-mono px-2 py-0.5 rounded-full bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 font-bold border border-emerald-500/30">
-                            Confidence: 88%
+                          <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-amber-500/20 text-amber-700 dark:text-amber-300">
+                            {data?.current.apparentTemperature && data.current.apparentTemperature > 33 ? 'Terik Siang' : 'Hangat'}
                           </span>
                         </div>
-                        <p className="text-[11px] text-slate-500 dark:text-slate-400">
-                          Sintesis ECMWF IFS, GFS, satelit Himawari-9 &amp; radar BMKG • Margin ketidakpastian ±0.8°C
+                        <div className="flex items-baseline gap-2 mt-1">
+                          <span className="text-2xl sm:text-3xl font-black text-slate-900 dark:text-white">
+                            {data?.current.consensusTemperature ?? '--'}°C
+                          </span>
+                          <span className="text-xs text-slate-500 font-medium">
+                            (Terasa {data?.current.apparentTemperature ?? '--'}°C)
+                          </span>
+                        </div>
+                      </div>
+
+                      <div className="mt-3 pt-2.5 border-t border-amber-500/20 text-[11px] space-y-1">
+                        <div className="font-bold text-amber-600 dark:text-amber-400 flex items-center gap-1">
+                          <TrendingUp className="w-3.5 h-3.5" />
+                          <span>Puncak Panas: Jam {weatherInsights?.peakHeatHour || '13:00'} ({weatherInsights?.peakHeatTemp || '--'}°C)</span>
+                        </div>
+                        <div className="text-slate-500 dark:text-slate-400 text-[10px]">
+                          Rentang: Min {data?.current.tempMin ?? '--'}°C • Max {data?.current.tempMax ?? '--'}°C
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Kartu 2: Hujan & Gerimis */}
+                    <div className="p-4 rounded-2xl bg-gradient-to-br from-sky-500/10 via-blue-500/5 to-transparent border border-sky-500/30 flex flex-col justify-between">
+                      <div>
+                        <div className="flex items-center justify-between text-sky-600 dark:text-sky-400 mb-1">
+                          <span className="text-xs font-bold flex items-center gap-1.5">
+                            <CloudRain className="w-4 h-4 text-sky-500" />
+                            Presipitasi / Hujan
+                          </span>
+                          <span className={`text-[10px] font-semibold px-2 py-0.5 rounded-full ${
+                            (data?.current.precipitation || 0) > 0
+                              ? 'bg-blue-500/20 text-blue-600 dark:text-blue-300 font-bold'
+                              : 'bg-slate-500/15 text-slate-600 dark:text-slate-400'
+                          }`}>
+                            {(data?.current.precipitation || 0) > 0 ? 'Hujan / Gerimis' : 'Kering'}
+                          </span>
+                        </div>
+                        <div className="flex items-baseline gap-2 mt-1">
+                          <span className="text-2xl sm:text-3xl font-black text-slate-900 dark:text-white">
+                            {data?.current.precipitation ?? 0}
+                          </span>
+                          <span className="text-xs font-semibold text-slate-500">
+                            mm/jam
+                          </span>
+                          <span className="text-[11px] text-slate-400 ml-auto font-medium">
+                            Peluang: <strong className="text-sky-600 dark:text-sky-400">{data?.current.precipitationProb ?? 0}%</strong>
+                          </span>
+                        </div>
+                      </div>
+
+                      <div className="mt-3 pt-2.5 border-t border-sky-500/20 text-[11px] space-y-1">
+                        <div className="font-bold text-sky-600 dark:text-sky-400 truncate" title={weatherInsights?.rainWindowText}>
+                          💧 {weatherInsights?.rainWindowText || 'Kondisi cenderung kering'}
+                        </div>
+                        <div className="text-slate-500 dark:text-slate-400 text-[10px]">
+                          Kondisi saat ini: <strong>{data?.current.conditionText || 'Cerah'}</strong>
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Kartu 3: Awan & Kondisi Langit */}
+                    <div className="p-4 rounded-2xl bg-gradient-to-br from-indigo-500/10 via-slate-500/5 to-transparent border border-indigo-500/30 flex flex-col justify-between">
+                      <div>
+                        <div className="flex items-center justify-between text-indigo-600 dark:text-indigo-400 mb-1">
+                          <span className="text-xs font-bold flex items-center gap-1.5">
+                            <Cloud className="w-4 h-4 text-indigo-500" />
+                            Tutupan Awan & Langit
+                          </span>
+                          <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-indigo-500/20 text-indigo-700 dark:text-indigo-300">
+                            {weatherInsights?.cloudStatus || 'Berawan'}
+                          </span>
+                        </div>
+                        <div className="flex items-baseline gap-2 mt-1">
+                          <span className="text-2xl sm:text-3xl font-black text-slate-900 dark:text-white">
+                            {data?.current.cloudCover ?? 25}%
+                          </span>
+                          <span className="text-xs text-slate-500 font-medium">
+                            langit tertutup
+                          </span>
+                        </div>
+                      </div>
+
+                      <div className="mt-3 pt-2.5 border-t border-indigo-500/20 text-[11px] space-y-1">
+                        <div className="font-bold text-indigo-600 dark:text-indigo-400">
+                          ☀️ Indeks UV: {data?.current.uvIndex ?? 6.0} (Maksimal Siang)
+                        </div>
+                        <div className="text-slate-500 dark:text-slate-400 text-[10px]">
+                          Rata-rata awan harian: ~{weatherInsights?.avgCloud ?? 25}%
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Kartu 4: Angin & Kelembapan */}
+                    <div className="p-4 rounded-2xl bg-gradient-to-br from-teal-500/10 via-emerald-500/5 to-transparent border border-teal-500/30 flex flex-col justify-between">
+                      <div>
+                        <div className="flex items-center justify-between text-teal-600 dark:text-teal-400 mb-1">
+                          <span className="text-xs font-bold flex items-center gap-1.5">
+                            <Wind className="w-4 h-4 text-teal-500" />
+                            Angin & Kelembapan
+                          </span>
+                          <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-teal-500/20 text-teal-700 dark:text-teal-300">
+                            {data?.current.aqiLevel || 'Baik'}
+                          </span>
+                        </div>
+                        <div className="flex items-baseline gap-2 mt-1">
+                          <span className="text-2xl sm:text-3xl font-black text-slate-900 dark:text-white">
+                            {data?.current.windSpeed ?? 12}
+                          </span>
+                          <span className="text-xs font-semibold text-slate-500">
+                            km/h
+                          </span>
+                          <span className="text-[11px] text-slate-400 ml-auto font-medium">
+                            Hembusan: <strong>{data?.current.windGusts ?? 18} km/h</strong>
+                          </span>
+                        </div>
+                      </div>
+
+                      <div className="mt-3 pt-2.5 border-t border-teal-500/20 text-[11px] space-y-1">
+                        <div className="font-bold text-teal-600 dark:text-teal-400">
+                          💧 Kelembapan Udara: {data?.current.humidity ?? 75}%
+                        </div>
+                        <div className="text-slate-500 dark:text-slate-400 text-[10px]">
+                          Partikulat PM2.5: {data?.current.pm25 ?? 18} µg/m³
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* 2. PANEL GRAFIK STANDAR & INTUITIF (Suhu, Hujan, Awan) */}
+                  <div className="p-4 sm:p-5 rounded-3xl bg-white dark:bg-slate-900/90 border border-slate-200/80 dark:border-slate-800 shadow-sm">
+                    {/* Header Grafik & Pill Switcher */}
+                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-4 pb-3 border-b border-slate-100 dark:border-slate-800">
+                      <div>
+                        <h3 className="text-sm font-bold text-slate-900 dark:text-white flex items-center gap-2">
+                          <span>Grafik Dinamika Cuaca 24 Jam</span>
+                          <span className="text-[10px] px-2 py-0.5 rounded-full bg-indigo-50 dark:bg-indigo-950/60 text-indigo-600 dark:text-indigo-400 font-bold border border-indigo-200/60 dark:border-indigo-800">
+                            {activeRegionName}
+                          </span>
+                        </h3>
+                        <p className="text-xs text-slate-500 mt-0.5">
+                          {mainVisualGraph === 'temp' && `Kurva suhu & jam puncak panas (${weatherInsights?.peakHeatHour}: ${weatherInsights?.peakHeatTemp}°C)`}
+                          {mainVisualGraph === 'rain' && `Prediksi hujan & gerimis (${weatherInsights?.rainWindowText})`}
+                          {mainVisualGraph === 'cloud' && `Dinamika tutupan awan & kelembapan sepanjang hari`}
+                          {mainVisualGraph === 'all' && `Ringkasan gabungan suhu, presipitasi, dan awan dalam 1 grafik`}
+                        </p>
+                      </div>
+
+                      {/* Pill Switcher */}
+                      <div className="flex items-center gap-1 p-1 rounded-2xl bg-slate-100 dark:bg-slate-800 text-xs font-semibold overflow-x-auto no-scrollbar">
+                        <button
+                          type="button"
+                          onClick={() => setMainVisualGraph('temp')}
+                          className={`flex items-center gap-1 px-3 py-1.5 rounded-xl transition-all shrink-0 ${
+                            mainVisualGraph === 'temp'
+                              ? 'bg-amber-500 text-white shadow-sm font-bold'
+                              : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
+                          }`}
+                        >
+                          <Sun className="w-3.5 h-3.5" />
+                          <span>Suhu & Panas</span>
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setMainVisualGraph('rain')}
+                          className={`flex items-center gap-1 px-3 py-1.5 rounded-xl transition-all shrink-0 ${
+                            mainVisualGraph === 'rain'
+                              ? 'bg-sky-500 text-white shadow-sm font-bold'
+                              : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
+                          }`}
+                        >
+                          <CloudRain className="w-3.5 h-3.5" />
+                          <span>Hujan & Gerimis</span>
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setMainVisualGraph('cloud')}
+                          className={`flex items-center gap-1 px-3 py-1.5 rounded-xl transition-all shrink-0 ${
+                            mainVisualGraph === 'cloud'
+                              ? 'bg-indigo-600 text-white shadow-sm font-bold'
+                              : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
+                          }`}
+                        >
+                          <Cloud className="w-3.5 h-3.5" />
+                          <span>Awan & Langit</span>
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setMainVisualGraph('all')}
+                          className={`flex items-center gap-1 px-3 py-1.5 rounded-xl transition-all shrink-0 ${
+                            mainVisualGraph === 'all'
+                              ? 'bg-slate-900 dark:bg-white dark:text-slate-900 text-white shadow-sm font-bold'
+                              : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
+                          }`}
+                        >
+                          <Activity className="w-3.5 h-3.5" />
+                          <span>Gabungan</span>
+                        </button>
+                      </div>
+                    </div>
+
+                    {/* Chart Canvas */}
+                    <div className="h-72 w-full">
+                      {mainVisualGraph === 'temp' && (
+                        <ResponsiveContainer width="100%" height="100%">
+                          <AreaChart data={chartData}>
+                            <defs>
+                              <linearGradient id="tempGradient" x1="0" y1="0" x2="0" y2="1">
+                                <stop offset="5%" stopColor="#f59e0b" stopOpacity={0.4} />
+                                <stop offset="95%" stopColor="#ef4444" stopOpacity={0.02} />
+                              </linearGradient>
+                            </defs>
+                            <CartesianGrid strokeDasharray="3 3" opacity={0.15} />
+                            <XAxis dataKey="label" stroke="#94a3b8" tick={{ fontSize: 11 }} />
+                            <YAxis stroke="#94a3b8" unit="°C" domain={['auto', 'auto']} tick={{ fontSize: 11 }} />
+                            <Tooltip
+                              contentStyle={{ backgroundColor: '#0f172a', borderColor: '#334155', borderRadius: '12px', color: '#fff', fontSize: '12px' }}
+                              formatter={(value: any, name: string) => [`${value}°C`, name === 'temperature' ? 'Suhu Udara' : 'Terasa Seperti']}
+                            />
+                            <Legend wrapperStyle={{ fontSize: '11px', paddingTop: '8px' }} />
+                            <Area type="monotone" dataKey="temperature" name="Suhu (°C)" stroke="#f59e0b" strokeWidth={3} fill="url(#tempGradient)" />
+                            <Line type="monotone" dataKey="apparentTemp" name="Terasa Seperti (°C)" stroke="#ef4444" strokeWidth={1.5} strokeDasharray="3 3" dot={false} />
+                          </AreaChart>
+                        </ResponsiveContainer>
+                      )}
+
+                      {mainVisualGraph === 'rain' && (
+                        <ResponsiveContainer width="100%" height="100%">
+                          <ComposedChart data={chartData}>
+                            <CartesianGrid strokeDasharray="3 3" opacity={0.15} />
+                            <XAxis dataKey="label" stroke="#94a3b8" tick={{ fontSize: 11 }} />
+                            <YAxis yAxisId="mm" stroke="#0284c7" unit=" mm" domain={[0, 'auto']} tick={{ fontSize: 11 }} />
+                            <YAxis yAxisId="prob" orientation="right" stroke="#38bdf8" unit="%" domain={[0, 100]} tick={{ fontSize: 11 }} />
+                            <Tooltip
+                              contentStyle={{ backgroundColor: '#0f172a', borderColor: '#334155', borderRadius: '12px', color: '#fff', fontSize: '12px' }}
+                              formatter={(value: any, name: string) => [
+                                name === 'precipitation' ? `${value} mm/jam` : `${value}%`,
+                                name === 'precipitation' ? 'Intensitas Curah Hujan' : 'Peluang Hujan'
+                              ]}
+                            />
+                            <Legend wrapperStyle={{ fontSize: '11px', paddingTop: '8px' }} />
+                            <Bar yAxisId="mm" dataKey="precipitation" name="Intensitas Hujan (mm)" fill="#0284c7" radius={[6, 6, 0, 0]} />
+                            <Line yAxisId="prob" type="monotone" dataKey="precipitationProb" name="Peluang Presipitasi (%)" stroke="#38bdf8" strokeWidth={2.5} dot={{ r: 3 }} />
+                          </ComposedChart>
+                        </ResponsiveContainer>
+                      )}
+
+                      {mainVisualGraph === 'cloud' && (
+                        <ResponsiveContainer width="100%" height="100%">
+                          <AreaChart data={chartData}>
+                            <defs>
+                              <linearGradient id="cloudGradient" x1="0" y1="0" x2="0" y2="1">
+                                <stop offset="5%" stopColor="#64748b" stopOpacity={0.35} />
+                                <stop offset="95%" stopColor="#64748b" stopOpacity={0.02} />
+                              </linearGradient>
+                            </defs>
+                            <CartesianGrid strokeDasharray="3 3" opacity={0.15} />
+                            <XAxis dataKey="label" stroke="#94a3b8" tick={{ fontSize: 11 }} />
+                            <YAxis stroke="#94a3b8" unit="%" domain={[0, 100]} tick={{ fontSize: 11 }} />
+                            <Tooltip
+                              contentStyle={{ backgroundColor: '#0f172a', borderColor: '#334155', borderRadius: '12px', color: '#fff', fontSize: '12px' }}
+                              formatter={(value: any, name: string) => [`${value}%`, name === 'cloudCover' ? 'Tutupan Awan' : 'Kelembapan Udara']}
+                            />
+                            <Legend wrapperStyle={{ fontSize: '11px', paddingTop: '8px' }} />
+                            <Area type="monotone" dataKey="cloudCover" name="Tutupan Awan (%)" stroke="#64748b" strokeWidth={2.5} fill="url(#cloudGradient)" />
+                            <Line type="monotone" dataKey="humidity" name="Kelembapan Udara (%)" stroke="#06b6d4" strokeWidth={2} dot={false} />
+                          </AreaChart>
+                        </ResponsiveContainer>
+                      )}
+
+                      {mainVisualGraph === 'all' && (
+                        <ResponsiveContainer width="100%" height="100%">
+                          <ComposedChart data={chartData}>
+                            <CartesianGrid strokeDasharray="3 3" opacity={0.15} />
+                            <XAxis dataKey="label" stroke="#94a3b8" tick={{ fontSize: 11 }} />
+                            <YAxis yAxisId="temp" stroke="#f59e0b" unit="°C" domain={['auto', 'auto']} tick={{ fontSize: 11 }} />
+                            <YAxis yAxisId="pct" orientation="right" stroke="#38bdf8" unit="%" domain={[0, 100]} tick={{ fontSize: 11 }} />
+                            <Tooltip
+                              contentStyle={{ backgroundColor: '#0f172a', borderColor: '#334155', borderRadius: '12px', color: '#fff', fontSize: '12px' }}
+                            />
+                            <Legend wrapperStyle={{ fontSize: '11px', paddingTop: '8px' }} />
+                            <Bar yAxisId="pct" dataKey="precipitation" name="Hujan (mm)" fill="#0284c7" radius={[4, 4, 0, 0]} />
+                            <Line yAxisId="temp" type="monotone" dataKey="temperature" name="Suhu (°C)" stroke="#f59e0b" strokeWidth={3} dot={false} />
+                            <Line yAxisId="pct" type="monotone" dataKey="cloudCover" name="Awan (%)" stroke="#94a3b8" strokeWidth={2} dot={false} />
+                          </ComposedChart>
+                        </ResponsiveContainer>
+                      )}
+                    </div>
+                  </div>
+
+                  {/* 3. RINGKASAN PADAT & JELAS (3 Kesimpulan Pokok Tanpa Teks Rumit) */}
+                  <div className="p-4 sm:p-5 rounded-3xl bg-slate-50 dark:bg-slate-900/60 border border-slate-200/80 dark:border-slate-800">
+                    <h4 className="text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400 mb-3 flex items-center gap-1.5">
+                      <Sparkles className="w-4 h-4 text-indigo-500" />
+                      Kesimpulan Cuaca Hari Ini:
+                    </h4>
+
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                      <div className="p-3 rounded-2xl bg-white dark:bg-slate-800/80 border border-slate-200/60 dark:border-slate-700/60">
+                        <div className="flex items-center gap-2 text-xs font-bold text-amber-600 dark:text-amber-400 mb-1">
+                          <Sun className="w-3.5 h-3.5" />
+                          <span>Panas Jam Berapa?</span>
+                        </div>
+                        <p className="text-xs text-slate-700 dark:text-slate-300 leading-relaxed">
+                          Suhu tertinggi mencapai <strong>{weatherInsights?.peakHeatTemp}°C</strong> sekitar pukul <strong>{weatherInsights?.peakHeatHour} WIB</strong>. Suhu pagi dan malam lebih sejuk (~{weatherInsights?.minHeatTemp}°C).
+                        </p>
+                      </div>
+
+                      <div className="p-3 rounded-2xl bg-white dark:bg-slate-800/80 border border-slate-200/60 dark:border-slate-700/60">
+                        <div className="flex items-center gap-2 text-xs font-bold text-sky-600 dark:text-sky-400 mb-1">
+                          <CloudRain className="w-3.5 h-3.5" />
+                          <span>Hujan Jam Berapa?</span>
+                        </div>
+                        <p className="text-xs text-slate-700 dark:text-slate-300 leading-relaxed">
+                          {weatherInsights?.rainWindowText}. Peluang hujan/gerimis tertinggi <strong>{weatherInsights?.peakRainProb}%</strong> pada jam <strong>{weatherInsights?.peakRainProbHour} WIB</strong>.
+                        </p>
+                      </div>
+
+                      <div className="p-3 rounded-2xl bg-white dark:bg-slate-800/80 border border-slate-200/60 dark:border-slate-700/60">
+                        <div className="flex items-center gap-2 text-xs font-bold text-indigo-600 dark:text-indigo-400 mb-1">
+                          <Cloud className="w-3.5 h-3.5" />
+                          <span>Awan & Udara</span>
+                        </div>
+                        <p className="text-xs text-slate-700 dark:text-slate-300 leading-relaxed">
+                          Langit <strong>{weatherInsights?.cloudStatus}</strong> dengan tutupan awan ~<strong>{weatherInsights?.avgCloud}%</strong> dan hembusan angin <strong>{data?.current.windSpeed} km/h</strong>.
                         </p>
                       </div>
                     </div>
+                  </div>
+
+                  {/* 4. MODE ANALISIS SAINS LANJUTAN (Collapsible Opsional) */}
+                  <div className="pt-2">
                     <button
                       type="button"
-                      onClick={() => setActiveDomain('fusion')}
-                      className="flex items-center gap-1 text-xs font-bold text-indigo-600 dark:text-indigo-400 hover:underline shrink-0 self-start sm:self-center cursor-pointer"
+                      onClick={() => setShowAdvancedScience(!showAdvancedScience)}
+                      className="w-full flex items-center justify-between p-3.5 rounded-2xl bg-white/60 dark:bg-slate-800/40 hover:bg-white dark:hover:bg-slate-800 transition-all border border-slate-200/80 dark:border-slate-700/60 text-xs font-bold text-slate-700 dark:text-slate-300 shadow-xs cursor-pointer"
                     >
-                      <span>Lihat Analisis Fusi &amp; Prioritas Sensor</span>
-                      <ArrowRight className="w-3.5 h-3.5" />
+                      <span className="flex items-center gap-2">
+                        <Cpu className="w-4 h-4 text-sky-500" />
+                        <span>Mode Analisis Sains Lanjutan (7 Persamaan NWP, Konsensus 5 Model & 30+ Grafik)</span>
+                      </span>
+                      <ChevronDown className={`w-4 h-4 text-slate-400 transition-transform ${showAdvancedScience ? 'rotate-180' : ''}`} />
                     </button>
-                  </div>
 
-                  <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-                    <div className="p-3.5 rounded-2xl bg-blue-50/60 dark:bg-blue-950/30 border border-blue-100 dark:border-blue-900/40">
-                      <div className="flex items-center justify-between text-blue-600 dark:text-blue-400 mb-1">
-                        <span className="text-xs font-bold">Curah Hujan</span>
-                        <CloudRain className="w-4 h-4" />
-                      </div>
-                      <div className="text-xl font-black text-slate-900 dark:text-white">
-                        {data?.current.precipitation} <span className="text-xs font-semibold text-slate-500">mm/jam</span>
-                      </div>
-                      <div className="text-[11px] text-slate-500 mt-1">
-                        Peluang: <strong>{data?.current.precipitationProb}%</strong>
-                      </div>
-                    </div>
+                    {showAdvancedScience && (
+                      <div className="mt-3 space-y-4 animate-in fade-in duration-200">
+                        {/* Harmony Universal Multi-Paradigm Chart Engine (30+ Tipe Grafik) */}
+                        <HarmonyChartEngine
+                          weatherData={data}
+                          earthquakes={earthquakes}
+                          defaultChartId="line"
+                          title={`Grafik Analitik Multivariabel Cuaca & Geofisika — ${activeRegionName}`}
+                          description="Pilih dari 30+ visualisasi (Garis, Batang, Mawar Angin, Seismograf, Fan Chart, Box Plot, dsb.) dengan opsi pemilihan grafik interaktif"
+                        />
 
-                    <div className="p-3.5 rounded-2xl bg-teal-50/60 dark:bg-teal-950/30 border border-teal-100 dark:border-teal-900/40">
-                      <div className="flex items-center justify-between text-teal-600 dark:text-teal-400 mb-1">
-                        <span className="text-xs font-bold">Kecepatan Angin</span>
-                        <Wind className="w-4 h-4" />
-                      </div>
-                      <div className="text-xl font-black text-slate-900 dark:text-white">
-                        {data?.current.windSpeed} <span className="text-xs font-semibold text-slate-500">km/h</span>
-                      </div>
-                      <div className="text-[11px] text-slate-500 mt-1">
-                        Hembusan: <strong>{data?.current.windGusts} km/h</strong> ({data?.current.windDirection}°)
-                      </div>
-                    </div>
-
-                    <div className="p-3.5 rounded-2xl bg-indigo-50/60 dark:bg-indigo-950/30 border border-indigo-100 dark:border-indigo-900/40">
-                      <div className="flex items-center justify-between text-indigo-600 dark:text-indigo-400 mb-1">
-                        <span className="text-xs font-bold">Lapisan Ozon (O₃)</span>
-                        <Gauge className="w-4 h-4" />
-                      </div>
-                      <div className="text-xl font-black text-slate-900 dark:text-white">
-                        {data?.current.ozone} <span className="text-xs font-semibold text-slate-500">µg/m³</span>
-                      </div>
-                      <div className="text-[11px] text-slate-500 mt-1">
-                        Tekanan: <strong>{data?.current.pressure} hPa</strong>
-                      </div>
-                    </div>
-
-                    <div className="p-3.5 rounded-2xl bg-purple-50/60 dark:bg-purple-950/30 border border-purple-100 dark:border-purple-900/40">
-                      <div className="flex items-center justify-between text-purple-600 dark:text-purple-400 mb-1">
-                        <span className="text-xs font-bold">Kualitas Udara PM2.5</span>
-                        <Activity className="w-4 h-4" />
-                      </div>
-                      <div className="text-xl font-black text-slate-900 dark:text-white">
-                        {data?.current.pm25} <span className="text-xs font-semibold text-slate-500">µg/m³</span>
-                      </div>
-                      <div className="text-[11px] font-bold mt-1" style={{ color: data?.current.aqiColor }}>
-                        Status: {data?.current.aqiLevel}
-                      </div>
-                    </div>
-                  </div>
-
-                  {/* Harmony Universal Multi-Paradigm Chart Engine (30+ Tipe Grafik) */}
-                  <HarmonyChartEngine
-                    weatherData={data}
-                    earthquakes={earthquakes}
-                    defaultChartId="line"
-                    title={`Grafik Analitik Multivariabel Cuaca & Geofisika — ${activeRegionName}`}
-                    description="Pilih dari 30+ visualisasi (Garis, Batang, Mawar Angin, Seismograf, Fan Chart, Box Plot, dsb.) dengan opsi pemilihan grafik interaktif"
-                  />
-
-                  <div className="p-4 rounded-2xl bg-white dark:bg-slate-800/60 border border-slate-200/80 dark:border-slate-700/80">
-                    <h3 className="text-xs font-bold text-slate-700 dark:text-slate-300 mb-3 flex items-center justify-between">
-                      <span>Perbandingan Feed Model Saat Ini (Bot Consensus Calculator)</span>
-                      <span className="text-[10px] text-emerald-500 font-semibold">Semua Server Aktif</span>
-                    </h3>
-                    <div className="grid grid-cols-2 sm:grid-cols-5 gap-2.5">
-                      {data?.modelComparison.map((m) => (
-                        <div key={m.modelName} className="p-2.5 rounded-xl bg-slate-50 dark:bg-slate-900/60 border border-slate-100 dark:border-slate-800 text-center">
-                          <div className="text-[10px] text-slate-500 dark:text-slate-400 font-medium">
-                            {m.sourceFlag} {m.modelName}
+                        <div className="p-4 rounded-2xl bg-white dark:bg-slate-800/60 border border-slate-200/80 dark:border-slate-700/80">
+                          <h3 className="text-xs font-bold text-slate-700 dark:text-slate-300 mb-3 flex items-center justify-between">
+                            <span>Perbandingan Feed Model Saat Ini (Bot Consensus Calculator)</span>
+                            <span className="text-[10px] text-emerald-500 font-semibold">Semua Server Aktif</span>
+                          </h3>
+                          <div className="grid grid-cols-2 sm:grid-cols-5 gap-2.5">
+                            {data?.modelComparison.map((m) => (
+                              <div key={m.modelName} className="p-2.5 rounded-xl bg-slate-50 dark:bg-slate-900/60 border border-slate-100 dark:border-slate-800 text-center">
+                                <div className="text-[10px] text-slate-500 dark:text-slate-400 font-medium">
+                                  {m.sourceFlag} {m.modelName}
+                                </div>
+                                <div className="text-base font-black text-slate-900 dark:text-white mt-1">
+                                  {m.temperature}°C
+                                </div>
+                                <div className="text-[9px] text-slate-400 mt-0.5">
+                                  Deviasi: {Math.abs(m.temperature - (data?.current.consensusTemperature ?? 0)).toFixed(1)}°C
+                                </div>
+                              </div>
+                            ))}
                           </div>
-                          <div className="text-base font-black text-slate-900 dark:text-white mt-1">
-                            {m.temperature}°C
-                          </div>
-                          <div className="text-[9px] text-slate-400 mt-0.5">
-                            Deviasi: {Math.abs(m.temperature - (data?.current.consensusTemperature ?? 0)).toFixed(1)}°C
-                          </div>
-                        </div>
-                      ))}
-                    </div>
 
-                    {/* AI NWP Physics Insight Banner */}
-                    {data?.aiNwpVerification && (
-                      <div className="mt-3.5 p-3.5 rounded-2xl bg-gradient-to-r from-sky-500/10 via-indigo-500/10 to-transparent border border-sky-500/25 flex items-center justify-between gap-3 flex-wrap">
-                        <div className="flex items-center gap-2.5">
-                          <div className="p-2 rounded-xl bg-sky-500/20 text-sky-500">
-                            <Sparkles className="w-4 h-4" />
-                          </div>
-                          <div>
-                            <div className="text-xs font-bold text-slate-900 dark:text-white flex items-center gap-1.5">
-                              <span>Data Prediksi Terkalibrasi 7 Persamaan Dasar NWP (AI)</span>
-                              <span className="text-[10px] px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-600 dark:text-emerald-400 font-semibold border border-emerald-500/30">
-                                {data.aiNwpVerification.convectiveStability}
-                              </span>
+                          {/* AI NWP Physics Insight Banner */}
+                          {data?.aiNwpVerification && (
+                            <div className="mt-3.5 p-3.5 rounded-2xl bg-gradient-to-r from-sky-500/10 via-indigo-500/10 to-transparent border border-sky-500/25 flex items-center justify-between gap-3 flex-wrap">
+                              <div className="flex items-center gap-2.5">
+                                <div className="p-2 rounded-xl bg-sky-500/20 text-sky-500">
+                                  <Sparkles className="w-4 h-4" />
+                                </div>
+                                <div>
+                                  <div className="text-xs font-bold text-slate-900 dark:text-white flex items-center gap-1.5">
+                                    <span>Data Prediksi Terkalibrasi 7 Persamaan Dasar NWP (AI)</span>
+                                    <span className="text-[10px] px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-600 dark:text-emerald-400 font-semibold border border-emerald-500/30">
+                                      {data.aiNwpVerification.convectiveStability}
+                                    </span>
+                                  </div>
+                                  <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-0.5">
+                                    Kerapatan massa udara ρ: <strong>{data.aiNwpVerification.airDensityKgM3} kg/m³</strong> | Parameter Coriolis f: <strong>{data.aiNwpVerification.coriolisParamF}×10⁻⁵ s⁻¹</strong> | Bayesian Rain: <strong>{data.aiNwpVerification.calibratedRainProb}%</strong>
+                                  </p>
+                                </div>
+                              </div>
+
+                              <button
+                                onClick={() => setActiveWeatherTab('nwp')}
+                                className="text-xs font-bold text-sky-600 dark:text-sky-400 hover:text-sky-500 underline underline-offset-2 flex items-center gap-1"
+                              >
+                                <span>Buka Detail 7 Rumus</span>
+                                <span>→</span>
+                              </button>
                             </div>
-                            <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-0.5">
-                              Kerapatan massa udara ρ: <strong>{data.aiNwpVerification.airDensityKgM3} kg/m³</strong> | Parameter Coriolis f: <strong>{data.aiNwpVerification.coriolisParamF}×10⁻⁵ s⁻¹</strong> | Bayesian Rain: <strong>{data.aiNwpVerification.calibratedRainProb}%</strong>
-                            </p>
-                          </div>
+                          )}
                         </div>
-
-                        <button
-                          onClick={() => setActiveWeatherTab('nwp')}
-                          className="text-xs font-bold text-sky-600 dark:text-sky-400 hover:text-sky-500 underline underline-offset-2 flex items-center gap-1"
-                        >
-                          <span>Buka Detail 7 Rumus</span>
-                          <span>→</span>
-                        </button>
                       </div>
                     )}
                   </div>

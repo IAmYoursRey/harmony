@@ -101,12 +101,17 @@ class AtmosphericNwpAiService {
       stability = 'Labil Moderat';
     }
 
+    const effectiveRainProb = Math.max(calibratedRainProb, (current.precipitation && current.precipitation > 0) ? 75 : calibratedRainProb);
+    const rainIntensity = (current.precipitation && current.precipitation > 0)
+      ? parseFloat(Number(current.precipitation).toFixed(1))
+      : (effectiveRainProb >= 70 && rh > 0.82) ? 0.4 : 0;
+
     return {
       isAiVerified: true,
       verifiedTemperature: parseFloat(tC.toFixed(1)),
       apparentTemperature: apparentTemp,
-      calibratedRainProb,
-      rainIntensityMmH: parseFloat(Number(current.precipitation || 0).toFixed(1)),
+      calibratedRainProb: effectiveRainProb,
+      rainIntensityMmH: rainIntensity,
       airDensityKgM3: airDensity,
       coriolisParamF: fScaled,
       convectiveStability: stability,
