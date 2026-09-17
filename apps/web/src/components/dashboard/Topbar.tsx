@@ -6,6 +6,7 @@ import {
   Sun,
   Moon,
   Globe,
+  LogIn,
 } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { useState } from "react";
@@ -66,9 +67,13 @@ export function Topbar({ onOpenMobile, title }: TopbarProps) {
                   item.id.includes(query),
               );
               if (match) {
-                navigate(
-                  match.id === "dashboard" ? "/app" : `/app/${match.id}`,
-                );
+                if (!currentUser && match.id !== "maps") {
+                  navigate(`/app/maps?authRequired=${match.id}`);
+                } else {
+                  navigate(
+                    match.id === "dashboard" ? "/app/dashboard" : `/app/${match.id}`,
+                  );
+                }
                 setSearch("");
               }
             }}
@@ -92,9 +97,13 @@ export function Topbar({ onOpenMobile, title }: TopbarProps) {
                     key={item.id}
                     type="button"
                     onClick={() => {
-                      navigate(
-                        item.id === "dashboard" ? "/app" : `/app/${item.id}`,
-                      );
+                      if (!currentUser && item.id !== "maps") {
+                        navigate(`/app/maps?authRequired=${item.id}`);
+                      } else {
+                        navigate(
+                          item.id === "dashboard" ? "/app/dashboard" : `/app/${item.id}`,
+                        );
+                      }
                       setSearch("");
                     }}
                     className="flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-left text-sm font-medium text-ink-700 transition-colors hover:bg-brand-50 hover:text-brand-700 dark:text-slate-200 dark:hover:bg-slate-800"
@@ -169,27 +178,41 @@ export function Topbar({ onOpenMobile, title }: TopbarProps) {
         )}
       </div>
 
-      {/* Profile */}
-      <button
-        onClick={() => navigate("/app/profile")}
-        aria-label="Open profile"
-        className="flex items-center gap-2 rounded-full border border-brand-100 bg-white/70 py-1.5 pl-1.5 pr-3 transition-colors hover:bg-white dark:border-slate-700 dark:bg-slate-800/70 dark:hover:bg-slate-800"
-      >
-          <span className={`flex h-8 w-8 items-center justify-center rounded-full text-xs font-bold text-white ${
-            currentUser?.role === "developer" ? "bg-gradient-to-br from-red-500 to-red-700" :
-            currentUser?.role === "teacher" ? "bg-gradient-to-br from-amber-500 to-amber-700" :
-            "bg-gradient-to-br from-brand-500 to-brand-700"
-          }`}>
+      {/* Profile / Login */}
+      {currentUser ? (
+        <button
+          onClick={() => navigate("/app/profile")}
+          aria-label="Open profile"
+          className="flex items-center gap-2 rounded-full border border-brand-100 bg-white/70 py-1.5 pl-1.5 pr-3 transition-colors hover:bg-white dark:border-slate-700 dark:bg-slate-800/70 dark:hover:bg-slate-800"
+        >
+          <span
+            className={`flex h-8 w-8 items-center justify-center rounded-full text-xs font-bold text-white ${
+              currentUser?.role === "developer"
+                ? "bg-gradient-to-br from-red-500 to-red-700"
+                : currentUser?.role === "teacher"
+                  ? "bg-gradient-to-br from-amber-500 to-amber-700"
+                  : "bg-gradient-to-br from-brand-500 to-brand-700"
+            }`}
+          >
             {currentUser?.name
               ?.split(" ")
               .map((n) => n[0])
               .join("") || "U"}
           </span>
-        <span className="hidden text-sm font-semibold text-ink-800 dark:text-slate-200 sm:block">
-          {displayName}
-        </span>
-        <ChevronDown className="hidden h-4 w-4 text-ink-400 dark:text-slate-500 sm:block" />
-      </button>
+          <span className="hidden text-sm font-semibold text-ink-800 dark:text-slate-200 sm:block">
+            {displayName}
+          </span>
+          <ChevronDown className="hidden h-4 w-4 text-ink-400 dark:text-slate-500 sm:block" />
+        </button>
+      ) : (
+        <button
+          onClick={() => navigate("/login?redirect=/app/dashboard")}
+          className="flex items-center gap-2 rounded-full bg-gradient-to-r from-brand-600 to-indigo-600 px-4 py-2 text-xs font-semibold text-white shadow-sm transition-all hover:from-brand-700 hover:to-indigo-700 hover:shadow-md active:scale-[0.99]"
+        >
+          <LogIn className="h-3.5 w-3.5" />
+          <span>Masuk / Daftar</span>
+        </button>
+      )}
     </header>
   );
 }

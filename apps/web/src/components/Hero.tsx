@@ -136,7 +136,7 @@ export function Hero() {
               className="mt-8 flex flex-col items-center justify-center gap-3 sm:flex-row lg:justify-start"
             >
               <Link
-                to="/login"
+                to="/app/maps"
                 className="group inline-flex items-center gap-2 rounded-full bg-brand-600 px-7 py-3.5 text-sm font-semibold text-white shadow-glass transition-all hover:bg-brand-700 hover:shadow-glow hover:-translate-y-0.5"
               >
                 <Play className="h-4 w-4 fill-white" />

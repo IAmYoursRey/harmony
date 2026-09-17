@@ -163,7 +163,7 @@ export function Navbar() {
             )}
           </button>
           <button
-            onClick={() => navigate("/login")}
+            onClick={() => navigate("/app/maps")}
             className="rounded-full bg-brand-600 px-5 py-2.5 text-sm font-semibold text-white shadow-glass transition-all hover:bg-brand-700 hover:shadow-glow hover:-translate-y-0.5"
           >
             Masuk
@@ -224,7 +224,7 @@ export function Navbar() {
             <button
               onClick={() => {
                 setOpen(false);
-                navigate("/login");
+                navigate("/app/maps");
               }}
               className="mt-3 block w-full rounded-full bg-brand-600 px-5 py-3 text-center text-sm font-semibold text-white"
             >

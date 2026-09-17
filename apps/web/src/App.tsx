@@ -30,6 +30,11 @@ const MapsView = lazy(() =>
     default: m.MapsView,
   })),
 );
+const GeospatialStudioView = lazy(() =>
+  import("@/components/dashboard/views/spatial/GeospatialStudioView").then((m) => ({
+    default: m.GeospatialStudioView,
+  })),
+);
 const DigitalTwinView = lazy(() =>
   import("@/components/dashboard/views/spatial/DigitalTwinView").then((m) => ({
     default: m.DigitalTwinView,
@@ -151,6 +156,14 @@ export default function App() {
             element={
               <Suspense fallback={<PageSkeleton />}>
                 <MapsView />
+              </Suspense>
+            }
+          />
+          <Route
+            path="geospatial"
+            element={
+              <Suspense fallback={<PageSkeleton />}>
+                <GeospatialStudioView />
               </Suspense>
             }
           />

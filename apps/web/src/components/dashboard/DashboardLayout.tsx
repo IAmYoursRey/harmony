@@ -1,15 +1,27 @@
-import { Outlet, useLocation, useNavigate, Navigate } from "react-router-dom";
+import { Outlet, useLocation, useNavigate, Navigate, useSearchParams } from "react-router-dom";
 import { Sidebar } from "@/components/dashboard/Sidebar";
 import { Topbar } from "@/components/dashboard/Topbar";
 import { navItems } from "@/components/dashboard/nav";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useAuth } from "@/hooks/useAuth";
 import { LogoSpinner } from "@/components/ui/LogoSpinner";
+import { AuthRequiredModal } from "@/components/dashboard/AuthRequiredModal";
 
 export function DashboardLayout() {
   const [mobileOpen, setMobileOpen] = useState(false);
   const location = useLocation();
+  const [searchParams, setSearchParams] = useSearchParams();
   const { currentUser, currentProfile, isLoading } = useAuth();
+
+  const [authModal, setAuthModal] = useState<{
+    isOpen: boolean;
+    itemName: string;
+    targetPath: string;
+  }>({
+    isOpen: false,
+    itemName: "Fitur Edukasi",
+    targetPath: "/app/dashboard",
+  });
 
   const activeId = (() => {
     const path = location.pathname.replace("/app", "").replace(/^\//, "");
@@ -18,9 +30,33 @@ export function DashboardLayout() {
   })();
 
   const current = navItems.find((n) => n.id === activeId);
+  const authRequiredParam = searchParams.get("authRequired");
 
-  if (!isLoading && !currentUser) {
-    return <Navigate to="/login" replace />;
+  useEffect(() => {
+    if (authRequiredParam && !currentUser) {
+      const item = navItems.find((n) => n.id === authRequiredParam);
+      setAuthModal({
+        isOpen: true,
+        itemName: item?.label || "Fitur Edukasi",
+        targetPath:
+          authRequiredParam === "dashboard"
+            ? "/app/dashboard"
+            : `/app/${authRequiredParam}`,
+      });
+      setSearchParams(
+        (params) => {
+          const next = new URLSearchParams(params);
+          next.delete("authRequired");
+          return next;
+        },
+        { replace: true },
+      );
+    }
+  }, [authRequiredParam, currentUser, setSearchParams]);
+
+  // If unauthenticated and accessing a protected education feature, redirect to maps with auth prompt
+  if (!isLoading && !currentUser && activeId !== "maps") {
+    return <Navigate to={`/app/maps?authRequired=${activeId}`} replace />;
   }
 
   if (
@@ -41,6 +77,14 @@ export function DashboardLayout() {
     return <Navigate to="/app" replace />;
   }
 
+  const handleRequireAuth = (itemName: string, targetPath: string) => {
+    setAuthModal({
+      isOpen: true,
+      itemName,
+      targetPath,
+    });
+  };
+
   if (isLoading) {
     return (
       <div className="h-[100dvh] overflow-hidden bg-gradient-to-b from-brand-50/40 via-white to-white dark:from-slate-900 dark:via-slate-950 dark:to-slate-950">
@@ -50,6 +94,7 @@ export function DashboardLayout() {
             onSelect={() => setMobileOpen(false)}
             mobileOpen={mobileOpen}
             onCloseMobile={() => setMobileOpen(false)}
+            onRequireAuth={handleRequireAuth}
           />
           <div className="flex min-w-0 flex-1 flex-col overflow-hidden">
             <Topbar
@@ -97,6 +142,7 @@ export function DashboardLayout() {
           mobileOpen={mobileOpen}
           onCloseMobile={() => setMobileOpen(false)}
           forceOverlay={activeId === "maps"}
+          onRequireAuth={handleRequireAuth}
         />
 
         <div className="flex min-w-0 flex-1 flex-col overflow-hidden">
@@ -114,6 +160,13 @@ export function DashboardLayout() {
           </main>
         </div>
       </div>
+
+      <AuthRequiredModal
+        isOpen={authModal.isOpen}
+        onClose={() => setAuthModal((prev) => ({ ...prev, isOpen: false }))}
+        itemName={authModal.itemName}
+        targetPath={authModal.targetPath}
+      />
     </div>
   );
 }

@@ -1,4 +1,4 @@
-import { X, LogOut, Map } from "lucide-react";
+import { X, LogOut, Map, LogIn, Satellite } from "lucide-react";
 import { Link } from "react-router-dom";
 import { navItems } from "@/components/dashboard/nav";
 import { Logo } from "@/components/Logo";
@@ -11,6 +11,7 @@ interface SidebarProps {
   mobileOpen: boolean;
   onCloseMobile: () => void;
   forceOverlay?: boolean;
+  onRequireAuth?: (itemName: string, targetPath: string) => void;
 }
 
 export function Sidebar({
@@ -19,6 +20,7 @@ export function Sidebar({
   mobileOpen,
   onCloseMobile,
   forceOverlay = false,
+  onRequireAuth,
 }: SidebarProps) {
   const { t } = useI18n();
   const { currentUser, logout } = useAuth();
@@ -27,12 +29,17 @@ export function Sidebar({
     if (item.roles && currentUser) {
       return item.roles.includes(currentUser.role);
     }
-    return true; // Visible to everyone if no roles are specified
+    if (!currentUser && item.roles && !item.roles.includes("student")) {
+      return false;
+    }
+    return true;
   });
 
   const mapsItem = visibleNavItems.find((item) => item.id === "maps");
-  const regularNavItems = visibleNavItems.filter((item) => item.id !== "maps");
+  const geospatialItem = visibleNavItems.find((item) => item.id === "geospatial");
+  const regularNavItems = visibleNavItems.filter((item) => item.id !== "maps" && item.id !== "geospatial");
   const isMapsActive = active === "maps";
+  const isGeospatialActive = active === "geospatial";
 
   return (
     <>
@@ -134,6 +141,52 @@ export function Sidebar({
                 </div>
               </Link>
 
+              {geospatialItem && (
+                <Link
+                  to="/app/geospatial"
+                  onClick={onSelect}
+                  className={`mt-2 group relative flex items-center gap-3 overflow-hidden rounded-2xl p-3 transition-all duration-300 ${
+                    isGeospatialActive
+                      ? "bg-gradient-to-r from-teal-600 via-teal-700 to-cyan-700 text-white shadow-glass shadow-teal-500/25 ring-2 ring-teal-400/50"
+                      : "border border-teal-200/60 bg-gradient-to-br from-teal-50/60 via-white to-cyan-50/40 text-ink-900 shadow-sm hover:border-teal-300 hover:shadow-md hover:-translate-y-0.5 dark:border-teal-900/50 dark:bg-slate-800/80 dark:text-white dark:hover:border-teal-700 dark:hover:bg-slate-800"
+                  }`}
+                >
+                  <div
+                    className={`flex h-11 w-11 shrink-0 items-center justify-center rounded-xl transition-all duration-300 ${
+                      isGeospatialActive
+                        ? "bg-white/20 text-white shadow-inner"
+                        : "bg-gradient-to-br from-teal-500 to-cyan-600 text-white shadow-md shadow-teal-500/25 group-hover:scale-105"
+                    }`}
+                  >
+                    <Satellite className="h-5 w-5" strokeWidth={2.2} />
+                  </div>
+
+                  <div className="min-w-0 flex-1">
+                    <div className="flex items-center justify-between">
+                      <span className="font-display text-sm font-extrabold tracking-tight">
+                        Geospatial Studio
+                      </span>
+                      {isGeospatialActive ? (
+                        <span className="flex h-2 w-2 rounded-full bg-white animate-pulse" />
+                      ) : (
+                        <span className="rounded-md bg-teal-500/10 px-1.5 py-0.5 text-[9px] font-bold text-teal-700 dark:bg-teal-400/20 dark:text-teal-300">
+                          11-Domain
+                        </span>
+                      )}
+                    </div>
+                    <p
+                      className={`mt-0.5 truncate text-[11px] font-medium ${
+                        isGeospatialActive
+                          ? "text-teal-100"
+                          : "text-ink-500 dark:text-slate-400"
+                      }`}
+                    >
+                      Earth Intelligence & Cuaca
+                    </p>
+                  </div>
+                </Link>
+              )}
+
               {/* Distinct separation divider */}
               <div className="mt-4 mb-2 flex items-center gap-2 px-2">
                 <div className="h-[1px] flex-1 bg-slate-200/80 dark:bg-slate-800" />
@@ -151,11 +204,26 @@ export function Sidebar({
           <ul className="space-y-1">
             {regularNavItems.map((item) => {
               const isActive = active === item.id;
+              const targetPath = item.id === "dashboard" ? "/app/dashboard" : `/app/${item.id}`;
+              const itemLabel = item.labelOverrides?.[
+                currentUser?.role as keyof typeof item.labelOverrides
+              ] || t(`nav.${item.id}`, item.label);
+
+              const handleClick = (e: React.MouseEvent) => {
+                if (!currentUser) {
+                  e.preventDefault();
+                  onSelect();
+                  onRequireAuth?.(itemLabel, targetPath);
+                  return;
+                }
+                onSelect();
+              };
+
               return (
                 <li key={item.id}>
                   <Link
-                    to={item.id === "dashboard" ? "/app/dashboard" : `/app/${item.id}`}
-                    onClick={onSelect}
+                    to={targetPath}
+                    onClick={handleClick}
                     className={`group flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium transition-all ${
                       isActive
                         ? "bg-brand-600 text-white shadow-glass"
@@ -171,11 +239,7 @@ export function Sidebar({
                       }`}
                       strokeWidth={2}
                     />
-                    <span>
-                      {item.labelOverrides?.[
-                        currentUser?.role as keyof typeof item.labelOverrides
-                      ] || t(`nav.${item.id}`, item.label)}
-                    </span>
+                    <span>{itemLabel}</span>
                     {isActive && (
                       <span className="ml-auto h-1.5 w-1.5 rounded-full bg-white/80" />
                     )}
@@ -188,51 +252,83 @@ export function Sidebar({
 
         {/* Footer card */}
         <div className="p-3">
-          <div className="glass rounded-xl p-4">
-            <div className="flex items-center gap-2.5">
-              <span
-                className={`flex h-9 w-9 items-center justify-center rounded-lg text-xs font-extrabold text-white ${
-                  currentUser?.role === "developer"
-                    ? "bg-gradient-to-br from-red-500 to-red-700"
-                    : currentUser?.role === "teacher"
-                      ? "bg-gradient-to-br from-amber-500 to-amber-700"
-                      : "bg-gradient-to-br from-brand-500 to-brand-700"
-                }`}
-              >
-                {currentUser?.name?.substring(0, 2).toUpperCase() || "GS"}
-              </span>
-              <div className="min-w-0">
-                <p className="truncate text-xs font-bold text-ink-900 dark:text-white">
-                  {currentUser?.name || "Pengguna"}
-                </p>
-                <div
-                  className={`mt-1 inline-flex items-center rounded-md px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-wider ${
-                    currentUser?.role === "developer"
-                      ? "bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400"
-                      : currentUser?.role === "teacher"
-                        ? "bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400"
-                        : "bg-brand-100 text-brand-700 dark:bg-brand-900/30 dark:text-brand-400"
-                  }`}
-                >
-                  {currentUser?.role === "developer"
-                    ? t("role.developer", "Developer")
-                    : currentUser?.role === "teacher"
-                      ? t("role.teacher", "Teacher")
-                      : t("role.student", "Student")}
+          {currentUser ? (
+            <>
+              <div className="glass rounded-xl p-4">
+                <div className="flex items-center gap-2.5">
+                  <span
+                    className={`flex h-9 w-9 items-center justify-center rounded-lg text-xs font-extrabold text-white ${
+                      currentUser?.role === "developer"
+                        ? "bg-gradient-to-br from-red-500 to-red-700"
+                        : currentUser?.role === "teacher"
+                          ? "bg-gradient-to-br from-amber-500 to-amber-700"
+                          : "bg-gradient-to-br from-brand-500 to-brand-700"
+                    }`}
+                  >
+                    {currentUser?.name?.substring(0, 2).toUpperCase() || "GS"}
+                  </span>
+                  <div className="min-w-0">
+                    <p className="truncate text-xs font-bold text-ink-900 dark:text-white">
+                      {currentUser?.name || "Pengguna"}
+                    </p>
+                    <div
+                      className={`mt-1 inline-flex items-center rounded-md px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-wider ${
+                        currentUser?.role === "developer"
+                          ? "bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400"
+                          : currentUser?.role === "teacher"
+                            ? "bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400"
+                            : "bg-brand-100 text-brand-700 dark:bg-brand-900/30 dark:text-brand-400"
+                      }`}
+                    >
+                      {currentUser?.role === "developer"
+                        ? t("role.developer", "Developer")
+                        : currentUser?.role === "teacher"
+                          ? t("role.teacher", "Teacher")
+                          : t("role.student", "Student")}
+                    </div>
+                  </div>
                 </div>
               </div>
-            </div>
-          </div>
-          <button
-            onClick={() => {
-              logout();
-              onCloseMobile();
-            }}
-            className="mt-2 flex w-full items-center gap-2 rounded-xl px-3 py-2.5 text-sm font-medium text-ink-500 transition-colors hover:bg-brand-50 hover:text-brand-600 dark:text-slate-400 dark:hover:bg-brand-950/40"
-          >
-            <LogOut className="h-4 w-4" />
-            Keluar (Logout)
-          </button>
+              <button
+                onClick={() => {
+                  logout();
+                  onCloseMobile();
+                }}
+                className="mt-2 flex w-full items-center gap-2 rounded-xl px-3 py-2.5 text-sm font-medium text-ink-500 transition-colors hover:bg-brand-50 hover:text-brand-600 dark:text-slate-400 dark:hover:bg-brand-950/40"
+              >
+                <LogOut className="h-4 w-4" />
+                Keluar (Logout)
+              </button>
+            </>
+          ) : (
+            <>
+              <div className="glass rounded-xl p-4">
+                <div className="flex items-center gap-2.5">
+                  <span className="flex h-9 w-9 items-center justify-center rounded-lg text-xs font-extrabold text-white bg-gradient-to-br from-slate-400 to-slate-600 dark:from-slate-600 dark:to-slate-800">
+                    TM
+                  </span>
+                  <div className="min-w-0">
+                    <p className="truncate text-xs font-bold text-ink-900 dark:text-white">
+                      Mode Tamu (Guest)
+                    </p>
+                    <div className="mt-1 inline-flex items-center rounded-md bg-slate-100 px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-wider text-slate-600 dark:bg-slate-800 dark:text-slate-300">
+                      Akses Bebas Peta
+                    </div>
+                  </div>
+                </div>
+              </div>
+              <button
+                onClick={() => {
+                  onCloseMobile();
+                  onRequireAuth?.("Portal Edukasi SPAB", "/app/dashboard");
+                }}
+                className="mt-2 flex w-full items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-brand-600 to-indigo-600 px-3 py-2.5 text-sm font-semibold text-white shadow-sm transition-all hover:from-brand-700 hover:to-indigo-700 active:scale-[0.99]"
+              >
+                <LogIn className="h-4 w-4" />
+                Masuk / Daftar Akun
+              </button>
+            </>
+          )}
         </div>
       </aside>
     </>

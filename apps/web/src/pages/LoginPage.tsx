@@ -1,7 +1,7 @@
 import { useState, useEffect, useMemo, useRef } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import { motion, AnimatePresence } from "framer-motion";
-import { Brain, Satellite, Boxes, ShieldCheck, ArrowLeft, LogOut, CheckCircle2, ChevronDown, Search, GraduationCap, BookOpen, MapPin, Building2, School as SchoolIcon, Loader2 } from "lucide-react";
+import { Brain, Satellite, Boxes, ShieldCheck, ArrowLeft, LogOut, CheckCircle2, ChevronDown, Search, GraduationCap, BookOpen, MapPin, Building2, School as SchoolIcon, Loader2, Sparkles, UserCheck } from "lucide-react";
 import { Logo } from "@/components/Logo";
 import { useToast } from "@/hooks/useToast";
 import { ThemePicker } from "@/components/ThemePicker";
@@ -22,6 +22,8 @@ type AuthStatus =
 
 export default function LoginPage() {
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
+  const redirectUrl = searchParams.get("redirect") || "/app/dashboard";
   const { show } = useToast();
   const { login, finalizeLogin, registerGoogle, currentUser } = useAuth();
 
@@ -83,9 +85,9 @@ export default function LoginPage() {
 
   useEffect(() => {
     if (currentUser && authStatus === "initial") {
-      navigate("/app");
+      navigate(redirectUrl);
     }
-  }, [currentUser, navigate, authStatus]);
+  }, [currentUser, navigate, authStatus, redirectUrl]);
 
   const handleGoogleSuccess = async (credentialResponse: any) => {
     if (!credentialResponse.credential) {
@@ -123,6 +125,49 @@ export default function LoginPage() {
     }
   };
 
+  const handleDevLogin = async (role: "developer" | "student" = "developer") => {
+    setLoading(true);
+    setLoadingText(`Menyiapkan sesi ${role === "developer" ? "Pengembang" : "Siswa"}...`);
+    try {
+      const devPayload = role === "developer"
+        ? {
+            email: "raihanansari3345@gmail.com",
+            name: "Raihan Ansari",
+            sub: "116086836535518680376",
+            picture: "https://lh3.googleusercontent.com/a/ACg8ocILCQOch6sL8tq_D5QC25Km3hcV9kb-m3kA0_5HBSnoie9Zjrg=s96-c",
+          }
+        : {
+            email: "student6273@sman1ngoro.sch.id",
+            name: "ABDUL WAHID",
+            sub: "usr-6273-1789454953604-708",
+            picture: "https://api.dicebear.com/7.x/avataaars/svg?seed=AbdulWahid",
+          };
+
+      const result = await login(JSON.stringify(devPayload));
+      if (result.success && result.account) {
+        await finalizeLogin(result.account);
+        show(`Selamat datang kembali, ${result.account.name}!`, "success");
+        navigate(redirectUrl);
+      } else if (result.status === "not_registered") {
+        setGoogleData({
+          token: JSON.stringify(devPayload),
+          email: result.email,
+          name: result.name,
+          picture: result.picture,
+        });
+        setRegName(result.name || "");
+        setAuthStatus("not_registered");
+      } else {
+        show(result.error ?? "Gagal masuk mode pengujian", "error");
+      }
+    } catch (e: any) {
+      show(e?.message || "Gagal masuk sesi dev", "error");
+    } finally {
+      setLoading(false);
+      setLoadingText("");
+    }
+  };
+
   const handleCancel = () => {
     setAuthStatus("initial");
     setGoogleData(null);
@@ -136,7 +181,7 @@ export default function LoginPage() {
         await finalizeLogin(googleData.account);
         setLoadingText("Membuka aplikasi...");
         show("Selamat datang kembali!", "success");
-        navigate("/app/maps");
+        navigate(redirectUrl);
       } catch (err: any) {
         show(err?.message || "Gagal masuk ke sistem. Silakan coba lagi.", "error");
         setLoading(false);
@@ -165,7 +210,7 @@ export default function LoginPage() {
       if (result.success) {
         setLoadingText("Menyiapkan dasbor...");
         show("Pendaftaran berhasil!", "success");
-        navigate("/app/maps");
+        navigate(redirectUrl);
       } else {
         show(result.error ?? "Gagal mendaftar", "error");
         setLoading(false);
@@ -241,7 +286,7 @@ export default function LoginPage() {
                     <Loader2 className="h-10 w-10 animate-spin text-brand-600" />
                     <div className="space-y-1 text-center">
                       <p className="text-sm font-semibold text-brand-600 dark:text-brand-400 animate-pulse">
-                        {loadingText || "Memverifikasi akun Google..."}
+                        {loadingText || "Memverifikasi akun..."}
                       </p>
                       <p className="text-xs text-ink-400 dark:text-slate-500">
                         Mohon tunggu beberapa saat...
@@ -249,12 +294,49 @@ export default function LoginPage() {
                     </div>
                   </div>
                 ) : (
-                  <GoogleLogin
-                    onSuccess={handleGoogleSuccess}
-                    onError={() => show("Gagal login dengan Google", "error")}
-                    useOneTap
-                    shape="pill"
-                  />
+                  <div className="w-full flex flex-col items-center gap-4">
+                    <div className="flex justify-center w-full">
+                      <GoogleLogin
+                        onSuccess={handleGoogleSuccess}
+                        onError={() => {
+                          show("Google Cloud Console memblokir origin localhost ini. Gunakan Akses Cepat di bawah.", "info");
+                        }}
+                        shape="pill"
+                      />
+                    </div>
+
+                    <div className="relative flex w-full items-center justify-center py-1">
+                      <div className="absolute inset-0 flex items-center">
+                        <div className="w-full border-t border-slate-200 dark:border-slate-800" />
+                      </div>
+                      <div className="relative bg-white dark:bg-slate-900 px-3 text-[11px] uppercase tracking-wider text-slate-400 dark:text-slate-500 font-semibold rounded-full">
+                        Akses Cepat Pengujian Lokal
+                      </div>
+                    </div>
+
+                    <div className="flex w-full flex-col gap-2.5">
+                      <button
+                        type="button"
+                        onClick={() => handleDevLogin("developer")}
+                        className="w-full flex items-center justify-center gap-2.5 rounded-xl bg-gradient-to-r from-brand-600 to-indigo-600 px-4 py-2.5 text-sm font-semibold text-white shadow-sm hover:from-brand-500 hover:to-indigo-500 transition-all hover:shadow-md active:scale-[0.99]"
+                      >
+                        <Sparkles className="h-4 w-4" />
+                        <span>Masuk Langsung sebagai Pengembang (Raihan)</span>
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => handleDevLogin("student")}
+                        className="w-full flex items-center justify-center gap-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-white/60 dark:bg-slate-800/60 px-4 py-2 text-xs font-medium text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 transition-all"
+                      >
+                        <UserCheck className="h-3.5 w-3.5 text-slate-500" />
+                        <span>Masuk sebagai Akun Siswa (Demo)</span>
+                      </button>
+                    </div>
+
+                    <p className="text-[11px] text-center text-slate-400 dark:text-slate-500 leading-relaxed max-w-sm mt-1">
+                      💡 <span className="font-semibold">Catatan Google OAuth:</span> Jika tombol Google memunculkan <em>origin not allowed</em>, daftarkan <code>http://localhost:5173</code> di Google Cloud Console Credentials Anda.
+                    </p>
+                  </div>
                 )}
               </motion.div>
             )}

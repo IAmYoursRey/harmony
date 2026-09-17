@@ -13,6 +13,7 @@ import {
   GraduationCap,
   ShieldCheck,
   Trophy,
+  Satellite,
   type LucideIcon,
 } from "lucide-react";
 
@@ -26,6 +27,7 @@ export interface NavItem {
 
 export const navItems: NavItem[] = [
   { id: "maps", label: "Harmony Maps", icon: Map },
+  { id: "geospatial", label: "Geospatial Studio", icon: Satellite },
   {
     id: "dev-dashboard",
     label: "User Account",

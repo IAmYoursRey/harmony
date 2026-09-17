@@ -26,6 +26,7 @@ const DEFAULT_DB = {
   quizHistories: [],
   spatialCache: {},
   events: [],
+  weatherIntervals: [],
 };
 
 let inMemoryCache = null;
@@ -80,6 +81,7 @@ async function initPg() {
       CREATE TABLE IF NOT EXISTS quiz_histories ( id VARCHAR(255) PRIMARY KEY, data JSONB NOT NULL );
       CREATE TABLE IF NOT EXISTS spatial_cache ( id VARCHAR(255) PRIMARY KEY, data JSONB NOT NULL, created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP );
       CREATE TABLE IF NOT EXISTS events ( id VARCHAR(255) PRIMARY KEY, data JSONB NOT NULL );
+      CREATE TABLE IF NOT EXISTS weather_training_intervals ( id VARCHAR(255) PRIMARY KEY, data JSONB NOT NULL, created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP );
       
       -- Safe migration for digital_twin_maps public sharing
       DO $$
@@ -473,6 +475,55 @@ export async function removeEvent(id) {
     return true;
   }
   return true;
+}
+
+export async function saveWeatherInterval(record) {
+  if (!record.id) {
+    record.id = `wt-${record.locationKey || 'loc'}-${record.timeframe || '1d'}-${Date.now()}`;
+  }
+  if (inMemoryCache) {
+    if (!inMemoryCache.weatherIntervals) inMemoryCache.weatherIntervals = [];
+    inMemoryCache.weatherIntervals.unshift(record);
+    if (inMemoryCache.weatherIntervals.length > 500) {
+      inMemoryCache.weatherIntervals = inMemoryCache.weatherIntervals.slice(0, 500);
+    }
+  }
+  if (pool) {
+    await initPg();
+    await timeoutQuery(
+      pool.query(
+        `INSERT INTO weather_training_intervals (id, data) VALUES ($1, $2) ON CONFLICT (id) DO UPDATE SET data = EXCLUDED.data`,
+        [record.id, JSON.stringify(record)],
+      ),
+    );
+    return true;
+  }
+  return true;
+}
+
+export async function getWeatherIntervals(locationKey, limit = 50) {
+  if (pool) {
+    await initPg();
+    try {
+      const res = await timeoutQuery(
+        pool.query(
+          `SELECT data FROM weather_training_intervals ORDER BY created_at DESC LIMIT $1`,
+          [limit],
+        ),
+      );
+      if (res && res.rows) {
+        return res.rows.map((r) => r.data).filter((d) => !locationKey || d.locationKey === locationKey);
+      }
+    } catch (e) {
+      console.warn("Could not query weather_training_intervals from pool:", e);
+    }
+  }
+  if (inMemoryCache && inMemoryCache.weatherIntervals) {
+    return inMemoryCache.weatherIntervals
+      .filter((d) => !locationKey || d.locationKey === locationKey)
+      .slice(0, limit);
+  }
+  return [];
 }
 
 export async function writeDB(db, tablesToUpdate = null) {

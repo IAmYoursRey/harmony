@@ -5,13 +5,37 @@ async function test() {
   console.log("Starting Persistence Test...");
   const fetch = (await import('node-fetch')).default;
 
-  const resLogin = await fetch('http://localhost:3001/api/auth/register', {
+  const fakeGoogleToken = JSON.stringify({
+    email: 'test_student@geosense.edu.id',
+    name: 'Test Student',
+    sub: 'google_test_student_123',
+    picture: ''
+  });
+
+  let resLogin = await fetch('http://localhost:3001/api/auth/login', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ name: 'Test', email: 'test_student@geosense.edu.id', password: 'password123', role: 'student', gender: 'male', grade: 'X', section: '1' })
+    body: JSON.stringify({ token: fakeGoogleToken })
   });
-  const dataLogin = await resLogin.json();
-  console.log("Register Response:", dataLogin);
+  let dataLogin = await resLogin.json();
+  if (dataLogin.status === 'not_registered') {
+    const resReg = await fetch('http://localhost:3001/api/auth/register-google', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        token: fakeGoogleToken,
+        email: 'test_student@geosense.edu.id',
+        name: 'Test Student',
+        role: 'student',
+        gender: 'male',
+        grade: 'X',
+        classSection: '1',
+        schoolId: 'sch-1'
+      })
+    });
+    dataLogin = await resReg.json();
+  }
+  console.log("Auth Response:", dataLogin);
   const token = dataLogin.token;
   console.log("Logged in:", !!token);
 
