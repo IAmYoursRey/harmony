@@ -5,6 +5,7 @@ import { Footer } from "@/components/Footer";
 import { DashboardLayout } from "@/components/dashboard/DashboardLayout";
 import { PageSkeleton } from "@/components/Skeletons";
 import { AuthProvider } from "@/context/AuthContext";
+import { DataSourceProvenanceFloatingButton } from "@/components/common/DataSourceProvenanceFloatingButton";
 
 const LandingPage = lazy(() => import("@/pages/LandingPage"));
 const LoginPage = lazy(() => import("@/pages/LoginPage"));
@@ -319,6 +320,7 @@ export default function App() {
           }
         />
       </Routes>
+      <DataSourceProvenanceFloatingButton />
     </AuthProvider>
   );
 }
