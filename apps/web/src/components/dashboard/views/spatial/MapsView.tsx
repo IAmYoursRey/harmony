@@ -26,7 +26,7 @@ import {
   Newspaper, Palette, Paintbrush, Box, Compass, RotateCcw, RotateCw, LocateFixed, CloudSun,
   Waves, Gauge, Flame, AlertCircle, Navigation, Satellite, Layers, Car, Info, ShieldCheck,
   ArrowUp, ArrowUpRight, Check, Eye, Radio, BookOpen, ExternalLink, Calendar, Sparkles, Droplets,
-  ChevronUp, ChevronDown
+  ChevronUp, ChevronDown, Database
 } from "lucide-react";
 import { useNavigate, useOutletContext } from "react-router-dom";
 import { seasonalIntelligenceService, type SeasonalInfo, EQUATOR_MONUMENTS } from "@/services/seasonalIntelligenceService";
@@ -52,6 +52,7 @@ import {
 } from "@/services/earthSensorRegistry";
 import { SensorInspectorModal } from "./SensorInspectorModal";
 import { MasterSensorTaxonomyModal } from "./MasterSensorTaxonomyModal";
+import { DataSourceProvenanceModal } from "@/components/common/DataSourceProvenanceModal";
 
 // Basemap Types & Provenance Metadata (>2020 High-Accuracy Datasets)
 export type MapBasemapType = 'osm' | 'satellite' | 'elevation' | 'thermal' | 'traffic' | 'dark';
@@ -1008,6 +1009,7 @@ export function MapsView() {
   const [activeMapBasemap, setActiveMapBasemap] = useState<MapBasemapType>('osm');
   const [showBasemapMenu, setShowBasemapMenu] = useState<boolean>(false);
   const [showMetadataModal, setShowMetadataModal] = useState<boolean>(false);
+  const [showDataProvenanceModal, setShowDataProvenanceModal] = useState<boolean>(false);
   const [showTrafficCorridors, setShowTrafficCorridors] = useState<boolean>(false);
   const [showObservationCoverage, setShowObservationCoverage] = useState<boolean>(false);
   const [selectedCorridor, setSelectedCorridor] = useState<TrafficCorridor | null>(null);
@@ -4166,9 +4168,50 @@ export function MapsView() {
         )}
       </AnimatePresence>
 
-      {/* Bottom-Left Unified Status & Intelligence Bar (Bebas Tabrakan) */}
+      {/* Tombol Bulat Pojok Kiri Bawah: Transparansi Sumber Data Resmi (BMKG, PVMBG, BIG, BNPB, Kemendikbud) */}
       {weatherMapOverlay === 'none' && (
-        <div className="absolute bottom-3 sm:bottom-4 left-3 sm:left-4 z-20 flex flex-wrap items-center gap-2 max-w-[calc(100vw-8rem)] pointer-events-auto">
+        <div className="absolute bottom-3 sm:bottom-4 left-3 sm:left-4 z-30 pointer-events-auto">
+          <div className="relative group">
+            <button
+              type="button"
+              onClick={() => setShowDataProvenanceModal(true)}
+              aria-haspopup="dialog"
+              aria-expanded={showDataProvenanceModal}
+              className="relative flex h-10 w-10 sm:h-11 sm:w-11 items-center justify-center rounded-full bg-gradient-to-tr from-slate-900 via-indigo-950 to-brand-900 text-white shadow-xl shadow-indigo-950/40 border border-indigo-400/50 hover:border-indigo-300 hover:scale-110 active:scale-95 transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-brand-500/50 cursor-pointer"
+              title="Transparansi Lengkap Sumber Data Resmi (BMKG, PVMBG, BIG, BNPB, Kemendikbud, ESA, USGS)"
+              aria-label="Buka Sumber Data Resmi Kebencanaan"
+            >
+              {/* Glowing outer pulse */}
+              <span className="absolute -inset-1 rounded-full bg-gradient-to-r from-cyan-500 via-indigo-500 to-brand-500 opacity-40 blur-sm group-hover:opacity-85 group-hover:blur-md transition duration-300 animate-pulse" />
+
+              {/* Inner circle */}
+              <span className="relative flex items-center justify-center h-full w-full rounded-full bg-slate-900/90 backdrop-blur-md">
+                <Database className="h-4 w-4 sm:h-5 sm:w-5 text-indigo-300 group-hover:text-white transition-colors" />
+
+                {/* Verified Shield Badge Overlay */}
+                <span className="absolute -top-0.5 -right-0.5 flex h-3.5 w-3.5 items-center justify-center rounded-full bg-emerald-500 text-white ring-1.5 ring-slate-900 shadow-sm" title="Terverifikasi Otoritatif">
+                  <ShieldCheck className="h-2 w-2" />
+                </span>
+              </span>
+            </button>
+
+            {/* Floating Tooltip Label (Desktop Hover) */}
+            <div className="pointer-events-none absolute left-full ml-2.5 top-1/2 -translate-y-1/2 opacity-0 -translate-x-2 group-hover:opacity-100 group-hover:translate-x-0 transition-all duration-200 whitespace-nowrap z-50 hidden sm:block">
+              <div className="flex items-center gap-2 px-3 py-1.5 rounded-xl bg-slate-900/95 backdrop-blur-md text-white text-xs font-semibold shadow-xl border border-slate-700/80">
+                <span className="flex h-2 w-2 rounded-full bg-emerald-400 animate-ping" />
+                <span>Sumber Data Resmi</span>
+                <span className="text-[10px] text-slate-400 font-normal">
+                  (BMKG, BIG, PVMBG, BNPB, Dapodik)
+                </span>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Bottom-Left Unified Status & Intelligence Bar (Digeser ke kanan agar bebas tabrakan) */}
+      {weatherMapOverlay === 'none' && (
+        <div className="absolute bottom-3 sm:bottom-4 left-15 sm:left-17 z-20 flex flex-wrap items-center gap-2 max-w-[calc(100vw-12rem)] pointer-events-auto">
           {/* 1. Basemap Provenance Pill */}
           <button
             type="button"
@@ -5291,6 +5334,12 @@ export function MapsView() {
       <MasterSensorTaxonomyModal
         isOpen={showMasterTaxonomyModal}
         onClose={() => setShowMasterTaxonomyModal(false)}
+      />
+
+      {/* Full Transparency Data Provenance Modal */}
+      <DataSourceProvenanceModal
+        isOpen={showDataProvenanceModal}
+        onClose={() => setShowDataProvenanceModal(false)}
       />
 
       {/* Fullscreen Weather Mode */}
