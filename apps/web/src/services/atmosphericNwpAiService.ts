@@ -49,6 +49,7 @@ export interface NwpVerifyPayload {
 
 class AtmosphericNwpAiService {
   private cache: Map<string, { result: AiNwpVerificationResult; timestamp: number }> = new Map();
+  private inFlightPromises: Map<string, Promise<AiNwpVerificationResult>> = new Map();
   private CACHE_TTL_MS = 10 * 60 * 1000; // 10 menit
 
   /**
@@ -191,38 +192,52 @@ class AtmosphericNwpAiService {
       return cached.result;
     }
 
-    try {
-      const apiBase = import.meta.env.VITE_API_BASE_URL || '';
-      const response = await fetch(`${apiBase}/api/ai/weather-nwp-verify`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(payload),
-      });
-
-      if (!response.ok) {
-        throw new Error(`Server returned status ${response.status}`);
-      }
-
-      const json = await response.json();
-      if (json && json.success && json.data) {
-        const result: AiNwpVerificationResult = {
-          ...json.data,
-          modelName: json.data.modelName || 'Google Gemini 3.6 Flash (NWP Engine)',
-          verifiedAt: new Date().toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' }),
-        };
-        this.cache.set(cacheKey, { result, timestamp: now });
-        return result;
-      }
-
-      throw new Error('Invalid AI response payload');
-    } catch (err) {
-      console.warn('[AtmosphericNwpAiService] Using local deterministic NWP solver fallback:', err);
-      const fallback = this.computeDeterministicNwp(payload);
-      this.cache.set(cacheKey, { result: fallback, timestamp: now });
-      return fallback;
+    if (this.inFlightPromises.has(cacheKey)) {
+      return this.inFlightPromises.get(cacheKey)!;
     }
+
+    const promise = (async () => {
+      try {
+        const apiBase = import.meta.env.VITE_API_BASE_URL || '';
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), 8000);
+        const response = await fetch(`${apiBase}/api/ai/weather-nwp-verify`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify(payload),
+          signal: controller.signal,
+        });
+        clearTimeout(timeoutId);
+
+        if (!response.ok) {
+          throw new Error(`Server returned status ${response.status}`);
+        }
+
+        const json = await response.json();
+        if (json && json.success && json.data) {
+          const result: AiNwpVerificationResult = {
+            ...json.data,
+            modelName: json.data.modelName || 'Google Gemini 3.6 Flash (NWP Engine)',
+            verifiedAt: new Date().toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' }),
+          };
+          this.cache.set(cacheKey, { result, timestamp: Date.now() });
+          return result;
+        }
+
+        throw new Error('Invalid AI response payload');
+      } catch (err) {
+        const fallback = this.computeDeterministicNwp(payload);
+        this.cache.set(cacheKey, { result: fallback, timestamp: Date.now() });
+        return fallback;
+      } finally {
+        this.inFlightPromises.delete(cacheKey);
+      }
+    })();
+
+    this.inFlightPromises.set(cacheKey, promise);
+    return promise;
   }
 }
 

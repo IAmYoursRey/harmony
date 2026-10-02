@@ -132,3 +132,30 @@ Dokumen ini memuat daftar lengkap instansi resmi penyedia data, jenis data yang 
 * **Sumber / Portal Resmi**:
   - Portal Google AI: [https://ai.google.dev/](https://ai.google.dev/)
 * **Dasar Hukum / Standar**: Standar Keamanan Informasi ISO/IEC 27001 dan Google Responsible AI Principles.
+
+---
+
+## 12. Kebijakan Integritas Ilmiah Geospasial (Zero-Fabrication Policy)
+
+Platform HARMONY menerapkan prinsip keterbukaan ilmiah dan kejujuran data mutlak. Sistem secara tegas membedakan 7 status sumber data:
+
+| Status Data | Definisi & Kriteria Validasi |
+| :--- | :--- |
+| `LIVE` | Data terukur aktual yang berhasil diakuisisi secara langsung dari penyedia resmi tanpa degradasi (contoh: BMKG InaTEWS, API Cuaca Open-Meteo, AWS STAC, W3C Geolocation). |
+| `CACHED` | Data resmi yang disimpan sementara dalam memori/Redis untuk efisiensi latensi tanpa mengubah geometri atau atribut aslinya. |
+| `STATIC` | Dataset referensi terkurasi dan terverifikasi secara spasial (contoh: garis ekuator astronomis, koordinat Dapodik Kemendikbud, batas lempeng USGS). |
+| `DERIVED` | Hasil kalkulasi matematis standar berbasis input spasial riil (contoh: algoritma lereng Horn 3x3 dari DEM asli, indeks spektral NDVI/NDWI dari pita satelit aktual, jarak geodesik haversine/Vincenty). |
+| `ESTIMATED` | Hasil model asimilasi numerik cuaca/bencana dengan parameter ketidakpastian yang didokumentasikan. |
+| `SIMULATED` | Modus pelatihan/edukasi yang secara eksplisit diberi label `MODE: SIMULATION` (contoh: simulasi GNSS seluler di dalam ruangan). Tidak pernah disajikan sebagai hasil observasi riil. |
+| `UNAVAILABLE` | Kondisi ketika data raster, sensor, atau satelit tidak tersedia di area/waktu yang dipilih. Platform **tidak pernah** mengarang angka acak (*random jitter* / *sine wave*) untuk mengisi kekosongan. |
+
+---
+
+## 13. Spesifikasi Arsitektur Geospasial Harmony
+
+* **Sistem Basis Data Spasial**: PostgreSQL + PostGIS 3.6 (`USE_GEOS=1 USE_PROJ=1 USE_STATS=1`) dengan indeks spasial R-Tree (GiST) pada kolom `geometry(Geometry, 4326)`.
+* **Transformasi Proyeksi (CRS)**: Menggunakan library `proj4` standar geodetik. Mendukung EPSG:4326 (WGS 84), EPSG:3857 (Web Mercator), serta UTM Zona 46N hingga 54S seluruh kepulauan Indonesia dengan penentuan zona otomatis.
+* **Pipeline Penginderaan Jauh**: Standar STAC (SpatioTemporal Asset Catalog) via AWS Open Data / Element84 untuk Sentinel-2 L2A dan Sentinel-1 GRD SAR.
+* **Model Elevasi Digital (DEM)**: DEM Open-Meteo (Copernicus DEM GLO-90 / SRTM 30m) dengan algoritma perbedaan terhingga tertimbang Horn (1981) untuk kalkulasi kemiringan lereng (*slope*), orientasi hadap lereng (*aspect*), dan *hillshade*.
+* **Format Berkas Impor**: GeoJSON (`.geojson`, `.json`), Keyhole Markup Language (`.kml`), GPS Exchange Format (`.gpx`), dan CSV Koordinat Lintang/Bujur dengan validasi topologi geometri.
+* **Pengukuran Geodesik**: Perhitungan panjang dan luas pada elipsoida referensi WGS 84 (`ol/sphere.getLength` dan `ol/sphere.getArea`), serta penentuan sudut azimuth/bearing geodetik.

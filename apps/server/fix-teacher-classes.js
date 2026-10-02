@@ -17,25 +17,21 @@ async function run() {
   }
   const schoolId = sman1.id || sman1.school_id;
   
-  // Find a teacher in SMAN 1 Ngoro to assign classes to
   const teacherProfile = db.profiles.find(p => p.schoolId === schoolId && db.accounts.find(a => a.id === p.userId)?.role === "teacher");
   const teacherId = teacherProfile ? teacherProfile.userId : "seed-aretha.kirana";
 
-  // Remove old alphabetical classes for this school
   const oldClasses = db.classes.filter(c => c.schoolId === schoolId && /[a-zA-Z]/.test(c.section || ""));
   console.log(`Removing ${oldClasses.length} old alphabetical classes.`);
   db.classes = db.classes.filter(c => !(c.schoolId === schoolId && /[a-zA-Z]/.test(c.section || "")));
 
-  // Identify all sections from the imported students (1, 2, 3...)
   const sections = new Set();
   const students = db.profiles.filter(p => p.schoolId === schoolId && p.grade === "10");
   for (const s of students) {
     if (s.classSection) sections.add(s.classSection);
-  }
+  } 
 
-  // Create new classes
   console.log(`Creating classes for sections:`, Array.from(sections));
-  const classMap = {};
+  const classMap = {}; 
   for (const section of sections) {
     const classId = `class_${schoolId}_10_${section}`;
     db.classes.push({
@@ -50,7 +46,6 @@ async function run() {
     classMap[section] = classId;
   }
 
-  // Assign students to classes
   let updated = 0;
   for (const s of students) {
     if (s.classSection && classMap[s.classSection]) {

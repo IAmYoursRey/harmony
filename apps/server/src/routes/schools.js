@@ -170,10 +170,6 @@ router.get("/map", async (req, res) => {
   try {
     const schools = await getBaseSchools();
     
-    // Optimized map payload: Send as an array of tuples to save massive JSON bandwidth
-    // Tuple format: [id, lat, lng, category, name]
-    // Categories: 1=TK/PAUD, 2=SD/MI, 3=SMP/MTs, 4=SMA/SMK/MA, 0=Other
-    
     const mapSchools = [];
     
     for (let i = 0; i < schools.length; i++) {
@@ -204,8 +200,7 @@ router.get("/map", async (req, res) => {
         ]);
       }
     }
-      
-    // No limits applied (Tanpa Batas). Sends all 215k+ valid coordinates.
+
     res.json({ schools: mapSchools });
   } catch (error) {
     console.error("Error fetching map schools:", error);

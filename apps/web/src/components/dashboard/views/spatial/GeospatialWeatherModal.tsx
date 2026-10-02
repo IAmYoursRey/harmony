@@ -25,6 +25,7 @@ import {
   ChevronRight,
   MapPin,
   Cpu,
+  Terminal,
   Binary,
   Search,
   Filter,
@@ -72,6 +73,7 @@ import { GeospatialChartsTab } from './studio/GeospatialChartsTab';
 import { GeospatialFusionIntelligenceTab } from './studio/GeospatialFusionIntelligenceTab';
 import { HarmonyChartEngine } from './charts/HarmonyChartEngine';
 import { PreciseLocationInfo } from '../../../../services/preciseGeocodingService';
+import { GeospatialDataTransparencyModal } from './GeospatialDataTransparencyModal';
 
 interface GeospatialWeatherModalProps {
   isOpen: boolean;
@@ -317,6 +319,7 @@ export const GeospatialWeatherModal: React.FC<GeospatialWeatherModalProps> = ({
   const [chartMetric, setChartMetric] = useState<WeatherChartMetric>('temperature');
   const [mainVisualGraph, setMainVisualGraph] = useState<'temp' | 'rain' | 'cloud' | 'all'>('temp');
   const [showAdvancedScience, setShowAdvancedScience] = useState(false);
+  const [isTelemetryModalOpen, setIsTelemetryModalOpen] = useState(false);
 
   // Intisari cepat & padat untuk pengguna umum
   const weatherInsights = useMemo(() => {
@@ -1777,7 +1780,7 @@ export const GeospatialWeatherModal: React.FC<GeospatialWeatherModalProps> = ({
 
 
               {/* Sources Transparency Footer */}
-              <div className="p-3 rounded-2xl bg-slate-50 dark:bg-slate-900/40 border border-slate-100 dark:border-slate-800 text-[11px] text-slate-500 flex flex-wrap items-center justify-between gap-2">
+              <div className="p-3.5 rounded-2xl bg-slate-50 dark:bg-slate-900/40 border border-slate-100 dark:border-slate-800 text-[11px] text-slate-500 flex flex-wrap items-center justify-between gap-3">
                 <div className="flex items-center gap-2 flex-wrap">
                   <span className="font-bold text-slate-700 dark:text-slate-300">Sumber Terbuka Realtime:</span>
                   {data?.sources.map((s) => (
@@ -1786,7 +1789,24 @@ export const GeospatialWeatherModal: React.FC<GeospatialWeatherModalProps> = ({
                     </span>
                   ))}
                 </div>
-                <span className="text-slate-400">Open-Meteo, ECMWF, BMKG & Copernicus License</span>
+
+                <div className="flex items-center gap-2.5 flex-wrap">
+                  <button
+                    type="button"
+                    onClick={() => setIsTelemetryModalOpen(true)}
+                    className="flex items-center gap-2 px-3.5 py-1.5 rounded-xl bg-gradient-to-r from-indigo-600 via-indigo-700 to-purple-600 hover:from-indigo-500 hover:to-purple-500 text-white font-bold text-xs shadow-md shadow-indigo-500/25 transition-all hover:scale-105 active:scale-95 cursor-pointer"
+                    title="Buka Pusat Transparansi Data, Status Web/API, Uji Akurasi & Log Audit AI"
+                  >
+                    <Terminal className="w-3.5 h-3.5 text-sky-300" />
+                    <span>Inspeksi Data Masuk-Keluar & Audit AI</span>
+                    <span className="flex h-2 w-2 relative">
+                      <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+                      <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-400"></span>
+                    </span>
+                  </button>
+
+                  <span className="text-slate-400">Open-Meteo, ECMWF, BMKG & Copernicus License</span>
+                </div>
               </div>
             </div>
           )}
@@ -2019,6 +2039,18 @@ export const GeospatialWeatherModal: React.FC<GeospatialWeatherModalProps> = ({
           </div>
         </div>
       )}
+
+      {/* Geospatial Data In/Out Transparency, Web Health & AI Audit Modal */}
+      <GeospatialDataTransparencyModal
+        isOpen={isTelemetryModalOpen}
+        onClose={() => setIsTelemetryModalOpen(false)}
+        weatherData={data}
+        lat={activeLat}
+        lng={activeLng}
+        locationName={activeRegionName}
+        onReverifyAi={handleReverifyAi}
+        onRefreshWeather={() => loadWeather(activeLat, activeLng, activeRegionName, true)}
+      />
     </>
   );
 

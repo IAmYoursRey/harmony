@@ -341,12 +341,18 @@ Kembalikan respon dalam format JSON murni TANPA markdown/backticks:
       source: "gemini-3.6-flash-nwp",
     });
   } catch (err) {
-    const isRateLimit = err?.message?.includes("429") || err?.message?.includes("RESOURCE_EXHAUSTED") || err?.status === 429;
+    const errStr = typeof err?.message === "string" ? err.message : JSON.stringify(err);
+    const isRateLimit = errStr.includes("429") || errStr.includes("RESOURCE_EXHAUSTED") || err?.status === 429;
+    const isServiceUnavailable = errStr.includes("503") || errStr.includes("UNAVAILABLE") || errStr.includes("high demand") || err?.status === 503;
+
     if (isRateLimit) {
-      geminiQuotaCooldownUntil = Date.now() + 10 * 60 * 1000; // 10 menit cooldown
-      console.warn(`[AI Weather NWP] Gemini quota limit reached. Cooldown activated (10m). Switched to deterministic NWP solver.`);
+      geminiQuotaCooldownUntil = Date.now() + 5 * 60 * 1000;
+      console.warn(`[AI Weather NWP] Gemini quota limit reached (429). Cooldown activated (5m). Switched to deterministic NWP solver.`);
+    } else if (isServiceUnavailable) {
+      geminiQuotaCooldownUntil = Date.now() + 2 * 60 * 1000;
+      console.warn(`[AI Weather NWP] Gemini high demand / spike (503 UNAVAILABLE). Temporary cooldown (2m). Seamless fallback to deterministic NWP physics solver.`);
     } else {
-      console.warn(`[AI Weather NWP] Falling back to deterministic NWP physics solver:`, err.message || err);
+      console.warn(`[AI Weather NWP] Falling back to deterministic NWP physics solver:`, err?.message || "Atmospheric model calculation error");
     }
 
     const fallback = computeLocalNwpFallback();

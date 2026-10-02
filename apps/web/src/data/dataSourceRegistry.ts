@@ -36,6 +36,8 @@ export interface DataSourceItem {
   directApiEndpoint?: string;
   badgeColor: string;
   isLiveConnected: boolean;
+  apiKeyRequired?: boolean;
+  apiKeyStatus?: 'ACTIVE' | 'PUBLIC_FREE' | 'NOT_REQUIRED' | 'CONFIGURED';
 }
 
 export const DATA_CATEGORIES: { id: DataCategory; label: string; icon: string }[] = [
@@ -112,6 +114,8 @@ export const DATA_SOURCES_REGISTRY: DataSourceItem[] = [
     directApiEndpoint: 'https://data.bmkg.go.id/DataMKG/TEWS/autogempa.json',
     badgeColor: '#ef4444',
     isLiveConnected: true,
+    apiKeyRequired: false,
+    apiKeyStatus: 'PUBLIC_FREE',
   },
   {
     id: 'pvmbg-magma-vona',
@@ -139,6 +143,8 @@ export const DATA_SOURCES_REGISTRY: DataSourceItem[] = [
     directApiEndpoint: 'https://magma.esdm.go.id/v1/gunung-api/laporan',
     badgeColor: '#f97316',
     isLiveConnected: true,
+    apiKeyRequired: false,
+    apiKeyStatus: 'PUBLIC_FREE',
   },
   {
     id: 'big-demnas-inageoportal',
@@ -165,6 +171,8 @@ export const DATA_SOURCES_REGISTRY: DataSourceItem[] = [
     portalUrl: 'https://tanahair.indonesia.go.id/demnas/#/',
     badgeColor: '#10b981',
     isLiveConnected: true,
+    apiKeyRequired: false,
+    apiKeyStatus: 'PUBLIC_FREE',
   },
   {
     id: 'bnpb-inarisk-irbi',
@@ -191,6 +199,8 @@ export const DATA_SOURCES_REGISTRY: DataSourceItem[] = [
     portalUrl: 'https://inarisk.bnpb.go.id/',
     badgeColor: '#d97706',
     isLiveConnected: true,
+    apiKeyRequired: false,
+    apiKeyStatus: 'PUBLIC_FREE',
   },
   {
     id: 'kemendikbud-dapodik',
@@ -217,6 +227,8 @@ export const DATA_SOURCES_REGISTRY: DataSourceItem[] = [
     portalUrl: 'https://referensi.data.kemdikbud.go.id/',
     badgeColor: '#2563eb',
     isLiveConnected: true,
+    apiKeyRequired: false,
+    apiKeyStatus: 'PUBLIC_FREE',
   },
   {
     id: 'bmkg-weather-radar-sat',
@@ -243,6 +255,8 @@ export const DATA_SOURCES_REGISTRY: DataSourceItem[] = [
     portalUrl: 'https://satelit.bmkg.go.id/',
     badgeColor: '#0ea5e9',
     isLiveConnected: true,
+    apiKeyRequired: false,
+    apiKeyStatus: 'PUBLIC_FREE',
   },
   {
     id: 'esa-copernicus-sentinel',
@@ -269,6 +283,8 @@ export const DATA_SOURCES_REGISTRY: DataSourceItem[] = [
     portalUrl: 'https://browser.dataspace.copernicus.eu/',
     badgeColor: '#059669',
     isLiveConnected: true,
+    apiKeyRequired: false,
+    apiKeyStatus: 'PUBLIC_FREE',
   },
   {
     id: 'usgs-earthquake-hazards',
@@ -295,6 +311,8 @@ export const DATA_SOURCES_REGISTRY: DataSourceItem[] = [
     directApiEndpoint: 'https://earthquake.usgs.gov/fdsnws/event/1/query?format=geojson',
     badgeColor: '#dc2626',
     isLiveConnected: true,
+    apiKeyRequired: false,
+    apiKeyStatus: 'PUBLIC_FREE',
   },
   {
     id: 'open-meteo-ecmwf',
@@ -322,6 +340,8 @@ export const DATA_SOURCES_REGISTRY: DataSourceItem[] = [
     directApiEndpoint: 'https://api.open-meteo.com/v1/forecast',
     badgeColor: '#06b6d4',
     isLiveConnected: true,
+    apiKeyRequired: false,
+    apiKeyStatus: 'PUBLIC_FREE',
   },
   {
     id: 'nasa-firms-noaa',
@@ -347,6 +367,8 @@ export const DATA_SOURCES_REGISTRY: DataSourceItem[] = [
     portalUrl: 'https://firms.modaps.eosdis.nasa.gov/',
     badgeColor: '#b91c1c',
     isLiveConnected: true,
+    apiKeyRequired: false,
+    apiKeyStatus: 'PUBLIC_FREE',
   },
   {
     id: 'openstreetmap-odbl',
@@ -372,6 +394,8 @@ export const DATA_SOURCES_REGISTRY: DataSourceItem[] = [
     portalUrl: 'https://www.openstreetmap.org/',
     badgeColor: '#475569',
     isLiveConnected: true,
+    apiKeyRequired: false,
+    apiKeyStatus: 'PUBLIC_FREE',
   },
   {
     id: 'google-gemini-ai',
@@ -397,6 +421,121 @@ export const DATA_SOURCES_REGISTRY: DataSourceItem[] = [
     portalUrl: 'https://ai.google.dev/',
     badgeColor: '#7c3aed',
     isLiveConnected: true,
+    apiKeyRequired: true,
+    apiKeyStatus: 'ACTIVE',
+  },
+  {
+    id: 'bom-access-maritime',
+    name: 'BOM ACCESS-G Maritime Continent & Southern Oceans',
+    category: 'WEATHER_ATMOSPHERE',
+    categoryLabel: 'Cuaca & Radar',
+    agencyName: 'Australian Bureau of Meteorology (BOM)',
+    agencyShort: 'BOM Australia',
+    institutionType: 'INTERNATIONAL_OFFICIAL_AGENCY',
+    institutionStatusLabel: 'Badan Ilmiah Resmi Meteorologi Australia & Pasifik Selatan',
+    officialLegalityBasis: 'World Meteorological Organization (WMO) Integrated Global Observing System (WIGOS) & Perjanjian Bilateral Maritim Regional.',
+    description: 'Model resolusi tinggi ACCESS-G khusus belahan bumi selatan dan Benua Maritim (Maritime Continent) yang mencakup seluruh kepulauan Indonesia bagian selatan (Jawa, Bali, Nusa Tenggara, Timor, Maluku, dan Papua). Sangat akurat dalam memprediksi sirkulasi angin monsun Australia dan curah hujan tropis.',
+    dataPoints: [
+      'Model Asimilasi Numerik Regional Benua Maritim (ACCESS-G)',
+      'Sirkulasi Monsun Australia & Siklon Tropis Samudra Hindia',
+      'Prediksi Suhu Permukaan Laut & Kelembapan Lapisan Batas Atmosfer',
+      'Vektor Angin Barometer 10 Meter & Hembusan Kencang',
+      'Indeks Konveksi Termodinamika Khatulistiwa'
+    ],
+    integrationMethod: 'Open-Meteo WMO Model Ensemble Pipeline & Gateway Terbuka',
+    updateFrequency: '4 Kali Per Hari (Setiap 6 Jam Siklus WMO)',
+    spatialResolution: 'Resolusi grid global 12 km khusus kawasan maritim khatulistiwa',
+    dataStandard: 'WMO Manual on the Global Data-Processing and Forecasting System',
+    portalUrl: 'http://www.bom.gov.au/',
+    badgeColor: '#0284c7',
+    isLiveConnected: true,
+    apiKeyRequired: false,
+    apiKeyStatus: 'PUBLIC_FREE',
+  },
+  {
+    id: 'cma-grapes-asia',
+    name: 'CMA GRAPES Global & Tropical Asia NWP Model',
+    category: 'WEATHER_ATMOSPHERE',
+    categoryLabel: 'Cuaca & Radar',
+    agencyName: 'China Meteorological Administration (CMA)',
+    agencyShort: 'CMA Tiongkok',
+    institutionType: 'INTERNATIONAL_OFFICIAL_AGENCY',
+    institutionStatusLabel: 'Lembaga Pemerintah Resmi Meteorologi Tiongkok & WMO Regional Association II (Asia)',
+    officialLegalityBasis: 'WMO Regional Association II (Asia) Mandate & WMO World Weather Research Programme.',
+    description: 'Model cuaca numerik mandiri GRAPES (Global/Regional Assimilation and PrEdiction System) yang berfokus kuat pada dinamika atmosfer benua Asia, Laut Natuna, dan Asia Tenggara tropis. Memberikan prediksi akurat massa udara dingin Asia (Cold Surge) yang memicu hujan lebat di Indonesia barat.',
+    dataPoints: [
+      'Model GRAPES Global Multiskala Atmosfer Asia',
+      'Deteksi Seruakan Dingin (Cold Surge) dari Daratan Asia ke Indonesia',
+      'Tekanan Permukaan dan Suhu Udara Lapisan Troposfer 850 hPa',
+      'Tingkat Kejenuhan Uap Air & Pergerakan Awan Konvektif',
+      'Kondisi Kelembapan Relatif Ekstrem Khatulistiwa'
+    ],
+    integrationMethod: 'WMO High-Performance Computing Data Pipeline',
+    updateFrequency: '2-4 Kali Per Hari (Siklus 00/12 UTC)',
+    spatialResolution: 'Grid terestris terasimilasi satelit FY-4B',
+    dataStandard: 'WMO GTS / WIS Standar Internasional',
+    portalUrl: 'http://www.cma.gov.cn/en2014/',
+    badgeColor: '#dc2626',
+    isLiveConnected: true,
+    apiKeyRequired: false,
+    apiKeyStatus: 'PUBLIC_FREE',
+  },
+  {
+    id: 'jma-seamless-japan',
+    name: 'JMA Seamless & Himawari-9 Satellite Radar Model',
+    category: 'WEATHER_ATMOSPHERE',
+    categoryLabel: 'Cuaca & Radar',
+    agencyName: 'Japan Meteorological Agency (JMA)',
+    agencyShort: 'JMA Jepang',
+    institutionType: 'INTERNATIONAL_OFFICIAL_AGENCY',
+    institutionStatusLabel: 'Badan Meteorologi Jepang & Pusat Peringatan Dini Pasifik Barat WMO',
+    officialLegalityBasis: 'Meteorological Service Act of Japan & WMO Regional Specialized Meteorological Centre (RSMC) Tokyo.',
+    description: 'Model meteorologi global & meso JMA yang terintegrasi dengan satelit geostasioner tercanggih Himawari-9. Memantau pergerakan badai tropis, pusaran siklon, dan dinamika keawanan di sepanjang garis khatulistiwa Pasifik Barat dan kepulauan Indonesia secara berkelanjutan.',
+    dataPoints: [
+      'Model Seamless JMA Resolusi Tinggi Kawasan Asia-Pasifik',
+      'Citra Satelit Geostasioner Himawari-9 (Infrared & Visible Band)',
+      'Deteksi Awan Cumulonimbus Konvektif & Puncak Es Awan',
+      'Kecepatan Angin & Tekanan Siklon Tropis Regional',
+      'Estimasi Presipitasi Radar Berbasis Gelombang Mikro'
+    ],
+    integrationMethod: 'Open-Meteo JMA Engine & Asimilasi Satelit Himawari',
+    updateFrequency: 'Setiap 1 Jam (Model) & 10 Menit (Satelit Himawari)',
+    spatialResolution: 'Resolusi grid 5-10 km kawasan Asia Tenggara',
+    dataStandard: 'WMO GRIB2 / NetCDF4 Geospatial Standards',
+    portalUrl: 'https://www.jma.go.jp/jma/indexe.html',
+    badgeColor: '#4f46e5',
+    isLiveConnected: true,
+    apiKeyRequired: false,
+    apiKeyStatus: 'PUBLIC_FREE',
+  },
+  {
+    id: 'copernicus-cams-eu',
+    name: 'Copernicus CAMS Atmosphere & Ozone Monitoring',
+    category: 'WEATHER_ATMOSPHERE',
+    categoryLabel: 'Cuaca & Radar',
+    agencyName: 'European Centre for Medium-Range Weather Forecasts (ECMWF) / ESA',
+    agencyShort: 'Copernicus CAMS',
+    institutionType: 'INTERNATIONAL_OFFICIAL_AGENCY',
+    institutionStatusLabel: 'Program Observasi Bumi Uni Eropa Terakreditasi ESA & WMO',
+    officialLegalityBasis: 'European Union Regulation (EU) 2021/696 on European Earth Observation Programme Copernicus.',
+    description: 'Layanan pemantauan kualitas udara dan atmosfer global berbasis sensor satelit Sentinel-5P TROPOMI dan asimilasi model ECMWF IFS. Mengukur secara akurat kadar partikulat PM2.5, PM10, konsentrasi gas Ozon (O₃), dan Indeks Radiasi Ultraviolet (UV) matahari di seluruh wilayah Indonesia.',
+    dataPoints: [
+      'Konsentrasi Partikulat Halus PM2.5 & PM10 (µg/m³)',
+      'Lapisan Gas Ozon Troposferik & Stratosferik (O₃)',
+      'Indeks Radiasi Ultraviolet (UV Index) Matahari Realtime',
+      'Penyebaran Abu Letusan Gunung Api & Aerosol Karhutla',
+      'Kualitas Udara Standar WHO & Indeks Standar Pencemar Udara (ISPU)'
+    ],
+    integrationMethod: 'Live REST API Copernicus Air Quality via Open-Meteo Gateway',
+    updateFrequency: 'Harian dengan Perkiraan 7 Hari ke Depan',
+    spatialResolution: 'Grid resolusi spasial global 0.4 derajat (~40 km)',
+    dataStandard: 'Copernicus Open Access Policy & WMO GAW Standards',
+    portalUrl: 'https://atmosphere.copernicus.eu/',
+    directApiEndpoint: 'https://air-quality-api.open-meteo.com/v1/air-quality',
+    badgeColor: '#059669',
+    isLiveConnected: true,
+    apiKeyRequired: false,
+    apiKeyStatus: 'PUBLIC_FREE',
   },
 ];
 

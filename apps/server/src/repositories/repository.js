@@ -279,6 +279,89 @@ async function initPg() {
         UNIQUE(session_id, student_id)
       );
       CREATE INDEX IF NOT EXISTS idx_sim_participants_session ON simulation_participants(session_id);
+
+      -- PostGIS Geospatial Core Architecture
+      DO $$
+      BEGIN
+        BEGIN
+          CREATE EXTENSION IF NOT EXISTS postgis;
+        EXCEPTION
+          WHEN OTHERS THEN RAISE NOTICE 'PostGIS extension could not be enabled: %', SQLERRM;
+        END;
+      END $$;
+
+      CREATE TABLE IF NOT EXISTS spatial_datasets (
+        id VARCHAR(255) PRIMARY KEY,
+        name VARCHAR(255) NOT NULL,
+        type VARCHAR(100) NOT NULL,
+        crs VARCHAR(50) DEFAULT 'EPSG:4326',
+        metadata JSONB DEFAULT '{}'::jsonb,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+      );
+
+      CREATE TABLE IF NOT EXISTS spatial_features (
+        id VARCHAR(255) PRIMARY KEY,
+        dataset_id VARCHAR(255) REFERENCES spatial_datasets(id) ON DELETE CASCADE,
+        properties JSONB NOT NULL DEFAULT '{}'::jsonb,
+        geom geometry(Geometry, 4326),
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+      );
+      CREATE INDEX IF NOT EXISTS idx_spatial_features_geom ON spatial_features USING GIST (geom);
+      CREATE INDEX IF NOT EXISTS idx_spatial_features_dataset ON spatial_features(dataset_id);
+
+      CREATE TABLE IF NOT EXISTS sensor_stations (
+        id VARCHAR(255) PRIMARY KEY,
+        code VARCHAR(100),
+        name VARCHAR(255) NOT NULL,
+        family VARCHAR(100) NOT NULL,
+        platform VARCHAR(100),
+        provider VARCHAR(255),
+        geom geometry(Point, 4326) NOT NULL,
+        metadata JSONB NOT NULL DEFAULT '{}'::jsonb,
+        status VARCHAR(50) DEFAULT 'ACTIVE',
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+      );
+      CREATE INDEX IF NOT EXISTS idx_sensor_stations_geom ON sensor_stations USING GIST (geom);
+
+      CREATE TABLE IF NOT EXISTS sensor_observations (
+        id VARCHAR(255) PRIMARY KEY,
+        station_id VARCHAR(255) REFERENCES sensor_stations(id) ON DELETE CASCADE,
+        parameter VARCHAR(100) NOT NULL,
+        value NUMERIC,
+        unit VARCHAR(50),
+        quality VARCHAR(50) DEFAULT 'VALID',
+        uncertainty NUMERIC,
+        observed_at TIMESTAMP NOT NULL,
+        geom geometry(Point, 4326),
+        metadata JSONB DEFAULT '{}'::jsonb,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+      );
+      CREATE INDEX IF NOT EXISTS idx_sensor_observations_geom ON sensor_observations USING GIST (geom);
+      CREATE INDEX IF NOT EXISTS idx_sensor_observations_station ON sensor_observations(station_id);
+      CREATE INDEX IF NOT EXISTS idx_sensor_observations_time ON sensor_observations(observed_at);
+
+      CREATE TABLE IF NOT EXISTS hazard_zones (
+        id VARCHAR(255) PRIMARY KEY,
+        hazard_type VARCHAR(100) NOT NULL,
+        name VARCHAR(255) NOT NULL,
+        risk_level VARCHAR(50) NOT NULL,
+        source_agency VARCHAR(100),
+        geom geometry(MultiPolygon, 4326) NOT NULL,
+        properties JSONB NOT NULL DEFAULT '{}'::jsonb,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+      );
+      CREATE INDEX IF NOT EXISTS idx_hazard_zones_geom ON hazard_zones USING GIST (geom);
+
+      CREATE TABLE IF NOT EXISTS field_surveys (
+        id VARCHAR(255) PRIMARY KEY,
+        user_id VARCHAR(255),
+        title VARCHAR(255) NOT NULL,
+        category VARCHAR(100) NOT NULL,
+        geom geometry(Geometry, 4326) NOT NULL,
+        properties JSONB NOT NULL DEFAULT '{}'::jsonb,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+      );
+      CREATE INDEX IF NOT EXISTS idx_field_surveys_geom ON field_surveys USING GIST (geom);
     `),
     );
     pgInitialized = true;
@@ -719,4 +802,118 @@ export async function setSpatialCache(id, data) {
     await writeDB({});
   }
   return true;
+}
+
+// Spatial PostGIS Queries
+export async function querySpatialFeaturesInAOI(aoiPolygonGeoJSON, datasetId = null) {
+  if (!pool) return [];
+  await initPg();
+
+  const geomParam = JSON.stringify(aoiPolygonGeoJSON);
+  let query = `
+    SELECT 
+      f.id,
+      f.dataset_id,
+      f.properties,
+      ST_AsGeoJSON(f.geom)::json AS geometry,
+      ST_Area(f.geom::geography) / 1000000.0 AS area_km2
+    FROM spatial_features f
+    WHERE ST_Intersects(f.geom, ST_SetSRID(ST_GeomFromGeoJSON($1), 4326))
+  `;
+  const params = [geomParam];
+
+  if (datasetId) {
+    query += " AND f.dataset_id = $2";
+    params.push(datasetId);
+  }
+
+  query += " LIMIT 500";
+
+  try {
+    const res = await timeoutQuery(pool.query(query, params));
+    return res.rows;
+  } catch (err) {
+    console.error("querySpatialFeaturesInAOI error:", err.message);
+    return [];
+  }
+}
+
+export async function identifyNearPoint(lat, lng, radiusMeters = 5000) {
+  if (!pool) return { features: [], sensors: [], hazards: [] };
+  await initPg();
+
+  try {
+    const pointQuery = "ST_SetSRID(ST_MakePoint($1, $2), 4326)::geography";
+
+    // 1. Intersecting Hazard Zones
+    const hazardRes = await timeoutQuery(
+      pool.query(
+        `SELECT id, hazard_type, name, risk_level, source_agency,
+                ST_AsGeoJSON(geom)::json AS geometry
+         FROM hazard_zones
+         WHERE ST_Intersects(geom, ST_SetSRID(ST_MakePoint($1, $2), 4326))`,
+        [lng, lat]
+      )
+    );
+
+    // 2. Nearest Sensors
+    const sensorRes = await timeoutQuery(
+      pool.query(
+        `SELECT id, code, name, family, platform, provider, status,
+                ST_Distance(geom::geography, ${pointQuery}) / 1000.0 AS distance_km,
+                ST_AsGeoJSON(geom)::json AS geometry
+         FROM sensor_stations
+         WHERE ST_DWithin(geom::geography, ${pointQuery}, $3)
+         ORDER BY distance_km ASC
+         LIMIT 20`,
+        [lng, lat, radiusMeters]
+      )
+    );
+
+    // 3. Spatial Features
+    const featRes = await timeoutQuery(
+      pool.query(
+        `SELECT id, dataset_id, properties,
+                ST_Distance(geom::geography, ${pointQuery}) / 1000.0 AS distance_km,
+                ST_AsGeoJSON(geom)::json AS geometry
+         FROM spatial_features
+         WHERE ST_DWithin(geom::geography, ${pointQuery}, $3)
+         ORDER BY distance_km ASC
+         LIMIT 50`,
+        [lng, lat, radiusMeters]
+      )
+    );
+
+    return {
+      hazards: hazardRes.rows,
+      sensors: sensorRes.rows,
+      features: featRes.rows,
+    };
+  } catch (err) {
+    console.error("identifyNearPoint error:", err.message);
+    return { features: [], sensors: [], hazards: [] };
+  }
+}
+
+export async function saveSpatialFeature(datasetId, properties, geojsonGeometry) {
+  if (!pool) return null;
+  await initPg();
+
+  const id = properties.id || `feat-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`;
+  const geomJson = JSON.stringify(geojsonGeometry);
+
+  try {
+    await timeoutQuery(
+      pool.query(
+        `INSERT INTO spatial_features (id, dataset_id, properties, geom)
+         VALUES ($1, $2, $3, ST_SetSRID(ST_GeomFromGeoJSON($4), 4326))
+         ON CONFLICT (id) DO UPDATE SET properties = EXCLUDED.properties, geom = EXCLUDED.geom`,
+        [id, datasetId, JSON.stringify(properties), geomJson]
+      )
+    );
+    return id;
+  } catch (err) {
+    console.error("saveSpatialFeature error:", err.message);
+    return null;
+  }
 }

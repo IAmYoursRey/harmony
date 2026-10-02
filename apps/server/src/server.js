@@ -34,7 +34,7 @@ app.use(
       const allowed = [
         "http://localhost:5173",
         "http://127.0.0.1:5173",
-        "https://geo-sense-iota.vercel.app",
+        "https://harmony-iota.vercel.app",
         "https://harmony-nine-tau.vercel.app",
       ];
       if (
