@@ -36,7 +36,7 @@ import {
   Newspaper, Palette, Paintbrush, Box, Compass, RotateCcw, RotateCw, LocateFixed, CloudSun,
   Waves, Gauge, Flame, AlertCircle, Navigation, Satellite, Layers, Car, Info, ShieldCheck,
   ArrowUp, ArrowUpRight, Check, Eye, Radio, BookOpen, ExternalLink, Calendar, Sparkles, Droplets,
-  ChevronUp, ChevronDown, Database, Zap, Cpu
+  ChevronUp, ChevronDown, Database, Zap, Cpu, Video, Camera, Key, Play
 } from "lucide-react";
 import { useNavigate, useOutletContext } from "react-router-dom";
 import { seasonalIntelligenceService, type SeasonalInfo, EQUATOR_MONUMENTS } from "@/services/seasonalIntelligenceService";
@@ -92,6 +92,12 @@ import { MapWeatherObservationCard } from "./map/MapWeatherObservationCard";
 import { SchoolRiskSynthesisCard } from "./SchoolRiskSynthesisCard";
 import { GroundedScenarioModal } from "./GroundedScenarioModal";
 import { aoiService, AreaOfInterest } from "@/services/geospatial/aoiService";
+import { trafficCctvService, type TrafficCctvCamera } from "@/services/trafficCctvService";
+import { trafficSignalsService, type TrafficSignalIntersection } from "@/services/trafficSignalsService";
+import { trafficVehicleEngine } from "@/services/trafficVehicleEngine";
+import { liveTrafficFlowService, type LiveTrafficNetworkSummary } from "@/services/liveTrafficFlowService";
+import { LiveCctvModal } from "./map/LiveCctvModal";
+import { TrafficSignalModal } from "./map/TrafficSignalModal";
 
 // Basemap Types & Provenance Metadata (>2020 High-Accuracy Datasets)
 export type MapBasemapType = 'osm' | 'satellite' | 'elevation' | 'thermal' | 'traffic' | 'dark';
@@ -560,7 +566,17 @@ export function MapsView() {
   const [isTrafficRefreshing, setIsTrafficRefreshing] = useState<boolean>(false);
   const [lastTrafficSyncTime, setLastTrafficSyncTime] = useState<string>('Baru saja');
   const [isAutoSyncTraffic, setIsAutoSyncTraffic] = useState<boolean>(true);
-  const [syncCountdown, setSyncCountdown] = useState<number>(8);
+  const [syncCountdown, setSyncCountdown] = useState<number>(15);
+  // Real-time Traffic Layers & God's Eye Telemetry States
+  const [showMovingVehicles, setShowMovingVehicles] = useState<boolean>(true);
+  const [showTrafficCctv, setShowTrafficCctv] = useState<boolean>(true);
+  const [showTrafficSignals, setShowTrafficSignals] = useState<boolean>(true);
+  const [selectedCctvCamera, setSelectedCctvCamera] = useState<TrafficCctvCamera | null>(null);
+  const [selectedTrafficSignalId, setSelectedTrafficSignalId] = useState<string | null>(null);
+  const [liveTrafficSummary, setLiveTrafficSummary] = useState<LiveTrafficNetworkSummary | null>(null);
+  const [trafficDrawerTab, setTrafficDrawerTab] = useState<'corridors' | 'cctv' | 'signals' | 'byok'>('corridors');
+  const [customTomTomKeyInput, setCustomTomTomKeyInput] = useState<string>(() => liveTrafficFlowService.getCustomTomTomApiKey() || '');
+  const [customTomTomKeyStatus, setCustomTomTomKeyStatus] = useState<string>('');
   const [uiExperienceMode, setUiExperienceMode] = useState<'education' | 'expert'>(() => {
     try {
       const saved = window.localStorage.getItem('hm_ui_experience_mode');
@@ -858,40 +874,63 @@ export function MapsView() {
     if (selectedCorridor) {
       handleCheckTomTomLive(selectedCorridor);
     }
+    liveTrafficFlowService.pollOnce().catch(() => {});
     setTimeout(() => {
       setTrafficDataList((prev) => {
         const sim = simulateRealtimeTraffic(prev);
         setLastTrafficSyncTime(sim.syncTime);
         return sim.updatedCorridors;
       });
-      setSyncCountdown(300);
+      setSyncCountdown(15);
       setIsTrafficRefreshing(false);
     }, 450);
   }, [selectedCorridor, handleCheckTomTomLive]);
 
-  // Automated Realtime Traffic Telemetry: Sinkronisasi otomatis berkala setiap 5 menit (300 detik)
+  // Automated Realtime Traffic Telemetry: Sinkronisasi otomatis berkala API setiap 15 detik
   useEffect(() => {
-    if (!showTrafficCorridors && activeMapBasemap !== 'traffic') return;
-    if (!isAutoSyncTraffic) return;
+    const isTrafficActive = showTrafficCorridors || activeMapBasemap === 'traffic';
+    if (!isTrafficActive) return;
+
+    // Subscribe to continuous live API traffic network
+    const unsubscribe = liveTrafficFlowService.subscribe((summary) => {
+      setLiveTrafficSummary(summary);
+      if (summary) {
+        setLastTrafficSyncTime(`Live API ${new Date().toLocaleTimeString('id-ID')}`);
+        // Notify moving vehicles engine with updated flow speeds
+        summary.severeBottlenecks.forEach((sb) => {
+          trafficVehicleEngine.updateFlowSpeed(sb.corridorId, sb.currentSpeedKmh, sb.status);
+        });
+      }
+    });
+
+    if (isAutoSyncTraffic) {
+      liveTrafficFlowService.startPolling(15000);
+    }
 
     const timer = setInterval(() => {
+      if (!isAutoSyncTraffic) return;
       setSyncCountdown((prev) => {
         if (prev <= 1) {
           if (selectedCorridor) {
             handleCheckTomTomLive(selectedCorridor);
           }
+          liveTrafficFlowService.pollOnce().catch(() => {});
           setTrafficDataList((curr) => {
             const sim = simulateRealtimeTraffic(curr);
             setLastTrafficSyncTime(sim.syncTime);
             return sim.updatedCorridors;
           });
-          return 300;
+          return 15;
         }
         return prev - 1;
       });
     }, 1000);
 
-    return () => clearInterval(timer);
+    return () => {
+      unsubscribe();
+      liveTrafficFlowService.stopPolling();
+      clearInterval(timer);
+    };
   }, [showTrafficCorridors, activeMapBasemap, isAutoSyncTraffic, selectedCorridor, handleCheckTomTomLive]);
 
   const handleFocusCorridor = useCallback((corridor: TrafficCorridor) => {
@@ -920,6 +959,32 @@ export function MapsView() {
       }
     }).catch(() => {});
   }, []);
+
+  const handleFocusCctv = useCallback((cam: TrafficCctvCamera) => {
+    mapRef.current?.getView().animate({
+      center: fromLonLat(cam.location),
+      zoom: 16,
+      duration: 600,
+    });
+  }, []);
+
+  const handleFocusSignal = useCallback((sig: TrafficSignalIntersection) => {
+    mapRef.current?.getView().animate({
+      center: fromLonLat(sig.location),
+      zoom: 16.5,
+      duration: 600,
+    });
+  }, []);
+
+  const handleSaveCustomTomTomKey = useCallback(() => {
+    liveTrafficFlowService.setCustomTomTomApiKey(customTomTomKeyInput.trim() || null);
+    setCustomTomTomKeyStatus(
+      customTomTomKeyInput.trim()
+        ? 'Kunci API TomTom khusus aktif!'
+        : 'Kunci khusus dihapus, menggunakan proxy server bawaan.'
+    );
+    setTimeout(() => setCustomTomTomKeyStatus(''), 4000);
+  }, [customTomTomKeyInput]);
 
   // Compass Rose & Wind Direction State (Fitur Arah Mata Angin)
   const [windDirectionDeg, setWindDirectionDeg] = useState<number>(135);
@@ -1434,6 +1499,9 @@ export function MapsView() {
   const [activeLayerLoads, setActiveLayerLoads] = useState(0);
   const equatorLayerRef = useRef<VectorLayer<VectorSource> | null>(null);
   const trafficVectorLayerRef = useRef<VectorLayer<VectorSource> | null>(null);
+  const trafficVehiclesLayerRef = useRef<VectorLayer<VectorSource> | null>(null);
+  const trafficCctvLayerRef = useRef<VectorLayer<VectorSource> | null>(null);
+  const trafficSignalsLayerRef = useRef<VectorLayer<VectorSource> | null>(null);
   const observationCoverageLayerRef = useRef<VectorLayer<VectorSource> | null>(null);
   const [geospatialModalDomain, setGeospatialModalDomain] = useState<StudioDomain>('weather');
 
@@ -2230,6 +2298,96 @@ export function MapsView() {
     trafficVectorLayerRef.current.changed();
   }, [trafficDataList]);
 
+  // Synchronize corridors to vehicle engine
+  useEffect(() => {
+    trafficVehicleEngine.setCorridors(trafficDataList);
+  }, [trafficDataList]);
+
+  // Real-time Vehicle Movement & ATCS Signal Animation Loop (Inspired by Gods-Eye-View)
+  useEffect(() => {
+    const isTrafficActive = activeMapBasemap === 'traffic' || showTrafficCorridors;
+    if (!isTrafficActive) return;
+
+    let animFrameId: number;
+    let lastTime = performance.now();
+    let signalTickCounter = 0;
+
+    const animate = (currentTime: number) => {
+      const dt = Math.min((currentTime - lastTime) / 1000, 0.1);
+      lastTime = currentTime;
+
+      // 1. Advance moving vehicles along snapped road geometry
+      if (showMovingVehicles && trafficVehiclesLayerRef.current) {
+        const source = trafficVehiclesLayerRef.current.getSource();
+        if (source) {
+          trafficVehicleEngine.advance(dt);
+          const vehicles = trafficVehicleEngine.getVehicles();
+          const features = source.getFeatures();
+
+          if (features.length === 0 && vehicles.length > 0) {
+            vehicles.forEach((veh) => {
+              const f = new Feature({
+                geometry: new Point(fromLonLat([veh.coord[0], veh.coord[1]])),
+                isVehicle: true,
+                vehicleId: veh.id,
+                vehicleType: veh.type,
+                speedKmh: veh.speedKmh,
+                heading: veh.headingDeg,
+                status: veh.status,
+                color: veh.color,
+                corridorId: veh.corridorId,
+                corridorName: veh.corridorName,
+              });
+              source.addFeature(f);
+            });
+          } else {
+            for (let i = 0; i < features.length && i < vehicles.length; i++) {
+              const f = features[i];
+              const veh = vehicles[i];
+              const geom = f.getGeometry() as Point;
+              if (geom) {
+                geom.setCoordinates(fromLonLat([veh.coord[0], veh.coord[1]]));
+              }
+              f.set('heading', veh.headingDeg, true);
+              f.set('speedKmh', veh.speedKmh, true);
+              f.set('status', veh.status, true);
+            }
+          }
+        }
+      }
+
+      // 2. Advance ATCS Signals countdown & phase changes every ~1 second
+      signalTickCounter += dt;
+      if (signalTickCounter >= 1.0) {
+        signalTickCounter = 0;
+        if (showTrafficSignals && trafficSignalsLayerRef.current) {
+          const source = trafficSignalsLayerRef.current.getSource();
+          if (source) {
+            const signals = trafficSignalsService.getAllSignals();
+            source.getFeatures().forEach((feat) => {
+              const sigId = feat.get('signalId');
+              const sig = signals.find((s) => s.id === sigId);
+              if (sig) {
+                feat.set('currentPhase', sig.currentPhase, true);
+                feat.set('remainingSeconds', sig.remainingSeconds, true);
+                feat.set('signalData', sig, true);
+              }
+            });
+            trafficSignalsLayerRef.current.changed();
+          }
+        }
+      }
+
+      animFrameId = requestAnimationFrame(animate);
+    };
+
+    animFrameId = requestAnimationFrame(animate);
+
+    return () => {
+      cancelAnimationFrame(animFrameId);
+    };
+  }, [activeMapBasemap, showTrafficCorridors, showMovingVehicles, showTrafficSignals]);
+
   // Search State
   const [searchQuery, setSearchQuery] = useState("");
   const [isSearchFocused, setIsSearchFocused] = useState(false);
@@ -2718,6 +2876,151 @@ export function MapsView() {
     });
     trafficVectorLayerRef.current = trafficVectorLayer;
 
+    // Realtime Moving Vehicles Layer (God's Eye Particle Vector Flow)
+    const trafficVehiclesSource = new VectorSource();
+    trafficVehicleEngine.setCorridors(INDONESIA_TRAFFIC_CORRIDORS);
+    const initialVehicles = trafficVehicleEngine.getVehicles();
+    initialVehicles.forEach((veh) => {
+      const f = new Feature({
+        geometry: new Point(fromLonLat([veh.coord[0], veh.coord[1]])),
+        isVehicle: true,
+        vehicleId: veh.id,
+        vehicleType: veh.type,
+        speedKmh: veh.speedKmh,
+        heading: veh.headingDeg,
+        status: veh.status,
+        color: veh.color,
+        corridorId: veh.corridorId,
+        corridorName: veh.corridorName,
+      });
+      trafficVehiclesSource.addFeature(f);
+    });
+
+    const trafficVehiclesLayer = new VectorLayer({
+      source: trafficVehiclesSource,
+      zIndex: 24,
+      visible: (activeMapBasemap === 'traffic' || showTrafficCorridors) && showMovingVehicles,
+      style: (feature, resolution) => {
+        const heading = (feature.get('heading') as number) || 0;
+        const vType = (feature.get('vehicleType') as string) || 'car';
+        const status = (feature.get('status') as string) || 'Ramai Lancar';
+        const color =
+          status === 'Lancar'
+            ? '#10b981'
+            : status === 'Ramai Lancar'
+            ? '#f59e0b'
+            : status === 'Padat Merayap'
+            ? '#ef4444'
+            : '#991b1b';
+
+        const rad = (-heading * Math.PI) / 180;
+        const isTruckOrBus = vType === 'truck' || vType === 'bus';
+        return new Style({
+          image: new RegularShape({
+            points: 3,
+            radius: resolution < 35 ? (isTruckOrBus ? 6.5 : 5.5) : (isTruckOrBus ? 4.5 : 3.8),
+            rotation: rad,
+            fill: new Fill({ color }),
+            stroke: new Stroke({ color: '#0f172a', width: 1.5 }),
+          }),
+        });
+      },
+    });
+    trafficVehiclesLayerRef.current = trafficVehiclesLayer;
+
+    // Realtime Public Traffic CCTV Cameras Layer
+    const trafficCctvSource = new VectorSource();
+    const cctvCameras = trafficCctvService.getAllCameras();
+    cctvCameras.forEach((cam) => {
+      const feat = new Feature({
+        geometry: new Point(fromLonLat(cam.location)),
+        isTrafficCctv: true,
+        cctvId: cam.id,
+        cctvData: cam,
+        name: cam.name,
+      });
+      trafficCctvSource.addFeature(feat);
+    });
+
+    const trafficCctvLayer = new VectorLayer({
+      source: trafficCctvSource,
+      zIndex: 26,
+      visible: (activeMapBasemap === 'traffic' || showTrafficCorridors) && showTrafficCctv,
+      style: (feature, resolution) => {
+        const isClose = resolution < 120;
+        return new Style({
+          image: new CircleStyle({
+            radius: isClose ? 7.5 : 5.5,
+            fill: new Fill({ color: '#06b6d4' }),
+            stroke: new Stroke({ color: '#0f172a', width: 2 }),
+          }),
+          text: isClose
+            ? new Text({
+                text: '📹 CCTV LIVE',
+                font: 'bold 9px Inter, system-ui, sans-serif',
+                fill: new Fill({ color: '#ffffff' }),
+                stroke: new Stroke({ color: '#083344', width: 2 }),
+                backgroundFill: new Fill({ color: '#0e7490' }),
+                backgroundStroke: new Stroke({ color: '#38bdf8', width: 1 }),
+                padding: [2, 4, 2, 4],
+                offsetY: -13,
+              })
+            : undefined,
+        });
+      },
+    });
+    trafficCctvLayerRef.current = trafficCctvLayer;
+
+    // Realtime ATCS Traffic Signals Layer
+    const trafficSignalsSource = new VectorSource();
+    const allSignals = trafficSignalsService.getAllSignals();
+    allSignals.forEach((sig) => {
+      const feat = new Feature({
+        geometry: new Point(fromLonLat(sig.location)),
+        isTrafficSignal: true,
+        signalId: sig.id,
+        signalData: sig,
+        currentPhase: sig.currentPhase,
+        remainingSeconds: sig.remainingSeconds,
+        name: sig.name,
+      });
+      trafficSignalsSource.addFeature(feat);
+    });
+
+    const trafficSignalsLayer = new VectorLayer({
+      source: trafficSignalsSource,
+      zIndex: 25,
+      visible: (activeMapBasemap === 'traffic' || showTrafficCorridors) && showTrafficSignals,
+      style: (feature, resolution) => {
+        const phase = (feature.get('currentPhase') as string) || 'red';
+        const remaining = (feature.get('remainingSeconds') as number) || 10;
+        const isClose = resolution < 120;
+        const phaseColor =
+          phase === 'green' ? '#10b981' : phase === 'yellow' ? '#f59e0b' : '#ef4444';
+
+        return new Style({
+          image: new CircleStyle({
+            radius: isClose ? 7.5 : 5.5,
+            fill: new Fill({ color: phaseColor }),
+            stroke: new Stroke({ color: '#0f172a', width: 2 }),
+          }),
+          text: isClose
+            ? new Text({
+                text: `🚦 ${remaining}s`,
+                font: 'bold 9px Inter, system-ui, sans-serif',
+                fill: new Fill({ color: '#ffffff' }),
+                stroke: new Stroke({ color: '#0f172a', width: 2 }),
+                backgroundFill: new Fill({ color: '#1e293b' }),
+                backgroundStroke: new Stroke({ color: phaseColor, width: 1.2 }),
+                padding: [2, 4, 2, 4],
+                offsetY: -13,
+              })
+            : undefined,
+        });
+      },
+    });
+    trafficSignalsLayerRef.current = trafficSignalsLayer;
+
     // Realtime Transparent Road Corridor & Live Traffic Overlay (Covers every road, artery, and street in every corner)
     const trafficOverlay = new TileLayer({
       source: new XYZ({
@@ -2764,7 +3067,10 @@ export function MapsView() {
         kabupatenLayer,
         kotaLayer,
         desaLayer,
-        trafficVectorLayer
+        trafficVectorLayer,
+        trafficVehiclesLayer,
+        trafficSignalsLayer,
+        trafficCctvLayer
       ],
       view: new View({
         center: fromLonLat([113.9213, -0.7893]), // Center of Indonesia
@@ -3848,6 +4154,9 @@ export function MapsView() {
             layer === userMarkerLayerRef.current ||
             layer === tsunamiSensorsLayerRef.current ||
             layer === trafficVectorLayerRef.current ||
+            layer === trafficVehiclesLayerRef.current ||
+            layer === trafficCctvLayerRef.current ||
+            layer === trafficSignalsLayerRef.current ||
             layer === equatorLayerRef.current ||
             layer === observationCoverageLayerRef.current
         }
@@ -4029,6 +4338,57 @@ export function MapsView() {
             `;
             
             // Add close event
+            const closeBtn = popupRef.current.querySelector('#close-popup-btn');
+            if (closeBtn) {
+              closeBtn.addEventListener('click', () => {
+                if (popupRef.current) popupRef.current.style.display = 'none';
+              });
+            }
+          } else if (feature.get('isTrafficCctv')) {
+            const cctv = feature.get('cctvData') as TrafficCctvCamera;
+            if (cctv) {
+              setSelectedCctvCamera(cctv);
+              if (popupRef.current) popupRef.current.style.display = 'none';
+              return;
+            }
+          } else if (feature.get('isTrafficSignal')) {
+            const sigId = feature.get('signalId') as string;
+            if (sigId) {
+              setSelectedTrafficSignalId(sigId);
+              if (popupRef.current) popupRef.current.style.display = 'none';
+              return;
+            }
+          } else if (feature.get('isVehicle')) {
+            const vehType = (feature.get('vehicleType') || 'car') as string;
+            const speed = (feature.get('speedKmh') || 40) as number;
+            const status = (feature.get('status') || 'Ramai Lancar') as string;
+            const cName = (feature.get('corridorName') || 'Koridor Nyata') as string;
+            const vehIcon = vehType === 'truck' ? '🚚' : vehType === 'bus' ? '🚌' : vehType === 'motorcycle' ? '🛵' : '🚗';
+            const vehLabel = vehType === 'truck' ? 'Truk Logistik' : vehType === 'bus' ? 'Bus Antarkota' : vehType === 'motorcycle' ? 'Sepeda Motor' : 'Mobil Pribadi';
+
+            popupRef.current.innerHTML = `
+              <div style="min-width: 220px; font-family: Inter, sans-serif;" class="p-1 relative">
+                <button id="close-popup-btn" style="position: absolute; top: -2px; right: -2px; background: #f1f5f9; border-radius: 50%; padding: 2px 6px; border: none; cursor: pointer; color: #94a3b8; font-size: 12px; font-weight: bold;">✖</button>
+                <div style="display: flex; align-items: center; gap: 6px; margin-bottom: 5px;">
+                  <span style="font-size: 15px;">${vehIcon}</span>
+                  <span style="font-size: 10px; font-weight: 800; color: #7c3aed; background: #f3e8ff; padding: 1.5px 6px; border-radius: 4px;">TELEMETRI PARTIKEL</span>
+                </div>
+                <strong style="font-size: 12px; color: #0f172a; display: block; margin-bottom: 2px;">${vehLabel}</strong>
+                <div style="font-size: 10px; color: #64748b; margin-bottom: 6px;">Lintasan: ${cName}</div>
+                <div style="background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 8px; padding: 6px 8px; font-size: 10px;">
+                  <div style="display: flex; justify-content: space-between; margin-bottom: 2px;">
+                    <span style="color: #64748b;">Laju Partikel:</span>
+                    <strong style="color: #0f172a; font-family: monospace;">${speed.toFixed(0)} km/jam</strong>
+                  </div>
+                  <div style="display: flex; justify-content: space-between;">
+                    <span style="color: #64748b;">Status Aliran:</span>
+                    <strong style="color: #16a34a;">${status}</strong>
+                  </div>
+                </div>
+              </div>
+            `;
+            popupOverlayRef.current.setPosition(coords);
+            if (popupRef.current) popupRef.current.style.display = 'block';
             const closeBtn = popupRef.current.querySelector('#close-popup-btn');
             if (closeBtn) {
               closeBtn.addEventListener('click', () => {
@@ -4412,8 +4772,17 @@ export function MapsView() {
     if (trafficVectorLayerRef.current) {
       trafficVectorLayerRef.current.setVisible(isTrafficActive);
     }
+    if (trafficVehiclesLayerRef.current) {
+      trafficVehiclesLayerRef.current.setVisible(isTrafficActive && showMovingVehicles);
+    }
+    if (trafficCctvLayerRef.current) {
+      trafficCctvLayerRef.current.setVisible(isTrafficActive && showTrafficCctv);
+    }
+    if (trafficSignalsLayerRef.current) {
+      trafficSignalsLayerRef.current.setVisible(isTrafficActive && showTrafficSignals);
+    }
     mapRef.current?.render();
-  }, [activeMapBasemap, showTrafficCorridors]);
+  }, [activeMapBasemap, showTrafficCorridors, showMovingVehicles, showTrafficCctv, showTrafficSignals]);
 
   // Fetch and periodically refresh RainViewer radar and satellite timestamp paths
   const rainViewerFetchGen = useRef(0);
@@ -4834,6 +5203,8 @@ export function MapsView() {
               onToggleTraffic={() => setShowTrafficCorridors(prev => !prev)}
               showHeatmapLayer={activeMapBasemap === 'thermal'}
               globeType={globeType}
+              onSelectCctv={(cam) => setSelectedCctvCamera(cam)}
+              onSelectSignal={(sig) => setSelectedTrafficSignalId(sig.id)}
               onSwitchTo2D={(lat, lng, targetZoom = 7.5) => {
                 handleToggle3D(false);
                 const view = mapRef.current?.getView();
@@ -5796,331 +6167,536 @@ export function MapsView() {
                 </div>
               </div>
 
-              {/* Status Banner with Live Telemetry Pulse & Stats */}
-              <div className="p-3 bg-purple-50/70 dark:bg-purple-950/30 border-b border-purple-100/80 dark:border-purple-900/40 text-xs shrink-0 space-y-2">
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-1.5 text-purple-700 dark:text-purple-300 font-bold text-[11px]">
-                    <span className="flex h-2 w-2 rounded-full bg-emerald-500 animate-pulse"></span>
-                    <span>Simulasi Koridor Jalan</span>
-                  </div>
-                  <span className="text-[9.5px] px-2 py-0.5 rounded-full font-bold bg-purple-100 dark:bg-purple-900/60 text-purple-700 dark:text-purple-300 border border-purple-200 dark:border-purple-800">
-                    Bebas API Key / Tanpa Kuota
-                  </span>
-                </div>
+              {/* Quick God's Eye Layer Switches */}
+              <div className="px-3 py-2 bg-slate-100/80 dark:bg-slate-900/80 border-b border-slate-200/80 dark:border-slate-800 flex items-center justify-between gap-1.5 shrink-0">
+                <button
+                  type="button"
+                  onClick={() => setShowMovingVehicles((v) => !v)}
+                  className={`flex-1 py-1 px-1.5 rounded-xl text-[10px] font-bold border transition-all cursor-pointer flex items-center justify-center gap-1 ${
+                    showMovingVehicles
+                      ? 'bg-purple-600 text-white border-purple-500 shadow-xs'
+                      : 'bg-white dark:bg-slate-800 text-slate-500 dark:text-slate-400 border-slate-200 dark:border-slate-700'
+                  }`}
+                  title="Tampilkan aliran partikel kendaraan bergerak di jalan"
+                >
+                  <span>🚗</span>
+                  <span className="truncate">Kendaraan {showMovingVehicles ? 'ON' : 'OFF'}</span>
+                </button>
 
-                {/* Realtime KPI Pill Strip */}
-                <div className="grid grid-cols-3 gap-1.5 py-1.5 px-2.5 rounded-xl bg-white/80 dark:bg-slate-900/70 border border-purple-100/90 dark:border-purple-900/60 text-[10px]">
-                  <div className="text-center">
-                    <span className="text-slate-400 block text-[9px]">Laju Rata-Rata</span>
-                    <strong className="font-mono text-purple-700 dark:text-purple-300 font-bold text-[11px]">
-                      {Math.round(trafficDataList.reduce((acc, c) => acc + c.speedKmh, 0) / (trafficDataList.length || 1))} km/j
-                    </strong>
-                  </div>
-                  <div className="text-center border-x border-slate-200 dark:border-slate-800">
-                    <span className="text-slate-400 block text-[9px]">Titik Padat</span>
-                    <strong className="font-mono text-rose-600 dark:text-rose-400 font-bold text-[11px]">
-                      {trafficDataList.filter((c) => c.status === 'Padat Merayap' || c.status === 'Macet Total').length} Ruas
-                    </strong>
-                  </div>
-                  <div className="text-center">
-                    <span className="text-slate-400 block text-[9px]">Koridor Simulasi</span>
-                    <strong className="font-mono text-emerald-600 dark:text-emerald-400 font-bold text-[11px]">
-                      {trafficDataList.length} Koridor
-                    </strong>
-                  </div>
-                </div>
+                <button
+                  type="button"
+                  onClick={() => setShowTrafficCctv((v) => !v)}
+                  className={`flex-1 py-1 px-1.5 rounded-xl text-[10px] font-bold border transition-all cursor-pointer flex items-center justify-center gap-1 ${
+                    showTrafficCctv
+                      ? 'bg-cyan-600 text-white border-cyan-500 shadow-xs'
+                      : 'bg-white dark:bg-slate-800 text-slate-500 dark:text-slate-400 border-slate-200 dark:border-slate-700'
+                  }`}
+                  title="Tampilkan titik kamera CCTV jalan raya & pantau live"
+                >
+                  <span>📹</span>
+                  <span className="truncate">CCTV {showTrafficCctv ? 'ON' : 'OFF'}</span>
+                </button>
 
-                <p className="text-[10.5px] text-slate-600 dark:text-slate-400 leading-relaxed">
-                  Kecepatan dan status koridor merupakan simulasi, bukan hasil sensor lalu lintas. Lapisan peta eksternal hanya ditampilkan; datanya tidak diunduh ke mesin prakiraan atau dipakai untuk menentukan rute evakuasi aman.
-                </p>
+                <button
+                  type="button"
+                  onClick={() => setShowTrafficSignals((v) => !v)}
+                  className={`flex-1 py-1 px-1.5 rounded-xl text-[10px] font-bold border transition-all cursor-pointer flex items-center justify-center gap-1 ${
+                    showTrafficSignals
+                      ? 'bg-emerald-600 text-white border-emerald-500 shadow-xs'
+                      : 'bg-white dark:bg-slate-800 text-slate-500 dark:text-slate-400 border-slate-200 dark:border-slate-700'
+                  }`}
+                  title="Tampilkan lampu merah & siklus hitung mundur ATCS"
+                >
+                  <span>🚦</span>
+                  <span className="truncate">ATCS {showTrafficSignals ? 'ON' : 'OFF'}</span>
+                </button>
               </div>
 
-              {/* Search Bar & Filters */}
-              <div className="p-3 border-b border-slate-100 dark:border-slate-800/80 space-y-2 bg-slate-50/60 dark:bg-slate-900/50 shrink-0">
-                {/* Search Input */}
-                <div className="relative">
-                  <Search className="w-3.5 h-3.5 absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
-                  <input
-                    id="maps-traffic-search-input"
-                    name="trafficSearch"
-                    type="text"
-                    value={trafficSearchQuery}
-                    onChange={(e) => setTrafficSearchQuery(e.target.value)}
-                    placeholder="Cari jalan, tikus, alternatif, kota (cth: Punclut, Puncak, Cangar)..."
-                    className="w-full pl-9 pr-7 py-1.5 text-xs rounded-xl border border-slate-200/80 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-800 dark:text-slate-200 placeholder-slate-400 focus:outline-none focus:ring-1 focus:ring-purple-500 shadow-2xs"
-                  />
-                  {trafficSearchQuery && (
-                    <button
-                      type="button"
-                      onClick={() => setTrafficSearchQuery('')}
-                      className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200"
-                    >
-                      <X className="w-3 h-3" />
-                    </button>
+              {/* Navigation Tabs */}
+              <div className="grid grid-cols-4 p-1.5 bg-slate-50 dark:bg-slate-900 border-b border-slate-200/80 dark:border-slate-800 text-[10px] font-bold shrink-0 gap-1">
+                <button
+                  type="button"
+                  onClick={() => setTrafficDrawerTab('corridors')}
+                  className={`py-1.5 px-1 rounded-xl transition-all cursor-pointer flex flex-col items-center gap-0.5 ${
+                    trafficDrawerTab === 'corridors'
+                      ? 'bg-purple-600 text-white shadow-xs'
+                      : 'text-slate-600 dark:text-slate-400 hover:bg-slate-200/60 dark:hover:bg-slate-800'
+                  }`}
+                >
+                  <span>🛣️ Koridor</span>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => setTrafficDrawerTab('cctv')}
+                  className={`py-1.5 px-1 rounded-xl transition-all cursor-pointer flex flex-col items-center gap-0.5 ${
+                    trafficDrawerTab === 'cctv'
+                      ? 'bg-cyan-600 text-white shadow-xs'
+                      : 'text-slate-600 dark:text-slate-400 hover:bg-slate-200/60 dark:hover:bg-slate-800'
+                  }`}
+                >
+                  <span>📹 CCTV ({trafficCctvService.getAllCameras().length})</span>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => setTrafficDrawerTab('signals')}
+                  className={`py-1.5 px-1 rounded-xl transition-all cursor-pointer flex flex-col items-center gap-0.5 ${
+                    trafficDrawerTab === 'signals'
+                      ? 'bg-emerald-600 text-white shadow-xs'
+                      : 'text-slate-600 dark:text-slate-400 hover:bg-slate-200/60 dark:hover:bg-slate-800'
+                  }`}
+                >
+                  <span>🚦 ATCS ({trafficSignalsService.getAllSignals().length})</span>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => setTrafficDrawerTab('byok')}
+                  className={`py-1.5 px-1 rounded-xl transition-all cursor-pointer flex flex-col items-center gap-0.5 ${
+                    trafficDrawerTab === 'byok'
+                      ? 'bg-indigo-600 text-white shadow-xs'
+                      : 'text-slate-600 dark:text-slate-400 hover:bg-slate-200/60 dark:hover:bg-slate-800'
+                  }`}
+                >
+                  <span>🔑 API Kunci</span>
+                </button>
+              </div>
+
+              {/* Tab Content: Koridor & Kemacetan */}
+              {trafficDrawerTab === 'corridors' && (
+                <>
+                  {/* Status Banner with Live Telemetry Pulse & Stats */}
+                  <div className="p-3 bg-purple-50/70 dark:bg-purple-950/30 border-b border-purple-100/80 dark:border-purple-900/40 text-xs shrink-0 space-y-2">
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-1.5 text-purple-700 dark:text-purple-300 font-bold text-[11px]">
+                        <span className="flex h-2 w-2 rounded-full bg-emerald-500 animate-pulse"></span>
+                        <span>God&apos;s Eye Realtime Telemetry</span>
+                      </div>
+                      <span className="text-[9.5px] px-2 py-0.5 rounded-full font-bold bg-purple-100 dark:bg-purple-900/60 text-purple-700 dark:text-purple-300 border border-purple-200 dark:border-purple-800">
+                        Sinkron 15s • Aliran Nyata
+                      </span>
+                    </div>
+
+                    {/* Realtime KPI Pill Strip */}
+                    <div className="grid grid-cols-3 gap-1.5 py-1.5 px-2.5 rounded-xl bg-white/80 dark:bg-slate-900/70 border border-purple-100/90 dark:border-purple-900/60 text-[10px]">
+                      <div className="text-center">
+                        <span className="text-slate-400 block text-[9px]">Laju Rata-Rata</span>
+                        <strong className="font-mono text-purple-700 dark:text-purple-300 font-bold text-[11px]">
+                          {Math.round(trafficDataList.reduce((acc, c) => acc + c.speedKmh, 0) / (trafficDataList.length || 1))} km/j
+                        </strong>
+                      </div>
+                      <div className="text-center border-x border-slate-200 dark:border-slate-800">
+                        <span className="text-slate-400 block text-[9px]">Titik Macet</span>
+                        <strong className="font-mono text-rose-600 dark:text-rose-400 font-bold text-[11px]">
+                          {trafficDataList.filter((c) => c.status === 'Padat Merayap' || c.status === 'Macet Total').length} Ruas
+                        </strong>
+                      </div>
+                      <div className="text-center">
+                        <span className="text-slate-400 block text-[9px]">Total Koridor</span>
+                        <strong className="font-mono text-emerald-600 dark:text-emerald-400 font-bold text-[11px]">
+                          {trafficDataList.length} Ruas
+                        </strong>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Severe Bottlenecks Alert Widget */}
+                  {liveTrafficSummary?.severeBottlenecks && liveTrafficSummary.severeBottlenecks.length > 0 && (
+                    <div className="p-2.5 bg-rose-50 dark:bg-rose-950/40 border-b border-rose-200 dark:border-rose-900 text-xs shrink-0 space-y-1.5">
+                      <div className="flex items-center justify-between">
+                        <span className="font-bold text-rose-700 dark:text-rose-300 flex items-center gap-1.5 text-[11px]">
+                          <span className="flex h-2 w-2 rounded-full bg-rose-600 animate-ping"></span>
+                          Kemacetan Kritis Terkini (Live API)
+                        </span>
+                        <span className="text-[9.5px] font-mono text-rose-600 dark:text-rose-400 font-bold">
+                          {liveTrafficSummary.severeBottlenecks.length} Titik
+                        </span>
+                      </div>
+                      <div className="space-y-1 max-h-24 overflow-y-auto pr-1">
+                        {liveTrafficSummary.severeBottlenecks.slice(0, 3).map((sb) => (
+                          <div key={sb.corridorId} className="flex items-center justify-between p-1.5 rounded-lg bg-white/90 dark:bg-slate-900/80 border border-rose-200/80 dark:border-rose-900/60 text-[10px]">
+                            <div className="min-w-0 pr-2">
+                              <span className="font-bold text-slate-800 dark:text-slate-200 block truncate">{sb.name}</span>
+                              <span className="text-slate-500 dark:text-slate-400 text-[9px]">{sb.location}</span>
+                            </div>
+                            <div className="text-right shrink-0">
+                              <span className="font-bold font-mono text-rose-600 dark:text-rose-400 block">{sb.currentSpeedKmh} km/j</span>
+                              <span className="text-[9px] text-amber-600 font-medium">+{sb.delayMinutes} mnt tunda</span>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
                   )}
-                </div>
 
-                {/* Tier Filter Tabs */}
-                <div className="flex flex-wrap gap-1">
-                  {[
-                    { key: 'all', label: 'Semua Ruas' },
-                    { key: 'local', label: '🛵 Jalan Kecil & Tikus' },
-                    { key: 'collector', label: 'Kolektor' },
-                    { key: 'arterial', label: 'Arteri Kota' },
-                    { key: 'expressway', label: 'Tol Trans-Pulau' },
-                  ].map((tab) => {
-                    const isActive = trafficTierFilter === tab.key;
-                    return (
-                      <button
-                        key={tab.key}
-                        type="button"
-                        onClick={() => setTrafficTierFilter(tab.key as any)}
-                        className={`text-[10px] font-bold px-2 py-0.5 rounded-lg border transition-all cursor-pointer ${
-                          isActive
-                            ? 'bg-purple-600 text-white border-purple-600 shadow-xs'
-                            : 'bg-white dark:bg-slate-800 text-slate-600 dark:text-slate-400 border-slate-200 dark:border-slate-700 hover:bg-slate-100 dark:hover:bg-slate-750'
-                        }`}
-                      >
-                        {tab.label}
-                      </button>
-                    );
-                  })}
-                </div>
+                  {/* Search Bar & Filters */}
+                  <div className="p-3 border-b border-slate-100 dark:border-slate-800/80 space-y-2 bg-slate-50/60 dark:bg-slate-900/50 shrink-0">
+                    <div className="relative">
+                      <Search className="w-3.5 h-3.5 absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+                      <input
+                        id="maps-traffic-search-input"
+                        name="trafficSearch"
+                        type="text"
+                        value={trafficSearchQuery}
+                        onChange={(e) => setTrafficSearchQuery(e.target.value)}
+                        placeholder="Cari jalan, tikus, alternatif, kota..."
+                        className="w-full pl-9 pr-7 py-1.5 text-xs rounded-xl border border-slate-200/80 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-800 dark:text-slate-200 placeholder-slate-400 focus:outline-none focus:ring-1 focus:ring-purple-500 shadow-2xs"
+                      />
+                      {trafficSearchQuery && (
+                        <button
+                          type="button"
+                          onClick={() => setTrafficSearchQuery('')}
+                          className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200"
+                        >
+                          <X className="w-3 h-3" />
+                        </button>
+                      )}
+                    </div>
 
-                {/* Island Filter Chips */}
-                <div className="flex items-center gap-1 overflow-x-auto no-scrollbar pt-0.5">
-                  {[
-                    { key: 'all', label: 'Semua Pulau' },
-                    { key: 'Jawa', label: 'Jawa' },
-                    { key: 'Sumatera', label: 'Sumatera' },
-                    { key: 'Bali', label: 'Bali' },
-                    { key: 'Kalimantan', label: 'Kalimantan' },
-                    { key: 'Sulawesi', label: 'Sulawesi' },
-                    { key: 'Papua', label: 'Papua' },
-                  ].map((tab) => {
-                    const isActive = trafficIslandFilter === tab.key;
-                    return (
-                      <button
-                        key={tab.key}
-                        type="button"
-                        onClick={() => setTrafficIslandFilter(tab.key)}
-                        className={`text-[9.5px] font-bold px-2 py-0.5 rounded-md whitespace-nowrap transition-all cursor-pointer ${
-                          isActive
-                            ? 'bg-purple-100 dark:bg-purple-950/80 text-purple-700 dark:text-purple-300 border border-purple-300 dark:border-purple-700'
-                            : 'text-slate-500 dark:text-slate-400 hover:text-slate-800 dark:hover:text-slate-200'
-                        }`}
-                      >
-                        {tab.label}
-                      </button>
-                    );
-                  })}
-                </div>
-              </div>
+                    {/* Tier Filter Tabs */}
+                    <div className="flex flex-wrap gap-1">
+                      {[
+                        { key: 'all', label: 'Semua Ruas' },
+                        { key: 'local', label: '🛵 Jalan Kecil & Tikus' },
+                        { key: 'collector', label: 'Kolektor' },
+                        { key: 'arterial', label: 'Arteri Kota' },
+                        { key: 'expressway', label: 'Tol Trans-Pulau' },
+                      ].map((tab) => {
+                        const isActive = trafficTierFilter === tab.key;
+                        return (
+                          <button
+                            key={tab.key}
+                            type="button"
+                            onClick={() => setTrafficTierFilter(tab.key as any)}
+                            className={`text-[10px] font-bold px-2 py-0.5 rounded-lg border transition-all cursor-pointer ${
+                              isActive
+                                ? 'bg-purple-600 text-white border-purple-600 shadow-xs'
+                                : 'bg-white dark:bg-slate-800 text-slate-600 dark:text-slate-400 border-slate-200 dark:border-slate-700 hover:bg-slate-100 dark:hover:bg-slate-750'
+                            }`}
+                          >
+                            {tab.label}
+                          </button>
+                        );
+                      })}
+                    </div>
 
-              {/* Quick Telemetry Counter Bar */}
-              <div className="px-4 py-2 bg-slate-50/80 dark:bg-slate-900/80 border-b border-slate-100 dark:border-slate-800/80 flex items-center justify-between text-[11px] shrink-0">
-                <span className="text-slate-500 dark:text-slate-400">
-                  Menampilkan <strong className="text-slate-800 dark:text-slate-200">{filteredCorridors.length}</strong> koridor
-                </span>
-                <div className="flex items-center gap-2 text-[10.5px]">
-                  <span className="flex items-center gap-1 text-emerald-600 dark:text-emerald-400 font-bold">
-                    <span className="h-1.5 w-1.5 rounded-full bg-emerald-500"></span>
-                    Lancar
-                  </span>
-                  <span className="flex items-center gap-1 text-amber-600 dark:text-amber-400 font-bold">
-                    <span className="h-1.5 w-1.5 rounded-full bg-amber-500"></span>
-                    Ramai
-                  </span>
-                  <span className="flex items-center gap-1 text-rose-600 dark:text-rose-400 font-bold">
-                    <span className="h-1.5 w-1.5 rounded-full bg-rose-500"></span>
-                    Padat
-                  </span>
-                </div>
-              </div>
-
-              {/* Scrollable Corridors List */}
-              <div className="p-3 overflow-y-auto space-y-2 flex-1">
-                {filteredCorridors.length === 0 ? (
-                  <div className="py-8 text-center text-slate-400 text-xs">
-                    <Car className="w-8 h-8 mx-auto mb-2 opacity-40 text-purple-400" />
-                    <p className="font-semibold text-slate-600 dark:text-slate-300">Tidak ada koridor yang sesuai</p>
-                    <p className="text-[10.5px] mt-1">Coba ubah kata kunci pencarian atau filter pulau/ruas jalan.</p>
+                    {/* Island Filter Chips */}
+                    <div className="flex items-center gap-1 overflow-x-auto no-scrollbar pt-0.5">
+                      {[
+                        { key: 'all', label: 'Semua Pulau' },
+                        { key: 'Jawa', label: 'Jawa' },
+                        { key: 'Sumatera', label: 'Sumatera' },
+                        { key: 'Bali', label: 'Bali' },
+                        { key: 'Kalimantan', label: 'Kalimantan' },
+                        { key: 'Sulawesi', label: 'Sulawesi' },
+                        { key: 'Papua', label: 'Papua' },
+                      ].map((tab) => {
+                        const isActive = trafficIslandFilter === tab.key;
+                        return (
+                          <button
+                            key={tab.key}
+                            type="button"
+                            onClick={() => setTrafficIslandFilter(tab.key)}
+                            className={`text-[9.5px] font-bold px-2 py-0.5 rounded-md whitespace-nowrap transition-all cursor-pointer ${
+                              isActive
+                                ? 'bg-purple-100 dark:bg-purple-950/80 text-purple-700 dark:text-purple-300 border border-purple-300 dark:border-purple-700'
+                                : 'text-slate-500 dark:text-slate-400 hover:text-slate-800 dark:hover:text-slate-200'
+                            }`}
+                          >
+                            {tab.label}
+                          </button>
+                        );
+                      })}
+                    </div>
                   </div>
-                ) : (
-                  filteredCorridors.map((corridor) => {
-                    const isSelected = selectedCorridor?.id === corridor.id;
-                    const statusColor =
-                      corridor.status === 'Lancar'
+
+                  {/* Scrollable Corridors List */}
+                  <div className="p-3 overflow-y-auto space-y-2 flex-1">
+                    {filteredCorridors.length === 0 ? (
+                      <div className="py-8 text-center text-slate-400 text-xs">
+                        <Car className="w-8 h-8 mx-auto mb-2 opacity-40 text-purple-400" />
+                        <p className="font-semibold text-slate-600 dark:text-slate-300">Tidak ada koridor yang sesuai</p>
+                        <p className="text-[10.5px] mt-1">Coba ubah kata kunci pencarian atau filter pulau/ruas jalan.</p>
+                      </div>
+                    ) : (
+                      filteredCorridors.map((corridor) => {
+                        const isSelected = selectedCorridor?.id === corridor.id;
+                        const statusColor =
+                          corridor.status === 'Lancar'
+                            ? 'text-emerald-600 dark:text-emerald-400 bg-emerald-500/10 border-emerald-500/30'
+                            : corridor.status === 'Ramai Lancar'
+                            ? 'text-amber-600 dark:text-amber-400 bg-amber-500/10 border-amber-500/30'
+                            : 'text-rose-600 dark:text-rose-400 bg-rose-500/10 border-rose-500/30';
+
+                        const statusDot =
+                          corridor.status === 'Lancar'
+                            ? 'bg-emerald-500'
+                            : corridor.status === 'Ramai Lancar'
+                            ? 'bg-amber-500'
+                            : 'bg-rose-500';
+
+                        const tierBadgeColor =
+                          corridor.tier === 'expressway'
+                            ? 'bg-purple-100 dark:bg-purple-950/60 text-purple-700 dark:text-purple-300 border-purple-200 dark:border-purple-800'
+                            : corridor.tier === 'arterial'
+                            ? 'bg-amber-100 dark:bg-amber-950/60 text-amber-700 dark:text-amber-300 border-amber-200 dark:border-amber-800'
+                            : corridor.tier === 'collector'
+                            ? 'bg-sky-100 dark:bg-sky-950/60 text-sky-700 dark:text-sky-300 border-sky-200 dark:border-sky-800'
+                            : 'bg-emerald-100 dark:bg-emerald-950/60 text-emerald-700 dark:text-emerald-300 border-emerald-200 dark:border-emerald-800';
+
+                        return (
+                          <div
+                            key={corridor.id}
+                            className={`p-3 rounded-2xl border transition-all text-xs space-y-2 ${
+                              isSelected
+                                ? 'bg-purple-50/80 dark:bg-purple-950/40 border-purple-400 dark:border-purple-600 shadow-md ring-1 ring-purple-400/40'
+                                : 'bg-slate-50/70 dark:bg-slate-800/40 border-slate-200/80 dark:border-slate-800 hover:bg-slate-100/80 dark:hover:bg-slate-800/70'
+                            }`}
+                          >
+                            <div className="flex items-start justify-between gap-2">
+                              <div className="min-w-0 flex-1">
+                                <div className="flex items-center gap-1.5 flex-wrap">
+                                  <span className={`text-[9px] font-extrabold px-1.5 py-0.2 rounded border ${tierBadgeColor}`}>
+                                    {corridor.routeType}
+                                  </span>
+                                  <span className="text-[10px] font-bold text-slate-500 dark:text-slate-400">
+                                    {corridor.island}
+                                  </span>
+                                </div>
+                                <h3 className="font-bold text-slate-800 dark:text-white leading-tight mt-1 text-xs">
+                                  {corridor.name}
+                                </h3>
+                              </div>
+                              <span className={`text-[9px] font-black uppercase px-2 py-0.5 rounded-full border shrink-0 flex items-center gap-1 ${statusColor}`}>
+                                <span className={`w-1.5 h-1.5 rounded-full ${statusDot}`} />
+                                {corridor.status}
+                              </span>
+                            </div>
+
+                            <div className="flex items-center justify-between py-1 px-2.5 rounded-xl bg-white/80 dark:bg-slate-900/60 border border-slate-200/60 dark:border-slate-800/60 text-[10.5px]">
+                              <div className="flex items-center gap-1.5 text-slate-600 dark:text-slate-300">
+                                <Gauge className="w-3.5 h-3.5 text-purple-500" />
+                                <span>Kecepatan:</span>
+                                <strong className="font-mono text-slate-900 dark:text-white font-bold">{corridor.speedKmh} km/jam</strong>
+                              </div>
+                              <div className="h-3 w-[1px] bg-slate-200 dark:bg-slate-700"></div>
+                              <div className="flex items-center gap-1.5 text-slate-600 dark:text-slate-300">
+                                <span>Panjang:</span>
+                                <strong className="font-mono text-slate-900 dark:text-white font-bold">{corridor.lengthKm} km</strong>
+                              </div>
+                            </div>
+
+                            {/* TomTom Live Flow Probe Result */}
+                            {tomtomProbeResult && tomtomProbeResult.corridorId === corridor.id && (
+                              <div
+                                className={`p-2 rounded-xl text-[10px] space-y-1 ${
+                                  tomtomProbeResult.status === 'LIVE'
+                                    ? 'bg-emerald-50 dark:bg-emerald-950/40 text-emerald-800 dark:text-emerald-200 border border-emerald-300 dark:border-emerald-700'
+                                    : tomtomProbeResult.status === 'NOT_CONFIGURED'
+                                    ? 'bg-amber-50 dark:bg-amber-950/40 text-amber-800 dark:text-amber-200 border border-amber-300 dark:border-amber-700'
+                                    : 'bg-rose-50 dark:bg-rose-950/40 text-rose-800 dark:text-rose-200 border border-rose-300 dark:border-rose-700'
+                                }`}
+                              >
+                                <div className="flex items-center justify-between font-bold">
+                                  <span>TomTom Proxy: {tomtomProbeResult.status}</span>
+                                  {tomtomProbeResult.roadClosure !== undefined && (
+                                    <span className={tomtomProbeResult.roadClosure ? 'text-rose-600 font-bold' : 'text-emerald-600'}>
+                                      {tomtomProbeResult.roadClosure ? 'Ditutup' : 'Terbuka'}
+                                    </span>
+                                  )}
+                                </div>
+                                <p className="leading-snug">{tomtomProbeResult.message}</p>
+                              </div>
+                            )}
+
+                            {/* Action Row */}
+                            <div className="pt-2 border-t border-slate-200/50 dark:border-slate-700/50 flex items-center justify-between gap-1.5 flex-wrap">
+                              <div className="flex items-center gap-1">
+                                <button
+                                  type="button"
+                                  onClick={() => handleFocusCorridor(corridor)}
+                                  className="px-2.5 py-1 rounded-xl bg-purple-600 hover:bg-purple-700 text-white font-bold text-[10.5px] transition-all active:scale-95 shadow-2xs flex items-center gap-1 cursor-pointer"
+                                  title="Pusatkan peta ke koridor ini"
+                                >
+                                  <Navigation className="w-3 h-3" />
+                                  <span>Pusatkan</span>
+                                </button>
+
+                                <button
+                                  type="button"
+                                  onClick={() => handleCheckTomTomLive(corridor)}
+                                  disabled={tomtomProbeResult?.corridorId === corridor.id && tomtomProbeResult.loading}
+                                  className="px-2 py-1 rounded-xl bg-indigo-50 dark:bg-indigo-950/50 hover:bg-indigo-100 text-indigo-700 dark:text-indigo-300 border border-indigo-200 dark:border-indigo-800 font-semibold text-[10px] transition-all flex items-center gap-1 cursor-pointer disabled:opacity-50"
+                                  title="Periksa data live TomTom Flow API via proxy backend"
+                                >
+                                  <Radio className={`w-3 h-3 ${tomtomProbeResult?.corridorId === corridor.id && tomtomProbeResult.loading ? 'animate-pulse' : ''}`} />
+                                  <span>{tomtomProbeResult?.corridorId === corridor.id && tomtomProbeResult.loading ? 'Cek...' : 'Uji TomTom'}</span>
+                                </button>
+                              </div>
+
+                              <div className="flex items-center gap-1">
+                                <a
+                                  href={`https://www.google.com/maps/@${corridor.center[1]},${corridor.center[0]},14z/data=!5m1!1e1`}
+                                  target="_blank"
+                                  rel="noopener noreferrer"
+                                  className="flex items-center gap-1 px-2.5 py-1 rounded-xl bg-white hover:bg-purple-50 dark:bg-slate-800 dark:hover:bg-slate-750 text-purple-600 dark:text-purple-400 font-bold text-[10px] border border-purple-200 dark:border-purple-800 transition-all shadow-2xs"
+                                  title="Buka Live Traffic resmi di Google Maps"
+                                >
+                                  <ExternalLink className="w-3 h-3" />
+                                  <span>Google Live</span>
+                                </a>
+                              </div>
+                            </div>
+                          </div>
+                        );
+                      })
+                    )}
+                  </div>
+                </>
+              )}
+
+              {/* Tab Content: Kamera CCTV Live */}
+              {trafficDrawerTab === 'cctv' && (
+                <div className="p-3 overflow-y-auto space-y-2 flex-1">
+                  <div className="p-2.5 bg-cyan-50/80 dark:bg-cyan-950/30 rounded-2xl border border-cyan-200/80 dark:border-cyan-900/60 text-xs space-y-1">
+                    <div className="flex items-center justify-between font-bold text-cyan-800 dark:text-cyan-200 text-[11px]">
+                      <span className="flex items-center gap-1.5">
+                        <Camera className="w-3.5 h-3.5 text-cyan-600" />
+                        Jaringan CCTV Lalu Lintas Terintegrasi
+                      </span>
+                      <span className="px-2 py-0.5 rounded-full bg-cyan-100 dark:bg-cyan-900 text-[9.5px]">
+                        {trafficCctvService.getAllCameras().length} Kamera Aktif
+                      </span>
+                    </div>
+                    <p className="text-[10px] text-cyan-700/80 dark:text-cyan-300/80 leading-relaxed">
+                      Kamera CCTV publik realtime mencakup Tol Trans-Jawa, arteri DKI Jakarta, Surabaya, Semarang, Bandung, dan Bali.
+                    </p>
+                  </div>
+
+                  {trafficCctvService.getAllCameras().map((cam) => (
+                    <div
+                      key={cam.id}
+                      className="p-3 rounded-2xl border border-slate-200/80 dark:border-slate-800 bg-white/80 dark:bg-slate-800/50 hover:bg-slate-50 dark:hover:bg-slate-800/80 transition-all text-xs space-y-2"
+                    >
+                      <div className="flex items-start justify-between gap-2">
+                        <div className="min-w-0 flex-1">
+                          <span className="text-[9px] font-bold px-1.5 py-0.5 rounded bg-cyan-100 dark:bg-cyan-950 text-cyan-700 dark:text-cyan-300 border border-cyan-200 dark:border-cyan-800">
+                            {cam.authority}
+                          </span>
+                          <h4 className="font-bold text-slate-800 dark:text-white leading-tight mt-1 text-xs">
+                            {cam.name}
+                          </h4>
+                          <p className="text-[10px] text-slate-500 dark:text-slate-400 mt-0.5">
+                            {cam.road} • {cam.city}, {cam.region}
+                          </p>
+                        </div>
+
+                        <span className="flex items-center gap-1 px-2 py-0.5 rounded-full bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/30 text-[9px] font-bold shrink-0">
+                          <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
+                          Live {cam.fps} FPS
+                        </span>
+                      </div>
+
+                      <div className="flex items-center justify-between pt-1 border-t border-slate-100 dark:border-slate-700/50 text-[10px]">
+                        <span className="text-slate-500 dark:text-slate-400">
+                          Status: <strong className="text-slate-700 dark:text-slate-300">{cam.statusText}</strong>
+                        </span>
+
+                        <div className="flex items-center gap-1.5">
+                          <button
+                            type="button"
+                            onClick={() => handleFocusCctv(cam)}
+                            className="px-2 py-1 rounded-xl bg-slate-100 dark:bg-slate-700 text-slate-700 dark:text-slate-300 hover:bg-slate-200 font-bold text-[10px] flex items-center gap-1 cursor-pointer"
+                            title="Pusatkan kamera di peta"
+                          >
+                            <Navigation className="w-3 h-3" />
+                            <span>Pusatkan</span>
+                          </button>
+
+                          <button
+                            type="button"
+                            onClick={() => setSelectedCctvCamera(cam)}
+                            className="px-2.5 py-1 rounded-xl bg-cyan-600 hover:bg-cyan-700 text-white font-bold text-[10px] flex items-center gap-1 shadow-2xs cursor-pointer"
+                            title="Buka live streaming kamera ini"
+                          >
+                            <Camera className="w-3 h-3" />
+                            <span>Buka Live CCTV</span>
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+
+              {/* Tab Content: Lampu Merah & ATCS */}
+              {trafficDrawerTab === 'signals' && (
+                <div className="p-3 overflow-y-auto space-y-2 flex-1">
+                  <div className="p-2.5 bg-emerald-50/80 dark:bg-emerald-950/30 rounded-2xl border border-emerald-200/80 dark:border-emerald-900/60 text-xs space-y-1">
+                    <div className="flex items-center justify-between font-bold text-emerald-800 dark:text-emerald-200 text-[11px]">
+                      <span className="flex items-center gap-1.5">
+                        <span>🚦</span>
+                        Sistem Kendali Lalu Lintas Cerdas (ATCS)
+                      </span>
+                      <span className="px-2 py-0.5 rounded-full bg-emerald-100 dark:bg-emerald-900 text-[9.5px]">
+                        {trafficSignalsService.getAllSignals().length} Simpang Terhubung
+                      </span>
+                    </div>
+                    <p className="text-[10px] text-emerald-700/80 dark:text-emerald-300/80 leading-relaxed">
+                      Siklus fase lampu lalu lintas realtime dihitung secara deterministik dengan telemetri hitung mundur dan estimasi panjang antrean kendaraan.
+                    </p>
+                  </div>
+
+                  {trafficSignalsService.getAllSignals().map((sig) => {
+                    const phaseColor =
+                      sig.currentPhase === 'GREEN'
                         ? 'text-emerald-600 dark:text-emerald-400 bg-emerald-500/10 border-emerald-500/30'
-                        : corridor.status === 'Ramai Lancar'
+                        : sig.currentPhase === 'YELLOW'
                         ? 'text-amber-600 dark:text-amber-400 bg-amber-500/10 border-amber-500/30'
                         : 'text-rose-600 dark:text-rose-400 bg-rose-500/10 border-rose-500/30';
-
-                    const statusDot =
-                      corridor.status === 'Lancar'
+                    const phaseDot =
+                      sig.currentPhase === 'GREEN'
                         ? 'bg-emerald-500'
-                        : corridor.status === 'Ramai Lancar'
+                        : sig.currentPhase === 'YELLOW'
                         ? 'bg-amber-500'
                         : 'bg-rose-500';
 
-                    const tierBadgeColor =
-                      corridor.tier === 'expressway'
-                        ? 'bg-purple-100 dark:bg-purple-950/60 text-purple-700 dark:text-purple-300 border-purple-200 dark:border-purple-800'
-                        : corridor.tier === 'arterial'
-                        ? 'bg-amber-100 dark:bg-amber-950/60 text-amber-700 dark:text-amber-300 border-amber-200 dark:border-amber-800'
-                        : corridor.tier === 'collector'
-                        ? 'bg-sky-100 dark:bg-sky-950/60 text-sky-700 dark:text-sky-300 border-sky-200 dark:border-sky-800'
-                        : 'bg-emerald-100 dark:bg-emerald-950/60 text-emerald-700 dark:text-emerald-300 border-emerald-200 dark:border-emerald-800';
-
                     return (
                       <div
-                        key={corridor.id}
-                        className={`p-3 rounded-2xl border transition-all text-xs space-y-2 ${
-                          isSelected
-                            ? 'bg-purple-50/80 dark:bg-purple-950/40 border-purple-400 dark:border-purple-600 shadow-md ring-1 ring-purple-400/40'
-                            : 'bg-slate-50/70 dark:bg-slate-800/40 border-slate-200/80 dark:border-slate-800 hover:bg-slate-100/80 dark:hover:bg-slate-800/70'
-                        }`}
+                        key={sig.id}
+                        className="p-3 rounded-2xl border border-slate-200/80 dark:border-slate-800 bg-white/80 dark:bg-slate-800/50 hover:bg-slate-50 dark:hover:bg-slate-800/80 transition-all text-xs space-y-2"
                       >
-                        {/* Header Row */}
                         <div className="flex items-start justify-between gap-2">
                           <div className="min-w-0 flex-1">
-                            <div className="flex items-center gap-1.5 flex-wrap">
-                              <span className={`text-[9px] font-extrabold px-1.5 py-0.2 rounded border ${tierBadgeColor}`}>
-                                {corridor.routeType}
-                              </span>
-                              <span className="text-[10px] font-bold text-slate-500 dark:text-slate-400">
-                                {corridor.island}
-                              </span>
-                            </div>
-                            <h3 className="font-bold text-slate-800 dark:text-white leading-tight mt-1 text-xs">
-                              {corridor.name}
-                            </h3>
+                            <span className="text-[9px] font-bold px-1.5 py-0.5 rounded bg-slate-100 dark:bg-slate-700 text-slate-700 dark:text-slate-300 border border-slate-200 dark:border-slate-600">
+                              {sig.intersectionType}
+                            </span>
+                            <h4 className="font-bold text-slate-800 dark:text-white leading-tight mt-1 text-xs">
+                              {sig.name}
+                            </h4>
+                            <p className="text-[10px] text-slate-500 dark:text-slate-400 mt-0.5">
+                              {sig.city} • Antrean: ~{sig.queueEstimateVehicles} kend.
+                            </p>
                           </div>
-                          <span className={`text-[9px] font-black uppercase px-2 py-0.5 rounded-full border shrink-0 flex items-center gap-1 ${statusColor}`}>
-                            <span className={`w-1.5 h-1.5 rounded-full ${statusDot}`} />
-                            {corridor.status}
+
+                          <span className={`flex items-center gap-1.5 px-2.5 py-1 rounded-xl border text-[10px] font-bold shrink-0 ${phaseColor}`}>
+                            <span className={`w-2 h-2 rounded-full ${phaseDot} animate-pulse`} />
+                            {sig.currentPhase.toUpperCase()} ({sig.remainingSeconds}s)
                           </span>
                         </div>
 
-                        {/* Metrics Box */}
-                        <div className="flex items-center justify-between py-1 px-2.5 rounded-xl bg-white/80 dark:bg-slate-900/60 border border-slate-200/60 dark:border-slate-800/60 text-[10.5px]">
-                          <div className="flex items-center gap-1.5 text-slate-600 dark:text-slate-300">
-                            <Gauge className="w-3.5 h-3.5 text-purple-500" />
-                            <span>Kecepatan:</span>
-                            <strong className="font-mono text-slate-900 dark:text-white font-bold">{corridor.speedKmh} km/jam</strong>
-                          </div>
-                          <div className="h-3 w-[1px] bg-slate-200 dark:bg-slate-700"></div>
-                          <div className="flex items-center gap-1.5 text-slate-600 dark:text-slate-300">
-                            <span>Panjang:</span>
-                            <strong className="font-mono text-slate-900 dark:text-white font-bold">{corridor.lengthKm} km</strong>
-                          </div>
-                        </div>
+                        <div className="flex items-center justify-between pt-1 border-t border-slate-100 dark:border-slate-700/50 text-[10px]">
+                          <span className="text-slate-500 dark:text-slate-400">
+                            Durasi Siklus Total: <strong className="font-mono text-slate-700 dark:text-slate-300">{sig.cycleTotalSeconds} detik</strong>
+                          </span>
 
-                        {/* Live Subsegments Breakdown */}
-                        {corridor.segments && corridor.segments.length > 0 && (
-                          <div className="space-y-1.5 pt-0.5">
-                            <div className="flex items-center justify-between text-[10px] text-slate-500 dark:text-slate-400 font-medium">
-                              <span>Segmen Koridor ({corridor.segments.length}):</span>
-                              <span className="font-mono text-[9px] text-purple-600 dark:text-purple-400 font-bold">
-                                Multi-Segmen Live
-                              </span>
-                            </div>
-
-                            {/* Color-coded segments progress bar */}
-                            <div className="flex h-1.5 w-full rounded-full overflow-hidden bg-slate-200 dark:bg-slate-700 gap-0.5">
-                              {corridor.segments.map((seg) => {
-                                const segBg =
-                                  seg.status === 'Lancar'
-                                    ? 'bg-emerald-500'
-                                    : seg.status === 'Ramai Lancar'
-                                    ? 'bg-amber-500'
-                                    : seg.status === 'Padat Merayap'
-                                    ? 'bg-rose-500'
-                                    : 'bg-red-800';
-                                return (
-                                  <div
-                                    key={seg.id}
-                                    className={`h-full flex-1 ${segBg} transition-all duration-500`}
-                                    title={`${seg.name}: ${seg.speedKmh} km/jam (${seg.status})`}
-                                  />
-                                );
-                              })}
-                            </div>
-
-                            {/* Subsegment Quick Chips */}
-                            <div className="grid grid-cols-2 gap-1 pt-0.5">
-                              {corridor.segments.slice(0, 4).map((seg) => {
-                                const dotBg =
-                                  seg.status === 'Lancar'
-                                    ? 'bg-emerald-500'
-                                    : seg.status === 'Ramai Lancar'
-                                    ? 'bg-amber-500'
-                                    : seg.status === 'Padat Merayap'
-                                    ? 'bg-rose-500'
-                                    : 'bg-red-800';
-                                return (
-                                  <div
-                                    key={seg.id}
-                                    className="flex items-center justify-between px-2 py-1 rounded-lg bg-white/70 dark:bg-slate-900/50 border border-slate-200/60 dark:border-slate-800/60 text-[9.5px]"
-                                    title={seg.name}
-                                  >
-                                    <div className="flex items-center gap-1.5 min-w-0">
-                                      <span className={`w-1.5 h-1.5 rounded-full shrink-0 ${dotBg}`} />
-                                      <span className="truncate text-slate-600 dark:text-slate-300 font-medium">
-                                        {seg.name.split(' - ')[0]}
-                                      </span>
-                                    </div>
-                                    <span className="font-mono font-bold text-slate-800 dark:text-slate-200 shrink-0 ml-1">
-                                      {seg.speedKmh}k
-                                    </span>
-                                  </div>
-                                );
-                              })}
-                            </div>
-                          </div>
-                        )}
-
-                        {/* TomTom Live Flow Probe Result */}
-                        {tomtomProbeResult && tomtomProbeResult.corridorId === corridor.id && (
-                          <div
-                            className={`p-2 rounded-xl text-[10px] space-y-1 ${
-                              tomtomProbeResult.status === 'LIVE'
-                                ? 'bg-emerald-50 dark:bg-emerald-950/40 text-emerald-800 dark:text-emerald-200 border border-emerald-300 dark:border-emerald-700'
-                                : tomtomProbeResult.status === 'NOT_CONFIGURED'
-                                ? 'bg-amber-50 dark:bg-amber-950/40 text-amber-800 dark:text-amber-200 border border-amber-300 dark:border-amber-700'
-                                : 'bg-rose-50 dark:bg-rose-950/40 text-rose-800 dark:text-rose-200 border border-rose-300 dark:border-rose-700'
-                            }`}
-                          >
-                            <div className="flex items-center justify-between font-bold">
-                              <span>TomTom Proxy: {tomtomProbeResult.status}</span>
-                              {tomtomProbeResult.roadClosure !== undefined && (
-                                <span className={tomtomProbeResult.roadClosure ? 'text-rose-600 font-bold' : 'text-emerald-600'}>
-                                  {tomtomProbeResult.roadClosure ? 'Ditutup' : 'Terbuka'}
-                                </span>
-                              )}
-                            </div>
-                            <p className="leading-snug">{tomtomProbeResult.message}</p>
-                            {tomtomProbeResult.confidence !== undefined && tomtomProbeResult.confidence !== null && (
-                              <div className="text-[9px] opacity-75 font-mono">
-                                Confidence: {Math.round(tomtomProbeResult.confidence * 100)}%
-                              </div>
-                            )}
-                          </div>
-                        )}
-
-                        {/* Condition Text */}
-                        <p className="text-[10.5px] text-slate-500 dark:text-slate-400 leading-tight">
-                          {corridor.condition}
-                        </p>
-
-                        {/* Action Row */}
-                        <div className="pt-2 border-t border-slate-200/50 dark:border-slate-700/50 flex items-center justify-between gap-1.5 flex-wrap">
-                          <div className="flex items-center gap-1">
+                          <div className="flex items-center gap-1.5">
                             <button
                               type="button"
-                              onClick={() => handleFocusCorridor(corridor)}
-                              className="px-2.5 py-1 rounded-xl bg-purple-600 hover:bg-purple-700 text-white font-bold text-[10.5px] transition-all active:scale-95 shadow-2xs flex items-center gap-1 cursor-pointer"
-                              title="Pusatkan peta ke koridor ini"
+                              onClick={() => handleFocusSignal(sig)}
+                              className="px-2 py-1 rounded-xl bg-slate-100 dark:bg-slate-700 text-slate-700 dark:text-slate-300 hover:bg-slate-200 font-bold text-[10px] flex items-center gap-1 cursor-pointer"
+                              title="Pusatkan simpang di peta"
                             >
                               <Navigation className="w-3 h-3" />
                               <span>Pusatkan</span>
@@ -6128,44 +6704,99 @@ export function MapsView() {
 
                             <button
                               type="button"
-                              onClick={() => handleCheckTomTomLive(corridor)}
-                              disabled={tomtomProbeResult?.corridorId === corridor.id && tomtomProbeResult.loading}
-                              className="px-2 py-1 rounded-xl bg-indigo-50 dark:bg-indigo-950/50 hover:bg-indigo-100 text-indigo-700 dark:text-indigo-300 border border-indigo-200 dark:border-indigo-800 font-semibold text-[10px] transition-all flex items-center gap-1 cursor-pointer disabled:opacity-50"
-                              title="Periksa data live TomTom Flow API via proxy backend"
+                              onClick={() => setSelectedTrafficSignalId(sig.id)}
+                              className="px-2.5 py-1 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-[10px] flex items-center gap-1 shadow-2xs cursor-pointer"
+                              title="Buka panel ATCS simpang ini"
                             >
-                              <Radio className={`w-3 h-3 ${tomtomProbeResult?.corridorId === corridor.id && tomtomProbeResult.loading ? 'animate-pulse' : ''}`} />
-                              <span>{tomtomProbeResult?.corridorId === corridor.id && tomtomProbeResult.loading ? 'Cek...' : 'Uji TomTom Live'}</span>
+                              <span>🚦</span>
+                              <span>Pantau Simpang</span>
                             </button>
-                          </div>
-
-                          <div className="flex items-center gap-1">
-                            <a
-                              href={`https://www.google.com/maps/@${corridor.center[1]},${corridor.center[0]},14z/data=!5m1!1e1`}
-                              target="_blank"
-                              rel="noopener noreferrer"
-                              className="flex items-center gap-1 px-2.5 py-1 rounded-xl bg-white hover:bg-purple-50 dark:bg-slate-800 dark:hover:bg-slate-750 text-purple-600 dark:text-purple-400 font-bold text-[10px] border border-purple-200 dark:border-purple-800 transition-all shadow-2xs"
-                              title="Buka Live Traffic resmi di Google Maps (Bebas Kuota API)"
-                            >
-                              <ExternalLink className="w-3 h-3" />
-                              <span>Google Maps Live</span>
-                            </a>
-
-                            <a
-                              href={`https://www.google.com/maps/dir/?api=1&destination=${corridor.center[1]},${corridor.center[0]}`}
-                              target="_blank"
-                              rel="noopener noreferrer"
-                              className="p-1 rounded-xl bg-white hover:bg-purple-50 dark:bg-slate-800 dark:hover:bg-slate-750 text-slate-500 hover:text-purple-600 dark:text-slate-400 dark:hover:text-purple-400 border border-slate-200 dark:border-slate-700 transition-all"
-                              title="Navigasi Rute di Google Maps"
-                            >
-                              <MapPin className="w-3.5 h-3.5" />
-                            </a>
                           </div>
                         </div>
                       </div>
                     );
-                  })
-                )}
-              </div>
+                  })}
+                </div>
+              )}
+
+              {/* Tab Content: Konfigurasi API Kunci (BYOK) */}
+              {trafficDrawerTab === 'byok' && (
+                <div className="p-4 space-y-4 text-xs overflow-y-auto flex-1">
+                  <div className="p-3 bg-indigo-50/80 dark:bg-indigo-950/40 rounded-2xl border border-indigo-200/80 dark:border-indigo-900/60 space-y-2">
+                    <div className="flex items-center gap-2 font-bold text-indigo-900 dark:text-indigo-200">
+                      <Key className="w-4 h-4 text-indigo-600" />
+                      <span>Konfigurasi Kuota API TomTom Realtime (BYOK)</span>
+                    </div>
+                    <p className="text-[11px] text-indigo-800/80 dark:text-indigo-300/80 leading-relaxed">
+                      Secara default, Harmony menggunakan proxy telemetri server internal. Anda juga dapat memasukkan kunci TomTom API milik pribadi (Bring Your Own Key) untuk kuota mandiri tanpa batasan.
+                    </p>
+                  </div>
+
+                  <div className="space-y-2">
+                    <label htmlFor="tomtom-api-key-input" className="block text-[11px] font-bold text-slate-700 dark:text-slate-300">
+                      TomTom Traffic Flow API Key:
+                    </label>
+                    <input
+                      id="tomtom-api-key-input"
+                      type="password"
+                      value={customTomTomKeyInput}
+                      onChange={(e) => setCustomTomTomKeyInput(e.target.value)}
+                      placeholder="Masukkan kunci API TomTom Anda..."
+                      className="w-full px-3 py-2 text-xs rounded-xl border border-slate-200/80 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-800 dark:text-slate-200 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-indigo-500 font-mono shadow-2xs"
+                    />
+                    {customTomTomKeyStatus && (
+                      <p className="text-[10.5px] font-bold text-emerald-600 dark:text-emerald-400">
+                        {customTomTomKeyStatus}
+                      </p>
+                    )}
+                  </div>
+
+                  <div className="flex items-center gap-2 pt-2">
+                    <button
+                      type="button"
+                      onClick={handleSaveCustomTomTomKey}
+                      className="px-3.5 py-1.5 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-xs transition-all shadow-xs cursor-pointer"
+                    >
+                      Simpan Kunci API
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setCustomTomTomKeyInput('');
+                        liveTrafficFlowService.setCustomTomTomApiKey(null);
+                        setCustomTomTomKeyStatus('Kunci khusus dihapus, kembali ke proxy internal.');
+                        setTimeout(() => setCustomTomTomKeyStatus(''), 4000);
+                      }}
+                      className="px-3 py-1.5 rounded-xl bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-600 dark:text-slate-300 font-bold text-xs transition-all cursor-pointer"
+                    >
+                      Gunakan Proxy Bawaan
+                    </button>
+                  </div>
+
+                  <div className="p-3 rounded-2xl bg-slate-50 dark:bg-slate-800/40 border border-slate-200/80 dark:border-slate-800 text-[10.5px] space-y-1.5">
+                    <strong className="text-slate-700 dark:text-slate-300 block">Status Layanan:</strong>
+                    <div className="flex items-center justify-between">
+                      <span className="text-slate-500">Mode Penyedia:</span>
+                      <strong className="font-mono text-purple-600 dark:text-purple-400">
+                        {customTomTomKeyInput ? 'Kunci Khusus (BYOK)' : 'Proxy Internal Server'}
+                      </strong>
+                    </div>
+                    <div className="flex items-center justify-between">
+                      <span className="text-slate-500">Siklus Polling:</span>
+                      <span className="font-mono text-slate-700 dark:text-slate-300">Setiap 15 Detik</span>
+                    </div>
+                    <div className="flex items-center justify-between">
+                      <span className="text-slate-500">Kamera CCTV:</span>
+                      <span className="text-emerald-600 font-bold">{trafficCctvService.getAllCameras().length} Kamera Online</span>
+                    </div>
+                    <div className="flex items-center justify-between">
+                      <span className="text-slate-500">Simpang ATCS:</span>
+                      <span className="text-emerald-600 font-bold">{trafficSignalsService.getAllSignals().length} Simpang Aktif</span>
+                    </div>
+                  </div>
+                </div>
+              )}
 
               {/* Basemap Quick Switch Footer */}
               <div className="p-3 border-t border-slate-200/80 dark:border-slate-800 bg-slate-50/90 dark:bg-slate-900/90 shrink-0 space-y-2">
@@ -8620,6 +9251,18 @@ export function MapsView() {
         schoolName={activeSchoolName}
         lat={activeSchoolLat}
         lng={activeSchoolLng}
+      />
+
+      {/* Realtime Live Public CCTV Camera Modal */}
+      <LiveCctvModal
+        camera={selectedCctvCamera}
+        onClose={() => setSelectedCctvCamera(null)}
+      />
+
+      {/* Realtime ATCS Smart Traffic Signal Modal */}
+      <TrafficSignalModal
+        signalId={selectedTrafficSignalId}
+        onClose={() => setSelectedTrafficSignalId(null)}
       />
 
       {/* Fullscreen Weather Mode */}

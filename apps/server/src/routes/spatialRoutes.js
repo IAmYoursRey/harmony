@@ -15,6 +15,9 @@ import {
   getFacilityAccessibility,
   calculateTransportEmissions,
   getTrafficFlowProxy,
+  getTrafficCctvList,
+  getTrafficSignalsList,
+  getLiveTrafficNetwork,
   getSchoolRiskSynthesis,
 } from "../controllers/spatialController.js";
 
@@ -40,6 +43,9 @@ router.get("/analysis/:id/export", exportAnalysis);
 // Environmental, Mobility & Accessibility Endpoints
 router.get("/hotspots", getHotspots);
 router.get("/traffic/flow", getTrafficFlowProxy);
+router.get("/traffic/cctv", getTrafficCctvList);
+router.get("/traffic/signals", getTrafficSignalsList);
+router.get("/traffic/live-network", getLiveTrafficNetwork);
 router.post("/network/isochrones", getIsochrones);
 router.post("/network/accessibility", getFacilityAccessibility);
 router.post("/transport/emissions", calculateTransportEmissions);

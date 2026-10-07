@@ -52,6 +52,8 @@ import {
 } from './celestial/CesiumCosmicEngine';
 import { CelestialInfoPanel } from './celestial/CelestialInfoPanel';
 import type { TrafficCorridor } from '@/services/trafficTelemetryService';
+import { trafficCctvService, type TrafficCctvCamera } from '@/services/trafficCctvService';
+import { trafficSignalsService, type TrafficSignalIntersection } from '@/services/trafficSignalsService';
 
 const EMPTY_DATA: never[] = [];
 type CesiumModule = typeof import('cesium');
@@ -96,6 +98,8 @@ export interface CesiumGlobe3DProps {
   trafficDataList?: TrafficCorridor[];
   onToggleTraffic?: () => void;
   showHeatmapLayer?: boolean;
+  onSelectCctv?: (camera: TrafficCctvCamera) => void;
+  onSelectSignal?: (signal: TrafficSignalIntersection) => void;
 }
 
 const validPosition = (lat: unknown, lng: unknown) => 
@@ -139,6 +143,8 @@ export function CesiumGlobe3D({
   trafficDataList = EMPTY_DATA,
   onToggleTraffic,
   showHeatmapLayer = false,
+  onSelectCctv,
+  onSelectSignal,
 }: CesiumGlobe3DProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const creditRef = useRef<HTMLDivElement>(null);
@@ -150,6 +156,10 @@ export function CesiumGlobe3D({
   const cosmicEngineRef = useRef<CesiumCosmicEngine | null>(null);
   const onSelectSensorRef = useRef(onSelectSensor);
   onSelectSensorRef.current = onSelectSensor;
+  const onSelectCctvRef = useRef(onSelectCctv);
+  onSelectCctvRef.current = onSelectCctv;
+  const onSelectSignalRef = useRef(onSelectSignal);
+  onSelectSignalRef.current = onSelectSignal;
 
   const focusRef = useRef(initialCenter);
   focusRef.current = initialCenter;
@@ -397,6 +407,12 @@ export function CesiumGlobe3D({
           }
           if (entity && entity.properties?.sensorData && onSelectSensorRef.current) {
             onSelectSensorRef.current(entity.properties.sensorData.getValue());
+          }
+          if (entity && entity.properties?.cctvData && onSelectCctvRef.current) {
+            onSelectCctvRef.current(entity.properties.cctvData.getValue());
+          }
+          if (entity && entity.properties?.signalData && onSelectSignalRef.current) {
+            onSelectSignalRef.current(entity.properties.signalData.getValue());
           }
           setSelected(
             entity
@@ -1163,6 +1179,73 @@ export function CesiumGlobe3D({
             });
           });
         }
+      });
+
+      // 10b. Real-time CCTV Cameras (3D God's Eye)
+      const cctvCams = trafficCctvService.getAllCameras();
+      cctvCams.forEach((cam) => {
+        if (!validPosition(cam.location[1], cam.location[0])) return;
+        data.entities.add({
+          id: `traffic-cctv-${cam.id}`,
+          name: `📹 CCTV: ${cam.name}`,
+          position: C.Cartesian3.fromDegrees(cam.location[0], cam.location[1], 15),
+          point: {
+            pixelSize: 10,
+            color: C.Color.fromCssColorString('#06b6d4'),
+            outlineColor: C.Color.BLACK,
+            outlineWidth: 2,
+            disableDepthTestDistance: Number.POSITIVE_INFINITY,
+          },
+          label: {
+            text: `📹 ${cam.name}`,
+            font: 'bold 9.5px Inter, sans-serif',
+            fillColor: C.Color.fromCssColorString('#a5f3fc'),
+            outlineColor: C.Color.BLACK,
+            outlineWidth: 2,
+            style: C.LabelStyle.FILL_AND_OUTLINE,
+            pixelOffset: new C.Cartesian2(0, -18),
+            disableDepthTestDistance: Number.POSITIVE_INFINITY,
+            distanceDisplayCondition: new C.DistanceDisplayCondition(0, 800000),
+          },
+          properties: {
+            cctvData: cam,
+            detail: `Kamera CCTV: ${cam.name} • Ruas: ${cam.road} • Wilayah: ${cam.city}, ${cam.region} • Status: ${cam.statusText} • FPS: ${cam.fps} • Instansi: ${cam.authority}`,
+          },
+        });
+      });
+
+      // 10c. ATCS Traffic Signals (3D God's Eye)
+      const signals = trafficSignalsService.getAllSignals();
+      signals.forEach((sig) => {
+        if (!validPosition(sig.location[1], sig.location[0])) return;
+        const phaseCol = sig.currentPhase === 'GREEN' ? '#10b981' : sig.currentPhase === 'YELLOW' ? '#f59e0b' : '#ef4444';
+        data.entities.add({
+          id: `traffic-signal-${sig.id}`,
+          name: `🚦 Simpang ATCS: ${sig.name}`,
+          position: C.Cartesian3.fromDegrees(sig.location[0], sig.location[1], 12),
+          point: {
+            pixelSize: 10,
+            color: C.Color.fromCssColorString(phaseCol),
+            outlineColor: C.Color.BLACK,
+            outlineWidth: 2,
+            disableDepthTestDistance: Number.POSITIVE_INFINITY,
+          },
+          label: {
+            text: `🚦 ${sig.name} (${sig.remainingSeconds}s)`,
+            font: 'bold 9.5px Inter, sans-serif',
+            fillColor: C.Color.fromCssColorString(phaseCol),
+            outlineColor: C.Color.BLACK,
+            outlineWidth: 2,
+            style: C.LabelStyle.FILL_AND_OUTLINE,
+            pixelOffset: new C.Cartesian2(0, -18),
+            disableDepthTestDistance: Number.POSITIVE_INFINITY,
+            distanceDisplayCondition: new C.DistanceDisplayCondition(0, 600000),
+          },
+          properties: {
+            signalData: sig,
+            detail: `Lampu Merah ATCS: ${sig.name} • Fase: ${sig.currentPhase.toUpperCase()} (${sig.remainingSeconds}s) • Antrean: ~${sig.queueEstimateVehicles} kend. • Kota: ${sig.city}`,
+          },
+        });
       });
     }
 
