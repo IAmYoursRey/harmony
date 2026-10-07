@@ -22,11 +22,18 @@ import { aoiService, useActiveAOI } from '../../../../../services/geospatial/aoi
 import { stacService, SatelliteSceneItem } from '../../../../../services/geospatial/stacService';
 import { lstService, LSTAnalysisResult } from '../../../../../services/geospatial/lstService';
 import { AnalysisEnvelope } from '../../../../../services/geospatial/types';
+import { RemoteSensingRasterMapView, RasterProductMode } from './RemoteSensingRasterMapView';
 
 interface GeospatialRemoteSensingTabProps {
   lat: number;
   lng: number;
   regionName: string;
+  onProjectToMainMap?: (config: {
+    type: RasterProductMode;
+    sceneId: string;
+    bbox: [number, number, number, number];
+    title: string;
+  }) => void;
 }
 
 // Illustrative band values for explicit demonstrations; not acquired satellite data.
@@ -72,6 +79,7 @@ export const GeospatialRemoteSensingTab: React.FC<GeospatialRemoteSensingTabProp
   lat,
   lng,
   regionName,
+  onProjectToMainMap,
 }) => {
   const activeAOI = useActiveAOI();
   const [selectedPreset, setSelectedPreset] = useState<keyof typeof PRESET_SCENES | 'EMPTY'>('EMPTY');
@@ -1115,6 +1123,16 @@ export const GeospatialRemoteSensingTab: React.FC<GeospatialRemoteSensingTabProp
           )}
         </div>
       </div>
+
+      {/* Interactive Satellite Remote Sensing Raster Map Viewer */}
+      <RemoteSensingRasterMapView
+        scene={selectedStacScene}
+        activeAOI={activeAOI}
+        lat={lat}
+        lng={lng}
+        regionName={regionName}
+        onProjectToMainMap={onProjectToMainMap}
+      />
 
       {/* Land Surface Temperature (LST) Service Integration Card */}
       <div className="p-4 rounded-3xl bg-gradient-to-br from-rose-50/70 via-white to-amber-50/50 dark:from-rose-950/30 dark:via-slate-850 dark:to-amber-950/20 border border-rose-200/80 dark:border-rose-800/60 shadow-sm space-y-3">

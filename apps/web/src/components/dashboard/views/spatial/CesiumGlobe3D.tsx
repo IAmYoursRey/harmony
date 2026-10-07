@@ -66,7 +66,7 @@ export interface CesiumGlobe3DProps {
   userCoords?: { lat: number; lng: number; accuracy?: number } | null;
   activeRouteCoords?: [number, number][];
   earthquakes?: ReadonlyArray<{ id?: string | number; lat: number; lng: number; mag?: number; depth?: number; place?: string; source?: string; time?: string | number; shakingDurationSec?: string; [key: string]: any }>;
-  hotspots?: ReadonlyArray<{ id?: string | number; lat: number; lng: number; frpMw?: number | null; satellite?: string; brightnessCelsius?: number | null }>;
+  hotspots?: ReadonlyArray<{ id?: string | number; lat: number; lng: number; frpMw?: number | null; satellite?: string; brightnessCelsius?: number | null; brightnessKelvin?: number | null; instrument?: string; [key: string]: any }>;
   mountains?: ReadonlyArray<{ id?: string | number; lat: number; lng: number; name?: string; height?: number; elevation?: number; type?: string; status?: string; volcanoData?: any; [key: string]: any }>;
   showActiveVolcanoes?: boolean;
   showInactiveVolcanoes?: boolean;
@@ -102,6 +102,7 @@ export interface CesiumGlobe3DProps {
   onSelectSignal?: (signal: TrafficSignalIntersection) => void;
   onSelectVolcano?: (volcano: any) => void;
   onSelectEarthquake?: (earthquake: any) => void;
+  onSelectHotspot?: (hotspot: any) => void;
 }
 
 const validPosition = (lat: unknown, lng: unknown) => 
@@ -149,6 +150,7 @@ export function CesiumGlobe3D({
   onSelectSignal,
   onSelectVolcano,
   onSelectEarthquake,
+  onSelectHotspot,
 }: CesiumGlobe3DProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const creditRef = useRef<HTMLDivElement>(null);
@@ -168,6 +170,8 @@ export function CesiumGlobe3D({
   onSelectVolcanoRef.current = onSelectVolcano;
   const onSelectEarthquakeRef = useRef(onSelectEarthquake);
   onSelectEarthquakeRef.current = onSelectEarthquake;
+  const onSelectHotspotRef = useRef(onSelectHotspot);
+  onSelectHotspotRef.current = onSelectHotspot;
 
   const focusRef = useRef(initialCenter);
   focusRef.current = initialCenter;
@@ -428,6 +432,9 @@ export function CesiumGlobe3D({
           if (entity && entity.properties?.earthquakeData && onSelectEarthquakeRef.current) {
             onSelectEarthquakeRef.current(entity.properties.earthquakeData.getValue());
           }
+          if (entity && entity.properties?.hotspotData && onSelectHotspotRef.current) {
+            onSelectHotspotRef.current(entity.properties.hotspotData.getValue());
+          }
           setSelected(
             entity
               ? {
@@ -543,20 +550,37 @@ export function CesiumGlobe3D({
 
       provider.errorEvent?.addEventListener(() => {});
       layers.addImageryProvider(provider);
+
+      // Full Network Live Traffic Overlay (God's Eye View style across all streets)
+      if (isTrafficActive && type !== 'traffic') {
+        try {
+          const trafficOverlayProvider = new C.UrlTemplateImageryProvider({
+            url: 'https://mt{s}.google.com/vt/lyrs=h,traffic&x={x}&y={y}&z={z}',
+            subdomains: ['0', '1', '2', '3'],
+            maximumLevel: 20,
+            credit: 'Live Full Network Traffic Flow Overlay',
+          });
+          trafficOverlayProvider.errorEvent?.addEventListener(() => {});
+          layers.addImageryProvider(trafficOverlayProvider);
+        } catch (e) {
+          console.warn('Failed to add Cesium traffic overlay:', e);
+        }
+      }
+
       viewer.scene.requestRender();
     } catch (err) {
       console.warn('Failed to switch Cesium imagery layer:', err);
     }
   };
 
-  // Re-apply imagery provider when activeBasemap changes
+  // Re-apply imagery provider when activeBasemap or isTrafficActive changes
   useEffect(() => {
     const viewer = viewerRef.current;
     const C = moduleRef.current;
     if (status !== 'READY' || !viewer || viewer.isDestroyed() || !C) return;
 
     applyImageryProvider(viewer, C, activeBasemap);
-  }, [status, activeBasemap]);
+  }, [status, activeBasemap, isTrafficActive]);
 
   // Synchronize Tectonic Plates GeoJSON Layer
   useEffect(() => {
@@ -720,22 +744,67 @@ export function CesiumGlobe3D({
       });
     }
 
-    // 2. Hotspots (Thermal Fire Anomalies)
+    // 2. Hotspots (Thermal Fire Anomalies - God's Eye View Tactical Thermal Sensor)
     hotspots.forEach((h, index) => {
       if (!validPosition(h.lat, h.lng)) return;
+      const frp = typeof h.frpMw === 'number' && Number.isFinite(h.frpMw) ? h.frpMw : 8;
+      const tempC = h.brightnessCelsius ?? (h.brightnessKelvin ? Number((h.brightnessKelvin - 273.15).toFixed(1)) : 48);
+
+      const isExtreme = frp >= 25 || tempC >= 75;
+      const isHigh = !isExtreme && (frp >= 10 || tempC >= 55);
+      const isModerate = !isExtreme && !isHigh && (frp >= 3 || tempC >= 42);
+
+      const pinColorHex = isExtreme ? '#f43f5e' : isHigh ? '#ef4444' : isModerate ? '#f97316' : '#eab308';
+      const haloRadius = Math.min(8000, Math.max(1200, frp * 180));
+      const entityColor = C.Color.fromCssColorString(pinColorHex);
+
+      // Radiative ground ellipse representing anomalous thermal footprint
       data.entities.add({
-        id: `hotspot-${h.id ?? index}`,
-        name: 'Titik Api Satelit (Hotspot)',
+        id: `hotspot-halo-${h.id ?? index}`,
+        name: `Zona Radiasi Termal (${tempC}°C)`,
         position: C.Cartesian3.fromDegrees(h.lng, h.lat),
-        point: {
-          pixelSize: 9,
-          color: C.Color.fromCssColorString('#f43f5e'),
-          outlineColor: C.Color.WHITE,
+        ellipse: {
+          semiMinorAxis: haloRadius,
+          semiMajorAxis: haloRadius,
+          height: 0,
+          material: new C.ColorMaterialProperty(entityColor.withAlpha(0.22)),
+          outline: true,
+          outlineColor: entityColor.withAlpha(0.75),
           outlineWidth: 1.5,
-          disableDepthTestDistance: Number.POSITIVE_INFINITY,
+          distanceDisplayCondition: new C.DistanceDisplayCondition(0, 15000000),
         },
         properties: {
-          detail: `FRP: ${h.frpMw ?? 'n/a'} MW • Kecerahan: ${h.brightnessCelsius ?? 'n/a'} °C • ${h.satellite || 'Satelit VIIRS / MODIS'}.`,
+          hotspotData: h,
+          detail: `Anomali Termal: ${tempC}°C • FRP: ${frp.toFixed(1)} MW • ${h.satellite || 'Satelit VIIRS/MODIS'}.`,
+        },
+      });
+
+      // Core thermal anomaly pinpoint
+      data.entities.add({
+        id: `hotspot-${h.id ?? index}`,
+        name: `Anomali Suhu Panas #${String(h.id || index).slice(-6)}`,
+        position: C.Cartesian3.fromDegrees(h.lng, h.lat),
+        point: {
+          pixelSize: isExtreme ? 13 : isHigh ? 11 : 9,
+          color: entityColor,
+          outlineColor: C.Color.WHITE,
+          outlineWidth: 2,
+          disableDepthTestDistance: Number.POSITIVE_INFINITY,
+        },
+        label: {
+          text: `🔥 ${tempC.toFixed(0)}°C • ${frp.toFixed(0)}MW`,
+          font: 'bold 10px Inter, sans-serif',
+          fillColor: C.Color.WHITE,
+          outlineColor: C.Color.BLACK,
+          outlineWidth: 2,
+          style: C.LabelStyle.FILL_AND_OUTLINE,
+          pixelOffset: new C.Cartesian2(0, -16),
+          disableDepthTestDistance: Number.POSITIVE_INFINITY,
+          distanceDisplayCondition: new C.DistanceDisplayCondition(0, 2500000),
+        },
+        properties: {
+          hotspotData: h,
+          detail: `Anomali Suhu Termal: ${tempC.toFixed(1)}°C (${frp.toFixed(1)} MW) • Sensor ${h.instrument || 'Infra Merah'} • Satelit ${h.satellite || 'VIIRS'}. Klik untuk protokol mitigasi.`,
         },
       });
     });

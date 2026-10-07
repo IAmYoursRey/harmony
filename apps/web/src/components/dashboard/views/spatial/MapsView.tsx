@@ -101,6 +101,7 @@ import { LiveCctvModal } from "./map/LiveCctvModal";
 import { TrafficSignalModal } from "./map/TrafficSignalModal";
 import { VolcanoDetailModal } from "./map/VolcanoDetailModal";
 import { EarthquakeDetailModal } from "./map/EarthquakeDetailModal";
+import { ThermalAnomalyDetailModal } from "./map/ThermalAnomalyDetailModal";
 
 // Basemap Types & Provenance Metadata (>2020 High-Accuracy Datasets)
 export type MapBasemapType = 'osm' | 'satellite' | 'elevation' | 'thermal' | 'traffic' | 'dark';
@@ -589,6 +590,8 @@ export function MapsView() {
   const [selectedTrafficSignalId, setSelectedTrafficSignalId] = useState<string | null>(null);
   const [selectedVolcanoForModal, setSelectedVolcanoForModal] = useState<VolcanoLiveStatus | null>(null);
   const [selectedEarthquakeForModal, setSelectedEarthquakeForModal] = useState<EarthquakeRecord | null>(null);
+  const [selectedHotspotForModal, setSelectedHotspotForModal] = useState<ActiveFireHotspot | null>(null);
+  const [showHotspots, setShowHotspots] = useState<boolean>(true);
   const [liveTrafficSummary, setLiveTrafficSummary] = useState<LiveTrafficNetworkSummary | null>(null);
   const [trafficDrawerTab, setTrafficDrawerTab] = useState<'corridors' | 'cctv' | 'signals' | 'byok'>('corridors');
   const [customTomTomKeyInput, setCustomTomTomKeyInput] = useState<string>(() => liveTrafficFlowService.getCustomTomTomApiKey() || '');
@@ -1798,6 +1801,7 @@ export function MapsView() {
   // Layer Refs for new features
   const tectonicLayerRef = useRef<VectorLayer<VectorSource> | null>(null);
   const earthquakeLayerRef = useRef<VectorLayer<VectorSource> | null>(null);
+  const hotspotLayerRef = useRef<VectorLayer<VectorSource> | null>(null);
   const eqAnimIdRef = useRef<number | null>(null);
 
   const attributeLayers = useMemo<AttributeTableLayer[]>(() => {
@@ -1832,6 +1836,14 @@ export function MapsView() {
         name: 'Gempa Bumi BMKG Terkini',
         source: earthquakeLayerRef.current?.getSource() || null,
         getFeatures: () => earthquakeLayerRef.current?.getSource()?.getFeatures() || [],
+      });
+    }
+    if (hotspotLayerRef.current) {
+      list.push({
+        id: 'hotspots',
+        name: 'Anomali Panas & Titik Api Satelit',
+        source: hotspotLayerRef.current?.getSource() || null,
+        getFeatures: () => hotspotLayerRef.current?.getSource()?.getFeatures() || [],
       });
     }
     if (tsunamiSensorsLayerRef.current) {
@@ -2043,6 +2055,27 @@ export function MapsView() {
         },
       },
       {
+        id: 'hotspots',
+        name: 'Anomali Panas & Titik Api Satelit (God\'s Eye View)',
+        category: 'disaster',
+        visible: showHotspots,
+        opacity: 1,
+        sourceStatus: (hotspotSnapshot?.status ?? (hotspots.length > 0 ? 'LIVE' : 'UNAVAILABLE')) as any,
+        color: '#f97316',
+        featureCount: hotspots.length,
+        description: `${hotspots.length} anomali suhu dan radiasi termal dari sensor satelit VIIRS/MODIS`,
+        onToggle: (v) => setShowHotspots(v),
+        onZoomToExtent: () => {
+          const src = hotspotLayerRef.current?.getSource();
+          if (src && mapRef.current) {
+            const ext = src.getExtent();
+            if (ext && isFinite(ext[0]) && !isNaN(ext[0])) {
+              mapRef.current.getView().fit(ext, { padding: [60, 60, 60, 60], maxZoom: 8, duration: 600 });
+            }
+          }
+        },
+      },
+      {
         id: 'volcanoes',
         name: 'Gunung Api Aktif PVMBG',
         category: 'disaster',
@@ -2243,6 +2276,10 @@ export function MapsView() {
     setShowDesa,
     setShowForests,
     setShowEarthquakes,
+    showHotspots,
+    setShowHotspots,
+    hotspots,
+    hotspotSnapshot,
     setShowActive,
     setShowTectonic,
     setShowTsunamiSensors,
@@ -3562,6 +3599,48 @@ export function MapsView() {
     earthquakeLayerRef.current = eqLayer;
     map.addLayer(eqLayer);
 
+    // 3b. Satellite Thermal Anomaly & Fire Hotspots Layer (God's Eye View Thermal Sensor)
+    const hotspotSource = new VectorSource();
+    const hotspotLayer = new VectorLayer({
+      source: hotspotSource,
+      zIndex: 26,
+      style: (feature) => {
+        const tempC = feature.get('brightnessCelsius') ?? (feature.get('brightnessKelvin') ? Math.round(feature.get('brightnessKelvin') - 273.15) : 48);
+        const frp = feature.get('frpMw') || 10;
+        const isHighIntensity = tempC > 55 || frp > 35;
+        const haloColor = isHighIntensity ? 'rgba(239, 68, 68, 0.4)' : 'rgba(249, 115, 22, 0.35)';
+        const coreColor = isHighIntensity ? '#ef4444' : '#f97316';
+        const baseRadius = Math.min(14, Math.max(7, Math.round(frp / 6) + 6));
+
+        return [
+          new Style({
+            image: new CircleStyle({
+              radius: baseRadius + 6,
+              fill: new Fill({ color: haloColor }),
+              stroke: new Stroke({ color: coreColor, width: 1.5 }),
+            }),
+          }),
+          new Style({
+            image: new CircleStyle({
+              radius: baseRadius,
+              fill: new Fill({ color: coreColor }),
+              stroke: new Stroke({ color: '#ffffff', width: 2 }),
+            }),
+            text: new Text({
+              text: `${tempC}°C`,
+              font: 'bold 10px monospace',
+              fill: new Fill({ color: '#ffffff' }),
+              stroke: new Stroke({ color: '#0f172a', width: 2.5 }),
+              offsetY: baseRadius + 10,
+            }),
+          }),
+        ];
+      },
+      visible: true,
+    });
+    hotspotLayerRef.current = hotspotLayer;
+    map.addLayer(hotspotLayer);
+
     const popupOverlay = new Overlay({
       element: popupRef.current!,
       positioning: 'bottom-center',
@@ -3794,6 +3873,7 @@ export function MapsView() {
       analysisLayerRef.current = null;
       tectonicLayerRef.current = null;
       earthquakeLayerRef.current = null;
+      hotspotLayerRef.current = null;
       weatherTileLayerRef.current = null;
       tsunamiSensorsLayerRef.current = null;
       equatorLayerRef.current = null;
@@ -4120,6 +4200,39 @@ export function MapsView() {
 
   }, [showTectonic, showEarthquakes, showLandslideZones, showTsunamiZones, is3D, globeType, quakeSnapshot]);
 
+  // Satellite Thermal Anomaly & Fire Hotspots Sync (OpenLayers 2D)
+  useEffect(() => {
+    if (!hotspotLayerRef.current) return;
+    const source = hotspotLayerRef.current.getSource();
+    if (source) {
+      source.clear();
+      if (showHotspots) {
+        const records = hotspotSnapshot?.records || hotspots || [];
+        const features = records.map((h) => {
+          return new Feature({
+            geometry: new Point(fromLonLat([h.lng, h.lat])),
+            id: h.id,
+            latitude: h.lat,
+            longitude: h.lng,
+            brightnessCelsius: h.brightnessCelsius,
+            brightnessKelvin: h.brightnessKelvin,
+            frpMw: h.frpMw,
+            confidence: h.confidence,
+            satellite: h.satellite,
+            instrument: h.instrument,
+            acqDate: h.acqDate,
+            acqTime: h.acqTime,
+            dayNight: h.dayNight,
+            isHotspot: true,
+            hotspotData: h,
+          });
+        });
+        source.addFeatures(features);
+      }
+    }
+    hotspotLayerRef.current.setVisible(showHotspots);
+  }, [showHotspots, hotspotSnapshot, hotspots]);
+
   
   // ================= LAYER UPDATES (ADMIN & LANDUSE BOUNDARIES) ================= //
   
@@ -4169,6 +4282,7 @@ export function MapsView() {
           layerFilter: (layer) => 
             layer === vectorLayerRef.current || 
             layer === earthquakeLayerRef.current ||
+            layer === hotspotLayerRef.current ||
             layer === schoolsLayerRef.current || 
             layer === activeSchoolLayerRef.current ||
             layer === userMarkerLayerRef.current ||
@@ -4325,6 +4439,13 @@ export function MapsView() {
               closeBtn.addEventListener('click', () => {
                 if (popupRef.current) popupRef.current.style.display = 'none';
               });
+            }
+          } else if (feature.get('isHotspot')) {
+            const hData = feature.get('hotspotData') as ActiveFireHotspot | undefined;
+            if (hData) {
+              setSelectedHotspotForModal(hData);
+              if (popupRef.current) popupRef.current.style.display = 'none';
+              return;
             }
           } else if (feature.get('isEarthquake')) {
             const eqData = feature.get('earthquakeData') as EarthquakeRecord | undefined;
@@ -5246,6 +5367,7 @@ export function MapsView() {
                 setSelectedVolcanoForModal(volcanoStatus);
               }}
               onSelectEarthquake={(eq) => setSelectedEarthquakeForModal(eq)}
+              onSelectHotspot={(h) => setSelectedHotspotForModal(h)}
               onSwitchTo2D={(lat, lng, targetZoom = 7.5) => {
                 handleToggle3D(false);
                 const view = mapRef.current?.getView();
@@ -9162,6 +9284,17 @@ export function MapsView() {
                     stroke: new Stroke({ color: '#ffffff', width: 2 }),
                   }),
                 }));
+              } else if (props.layerType === 'remote_sensing_scene') {
+                feat.setStyle(new Style({
+                  fill: new Fill({ color: props.color ? `${props.color}25` : 'rgba(2, 132, 199, 0.2)' }),
+                  stroke: new Stroke({ color: props.color || '#0284c7', width: 2.5, lineDash: [8, 5] }),
+                  text: new Text({
+                    text: props.name || 'Scene Satelit STAC',
+                    font: 'bold 11px monospace',
+                    fill: new Fill({ color: '#ffffff' }),
+                    stroke: new Stroke({ color: '#0f172a', width: 3 }),
+                  }),
+                }));
               }
               analysisSourceRef.current.addFeature(feat);
             });
@@ -9331,6 +9464,19 @@ export function MapsView() {
           });
         }}
         onOpenEvacuation={() => setShowDisasterRiskCenter(true)}
+      />
+
+      {/* Realtime Satellite Thermal Anomaly & Fire Hotspot Detail Modal (God's Eye View) */}
+      <ThermalAnomalyDetailModal
+        hotspot={selectedHotspotForModal}
+        onClose={() => setSelectedHotspotForModal(null)}
+        onCenterOnMap={(lat, lng) => {
+          mapRef.current?.getView().animate({
+            center: fromLonLat([lng, lat]),
+            zoom: 14,
+            duration: 700,
+          });
+        }}
       />
 
       {/* Fullscreen Weather Mode */}

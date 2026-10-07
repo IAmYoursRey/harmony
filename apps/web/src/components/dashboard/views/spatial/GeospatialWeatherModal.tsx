@@ -1886,6 +1886,33 @@ export const GeospatialWeatherModal: React.FC<GeospatialWeatherModalProps> = ({
               lat={activeLat}
               lng={activeLng}
               regionName={activeRegionName}
+              onProjectToMainMap={(layerData) => {
+                if (onApplyFeaturesToMap && layerData.bbox) {
+                  const [minX, minY, maxX, maxY] = layerData.bbox;
+                  const polygonFeature = {
+                    type: 'Feature',
+                    properties: {
+                      layerType: 'remote_sensing_scene',
+                      sceneId: layerData.sceneId,
+                      mode: layerData.type,
+                      name: `Citra Satelit ${layerData.type.toUpperCase()}: ${layerData.sceneId}`,
+                      color: layerData.type === 'ndvi' ? '#10b981' : layerData.type === 'lst' ? '#ef4444' : '#0284c7',
+                    },
+                    geometry: {
+                      type: 'Polygon',
+                      coordinates: [[
+                        [minX, minY],
+                        [maxX, minY],
+                        [maxX, maxY],
+                        [minX, maxY],
+                        [minX, minY],
+                      ]],
+                    },
+                  };
+                  onApplyFeaturesToMap([polygonFeature], `Scene Satelit: ${layerData.sceneId}`);
+                  onClose();
+                }
+              }}
             />
           )}
 
