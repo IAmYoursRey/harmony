@@ -11,6 +11,7 @@ import {
   deleteAnalysisJob,
   exportAnalysis,
   getHotspots,
+  getPublicHotspotsFeed,
   getIsochrones,
   getFacilityAccessibility,
   calculateTransportEmissions,
@@ -50,6 +51,7 @@ router.get("/analysis/:id/export", exportAnalysis);
 
 // Environmental, Mobility & Accessibility Endpoints
 router.get("/hotspots", getHotspots);
+router.get("/hotspots/public-feed", getPublicHotspotsFeed);
 router.get("/traffic/flow", getTrafficFlowProxy);
 router.get("/traffic/cctv", getTrafficCctvList);
 router.get("/traffic/signals", getTrafficSignalsList);

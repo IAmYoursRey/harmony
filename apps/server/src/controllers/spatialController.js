@@ -821,6 +821,197 @@ export const getHotspots = async (req, res) => {
   }
 };
 
+// Cache for public NASA FIRMS open feeds
+const publicFirmsCache = new Map();
+const PUBLIC_FIRMS_CACHE_TTL_MS = 5 * 60 * 1000;
+
+/**
+ * Public Open NASA FIRMS NRT Satellite Hotspots Feed (VIIRS 375m & MODIS 1km)
+ * Direct access to NASA EOSDIS LANCE open data feeds without requiring private MAP_KEY.
+ * GET /api/spatial/hotspots/public-feed?bbox=west,south,east,north&dayRange=1&source=ALL&scope=aoi
+ */
+export const getPublicHotspotsFeed = async (req, res) => {
+  const {
+    bbox,
+    source = "ALL",
+    dayRange = "1",
+    scope = "aoi",
+    minConfidence = "all",
+  } = req.query;
+
+  const fetchedAt = new Date().toISOString();
+  const rangeSuffix = dayRange === "7" ? "7d" : dayRange === "2" ? "48h" : "24h";
+
+  let bounds = null;
+  if (bbox && typeof bbox === 'string') {
+    const parts = bbox.split(',').map(Number);
+    if (parts.length === 4 && parts.every(n => !isNaN(n))) {
+      bounds = parts;
+    }
+  }
+
+  // Official NASA LANCE FIRMS Open NRT active fire feeds for Southeast Asia
+  const feedUrls = [];
+  if (source === 'VIIRS' || source === 'ALL') {
+    feedUrls.push({
+      instrument: 'VIIRS',
+      satellite: 'Suomi-NPP',
+      url: `https://firms.modaps.eosdis.nasa.gov/data/active_fire/suomi-npp-viirs-c2/csv/SUOMI_VIIRS_C2_SouthEast_Asia_${rangeSuffix}.csv`,
+    });
+    feedUrls.push({
+      instrument: 'VIIRS',
+      satellite: 'NOAA-20',
+      url: `https://firms.modaps.eosdis.nasa.gov/data/active_fire/noaa-20-viirs-c2/csv/J1_VIIRS_C2_SouthEast_Asia_${rangeSuffix}.csv`,
+    });
+  }
+  if (source === 'MODIS' || source === 'ALL') {
+    feedUrls.push({
+      instrument: 'MODIS',
+      satellite: 'Terra/Aqua',
+      url: `https://firms.modaps.eosdis.nasa.gov/data/active_fire/modis-c6.1/csv/MODIS_C6_1_SouthEast_Asia_${rangeSuffix}.csv`,
+    });
+  }
+
+  try {
+    const allRecords = [];
+    let receivedCount = 0;
+
+    for (const feed of feedUrls) {
+      const cacheKey = `${feed.url}`;
+      let text = '';
+      const cached = publicFirmsCache.get(cacheKey);
+      if (cached && (Date.now() - cached.timestamp < PUBLIC_FIRMS_CACHE_TTL_MS)) {
+        text = cached.data;
+      } else {
+        const resp = await fetch(feed.url, { signal: AbortSignal.timeout(18000) });
+        if (resp.ok) {
+          text = await resp.text();
+          publicFirmsCache.set(cacheKey, { timestamp: Date.now(), data: text });
+        }
+      }
+
+      if (text) {
+        const lines = text.trim().split('\n');
+        if (lines.length > 1) {
+          const header = lines[0].split(',').map(h => h.trim().toLowerCase());
+          const latIdx = header.indexOf('latitude');
+          const lngIdx = header.indexOf('longitude');
+          const brightIdx = header.indexOf('bright_ti4') !== -1 ? header.indexOf('bright_ti4') : header.indexOf('brightness');
+          const confIdx = header.indexOf('confidence');
+          const frpIdx = header.indexOf('frp');
+          const dateIdx = header.indexOf('acq_date');
+          const timeIdx = header.indexOf('acq_time');
+          const satIdx = header.indexOf('satellite');
+          const dnIdx = header.indexOf('daynight');
+
+          for (let i = 1; i < lines.length; i++) {
+            const line = lines[i].trim();
+            if (!line) continue;
+            receivedCount++;
+            const cols = line.split(',');
+            const lat = parseFloat(cols[latIdx]);
+            const lng = parseFloat(cols[lngIdx]);
+            if (isNaN(lat) || isNaN(lng)) continue;
+
+            if (scope === 'aoi' && bounds) {
+              const [west, south, east, north] = bounds;
+              if (lat < south || lat > north || lng < west || lng > east) {
+                continue;
+              }
+            } else if (scope === 'java') {
+              if (lat < -8.8 || lat > -5.5 || lng < 105.0 || lng > 114.6) {
+                continue;
+              }
+            } else if (scope === 'indonesia' || !bounds) {
+              if (lat < -11.5 || lat > 6.5 || lng < 95.0 || lng > 141.0) {
+                continue;
+              }
+            }
+
+            const rawConf = confIdx !== -1 ? cols[confIdx]?.trim() : 'nominal';
+            let confLevel = 'nominal';
+            let confNumeric = null;
+            if (/^\d+$/.test(rawConf)) {
+              confNumeric = parseInt(rawConf, 10);
+              confLevel = confNumeric >= 80 ? 'high' : confNumeric >= 30 ? 'nominal' : 'low';
+            } else {
+              confLevel = rawConf.toLowerCase() === 'h' || rawConf.toLowerCase() === 'high' ? 'high' :
+                          rawConf.toLowerCase() === 'l' || rawConf.toLowerCase() === 'low' ? 'low' : 'nominal';
+            }
+
+            if (minConfidence === 'high_only' && confLevel !== 'high') continue;
+            if (minConfidence === 'nominal_high' && confLevel === 'low') continue;
+
+            const frp = frpIdx !== -1 && cols[frpIdx] ? parseFloat(cols[frpIdx]) : null;
+            const bright = brightIdx !== -1 && cols[brightIdx] ? parseFloat(cols[brightIdx]) : null;
+            const dateStr = dateIdx !== -1 ? cols[dateIdx]?.trim() : '';
+            const timeStr = timeIdx !== -1 ? cols[timeIdx]?.trim() : '';
+            let acqTimeUtc = timeStr;
+            if (timeStr && timeStr.length <= 4) {
+              const padded = timeStr.padStart(4, '0');
+              acqTimeUtc = `${padded.slice(0, 2)}:${padded.slice(2, 4)} UTC`;
+            }
+
+            allRecords.push({
+              id: `nasa-firms-${feed.instrument.toLowerCase()}-${lat.toFixed(4)}-${lng.toFixed(4)}-${dateStr}-${timeStr}-${i}`,
+              latitude: lat,
+              longitude: lng,
+              satellite: cols[satIdx] || feed.satellite,
+              instrument: feed.instrument,
+              confidenceLevel: confLevel,
+              confidenceRaw: rawConf,
+              confidenceNumeric,
+              brightnessKelvin: bright,
+              frpMw: frp,
+              acqDate: dateStr,
+              acqTimeUtc,
+              dayNight: dnIdx !== -1 ? cols[dnIdx]?.trim() : 'D',
+              systemSource: 'NASA_FIRMS_OPEN_NRT',
+            });
+          }
+        }
+      }
+    }
+
+    allRecords.sort((a, b) => (b.frpMw ?? 0) - (a.frpMw ?? 0));
+    const returnedRecords = allRecords.slice(0, 1500);
+
+    const csvHeader = 'latitude,longitude,brightness,acq_date,acq_time,satellite,instrument,confidence,frp,daynight';
+    const csvRows = returnedRecords.map(r =>
+      `${r.latitude},${r.longitude},${r.brightnessKelvin ?? ''},${r.acqDate},${(r.acqTimeUtc || '').replace(/[^0-9]/g, '').slice(0, 4)},${r.satellite},${r.instrument},${r.confidenceLevel},${r.frpMw ?? ''},${r.dayNight || 'D'}`
+    );
+    const rawCsv = [csvHeader, ...csvRows].join('\n');
+
+    return res.status(200).json({
+      success: true,
+      count: returnedRecords.length,
+      totalMatched: allRecords.length,
+      receivedCount,
+      data: returnedRecords,
+      rawCsv,
+      csvFormat: 'HARMONY_NORMALIZED_FIRMS_V1',
+      source,
+      dayRange: parseInt(dayRange, 10),
+      scope,
+      windowEnd: fetchedAt,
+      provenance: {
+        sourceType: 'SATELLITE_HOTSPOT',
+        provider: 'NASA EOSDIS LANCE FIRMS (Open NRT Satellite Feed)',
+        dataStatus: 'LIVE',
+        fetchedAt,
+        attribution: 'NASA LANCE / FIRMS MODIS & VIIRS Fire Detection — Open Public Stream',
+        cached: false,
+      },
+    });
+  } catch (error) {
+    return res.status(502).json({
+      success: false,
+      error: error instanceof Error ? error.message : 'Gagal mengambil data publik NASA FIRMS',
+      data: [],
+    });
+  }
+};
+
 /**
  * OpenRouteService / Local Network Isochrones
  * POST /api/spatial/network/isochrones

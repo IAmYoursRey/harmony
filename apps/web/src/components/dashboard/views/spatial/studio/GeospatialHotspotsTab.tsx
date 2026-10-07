@@ -12,11 +12,14 @@ import {
   RefreshCw,
   Info,
   Calendar,
+  Globe,
+  Radio,
 } from 'lucide-react';
 import { firmsService, HotspotRecord, HotspotAnalysisResult } from '../../../../../services/geospatial/firmsService';
 import { aoiService, useActiveAOI } from '../../../../../services/geospatial/aoiService';
 import { AnalysisEnvelope, DataStatus } from '../../../../../services/geospatial/types';
 import { apiClient } from '@/services/apiClient';
+import { GeospatialHotspotMapView } from './GeospatialHotspotMapView';
 
 interface GeospatialHotspotsTabProps {
   lat: number;
@@ -48,6 +51,9 @@ export const GeospatialHotspotsTab: React.FC<GeospatialHotspotsTabProps> = ({
   const [daysRange, setDaysRange] = useState<number>(1);
   const [minConfidence, setMinConfidence] = useState<'all' | 'nominal_high' | 'high_only'>('all');
   const [selectedSensor, setSelectedSensor] = useState<'ALL' | 'VIIRS' | 'MODIS'>('ALL');
+  const [scope, setScope] = useState<'aoi' | 'java' | 'indonesia'>('aoi');
+  const [selectedHotspot, setSelectedHotspot] = useState<HotspotRecord | null>(null);
+
   // Default to empty for live mode (Zero-Fabrication principle). Demo mode requires explicit user activation.
   const [customCsv, setCustomCsv] = useState<string>('');
   const [isDemoMode, setIsDemoMode] = useState<boolean>(false);
@@ -75,6 +81,7 @@ export const GeospatialHotspotsTab: React.FC<GeospatialHotspotsTabProps> = ({
     setCustomCsv(SAMPLE_FIRMS_INDONESIA_CSV);
     setIsDemoMode(true);
     setIsUserUploaded(false);
+    setSelectedHotspot(null);
   };
 
   const handleClearData = () => {
@@ -83,6 +90,7 @@ export const GeospatialHotspotsTab: React.FC<GeospatialHotspotsTabProps> = ({
     setCustomCsv('');
     setIsDemoMode(false);
     setIsUserUploaded(false);
+    setSelectedHotspot(null);
   };
 
   const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -97,6 +105,7 @@ export const GeospatialHotspotsTab: React.FC<GeospatialHotspotsTabProps> = ({
           setCustomCsv(text);
           setIsDemoMode(false);
           setIsUserUploaded(true);
+          setSelectedHotspot(null);
         }
       };
       reader.readAsText(file);
@@ -108,7 +117,18 @@ export const GeospatialHotspotsTab: React.FC<GeospatialHotspotsTabProps> = ({
     return activeAOI?.bbox ?? [Math.max(-180, lng - 1.5), Math.max(-90, lat - 1.5), Math.min(180, lng + 1.5), Math.min(90, lat + 1.5)];
   }, [lat, lng, activeAOI]);
 
-  const handleLoadFirms = async () => {
+  const effectiveBBox: [number, number, number, number] = useMemo(() => {
+    if (scope === 'indonesia') return [95.0, -11.5, 141.0, 6.5];
+    if (scope === 'java') return [105.0, -8.8, 114.6, -5.5];
+    return bbox;
+  }, [scope, bbox]);
+
+  const effectiveAOI = useMemo(() => {
+    if (scope === 'indonesia' || scope === 'java') return null;
+    return activeAOI;
+  }, [scope, activeAOI]);
+
+  const handleLoadFirms = async (targetScope: 'aoi' | 'java' | 'indonesia' = scope) => {
     cancelFirmsRequest();
     const controller = new AbortController();
     requestRef.current = controller;
@@ -117,36 +137,61 @@ export const GeospatialHotspotsTab: React.FC<GeospatialHotspotsTabProps> = ({
     setCustomCsv('');
     setIsDemoMode(false);
     setIsUserUploaded(false);
+    setSelectedHotspot(null);
     try {
       const firmsSource = selectedSensor === 'MODIS' ? 'MODIS_NRT' : selectedSensor === 'VIIRS' ? 'VIIRS' : 'ALL';
       const queryParams: Record<string, string> = {
         bbox: bbox.join(','),
         dayRange: String(daysRange),
         source: firmsSource,
+        scope: targetScope,
+        minConfidence,
       };
       const query = new URLSearchParams(queryParams);
 
-      const response = await apiClient.get<{ success: boolean; rawCsv?: string; reason?: { message?: string }; error?: string; partial?: boolean; cached?: boolean; count?: number; provenance?: { fetchedAt?: string }; sourceAttempts?: Array<{ source: string; status: string }> }>(
-        `/api/spatial/hotspots?${query}`,
+      // Access public open satellite feed directly without requiring private MAP_KEY
+      const response = await apiClient.get<{
+        success: boolean;
+        rawCsv?: string;
+        reason?: { message?: string; code?: string };
+        error?: string;
+        partial?: boolean;
+        cached?: boolean;
+        count?: number;
+        totalMatched?: number;
+        provenance?: { fetchedAt?: string; sensors?: string };
+        sourceAttempts?: Array<{ source: string; status: string }>;
+      }>(
+        `/api/spatial/hotspots/public-feed?${query}`,
         { ttl: 0, signal: controller.signal }
       );
       if (controller.signal.aborted) return;
       if (!response.success) {
-        setFirmsMessage(response.reason?.message || response.error || 'Data FIRMS belum tersedia.');
+        setFirmsMessage(response.reason?.message || response.error || 'Data satelit FIRMS belum tersedia.');
         return;
       }
       if (typeof response.rawCsv !== 'string' || !/latitude/i.test(response.rawCsv.split(/\r?\n/)[0]) || !/longitude/i.test(response.rawCsv.split(/\r?\n/)[0])) {
-        throw new Error('Format data FIRMS tidak sesuai. Coba lagi atau gunakan impor CSV.');
+        throw new Error('Format data satelit FIRMS tidak sesuai.');
       }
       setCustomCsv(response.rawCsv);
-      setLiveMetadata({ status: response.partial ? 'PARTIAL' : response.cached ? 'CACHED' : 'LIVE', cached: response.cached === true, fetchedAt: response.provenance?.fetchedAt, sourceAttempts: response.sourceAttempts });
+      setLiveMetadata({
+        status: response.partial ? 'PARTIAL' : response.cached ? 'CACHED' : 'LIVE',
+        cached: response.cached === true,
+        fetchedAt: response.provenance?.fetchedAt || new Date().toISOString(),
+        sourceAttempts: response.sourceAttempts,
+      });
       setIsLiveSource(true);
       liveSourceRef.current = true;
-      const partialNote = response.partial ? ' Sebagian sumber atau baris gagal; hasil ini belum mencakup semua permintaan.' : '';
-      const cacheNote = response.cached ? ' Memakai respons cache sesuai wilayah dan waktu yang diminta.' : '';
-      setFirmsMessage(`FIRMS: ${response.count ?? 0} deteksi valid dalam ${daysRange * 24} jam terakhir.${partialNote}${cacheNote}`);
+      const count = response.count ?? 0;
+      const scopeLabel = targetScope === 'indonesia' ? 'Seluruh Indonesia' : targetScope === 'java' ? 'Pulau Jawa' : regionName;
+      const cacheNote = response.cached ? ' (Cache NRT 5 menit)' : '';
+      setFirmsMessage(
+        count > 0
+          ? `NASA FIRMS: Berhasil memuat ${count} titik anomali termal aktif di ${scopeLabel} (${daysRange * 24} jam terakhir).${cacheNote}`
+          : `NASA FIRMS: 0 anomali termal terdeteksi di ${scopeLabel} dalam ${daysRange * 24} jam terakhir. Area terpantau aman dari anomali termal.`
+      );
     } catch (error) {
-      if (!controller.signal.aborted) setFirmsMessage(error instanceof Error ? error.message : 'Tidak dapat mengambil data FIRMS.');
+      if (!controller.signal.aborted) setFirmsMessage(error instanceof Error ? error.message : 'Tidak dapat mengambil data satelit FIRMS.');
     } finally {
       if (requestRef.current === controller) { requestRef.current = null; setLoadingFirms(false); }
     }
@@ -155,15 +200,15 @@ export const GeospatialHotspotsTab: React.FC<GeospatialHotspotsTabProps> = ({
   // Auto-fetch on mount / filter change and continuous polling every 5 minutes
   useEffect(() => {
     if (isDemoMode || isUserUploaded) return;
-    handleLoadFirms();
+    handleLoadFirms(scope);
     const intervalTimer = setInterval(() => {
-      handleLoadFirms();
+      handleLoadFirms(scope);
     }, 5 * 60 * 1000);
     return () => {
       clearInterval(intervalTimer);
       requestRef.current?.abort();
     };
-  }, [bbox, daysRange, selectedSensor, isDemoMode, isUserUploaded, refreshSignal]);
+  }, [bbox, daysRange, selectedSensor, scope, isDemoMode, isUserUploaded, refreshSignal]);
 
   const analysisEnvelope: AnalysisEnvelope<HotspotAnalysisResult> = useMemo(() => {
     const source = isDemoMode
@@ -173,16 +218,15 @@ export const GeospatialHotspotsTab: React.FC<GeospatialHotspotsTabProps> = ({
       : isUserUploaded
       ? 'USER_CSV_IMPORT'
       : 'NASA_FIRMS';
-    const envelope = firmsService.analyzeHotspots(customCsv, activeAOI, bbox, daysRange, minConfidence, source);
+    const envelope = firmsService.analyzeHotspots(customCsv, effectiveAOI, effectiveBBox, daysRange, minConfidence, source);
     if (isLiveSource && liveMetadata && envelope.processingState !== 'failed') {
-      // A verified empty feed differs from an unrequested feed; retain partial/cache status.
       envelope.dataStatus = liveMetadata.status;
       envelope.provenance.dataStatus = liveMetadata.status;
       envelope.provenance.fetchedAt = liveMetadata.fetchedAt;
       envelope.provenance.quality = liveMetadata.sourceAttempts?.map(item => `${item.source}: ${item.status}`).join('; ');
     }
     return envelope;
-  }, [customCsv, activeAOI, bbox, daysRange, minConfidence, isDemoMode, isLiveSource, isUserUploaded, liveMetadata]);
+  }, [customCsv, effectiveAOI, effectiveBBox, daysRange, minConfidence, isDemoMode, isLiveSource, isUserUploaded, liveMetadata]);
 
   const data = analysisEnvelope.data;
 
@@ -333,9 +377,45 @@ export const GeospatialHotspotsTab: React.FC<GeospatialHotspotsTabProps> = ({
           </div>
         </div>
 
-        <div className="flex items-center gap-2 text-xs text-slate-600 dark:text-slate-300">
-          <MapPin className="w-4 h-4 text-rose-500" />
-          <span>Fokus: <strong>{regionName}</strong></span>
+        {/* Scope Selector Pills */}
+        <div className="flex items-center gap-2 flex-wrap">
+          <div className="flex items-center p-1 bg-white/80 dark:bg-slate-900/80 backdrop-blur rounded-xl border border-rose-500/20 text-xs font-semibold">
+            <button
+              type="button"
+              onClick={() => { setScope('aoi'); handleLoadFirms('aoi'); }}
+              className={`px-2.5 py-1 rounded-lg transition-all flex items-center gap-1 cursor-pointer ${
+                scope === 'aoi'
+                  ? 'bg-rose-500 text-white shadow-sm font-bold'
+                  : 'text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white'
+              }`}
+            >
+              <MapPin className="w-3.5 h-3.5" />
+              <span>AOI ({regionName})</span>
+            </button>
+            <button
+              type="button"
+              onClick={() => { setScope('java'); handleLoadFirms('java'); }}
+              className={`px-2.5 py-1 rounded-lg transition-all flex items-center gap-1 cursor-pointer ${
+                scope === 'java'
+                  ? 'bg-rose-500 text-white shadow-sm font-bold'
+                  : 'text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white'
+              }`}
+            >
+              <span>Pulau Jawa</span>
+            </button>
+            <button
+              type="button"
+              onClick={() => { setScope('indonesia'); handleLoadFirms('indonesia'); }}
+              className={`px-2.5 py-1 rounded-lg transition-all flex items-center gap-1 cursor-pointer ${
+                scope === 'indonesia'
+                  ? 'bg-rose-500 text-white shadow-sm font-bold'
+                  : 'text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white'
+              }`}
+            >
+              <Globe className="w-3.5 h-3.5" />
+              <span>Seluruh Indonesia</span>
+            </button>
+          </div>
         </div>
       </div>
 
@@ -370,7 +450,7 @@ export const GeospatialHotspotsTab: React.FC<GeospatialHotspotsTabProps> = ({
           </div>
 
           <div className="flex items-center gap-2 flex-wrap">
-            <button type="button" onClick={handleLoadFirms} disabled={loadingFirms} className="flex items-center gap-1.5 rounded-xl bg-sky-600 px-3 py-1.5 text-xs font-semibold text-white hover:bg-sky-700 disabled:opacity-60">
+            <button type="button" onClick={() => handleLoadFirms()} disabled={loadingFirms} className="flex items-center gap-1.5 rounded-xl bg-sky-600 px-3 py-1.5 text-xs font-semibold text-white hover:bg-sky-700 disabled:opacity-60">
               <RefreshCw className={`h-3.5 w-3.5 ${loadingFirms ? 'animate-spin' : ''}`} />
               {loadingFirms ? 'Mengambil Data…' : 'Ambil Data FIRMS'}
             </button>
@@ -469,6 +549,20 @@ export const GeospatialHotspotsTab: React.FC<GeospatialHotspotsTabProps> = ({
         </div>
       </div>
 
+      {/* Interactive Satellite Hotspot Map */}
+      <GeospatialHotspotMapView
+        hotspots={displayedHotspots}
+        activeAOI={activeAOI}
+        effectiveBBox={effectiveBBox}
+        lat={lat}
+        lng={lng}
+        regionName={scope === 'indonesia' ? 'Seluruh Indonesia' : scope === 'java' ? 'Pulau Jawa' : regionName}
+        selectedHotspot={selectedHotspot}
+        onSelectHotspot={(h) => setSelectedHotspot(h)}
+        onApplyToMainMap={onApplyFeaturesToMap && displayedHotspots.length > 0 ? handleApplyToMap : undefined}
+        appliedToMainMap={appliedToMap}
+      />
+
       {/* Summary KPI Cards */}
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
         <div className="p-3.5 rounded-2xl bg-white dark:bg-slate-800/90 border border-slate-200 dark:border-slate-700/80">
@@ -546,16 +640,33 @@ export const GeospatialHotspotsTab: React.FC<GeospatialHotspotsTabProps> = ({
             </div>
             <div>
               <p className="text-sm font-bold text-slate-700 dark:text-slate-300">
-                {isLiveSource ? 'Tidak ada deteksi pada data FIRMS yang dimuat' : customCsv ? 'Tidak ada deteksi yang cocok dengan filter' : 'Data titik panas belum dimuat'}
+                {isLiveSource
+                  ? `Tidak ada titik panas di ${scope === 'indonesia' ? 'Seluruh Indonesia' : scope === 'java' ? 'Pulau Jawa' : regionName}`
+                  : customCsv
+                  ? 'Tidak ada deteksi yang cocok dengan filter'
+                  : 'Data titik panas belum dimuat'}
               </p>
               <p className="text-xs text-slate-500 max-w-md mx-auto mt-1">
-                Ambil data FIRMS melalui server, unggah CSV, atau pilih dataset demonstrasi. Akses FIRMS memerlukan konfigurasi kunci FIRMS pada server.
+                {scope === 'aoi'
+                  ? `Wilayah ${regionName} saat ini tidak terdeteksi mengalami kebakaran hutan/anomali termal pada sensor satelit VIIRS/MODIS. Anda dapat meninjau wilayah Pulau Jawa atau Seluruh Indonesia untuk memantau sebaran karhutla nasional.`
+                  : 'Ambil data satelit FIRMS terbaru, unggah CSV, atau gunakan dataset demonstrasi untuk evaluasi visual.'}
               </p>
             </div>
-            <div className="flex items-center justify-center gap-2 pt-2">
+            <div className="flex items-center justify-center gap-2 pt-2 flex-wrap">
+              {scope === 'aoi' && (
+                <button
+                  type="button"
+                  onClick={() => { setScope('indonesia'); handleLoadFirms('indonesia'); }}
+                  className="px-3.5 py-1.5 rounded-xl bg-rose-600 hover:bg-rose-700 text-white text-xs font-semibold shadow-sm transition-colors flex items-center gap-1.5 cursor-pointer"
+                >
+                  <Globe className="w-3.5 h-3.5" />
+                  <span>Pantau Hotspot Seluruh Indonesia</span>
+                </button>
+              )}
               <button
+                type="button"
                 onClick={handleLoadDemo}
-                className="px-3.5 py-1.5 rounded-xl bg-rose-600 hover:bg-rose-700 text-white text-xs font-semibold shadow-sm transition-colors"
+                className="px-3.5 py-1.5 rounded-xl bg-slate-100 dark:bg-slate-700 hover:bg-slate-200 dark:hover:bg-slate-600 text-slate-700 dark:text-slate-200 text-xs font-semibold shadow-sm transition-colors cursor-pointer"
               >
                 Muat Dataset Demonstrasi
               </button>
@@ -576,7 +687,15 @@ export const GeospatialHotspotsTab: React.FC<GeospatialHotspotsTabProps> = ({
               </thead>
               <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
                 {displayedHotspots.map((h) => (
-                  <tr key={h.id} className="hover:bg-slate-50 dark:hover:bg-slate-800/50">
+                  <tr
+                    key={h.id}
+                    onClick={() => setSelectedHotspot(h)}
+                    className={`cursor-pointer transition-colors ${
+                      selectedHotspot?.id === h.id
+                        ? 'bg-rose-50 dark:bg-rose-950/40 ring-1 ring-rose-500/50'
+                        : 'hover:bg-slate-50 dark:hover:bg-slate-800/50'
+                    }`}
+                  >
                   <td className="p-2 font-mono">{h.acqDate} {h.acqTimeUtc}</td>
                   <td className="p-2">
                     <span className="font-semibold">{h.satellite}</span> ({h.instrument})
