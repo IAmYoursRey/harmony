@@ -280,6 +280,8 @@ export function CesiumGlobe3D({
         viewer.resolutionScale = perfProfile.cesiumResolutionScale;
         if (viewer.canvas) {
           viewer.canvas.style.imageRendering = 'auto';
+          viewer.canvas.style.touchAction = 'none';
+          viewer.canvas.style.userSelect = 'none';
         }
         if (viewer.scene.postProcessStages?.fxaa) {
           viewer.scene.postProcessStages.fxaa.enabled = perfProfile.effectiveMode === 'high';
@@ -1362,8 +1364,13 @@ export function CesiumGlobe3D({
       )}
 
       <style>{`
+        .cesium-widget,
         .cesium-widget canvas {
           image-rendering: auto !important;
+          touch-action: none !important;
+          -webkit-touch-callout: none !important;
+          -webkit-user-select: none !important;
+          user-select: none !important;
         }
       `}</style>
 

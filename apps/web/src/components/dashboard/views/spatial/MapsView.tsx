@@ -5,6 +5,9 @@ import {
   EarthquakeSnapshot 
 } from '../../../../services/geospatial/earthquakeSnapshotService';
 import "ol/ol.css";
+import { defaults as defaultInteractions } from "ol/interaction/defaults";
+import DragPan from "ol/interaction/DragPan";
+import { noModifierKeys, primaryAction } from "ol/events/condition";
 import Map from "ol/Map";
 import View from "ol/View";
 import TileLayer from "ol/layer/Tile";
@@ -2737,6 +2740,22 @@ export function MapsView() {
       target: containerRef.current,
       pixelRatio: perfProfile.openLayersPixelRatio,
       maxTilesLoading: perfProfile.maxTilesLoading,
+      interactions: defaultInteractions({
+        dragPan: false,
+      }).extend([
+        new DragPan({
+          condition: (event) => {
+            const originalEvent = event.originalEvent;
+            if (originalEvent && 'pointerType' in originalEvent && originalEvent.pointerType === 'touch') {
+              return true;
+            }
+            if (originalEvent && 'touches' in originalEvent) {
+              return true;
+            }
+            return noModifierKeys(event) && primaryAction(event);
+          },
+        }),
+      ]),
       layers: [
         baseTile,
         satelliteRefLayer,
@@ -3398,6 +3417,23 @@ export function MapsView() {
     mapRef.current = map;
     setMapReady(true);
 
+    const viewport = map.getViewport();
+    if (viewport) {
+      viewport.style.touchAction = 'none';
+      viewport.style.userSelect = 'none';
+      viewport.style.webkitUserSelect = 'none';
+    }
+
+    const mapEl = containerRef.current;
+    const handleTouchMove = (e: TouchEvent) => {
+      if (e.touches.length === 1 && e.cancelable) {
+        e.preventDefault();
+      }
+    };
+    if (mapEl) {
+      mapEl.addEventListener('touchmove', handleTouchMove, { passive: false });
+    }
+
     let resizeObserver: ResizeObserver | null = null;
     if (typeof ResizeObserver !== 'undefined' && containerRef.current) {
       resizeObserver = new ResizeObserver(() => {
@@ -3419,6 +3455,9 @@ export function MapsView() {
     });
 
     return () => {
+      if (mapEl) {
+        mapEl.removeEventListener('touchmove', handleTouchMove);
+      }
       clearTimeout(t1);
       clearTimeout(t2);
       clearTimeout(t3);
@@ -4712,8 +4751,19 @@ export function MapsView() {
       onPointerMove={handlePointerMove}
       onPointerUp={handlePointerUp}
       onContextMenu={(e) => { if (is3D) e.preventDefault(); }}
-      className="relative h-full w-full bg-slate-950 overflow-hidden select-none"
+      className="relative h-full w-full bg-slate-950 overflow-hidden select-none touch-none"
+      style={{ touchAction: 'none' }}
     >
+      <style>{`
+        .ol-viewport,
+        .ol-viewport canvas,
+        .ol-viewport div {
+          touch-action: none !important;
+          -webkit-touch-callout: none !important;
+          -webkit-user-select: none !important;
+          user-select: none !important;
+        }
+      `}</style>
       {/* 3D Deep Cosmos Stars Backdrop when in 3D Mode */}
       {is3D && mapMode === 'spatial' && (
         <div className="pointer-events-none absolute inset-0 z-0 overflow-hidden bg-slate-950 transition-opacity duration-700">
@@ -4828,8 +4878,11 @@ export function MapsView() {
           {/* OpenLayers Map Canvas (Active in 2D spatial mode, supports native radar overlay) */}
           <div 
             ref={containerRef} 
-            className="w-full h-full" 
+            className="w-full h-full touch-none select-none" 
             style={{ 
+              touchAction: 'none',
+              userSelect: 'none',
+              WebkitUserSelect: 'none',
               opacity: (mapMode === 'spatial' && (weatherMapOverlay === 'none' || weatherRenderMode === 'native')) ? 1 : 0, 
               pointerEvents: (mapMode === 'spatial' && (weatherMapOverlay === 'none' || weatherRenderMode === 'native')) ? 'auto' : 'none' 
             }}
