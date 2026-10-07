@@ -183,6 +183,91 @@ export interface EarthquakeRecord {
   monitoringSource: string;
   name: string;
   visualSummary: string;
+  shakingDurationSec?: string;
+  mmiScale?: string;
+  pgaEstimate?: string;
+  shakingCategory?: string;
+  tsunamiPotential?: string;
+  aftershocksWindow?: string;
+  originTimeFormatted?: string;
+  elapsedTimeAgo?: string;
+  focalMechanism?: string;
+}
+
+export function computeShakingDuration(mag?: number, depthKm?: number): string {
+  const m = typeof mag === 'number' && Number.isFinite(mag) ? mag : 4.0;
+  const d = typeof depthKm === 'number' && Number.isFinite(depthKm) ? depthKm : 20;
+  if (m < 3.5) return '± 5 - 12 detik (Getaran singkat)';
+  if (m < 4.5) return '± 12 - 25 detik';
+  if (m < 5.5) return d < 30 ? '± 25 - 45 detik (Guncangan kuat di darat)' : '± 20 - 35 detik';
+  if (m < 6.5) return '± 40 - 70 detik (Guncangan masif berkelanjutan)';
+  if (m < 7.5) return '± 60 - 110 detik (Guncangan paroksismal panjang)';
+  return '± 90 - 180+ detik (Guncangan megathrust sangat panjang)';
+}
+
+export function computeMmiIntensity(mag?: number, depthKm?: number): string {
+  const m = typeof mag === 'number' && Number.isFinite(mag) ? mag : 4.0;
+  const d = typeof depthKm === 'number' && Number.isFinite(depthKm) ? depthKm : 20;
+  if (m < 3.0) return 'I - II MMI (Getaran sangat halus, hanya terekam alat)';
+  if (m < 4.0) return 'II - III MMI (Dirasakan beberapa orang di dalam rumah, benda ringan bergoyang)';
+  if (m < 5.0) return 'III - IV MMI (Dirasakan nyata di dalam rumah, jendela/pintu berderit, gerabah pecah)';
+  if (m < 6.0) return d < 30 ? 'V - VI MMI (Dirasakan semua orang, plester dinding retak, perabot tergeser)' : 'IV - V MMI (Getaran sedang-kuat dirasakan luas)';
+  if (m < 7.0) return 'VI - VII MMI (Kerusakan ringan hingga sedang pada bangunan berstruktur baik)';
+  return 'VIII - X MMI (Kerusakan berat, retakan tanah besar, potensi kolaps struktur)';
+}
+
+export function computePgaEstimate(mag?: number, depthKm?: number): string {
+  const m = typeof mag === 'number' && Number.isFinite(mag) ? mag : 4.0;
+  if (m < 3.5) return '< 0.02g (Sangat Lemah)';
+  if (m < 4.5) return '0.02g - 0.05g (Ringan)';
+  if (m < 5.5) return '0.05g - 0.12g (Sedang)';
+  if (m < 6.5) return '0.12g - 0.28g (Tinggi)';
+  return '> 0.30g (Sangat Tinggi / Destruktif)';
+}
+
+export function computeShakingCategory(mag?: number): string {
+  const m = typeof mag === 'number' && Number.isFinite(mag) ? mag : 4.0;
+  if (m < 3.5) return 'Guncangan Sangat Lemah';
+  if (m < 4.5) return 'Guncangan Ringan';
+  if (m < 5.5) return 'Guncangan Sedang';
+  if (m < 6.5) return 'Guncangan Kuat';
+  if (m < 7.5) return 'Guncangan Sangat Kuat';
+  return 'Guncangan Dahsyat';
+}
+
+export function computeTsunamiPotential(mag?: number, depthKm?: number, isSea = false): string {
+  const m = typeof mag === 'number' && Number.isFinite(mag) ? mag : 4.0;
+  const d = typeof depthKm === 'number' && Number.isFinite(depthKm) ? depthKm : 20;
+  if (m >= 7.0 && d <= 50) return 'Waspada Potensi Tsunami (Evaluasi model InaTEWS / Segera menjauh dari pantai)';
+  if (m >= 6.5 && d <= 60 && isSea) return 'Waspada Potensi Tsunami Lokal (Perhatikan sirine pantai BMKG)';
+  return 'Tidak Berpotensi Tsunami (Berdasarkan kedalaman dan parameter magnitudo)';
+}
+
+export function computeAftershocksWindow(mag?: number): string {
+  const m = typeof mag === 'number' && Number.isFinite(mag) ? mag : 4.0;
+  if (m < 4.0) return 'Jendela pemantauan: 6 - 12 Jam (Kemungkinan susulan sangat kecil)';
+  if (m < 5.5) return 'Jendela pemantauan: 24 - 48 Jam (Monitoring sensor BMKG/USGS aktif)';
+  if (m < 6.5) return 'Jendela pemantauan: 3 - 7 Hari (Pelepasan energi elastis bertahap)';
+  return 'Jendela pemantauan: 1 - 3 Minggu (Rangkaian aftershocks intensif)';
+}
+
+export function formatTimeDetails(rawTime?: number | string): { formatted: string; elapsed: string } {
+  if (!rawTime) return { formatted: 'Waktu belum tersedia', elapsed: 'Baru saja' };
+  const ms = typeof rawTime === 'number' ? rawTime : parseStrictIsoOrCalendarTime(String(rawTime)) ?? Date.parse(String(rawTime));
+  if (!Number.isFinite(ms)) return { formatted: String(rawTime), elapsed: 'Terkini' };
+
+  const date = new Date(ms);
+  const diffSec = Math.max(0, Math.floor((Date.now() - ms) / 1000));
+  let elapsed = 'Baru saja';
+  if (diffSec >= 86400) elapsed = `${Math.floor(diffSec / 86400)} hari yang lalu`;
+  else if (diffSec >= 3600) elapsed = `${Math.floor(diffSec / 3600)} jam yang lalu`;
+  else if (diffSec >= 60) elapsed = `${Math.floor(diffSec / 60)} menit yang lalu`;
+  else elapsed = `${diffSec} detik yang lalu`;
+
+  const wibHour = (date.getUTCHours() + 7) % 24;
+  const wibTime = `${String(wibHour).padStart(2, '0')}:${String(date.getUTCMinutes()).padStart(2, '0')}:${String(date.getUTCSeconds()).padStart(2, '0')} WIB`;
+  const formatted = `${date.toLocaleDateString('id-ID', { year: 'numeric', month: 'short', day: 'numeric' })}, ${wibTime}`;
+  return { formatted, elapsed };
 }
 
 export interface EarthquakeSnapshot {
@@ -562,6 +647,7 @@ class EarthquakeSnapshotService {
 
         const mag = typeof b.magnitude === 'number' && Number.isFinite(b.magnitude) ? b.magnitude : undefined;
         const depth = typeof b.depthKm === 'number' && Number.isFinite(b.depthKm) ? b.depthKm : undefined;
+        const timeInfo = formatTimeDetails(b.datetime || `${b.date} ${b.time}`);
         mergedRecords.push({
           id,
           lat: b.lat,
@@ -575,6 +661,14 @@ class EarthquakeSnapshotService {
           monitoringSource: 'InaTEWS BMKG (Badan Meteorologi, Klimatologi, dan Geofisika)',
           name: `Gempa M${mag != null ? mag.toFixed(1) : '?'} (BMKG)`,
           visualSummary: `Episenter ${b.location || 'Indonesia'}. Magnitudo M${mag != null ? mag.toFixed(1) : '?'} pada kedalaman ${depth ?? 'belum tersedia'} km. [InaTEWS BMKG]`,
+          shakingDurationSec: computeShakingDuration(mag, depth),
+          mmiScale: b.felt ? `Skala Dirasakan: ${b.felt}` : computeMmiIntensity(mag, depth),
+          pgaEstimate: computePgaEstimate(mag, depth),
+          shakingCategory: computeShakingCategory(mag),
+          tsunamiPotential: computeTsunamiPotential(mag, depth, true),
+          aftershocksWindow: computeAftershocksWindow(mag),
+          originTimeFormatted: timeInfo.formatted,
+          elapsedTimeAgo: timeInfo.elapsed,
         });
       }
       bmkgValidCount = mergedRecords.filter(r => r.source === 'BMKG').length;
@@ -589,18 +683,29 @@ class EarthquakeSnapshotService {
         seenIds.add(id);
 
         const mag = typeof f.properties?.mag === 'number' && Number.isFinite(f.properties.mag) ? f.properties.mag : undefined;
+        const depthKm = typeof depth === 'number' && Number.isFinite(depth) ? depth : undefined;
+        const timeInfo = formatTimeDetails(f.properties?.time);
         mergedRecords.push({
           id,
           lat,
           lng,
           mag,
-          depth: typeof depth === 'number' && Number.isFinite(depth) ? depth : undefined,
+          depth: depthKm,
           place: f.properties?.place || 'Samudra / Global',
           time: f.properties?.time,
+          felt: f.properties?.felt ? `${f.properties.felt} laporan` : undefined,
           source: 'USGS',
           monitoringSource: 'USGS Earthquake Hazards Program (Global Seismographic Network)',
           name: `Gempa M${mag != null ? mag.toFixed(1) : '?'} (USGS)`,
-          visualSummary: `Episenter ${f.properties?.place || 'Global'}. Magnitudo M${mag != null ? mag.toFixed(1) : '?'} pada kedalaman ${depth ?? 'belum tersedia'} km. [USGS Global]`,
+          visualSummary: `Episenter ${f.properties?.place || 'Global'}. Magnitudo M${mag != null ? mag.toFixed(1) : '?'} pada kedalaman ${depthKm ?? 'belum tersedia'} km. [USGS Global]`,
+          shakingDurationSec: computeShakingDuration(mag, depthKm),
+          mmiScale: computeMmiIntensity(mag, depthKm),
+          pgaEstimate: computePgaEstimate(mag, depthKm),
+          shakingCategory: computeShakingCategory(mag),
+          tsunamiPotential: computeTsunamiPotential(mag, depthKm, true),
+          aftershocksWindow: computeAftershocksWindow(mag),
+          originTimeFormatted: timeInfo.formatted,
+          elapsedTimeAgo: timeInfo.elapsed,
         });
       }
       usgsValidCount = mergedRecords.filter(r => r.source === 'USGS').length;

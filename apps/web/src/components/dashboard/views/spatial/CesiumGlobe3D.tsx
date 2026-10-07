@@ -65,9 +65,9 @@ export interface CesiumGlobe3DProps {
   initialZoom?: number;
   userCoords?: { lat: number; lng: number; accuracy?: number } | null;
   activeRouteCoords?: [number, number][];
-  earthquakes?: ReadonlyArray<{ id?: string | number; lat: number; lng: number; mag?: number; depth?: number; place?: string; source?: string; time?: string | number }>;
+  earthquakes?: ReadonlyArray<{ id?: string | number; lat: number; lng: number; mag?: number; depth?: number; place?: string; source?: string; time?: string | number; shakingDurationSec?: string; [key: string]: any }>;
   hotspots?: ReadonlyArray<{ id?: string | number; lat: number; lng: number; frpMw?: number | null; satellite?: string; brightnessCelsius?: number | null }>;
-  mountains?: ReadonlyArray<{ id?: string | number; lat: number; lng: number; name?: string; height?: number; type?: string; status?: string }>;
+  mountains?: ReadonlyArray<{ id?: string | number; lat: number; lng: number; name?: string; height?: number; elevation?: number; type?: string; status?: string; volcanoData?: any; [key: string]: any }>;
   showActiveVolcanoes?: boolean;
   showInactiveVolcanoes?: boolean;
   showPeaks?: boolean;
@@ -100,6 +100,8 @@ export interface CesiumGlobe3DProps {
   showHeatmapLayer?: boolean;
   onSelectCctv?: (camera: TrafficCctvCamera) => void;
   onSelectSignal?: (signal: TrafficSignalIntersection) => void;
+  onSelectVolcano?: (volcano: any) => void;
+  onSelectEarthquake?: (earthquake: any) => void;
 }
 
 const validPosition = (lat: unknown, lng: unknown) => 
@@ -145,6 +147,8 @@ export function CesiumGlobe3D({
   showHeatmapLayer = false,
   onSelectCctv,
   onSelectSignal,
+  onSelectVolcano,
+  onSelectEarthquake,
 }: CesiumGlobe3DProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const creditRef = useRef<HTMLDivElement>(null);
@@ -160,6 +164,10 @@ export function CesiumGlobe3D({
   onSelectCctvRef.current = onSelectCctv;
   const onSelectSignalRef = useRef(onSelectSignal);
   onSelectSignalRef.current = onSelectSignal;
+  const onSelectVolcanoRef = useRef(onSelectVolcano);
+  onSelectVolcanoRef.current = onSelectVolcano;
+  const onSelectEarthquakeRef = useRef(onSelectEarthquake);
+  onSelectEarthquakeRef.current = onSelectEarthquake;
 
   const focusRef = useRef(initialCenter);
   focusRef.current = initialCenter;
@@ -413,6 +421,12 @@ export function CesiumGlobe3D({
           }
           if (entity && entity.properties?.signalData && onSelectSignalRef.current) {
             onSelectSignalRef.current(entity.properties.signalData.getValue());
+          }
+          if (entity && entity.properties?.volcanoData && onSelectVolcanoRef.current) {
+            onSelectVolcanoRef.current(entity.properties.volcanoData.getValue());
+          }
+          if (entity && entity.properties?.earthquakeData && onSelectEarthquakeRef.current) {
+            onSelectEarthquakeRef.current(entity.properties.earthquakeData.getValue());
           }
           setSelected(
             entity
@@ -677,6 +691,7 @@ export function CesiumGlobe3D({
             disableDepthTestDistance: Number.POSITIVE_INFINITY,
           },
           properties: {
+            earthquakeData: eq,
             detail: `${eq.place || 'Lokasi n/a'} • Kedalaman: ${depth === null ? 'n/a' : `${depth} km`} • Waktu: ${eq.time || 'Terkini'} • Sumber: ${eq.source || 'InaTEWS / BMKG / USGS'}`,
           },
         });
@@ -696,6 +711,10 @@ export function CesiumGlobe3D({
             outlineColor: markerColor.withAlpha(0.55),
             outlineWidth: 1.5,
             distanceDisplayCondition: new C.DistanceDisplayCondition(2000000, 25000000),
+          },
+          properties: {
+            earthquakeData: eq,
+            detail: `Zona Guncangan Gempa M${mag.toFixed(1)} • Estimasi durasi terasa: ${eq.shakingDurationSec || '20-40 detik'}`,
           },
         });
       });
@@ -759,7 +778,8 @@ export function CesiumGlobe3D({
           distanceDisplayCondition: new C.DistanceDisplayCondition(0, 3000000),
         },
         properties: {
-          detail: `${m.name || 'Gunung'} • Ketinggian: ${m.height ? `${m.height} mdpl` : 'N/A'} • Status: ${m.type || 'Vulkanik'} (${m.status || 'Normal'})`,
+          volcanoData: m.volcanoData || m,
+          detail: `${m.name || 'Gunung'} • Ketinggian: ${m.height || m.elevation ? `${m.height || m.elevation} mdpl` : 'N/A'} • Status: ${m.type || 'Vulkanik'} (${m.status || 'Normal'})`,
         },
       });
     });

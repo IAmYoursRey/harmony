@@ -19,6 +19,9 @@ import {
   getTrafficSignalsList,
   getLiveTrafficNetwork,
   getSchoolRiskSynthesis,
+  getVolcanoesList,
+  getLiveVolcanoUpdates,
+  getLiveEarthquakesList,
 } from "../controllers/spatialController.js";
 
 const router = Router();
@@ -29,6 +32,11 @@ router.post("/aoi/analyze", analyzeAOI);
 router.post("/stac/search", searchSTACProxy);
 router.get("/health", getSpatialHealth);
 router.get("/weather/current", getCurrentWeatherProxy);
+
+// Volcano & Earthquake Geological Endpoints
+router.get("/volcanoes", getVolcanoesList);
+router.get("/volcanoes/live", getLiveVolcanoUpdates);
+router.get("/earthquakes/live", getLiveEarthquakesList);
 
 // Spatial Risk Synthesis & Reasoning Engine (GMPE, Seismic Lead Time & Terrain Hazard)
 router.get("/school-risk-synthesis", getSchoolRiskSynthesis);
