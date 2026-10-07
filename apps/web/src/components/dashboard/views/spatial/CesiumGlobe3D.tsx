@@ -246,6 +246,10 @@ export function CesiumGlobe3D({
 
         const perfProfile = hardwarePerformanceService.getProfile();
 
+        if (!hardwarePerformanceService.hasWebGL()) {
+          throw new Error('Akselerasi WebGL tidak didukung pada browser/perangkat ini');
+        }
+
         const viewer = new C.Viewer(containerRef.current, {
           animation: false,
           timeline: false,
@@ -262,6 +266,13 @@ export function CesiumGlobe3D({
           creditContainer: creditRef.current,
           requestRenderMode: true,
           maximumRenderTimeChange: 0.1,
+          contextOptions: {
+            webgl: {
+              failIfMajorPerformanceCaveat: false,
+              powerPreference: 'low-power',
+              preserveDrawingBuffer: false,
+            },
+          },
         });
 
         viewerRef.current = viewer;
@@ -409,13 +420,23 @@ export function CesiumGlobe3D({
             if (!cancelled) setTerrainStatus('Relief bola bumi WGS84 standar.');
           }
         }
-      } catch (err) {
+      } catch (err: any) {
         if (cancelled) return;
         const viewer = viewerRef.current;
-        if (viewer && !viewer.isDestroyed()) viewer.destroy();
+        if (viewer && !viewer.isDestroyed()) {
+          try { viewer.destroy(); } catch (_) {}
+        }
         viewerRef.current = null;
         setStatus('FAILED');
-        setError('Peta Cesium 3D gagal dimuat pada perangkat ini. Gunakan peta 2D.');
+        const reason = err?.message || 'GPU atau driver tidak mendukung akselerasi 3D Cesium';
+        setError(`Mode 3D tidak kompatibel (${reason}). Mengalihkan ke Peta 2D Cepat...`);
+        if (onSwitchTo2D) {
+          setTimeout(() => {
+            if (!cancelled) {
+              onSwitchTo2D(initialCenter.lat, initialCenter.lng, initialZoom);
+            }
+          }, 1200);
+        }
       }
     };
 
@@ -1306,6 +1327,39 @@ export function CesiumGlobe3D({
     <div className="relative h-full w-full overflow-hidden bg-slate-950">
       <div ref={containerRef} className="h-full w-full" aria-label="Peta Kosmik Cesium 3D" />
       <div ref={creditRef} className="absolute bottom-2 left-2 z-20 max-w-[90%] bg-slate-950/80 p-1 text-xs text-white" />
+
+      {status === 'LOADING' && (
+        <div className="absolute inset-0 z-30 flex flex-col items-center justify-center bg-slate-950/70 backdrop-blur-xs text-white pointer-events-none">
+          <div className="flex items-center gap-3 rounded-2xl bg-slate-900/90 border border-slate-700/80 px-5 py-3 shadow-2xl">
+            <div className="h-5 w-5 animate-spin rounded-full border-2 border-indigo-400 border-t-transparent" />
+            <span className="text-xs font-semibold text-slate-200">Menyiapkan Mesin Spasial 3D…</span>
+          </div>
+        </div>
+      )}
+
+      {status === 'FAILED' && (
+        <div className="absolute inset-0 z-50 flex flex-col items-center justify-center bg-slate-950/95 p-6 text-center text-white">
+          <div className="max-w-md rounded-3xl border border-amber-500/30 bg-slate-900/95 p-6 shadow-2xl backdrop-blur-xl">
+            <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-2xl bg-amber-500/20 text-amber-400">
+              <AlertTriangle className="h-8 w-8" />
+            </div>
+            <h3 className="font-display text-lg font-bold text-white mb-2">
+              Akselerasi 3D Dibatasi
+            </h3>
+            <p className="text-xs text-slate-300 leading-relaxed mb-5">
+              Perangkat ini (Smart TV / GPU terintegrasi) tidak mendukung komputasi WebGL 3D secara penuh. Sistem secara otomatis mengalihkan ke mode Peta 2D Cepat yang kompatibel dengan seluruh perangkat.
+            </p>
+            <button
+              type="button"
+              onClick={() => onSwitchTo2D?.(initialCenter.lat, initialCenter.lng, initialZoom)}
+              className="w-full flex items-center justify-center gap-2 py-3 px-4 rounded-xl bg-gradient-to-r from-sky-500 to-indigo-600 hover:from-sky-400 hover:to-indigo-500 text-white font-bold text-sm shadow-lg transition-all cursor-pointer"
+            >
+              <ExternalLink className="w-4 h-4" />
+              <span>Buka Peta 2D Sekarang</span>
+            </button>
+          </div>
+        </div>
+      )}
 
       <style>{`
         .cesium-widget canvas {

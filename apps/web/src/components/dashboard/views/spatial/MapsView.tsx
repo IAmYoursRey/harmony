@@ -991,12 +991,18 @@ export function MapsView() {
     profile: perfProfile,
     mode: perfMode,
     effectiveMode: effectivePerfMode,
+    isTV,
+    hasWebGL,
+    canRun3D,
     setMode: setPerfMode,
   } = useHardwarePerformance();
 
-  // 3D Perspective & Globe Mode State (Persisted per user)
+  // 3D Perspective & Globe Mode State (Persisted per user, guarded against TV / unsupported WebGL devices)
   const [is3D, setIs3D] = useState<boolean>(() => {
     try {
+      if (hardwarePerformanceService.isTV() || !hardwarePerformanceService.canRun3D()) {
+        return false;
+      }
       return window.localStorage.getItem(`hm_is3d_${activeUserId}`) === 'true';
     } catch (e) {
       return false;
@@ -1019,6 +1025,10 @@ export function MapsView() {
 
   useEffect(() => {
     try {
+      if (isTV || !canRun3D) {
+        setIs3D(false);
+        return;
+      }
       const stored = window.localStorage.getItem(`hm_is3d_${activeUserId}`);
       if (stored !== null) {
         setIs3D(stored === 'true');
@@ -1030,7 +1040,7 @@ export function MapsView() {
         setGlobeType('globe');
       }
     } catch (e) {}
-  }, [activeUserId]);
+  }, [activeUserId, isTV, canRun3D]);
 
   const handleSetGlobeType = (type: 'globe' | 'perspective' | 'cesium') => {
     setGlobeType(type);
@@ -1043,6 +1053,15 @@ export function MapsView() {
   };
 
   const handleToggle3D = (val: boolean) => {
+    if (val && (isTV || !canRun3D)) {
+      setLocationStatusToast({
+        type: 'error',
+        title: 'Akselerasi 3D Dibatasi',
+        message: 'Perangkat Smart TV atau browser ini tidak mendukung WebGL 3D. Menampilkan peta 2D berkinerja tinggi.',
+      });
+      setIs3D(false);
+      return;
+    }
     setIs3D(val);
     if (!val) {
       setIsOrbiting(false);
@@ -3379,6 +3398,20 @@ export function MapsView() {
     mapRef.current = map;
     setMapReady(true);
 
+    let resizeObserver: ResizeObserver | null = null;
+    if (typeof ResizeObserver !== 'undefined' && containerRef.current) {
+      resizeObserver = new ResizeObserver(() => {
+        if (mapRef.current) {
+          mapRef.current.updateSize();
+        }
+      });
+      resizeObserver.observe(containerRef.current);
+    }
+
+    const t1 = setTimeout(() => { map.updateSize(); }, 100);
+    const t2 = setTimeout(() => { map.updateSize(); }, 400);
+    const t3 = setTimeout(() => { map.updateSize(); }, 1000);
+
     const unsubPerf = hardwarePerformanceService.subscribe(() => {
       if (mapRef.current) {
         mapRef.current.updateSize();
@@ -3386,6 +3419,10 @@ export function MapsView() {
     });
 
     return () => {
+      clearTimeout(t1);
+      clearTimeout(t2);
+      clearTimeout(t3);
+      resizeObserver?.disconnect();
       unsubPerf();
       map.setTarget(undefined);
       mapRef.current = null;
@@ -3405,7 +3442,7 @@ export function MapsView() {
     };
   }, []);
 
-  // Auto switch back to 3D Globe when zooming out in 2D below country level (zoom <= 3.8)
+  // Auto switch back to 3D Globe when zooming out in 2D below country level (zoom <= 3.5), strictly guarded on TV & low-power devices
   useEffect(() => {
     const map = mapRef.current;
     if (!map || !mapReady) return;
@@ -3413,7 +3450,7 @@ export function MapsView() {
 
     let switchingTo3D = false;
     const handleResolutionChange = () => {
-      if (is3D || switchingTo3D || mapMode !== 'spatial') return;
+      if (is3D || switchingTo3D || mapMode !== 'spatial' || isTV || !canRun3D) return;
       const curZoom = view.getZoom();
       if (curZoom !== undefined && curZoom <= 3.5) {
         switchingTo3D = true;
@@ -3437,7 +3474,71 @@ export function MapsView() {
     return () => {
       view.un('change:resolution', handleResolutionChange);
     };
-  }, [mapReady, is3D, mapMode]);
+  }, [mapReady, is3D, mapMode, isTV, canRun3D]);
+
+  // Android TV & Hardware Remote Control Navigation (D-Pad Arrow Keys, Zoom +/-)
+  useEffect(() => {
+    if (!mapReady) return;
+    const handleTvKeyDown = (e: KeyboardEvent) => {
+      const activeTag = (document.activeElement?.tagName || '').toUpperCase();
+      if (activeTag === 'INPUT' || activeTag === 'TEXTAREA' || activeTag === 'SELECT') {
+        return;
+      }
+
+      const map = mapRef.current;
+      if (!map) return;
+      const view = map.getView();
+      if (!view) return;
+
+      const currentCenter = view.getCenter();
+      if (!currentCenter) return;
+
+      const res = view.getResolution() || 100;
+      const panStep = res * 150;
+
+      switch (e.key) {
+        case 'ArrowUp':
+          e.preventDefault();
+          view.animate({ center: [currentCenter[0], currentCenter[1] + panStep], duration: 180 });
+          break;
+        case 'ArrowDown':
+          e.preventDefault();
+          view.animate({ center: [currentCenter[0], currentCenter[1] - panStep], duration: 180 });
+          break;
+        case 'ArrowLeft':
+          e.preventDefault();
+          view.animate({ center: [currentCenter[0] - panStep, currentCenter[1]], duration: 180 });
+          break;
+        case 'ArrowRight':
+          e.preventDefault();
+          view.animate({ center: [currentCenter[0] + panStep, currentCenter[1]], duration: 180 });
+          break;
+        case '+':
+        case '=':
+        case 'PageUp': {
+          e.preventDefault();
+          const z = view.getZoom() || 5;
+          view.animate({ zoom: Math.min(z + 1, 20), duration: 200 });
+          break;
+        }
+        case '-':
+        case '_':
+        case 'PageDown': {
+          e.preventDefault();
+          const z = view.getZoom() || 5;
+          view.animate({ zoom: Math.max(z - 1, 3), duration: 200 });
+          break;
+        }
+        default:
+          break;
+      }
+    };
+
+    window.addEventListener('keydown', handleTvKeyDown);
+    return () => {
+      window.removeEventListener('keydown', handleTvKeyDown);
+    };
+  }, [mapReady]);
 
   // Render Mountains Layer
   useEffect(() => {
@@ -4685,11 +4786,20 @@ export function MapsView() {
               globeType={globeType}
               onSwitchTo2D={(lat, lng, targetZoom = 7.5) => {
                 handleToggle3D(false);
-                mapRef.current?.getView().animate({
-                  center: fromLonLat([lng, lat]),
-                  zoom: targetZoom,
-                  duration: 600,
-                });
+                const view = mapRef.current?.getView();
+                if (view) {
+                  view.animate({
+                    center: fromLonLat([lng, lat]),
+                    zoom: targetZoom,
+                    duration: 400,
+                  });
+                }
+                setTimeout(() => {
+                  mapRef.current?.updateSize();
+                }, 50);
+                setTimeout(() => {
+                  mapRef.current?.updateSize();
+                }, 300);
               }}
             />
           </Suspense>
