@@ -191,7 +191,7 @@ export function RoomManager({
               <label className="block text-xs font-semibold text-ink-600 mb-1">
                 Nama Ruang *
               </label>
-              <input
+              <input name="name" id="roommanager-name"
                 value={name}
                 onChange={(e) => setName(e.target.value)}
                 className="w-full px-3 py-2 rounded-lg border text-sm dark:bg-slate-800 dark:border-slate-600"
@@ -202,7 +202,7 @@ export function RoomManager({
               <label className="block text-xs font-semibold text-ink-600 mb-1">
                 Pilih Simulasi *
               </label>
-              <select
+              <select name="simId" id="roommanager-simid"
                 value={simId}
                 onChange={(e) => setSimId(e.target.value)}
                 className="w-full px-3 py-2 rounded-lg border text-sm dark:bg-slate-800 dark:border-slate-600"
@@ -219,7 +219,7 @@ export function RoomManager({
               <label className="block text-xs font-semibold text-ink-600 mb-1">
                 Kelas
               </label>
-              <select
+              <select name="targetGrade" id="roommanager-targetgrade"
                 value={targetGrade}
                 onChange={(e) => setTargetGrade(e.target.value)}
                 className="w-full px-3 py-2 rounded-lg border text-sm dark:bg-slate-800 dark:border-slate-600"
@@ -233,7 +233,7 @@ export function RoomManager({
               <label className="block text-xs font-semibold text-ink-600 mb-1">
                 Jurusan/Seksi *
               </label>
-              <select
+              <select name="targetClass" id="roommanager-targetclass"
                 value={targetClass}
                 onChange={(e) => setTargetClass(e.target.value)}
                 className="w-full px-3 py-2 rounded-lg border text-sm dark:bg-slate-800 dark:border-slate-600"

@@ -742,7 +742,7 @@ export function TeacherDashboardView() {
                       <label className="text-xs font-bold text-ink-700 dark:text-slate-300">
                         Nama Kelas
                       </label>
-                      <input
+                      <input name="newClassName" id="teacherdashboardview-newclassname"
                         value={newClassName}
                         onChange={(e) => setNewClassName(e.target.value)}
                         placeholder="Contoh: Geografi 10A"
@@ -754,7 +754,7 @@ export function TeacherDashboardView() {
                       <label className="text-xs font-bold text-ink-700 dark:text-slate-300">
                         Tingkat (Grade)
                       </label>
-                      <select
+                      <select name="newGrade" id="teacherdashboardview-newgrade"
                         value={newGrade}
                         onChange={(e) =>
                           setNewGrade(e.target.value as "X" | "XI" | "XII")
@@ -770,7 +770,7 @@ export function TeacherDashboardView() {
                       <label className="text-xs font-bold text-ink-700 dark:text-slate-300">
                         Ruang/Section
                       </label>
-                      <input
+                      <input name="newSection" id="teacherdashboardview-newsection"
                         value={newSection}
                         onChange={(e) => setNewSection(e.target.value)}
                         placeholder="Contoh: 1 / A"
@@ -782,7 +782,7 @@ export function TeacherDashboardView() {
                       <label className="text-xs font-bold text-ink-700 dark:text-slate-300">
                         Tahun Ajaran
                       </label>
-                      <input
+                      <input name="newAcademicYear" id="teacherdashboardview-newacademicyear"
                         value={newAcademicYear}
                         onChange={(e) => setNewAcademicYear(e.target.value)}
                         placeholder="2026/2027"
@@ -1078,7 +1078,7 @@ export function TeacherDashboardView() {
                   <label className="block text-xs font-bold text-ink-700 dark:text-slate-300 mb-1">
                     Nama Lengkap
                   </label>
-                  <input
+                  <input name="regName" id="teacherdashboardview-regname"
                     value={regName}
                     onChange={(e) => setRegName(e.target.value)}
                     required
@@ -1089,7 +1089,7 @@ export function TeacherDashboardView() {
                   <label className="block text-xs font-bold text-ink-700 dark:text-slate-300 mb-1">
                     Email
                   </label>
-                  <input
+                  <input name="regEmail" id="teacherdashboardview-regemail"
                     type="email"
                     value={regEmail}
                     onChange={(e) => setRegEmail(e.target.value)}
@@ -1102,7 +1102,7 @@ export function TeacherDashboardView() {
                     <label className="block text-xs font-bold text-ink-700 dark:text-slate-300 mb-1">
                       Kata Sandi
                     </label>
-                    <input
+                    <input name="regPassword" id="teacherdashboardview-regpassword"
                       type="password"
                       value={regPassword}
                       onChange={(e) => setRegPassword(e.target.value)}
@@ -1114,7 +1114,7 @@ export function TeacherDashboardView() {
                     <label className="block text-xs font-bold text-ink-700 dark:text-slate-300 mb-1">
                       Konfirmasi Sandi
                     </label>
-                    <input
+                    <input name="regPasswordConfirm" id="teacherdashboardview-regpasswordconfirm"
                       type="password"
                       value={regPasswordConfirm}
                       onChange={(e) => setRegPasswordConfirm(e.target.value)}
@@ -1128,7 +1128,7 @@ export function TeacherDashboardView() {
                     <label className="block text-xs font-bold text-ink-700 dark:text-slate-300 mb-1">
                       Class
                     </label>
-                    <select
+                    <select name="regClassId" id="teacherdashboardview-regclassid"
                       value={regClassId}
                       onChange={(e) => setRegClassId(e.target.value)}
                       required
@@ -1146,7 +1146,7 @@ export function TeacherDashboardView() {
                     <label className="block text-xs font-bold text-ink-700 dark:text-slate-300 mb-1">
                       Gender
                     </label>
-                    <select
+                    <select name="regGender" id="teacherdashboardview-reggender"
                       value={regGender}
                       onChange={(e) => setRegGender(e.target.value as Gender)}
                       className="w-full rounded-xl border border-brand-200 py-2.5 px-3 focus:ring-2 focus:ring-brand-100 dark:bg-slate-800 dark:border-slate-700 dark:text-white"

@@ -286,7 +286,7 @@ router.post("/maps", verifyToken, async (req, res) => {
 
   if (!db.gridMaps) db.gridMaps = {};
   db.gridMaps[newMap.id] = newMap;
-  if (await writeDB(db)) res.status(201).json({ data: newMap });
+  if (await writeDB({ gridMaps: db.gridMaps })) res.status(201).json({ data: newMap });
   else res.status(500).json({ error: "Failed to create map" });
 });
 
@@ -402,7 +402,7 @@ router.put("/maps/:mapId", verifyToken, async (req, res) => {
   map.updatedAt = new Date().toISOString();
 
   db.gridMaps[req.params.mapId] = map;
-  if (await writeDB(db)) res.json({ data: map });
+  if (await writeDB({ gridMaps: db.gridMaps })) res.json({ data: map });
   else res.status(500).json({ error: "Failed to update map" });
 });
 
@@ -415,7 +415,7 @@ router.delete("/maps/:mapId", verifyToken, async (req, res) => {
   if (!requireSchoolOwnership(req, res, callerSchoolId, map.schoolId)) return;
 
   delete db.gridMaps[req.params.mapId];
-  if (await writeDB(db)) res.json({ success: true });
+  if (await writeDB({ gridMaps: db.gridMaps })) res.json({ success: true });
   else res.status(500).json({ error: "Failed to delete map" });
 });
 
@@ -486,7 +486,7 @@ router.post("/simulations", verifyToken, async (req, res) => {
 
   if (!db.simulations) db.simulations = {};
   db.simulations[sim.id] = sim;
-  if (await writeDB(db)) res.status(201).json({ data: sim });
+  if (await writeDB({ simulations: db.simulations })) res.status(201).json({ data: sim });
   else res.status(500).json({ error: "Failed to create simulation" });
 });
 
@@ -522,7 +522,7 @@ router.put("/simulations/:simId", verifyToken, async (req, res) => {
   }
   sim.updatedAt = new Date().toISOString();
   db.simulations[req.params.simId] = sim;
-  if (await writeDB(db)) res.json({ data: sim });
+  if (await writeDB({ simulations: db.simulations })) res.json({ data: sim });
   else res.status(500).json({ error: "Failed to update simulation" });
 });
 
@@ -535,7 +535,7 @@ router.delete("/simulations/:simId", verifyToken, async (req, res) => {
   if (!requireSchoolOwnership(req, res, callerSchoolId, sim.schoolId)) return;
 
   delete db.simulations[req.params.simId];
-  if (await writeDB(db)) res.json({ success: true });
+  if (await writeDB({ simulations: db.simulations })) res.json({ success: true });
   else res.status(500).json({ error: "Failed to delete simulation" });
 });
 
@@ -602,7 +602,7 @@ router.post("/rooms", verifyToken, async (req, res) => {
 
   if (!db.dtRooms) db.dtRooms = {};
   db.dtRooms[room.id] = room;
-  if (await writeDB(db)) res.status(201).json({ data: room });
+  if (await writeDB({ dtRooms: db.dtRooms })) res.status(201).json({ data: room });
   else res.status(500).json({ error: "Failed to create room" });
 });
 
@@ -645,7 +645,7 @@ router.post("/rooms/:roomId/join", verifyToken, async (req, res) => {
     room.joinedStudents.push(req.user.id);
   }
   db.dtRooms[req.params.roomId] = room;
-  if (await writeDB(db)) res.json({ data: room });
+  if (await writeDB({ dtRooms: db.dtRooms })) res.json({ data: room });
   else res.status(500).json({ error: "Failed to join room" });
 });
 
@@ -663,9 +663,10 @@ router.post("/rooms/:roomId/start", verifyToken, async (req, res) => {
   room.status = "RUNNING";
   room.startedAt = new Date().toISOString();
   db.dtRooms[req.params.roomId] = room;
+  const saved = await writeDB({ dtRooms: db.dtRooms });
+  if (!saved) return res.status(500).json({ error: "Failed to start room" });
   await initGameSession(req.params.roomId);
-  if (await writeDB(db)) res.json({ data: room });
-  else res.status(500).json({ error: "Failed to start room" });
+  res.json({ data: room });
 });
 
 router.post("/rooms/:roomId/end", verifyToken, async (req, res) => {
@@ -679,8 +680,9 @@ router.post("/rooms/:roomId/end", verifyToken, async (req, res) => {
   room.status = "FINISHED";
   room.endedAt = new Date().toISOString();
   db.dtRooms[req.params.roomId] = room;
+  const saved = await writeDB({ dtRooms: db.dtRooms });
   endGameSession(req.params.roomId);
-  if (await writeDB(db)) res.json({ data: room });
+  if (saved) res.json({ data: room });
   else res.status(500).json({ error: "Failed to end room" });
 });
 

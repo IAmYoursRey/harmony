@@ -1,4 +1,6 @@
 import React, { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
+import { useAuth } from '@/hooks/useAuth';
 import {
   Compass,
   Target,
@@ -11,6 +13,7 @@ import {
   CircleDot,
   FileCode,
   MapPin,
+  Lock,
 } from 'lucide-react';
 import {
   geospatialAnalysisService,
@@ -34,7 +37,11 @@ export const GeospatialAnalyticsTab: React.FC<GeospatialAnalyticsTabProps> = ({
   earthquakes = [],
   schools = [],
 }) => {
+  const navigate = useNavigate();
+  const { currentUser } = useAuth();
   const [radiusKm, setRadiusKm] = useState<number>(5);
+
+  const effectiveSchools = currentUser ? schools : [];
 
   const bufferResult: SpatialBufferResult = geospatialAnalysisService.generateSpatialBuffer(
     centerLat,
@@ -42,7 +49,7 @@ export const GeospatialAnalyticsTab: React.FC<GeospatialAnalyticsTabProps> = ({
     radiusKm,
     mountains,
     earthquakes,
-    schools
+    effectiveSchools
   );
 
   const handleExportBufferGeoJSON = () => {
@@ -123,7 +130,7 @@ export const GeospatialAnalyticsTab: React.FC<GeospatialAnalyticsTabProps> = ({
             <span className="text-slate-500">Radius Terpilih:</span>
             <span className="font-bold text-purple-600 dark:text-purple-400">{radiusKm} Kilometer ({bufferResult.areaKm2} km²)</span>
           </div>
-          <input
+          <input name="radiusKm" id="geospatialanalyticstab-radiuskm"
             type="range"
             min={1}
             max={30}
@@ -138,16 +145,40 @@ export const GeospatialAnalyticsTab: React.FC<GeospatialAnalyticsTabProps> = ({
       {/* Spatial Intersection Results Grid */}
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
         {/* Schools in Buffer */}
-        <div className="p-4 rounded-2xl bg-white dark:bg-slate-800/80 border border-slate-200 dark:border-slate-700/80 shadow-sm">
-          <div className="flex items-center justify-between text-slate-500 dark:text-slate-400 text-xs mb-2">
-            <span>Fasilitas Pendidikan</span>
-            <GraduationCap className="w-4 h-4 text-blue-500" />
+        <div className="p-4 rounded-2xl bg-white dark:bg-slate-800/80 border border-slate-200 dark:border-slate-700/80 shadow-sm flex flex-col justify-between">
+          <div>
+            <div className="flex items-center justify-between text-slate-500 dark:text-slate-400 text-xs mb-2">
+              <span>Fasilitas Pendidikan</span>
+              <GraduationCap className="w-4 h-4 text-blue-500" />
+            </div>
+            {currentUser ? (
+              <div className="flex items-baseline gap-1">
+                <span className="text-2xl font-black text-slate-900 dark:text-white">{bufferResult.schoolsCount}</span>
+                <span className="text-xs text-slate-500 font-bold">Sekolah</span>
+              </div>
+            ) : (
+              <div className="space-y-1">
+                <div className="flex items-center gap-1.5 text-amber-600 dark:text-amber-400 font-bold text-sm">
+                  <Lock className="w-3.5 h-3.5" />
+                  <span>Perlu Login</span>
+                </div>
+                <p className="text-[10px] text-slate-400">Masuk untuk melihat dan memilih sekolah</p>
+              </div>
+            )}
           </div>
-          <div className="flex items-baseline gap-1">
-            <span className="text-2xl font-black text-slate-900 dark:text-white">{bufferResult.schoolsCount}</span>
-            <span className="text-xs text-slate-500 font-bold">Sekolah</span>
+          <div className="pt-2 border-t border-slate-100 dark:border-slate-700/50 mt-2">
+            {currentUser ? (
+              <p className="text-[11px] text-slate-500">Potensi Posko Evakuasi / Terdampak</p>
+            ) : (
+              <button
+                type="button"
+                onClick={() => navigate('/login?redirect=/app/maps')}
+                className="w-full py-1.5 px-2 rounded-xl bg-blue-50 dark:bg-blue-950/40 hover:bg-blue-100 dark:hover:bg-blue-900/50 text-blue-600 dark:text-blue-400 text-[11px] font-bold transition-all text-center border border-blue-500/20 cursor-pointer"
+              >
+                Masuk untuk Akses Edukasi
+              </button>
+            )}
           </div>
-          <p className="text-[11px] text-slate-500 mt-1">Potensi Posko Evakuasi / Terdampak</p>
         </div>
 
         {/* Volcanoes in Buffer */}

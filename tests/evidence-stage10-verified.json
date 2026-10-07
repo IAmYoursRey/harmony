@@ -1,0 +1,463 @@
+{
+  "checkedAt": "2026-10-03T23:30:15.724Z",
+  "scope": "Stage 10 independent verification script reproducing all 15 scenarios on updated Harmony source code",
+  "cases": [
+    {
+      "id": "fallback-hourly-null-consumer",
+      "actual": {
+        "current": {
+          "consensusTemperature": 17,
+          "apparentTemperature": null,
+          "tempMin": null,
+          "tempMax": null,
+          "confidenceScore": null,
+          "humidity": 81,
+          "precipitation": null,
+          "precipitationProb": null,
+          "cloudCover": 93,
+          "pressure": null,
+          "windSpeed": 14.4,
+          "windDirection": 140,
+          "windGusts": null,
+          "conditionCode": null,
+          "conditionText": "Data Simbol Tidak Tersedia",
+          "pm25": 15,
+          "pm10": 20,
+          "ozone": 30,
+          "uvIndex": null,
+          "aqiLevel": "Tidak Tersedia",
+          "aqiColor": "#94a3b8"
+        },
+        "firstHour": {
+          "time": "2026-10-03T23:30:15.724Z",
+          "hour": 23,
+          "label": "23:30",
+          "temperature": 17,
+          "apparentTemp": null,
+          "humidity": 81,
+          "precipitation": null,
+          "precipitationProb": null,
+          "cloudCover": 93,
+          "pressure": null,
+          "seaLevelPressure": 1005,
+          "windSpeed": 14.4,
+          "windDirection": 140,
+          "windGusts": null,
+          "conditionCode": null,
+          "conditionText": "Tidak Diketahui",
+          "pm25": null,
+          "ozone": null,
+          "uvIndex": null
+        },
+        "summary": {
+          "maxTemp": "17°C",
+          "minTemp": "17°C",
+          "totalRain": "Tidak tersedia",
+          "maxProb": "Tidak tersedia",
+          "maxWind": "14.4 km/h"
+        },
+        "modelsCount": 9,
+        "attempts": [
+          {
+            "id": "open_meteo_weather",
+            "status": "FAILED",
+            "error": "Independent primary outage fixture"
+          },
+          {
+            "id": "open_meteo_models",
+            "status": "SUCCESS"
+          },
+          {
+            "id": "open_meteo_air",
+            "status": "SUCCESS"
+          },
+          {
+            "id": "met_norway_fallback",
+            "status": "SUCCESS"
+          }
+        ],
+        "perModel": [
+          {
+            "id": "open_meteo_model_bom",
+            "status": "ONLINE"
+          },
+          {
+            "id": "open_meteo_model_cma",
+            "status": "ONLINE"
+          },
+          {
+            "id": "open_meteo_model_jma",
+            "status": "ONLINE"
+          }
+        ]
+      },
+      "expected": "Unknown condition/pressure/rain remain unknown in series and summaries",
+      "passed": true
+    },
+    {
+      "id": "fallback-old-air",
+      "actual": {
+        "current": {
+          "consensusTemperature": 17,
+          "apparentTemperature": null,
+          "tempMin": null,
+          "tempMax": null,
+          "confidenceScore": null,
+          "humidity": 81,
+          "precipitation": null,
+          "precipitationProb": null,
+          "cloudCover": 93,
+          "pressure": null,
+          "windSpeed": 14.4,
+          "windDirection": 140,
+          "windGusts": null,
+          "conditionCode": null,
+          "conditionText": "Data Simbol Tidak Tersedia",
+          "pm25": null,
+          "pm10": null,
+          "ozone": null,
+          "uvIndex": null,
+          "aqiLevel": "Tidak Tersedia",
+          "aqiColor": "#94a3b8"
+        },
+        "firstHour": {
+          "time": "2026-10-03T23:30:15.724Z",
+          "hour": 23,
+          "label": "23:30",
+          "temperature": 17,
+          "apparentTemp": null,
+          "humidity": 81,
+          "precipitation": null,
+          "precipitationProb": null,
+          "cloudCover": 93,
+          "pressure": null,
+          "seaLevelPressure": 1005,
+          "windSpeed": 14.4,
+          "windDirection": 140,
+          "windGusts": null,
+          "conditionCode": null,
+          "conditionText": "Tidak Diketahui",
+          "pm25": null,
+          "ozone": null,
+          "uvIndex": null
+        },
+        "summary": {
+          "maxTemp": "17°C",
+          "minTemp": "17°C",
+          "totalRain": "Tidak tersedia",
+          "maxProb": "Tidak tersedia",
+          "maxWind": "14.4 km/h"
+        },
+        "modelsCount": 9,
+        "attempts": [
+          {
+            "id": "open_meteo_weather",
+            "status": "FAILED",
+            "error": "Independent primary outage fixture"
+          },
+          {
+            "id": "open_meteo_models",
+            "status": "SUCCESS"
+          },
+          {
+            "id": "open_meteo_air",
+            "status": "FAILED",
+            "error": "Waktu kualitas udara tidak sesuai waktu cuaca cadangan."
+          },
+          {
+            "id": "met_norway_fallback",
+            "status": "SUCCESS"
+          }
+        ],
+        "perModel": [
+          {
+            "id": "open_meteo_model_bom",
+            "status": "ONLINE"
+          },
+          {
+            "id": "open_meteo_model_cma",
+            "status": "ONLINE"
+          },
+          {
+            "id": "open_meteo_model_jma",
+            "status": "ONLINE"
+          }
+        ]
+      },
+      "expected": "Reject stale air from combined current and mark its attempt failed",
+      "passed": true
+    },
+    {
+      "id": "fallback-missing-models-status",
+      "actual": {
+        "current": {
+          "consensusTemperature": 17,
+          "apparentTemperature": null,
+          "tempMin": null,
+          "tempMax": null,
+          "confidenceScore": null,
+          "humidity": 81,
+          "precipitation": null,
+          "precipitationProb": null,
+          "cloudCover": 93,
+          "pressure": null,
+          "windSpeed": 14.4,
+          "windDirection": 140,
+          "windGusts": null,
+          "conditionCode": null,
+          "conditionText": "Data Simbol Tidak Tersedia",
+          "pm25": 15,
+          "pm10": 20,
+          "ozone": 30,
+          "uvIndex": null,
+          "aqiLevel": "Tidak Tersedia",
+          "aqiColor": "#94a3b8"
+        },
+        "firstHour": {
+          "time": "2026-10-03T23:30:15.724Z",
+          "hour": 23,
+          "label": "23:30",
+          "temperature": 17,
+          "apparentTemp": null,
+          "humidity": 81,
+          "precipitation": null,
+          "precipitationProb": null,
+          "cloudCover": 93,
+          "pressure": null,
+          "seaLevelPressure": 1005,
+          "windSpeed": 14.4,
+          "windDirection": 140,
+          "windGusts": null,
+          "conditionCode": null,
+          "conditionText": "Tidak Diketahui",
+          "pm25": null,
+          "ozone": null,
+          "uvIndex": null
+        },
+        "summary": {
+          "maxTemp": "17°C",
+          "minTemp": "17°C",
+          "totalRain": "Tidak tersedia",
+          "maxProb": "Tidak tersedia",
+          "maxWind": "14.4 km/h"
+        },
+        "modelsCount": 1,
+        "attempts": [
+          {
+            "id": "open_meteo_weather",
+            "status": "FAILED",
+            "error": "Independent primary outage fixture"
+          },
+          {
+            "id": "open_meteo_models",
+            "status": "PARTIAL",
+            "error": "Hanya 1 dari 9 model yang tersedia."
+          },
+          {
+            "id": "open_meteo_air",
+            "status": "SUCCESS"
+          },
+          {
+            "id": "met_norway_fallback",
+            "status": "SUCCESS"
+          }
+        ],
+        "perModel": [
+          {
+            "id": "open_meteo_model_bom",
+            "status": "OFFLINE"
+          },
+          {
+            "id": "open_meteo_model_cma",
+            "status": "OFFLINE"
+          },
+          {
+            "id": "open_meteo_model_jma",
+            "status": "OFFLINE"
+          }
+        ]
+      },
+      "expected": "Missing eight models must be PARTIAL and per-model statuses reflect validated results",
+      "passed": true
+    },
+    {
+      "id": "MET-old-issue-new-points",
+      "actual": {
+        "success": false,
+        "updatedAt": null,
+        "pointCount": 0,
+        "attempt": {
+          "id": "met_norway_fallback",
+          "url": "https://api.met.no/weatherapi/locationforecast/2.0/compact?lat=-7.211&lon=112.75",
+          "status": "FAILED",
+          "httpStatus": 200,
+          "latencyMs": 0,
+          "payloadBytes": 521,
+          "checkedAt": "2026-10-03T23:30:15.740Z",
+          "error": "Model issue time (updated_at) MET Norway sudah usang (>48 jam)."
+        },
+        "expectedUtf8Bytes": 521,
+        "actualHttpStatus": 200
+      },
+      "expected": "Reject or stale-classify old model issue, not SUCCESS",
+      "passed": true
+    },
+    {
+      "id": "MET-one-invalid-one-valid",
+      "actual": {
+        "success": true,
+        "updatedAt": "2026-10-03T23:30:15.724Z",
+        "pointCount": 1,
+        "attempt": {
+          "id": "met_norway_fallback",
+          "url": "https://api.met.no/weatherapi/locationforecast/2.0/compact?lat=-7.212&lon=112.75",
+          "status": "PARTIAL",
+          "httpStatus": 200,
+          "latencyMs": 1,
+          "payloadBytes": 738,
+          "checkedAt": "2026-10-03T23:30:15.741Z",
+          "rejectedCount": 1,
+          "acceptedCount": 1,
+          "error": "1 titik prakiraan ditolak karena nilai tidak valid."
+        },
+        "expectedUtf8Bytes": 738,
+        "actualHttpStatus": 200
+      },
+      "expected": "Retain valid point and expose rejected count with PARTIAL",
+      "passed": true
+    },
+    {
+      "id": "MET-HTTP203-unicode",
+      "actual": {
+        "success": true,
+        "updatedAt": "2026-10-03T23:30:15.724Z",
+        "pointCount": 1,
+        "attempt": {
+          "id": "met_norway_fallback",
+          "url": "https://api.met.no/weatherapi/locationforecast/2.0/compact?lat=-7.213&lon=112.75",
+          "status": "SUCCESS",
+          "httpStatus": 203,
+          "latencyMs": 0,
+          "payloadBytes": 551,
+          "checkedAt": "2026-10-03T23:30:15.741Z",
+          "rejectedCount": 0,
+          "acceptedCount": 1
+        },
+        "expectedUtf8Bytes": 551,
+        "actualHttpStatus": 203
+      },
+      "expected": "Preserve HTTP 203 and measure UTF-8 payload bytes",
+      "passed": true
+    },
+    {
+      "id": "MET-cache-provenance",
+      "actual": {
+        "servedFromCache": true,
+        "attempt": {
+          "id": "met_norway_fallback",
+          "url": "https://api.met.no/weatherapi/locationforecast/2.0/compact?lat=-7.213&lon=112.75",
+          "status": "SUCCESS",
+          "httpStatus": 203,
+          "latencyMs": 0,
+          "payloadBytes": 0,
+          "checkedAt": "2026-10-03T23:30:15.741Z",
+          "rejectedCount": 0,
+          "acceptedCount": 1,
+          "cacheCheckedAt": "2026-10-03T23:30:15.741Z"
+        },
+        "updatedAt": "2026-10-03T23:30:15.724Z"
+      },
+      "expected": "Explicit cache origin, no new successful retrieval timestamp",
+      "passed": true
+    },
+    {
+      "id": "model-manual-wrong-time",
+      "actual": {
+        "status": "OFFLINE",
+        "error": "Waktu model CMA tidak valid."
+      },
+      "expected": "Reject invalid product, not ONLINE",
+      "passed": true
+    },
+    {
+      "id": "model-manual-valid-single-response",
+      "actual": {
+        "status": "ONLINE"
+      },
+      "expected": "Valid provider single-model schema accepted with honest forecast coverage",
+      "passed": true
+    },
+    {
+      "id": "MET-manual-nonproduct",
+      "actual": {
+        "status": "OFFLINE",
+        "error": "Respons MET Norway tidak memuat geometri lokasi yang valid."
+      },
+      "expected": "Reject invalid product, not ONLINE",
+      "passed": true
+    },
+    {
+      "id": "MET-manual-unusable-timeseries",
+      "actual": {
+        "status": "OFFLINE",
+        "error": "Data prakiraan MET Norway tidak memuat titik cuaca yang dapat digunakan."
+      },
+      "expected": "Reject invalid product, not ONLINE",
+      "passed": true
+    },
+    {
+      "id": "BMKG-numeric-junk",
+      "actual": {
+        "status": "OFFLINE",
+        "error": "Format Coordinates gempa BMKG memuat teks atau karakter tidak sah."
+      },
+      "expected": "Reject invalid product, not ONLINE",
+      "passed": true
+    },
+    {
+      "id": "radar-moveend-then-cached-viewport",
+      "actual": {
+        "counts": {
+          "requested": 1,
+          "loaded": 1,
+          "error": 0,
+          "activeRequested": 0,
+          "activeLoaded": 0,
+          "activeError": 0
+        },
+        "status": "MEMUAT"
+      },
+      "expected": "Recompute active cache coverage; do not fall back to historical loaded/error counts",
+      "passed": true
+    },
+    {
+      "id": "radar-late-old-error-after-moveend",
+      "actual": {
+        "counts": {
+          "requested": 1,
+          "loaded": 1,
+          "error": 1,
+          "activeRequested": 0,
+          "activeLoaded": 0,
+          "activeError": 0
+        },
+        "status": "MEMUAT"
+      },
+      "expected": "Old-generation event cannot affect active viewport",
+      "passed": true
+    },
+    {
+      "id": "gibs-old-response-overwrites-new",
+      "actual": {
+        "oldOwnedControllerAborted": true,
+        "oldFetchSignalAborted": true,
+        "updates": [
+          "2026-10-04T01:00:00Z"
+        ],
+        "finalFrame": "2026-10-04T01:00:00Z"
+      },
+      "expected": "Abort signal and generation must belong to request; old response must not replace newer frame",
+      "passed": true
+    }
+  ]
+}

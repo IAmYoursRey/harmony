@@ -138,6 +138,7 @@ export function SensorInspectorModal({
             </div>
           </div>
 
+          <p role="status" className="mt-3 text-xs text-amber-600 dark:text-amber-400">Katalog alat dan lokasi contoh. Harmony belum mengambil telemetri langsung dari alat ini; data katalog tidak menjadi masukan prakiraan.</p>
           {/* Status & Telemetry Strip */}
           <div className="mt-4 flex flex-wrap items-center justify-between gap-2 rounded-2xl border border-slate-100 bg-slate-50/70 p-2.5 dark:border-slate-800 dark:bg-slate-800/50 text-xs">
             <div className="flex items-center gap-2">
@@ -151,7 +152,7 @@ export function SensorInspectorModal({
                 ) : (
                   <CheckCircle2 className="h-3.5 w-3.5" />
                 )}
-                <span>● {sensor.status}</span>
+                <span>● {sensor.status === 'UNCHECKED' ? 'Belum terhubung' : sensor.status}</span>
               </span>
               <span className="text-slate-300 dark:text-slate-700">•</span>
               <span className="text-ink-600 dark:text-slate-300">

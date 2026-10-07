@@ -170,7 +170,7 @@ export function Sidebar({
                         <span className="flex h-2 w-2 rounded-full bg-white animate-pulse" />
                       ) : (
                         <span className="rounded-md bg-teal-500/10 px-1.5 py-0.5 text-[9px] font-bold text-teal-700 dark:bg-teal-400/20 dark:text-teal-300">
-                          11-Domain
+                          Analisis Peta
                         </span>
                       )}
                     </div>

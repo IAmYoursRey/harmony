@@ -30,9 +30,9 @@ export const GeospatialChartsTab: React.FC<GeospatialChartsTabProps> = ({
 
   const defaultChartForPreset: Record<string, string> = {
     weather: 'wind_rose',
-    seismic: 'seismograph',
-    climate: 'fan_chart',
-    hydrology: 'waterfall',
+    seismic: 'depth_mag_scatter',
+    climate: 'grouped_bar',
+    hydrology: 'bar',
   };
 
   return (

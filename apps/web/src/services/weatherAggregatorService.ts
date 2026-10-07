@@ -1,3 +1,4 @@
+import { assertCoordinates, finiteNumber, fetchCheckedJson, validateCurrentWeather, validateOpenMeteoModelPayload, type SourceFetchAttempt } from './weatherDataIntegrity';
 import {
   atmosphericNwpAiService,
   AiNwpVerificationResult,
@@ -7,8 +8,12 @@ import {
   cloudThermodynamicsEngine,
   CloudThermodynamicsResult,
 } from './cloudThermodynamicsEngine';
+import { metNorwayService } from './metNorwayService';
+import { increasingForecastTimes, weatherValue, validateAirQuality } from './weatherValueValidation';
 
 export interface WeatherModelValue {
+  modelId?: string;
+  dataTime?: string;
   modelName: string;
   sourceFlag: string;
   temperature: number;
@@ -24,23 +29,25 @@ export interface WeatherHourlyPoint {
   hour: number;
   label: string;
   temperature: number;
-  apparentTemp?: number;
+  apparentTemp?: number | null;
   ecmwfTemp?: number;
   gfsTemp?: number;
   iconTemp?: number;
   jmaTemp?: number;
   humidity: number;
-  precipitation: number;
-  precipitationProb: number;
-  cloudCover?: number;
-  conditionCode?: number;
+  precipitation: number | null;
+  precipitationProb: number | null;
+  cloudCover?: number | null;
+  conditionCode?: number | null;
   conditionText?: string;
-  pressure: number;
-  windSpeed: number;
-  windDirection: number;
-  pm25: number;
-  ozone: number;
-  uvIndex: number;
+  pressure?: number | null;
+  seaLevelPressure?: number | null;
+  windSpeed?: number | null;
+  windGusts?: number | null;
+  windDirection?: number | null;
+  pm25: number | null;
+  ozone: number | null;
+  uvIndex: number | null;
 }
 
 export interface WeatherDailyPoint {
@@ -52,10 +59,37 @@ export interface WeatherDailyPoint {
   gfsTempMax?: number;
   iconTempMax?: number;
   precipitationSum: number;
-  precipitationProbMax: number;
+  precipitationProbMax: number | null;
   windSpeedMax: number;
-  uvIndexMax: number;
+  apparentTempMax?: number | null;
+  windGustMax?: number | null;
+  uvIndexMax: number | null;
   condition: string;
+}
+
+export interface WeatherCurrentData {
+  consensusTemperature: number | null;
+  apparentTemperature: number | null;
+  tempMin: number | null;
+  tempMax: number | null;
+  confidenceScore: number | null;
+  humidity: number | null;
+  precipitation: number | null;
+  precipitationProb: number | null;
+  cloudCover?: number | null;
+  pressure: number | null;
+  windSpeed: number | null;
+  windDirection: number | null;
+  windGusts: number | null;
+  conditionCode: number | null;
+  conditionText: string;
+  
+  pm25: number | null;
+  pm10: number | null;
+  ozone: number | null;
+  uvIndex: number | null;
+  aqiLevel: 'Sangat Baik' | 'Baik' | 'Sedang' | 'Tidak Sehat' | 'Berbahaya' | 'Tidak Tersedia';
+  aqiColor: string;
 }
 
 export interface WeatherConsensusData {
@@ -66,37 +100,18 @@ export interface WeatherConsensusData {
   timestamp: string;
   timezone: string;
   
-  // Realtime Consensus Metrics
-  current: {
-    consensusTemperature: number;
-    apparentTemperature: number;
-    tempMin: number;
-    tempMax: number;
-    confidenceScore: number; // e.g. 97.5%
-    humidity: number;
-    precipitation: number;
-    precipitationProb: number;
-    cloudCover?: number;
-    pressure: number; // hPa
-    windSpeed: number; // km/h
-    windDirection: number; // deg
-    windGusts: number;
-    conditionCode: number;
-    conditionText: string;
-    
-    // Air Quality & Atmosphere
-    pm25: number;
-    pm10: number;
-    ozone: number; // µg/m³
-    uvIndex: number;
-    aqiLevel: 'Sangat Baik' | 'Baik' | 'Sedang' | 'Tidak Sehat' | 'Berbahaya';
-    aqiColor: string;
-  };
+  dataStatus: 'AVAILABLE' | 'PARTIAL';
+  dataTime: string;
+  fetchedAt: string;
+  servedFromCache?: boolean;
+  sourceFetches: SourceFetchAttempt[];
+  modelSpread: number | null;
+  accuracyValidated: false;
+  coverageScope: string;
 
-  // Multi-Model Breakdown at current time
+  current: WeatherCurrentData | null;
   modelComparison: WeatherModelValue[];
 
-  // Active Sources
   sources: {
     id: string;
     name: string;
@@ -105,11 +120,18 @@ export interface WeatherConsensusData {
     status: 'online' | 'active';
   }[];
 
-  // Time-Series Data
   hourly: WeatherHourlyPoint[];
+  extendedHourly?: WeatherHourlyPoint[];
   daily: WeatherDailyPoint[];
+  historicalAirQuality?: Array<{
+    time: string;
+    pm25: number | null;
+    pm10: number | null;
+    ozone: number | null;
+  }>;
 
-  // AI Agent Summary & Mitigation Advice
+  cloudThermodynamics?: CloudThermodynamicsResult;
+
   aiBriefing: {
     summaryText: string;
     peakExtremeHour?: string;
@@ -117,13 +139,8 @@ export interface WeatherConsensusData {
     preparednessAdvice: string[];
   };
 
-  // Verifikasi Ilmiah 7 Persamaan Dasar Atmosfer (NWP & Gemini AI)
   aiNwpVerification?: AiNwpVerificationResult;
-
-  // Termodinamika Awan & Adveksi Angin (Prediksi Menguap vs Mengembun)
-  cloudThermodynamics?: CloudThermodynamicsResult;
 }
-
 
 export function getWeatherConditionText(code: number): string {
   if (code === 0) return 'Cerah';
@@ -133,618 +150,623 @@ export function getWeatherConditionText(code: number): string {
   if (code >= 45 && code <= 48) return 'Berkabut / Udara Kabur';
   if (code >= 51 && code <= 55) return 'Gerimis Ringan';
   if (code === 56 || code === 57) return 'Gerimis Dingin';
-  if (code >= 61 && code <= 63) return 'Hujan Ringan';
-  if (code >= 64 && code <= 65) return 'Hujan Sedang';
+  if (code === 61) return 'Hujan Ringan';
+  if (code === 63) return 'Hujan Sedang';
+  if (code === 65) return 'Hujan Lebat';
   if (code === 66 || code === 67) return 'Hujan Dingin';
+  if (code === 71) return 'Salju Ringan';
+  if (code === 73) return 'Salju Sedang';
+  if (code === 75) return 'Salju Lebat';
+  if (code === 77) return 'Butiran Salju';
+  if (code === 85 || code === 86) return 'Hujan Salju';
   if (code >= 80 && code <= 82) return 'Hujan Guyuran Lokal';
   if (code >= 95) return 'Hujan Badai Petir';
-  return 'Berawan';
+  return 'Kondisi belum dikenali';
 }
+
+export function mapMetSymbolToWmo(symbolCode?: string | null): number | null {
+  if (!symbolCode) return null;
+  const s = symbolCode.toLowerCase();
+  if (s.includes('clearsky') || s.includes('fair')) return 0;
+  if (s.includes('partlycloudy')) return 1;
+  if (s.includes('cloudy')) return 3;
+  if (s.includes('fog')) return 45;
+  if (s.includes('heavyrainshowers_and_thunder') || s.includes('rainandthunder') || s.includes('thunder')) return 95;
+  if (s.includes('heavyrain')) return 65;
+  if (s.includes('rainshowers') || s.includes('rain')) return 61;
+  if (s.includes('sleet')) return 68;
+  if (s.includes('snow')) return 71;
+  return null;
+}
+
+export function formatMetSymbolText(symbolCode?: string | null): string {
+  if (!symbolCode) return 'Data Simbol Tidak Tersedia';
+  const s = symbolCode.toLowerCase();
+  if (s.includes('clearsky')) return 'Langit Cerah (MET Norway)';
+  if (s.includes('fair')) return 'Cerah / Sedikit Berawan (MET Norway)';
+  if (s.includes('partlycloudy')) return 'Sebagian Berawan (MET Norway)';
+  if (s.includes('cloudy')) return 'Berawan (MET Norway)';
+  if (s.includes('fog')) return 'Kabut (MET Norway)';
+  if (s.includes('thunder')) return 'Hujan Petir (MET Norway)';
+  if (s.includes('heavyrain')) return 'Hujan Lebat (MET Norway)';
+  if (s.includes('rain')) return 'Hujan (MET Norway)';
+  if (s.includes('sleet')) return 'Hujan Es / Sleet (MET Norway)';
+  if (s.includes('snow')) return 'Salju (MET Norway)';
+  return `${symbolCode} (MET Norway)`;
+}
+
+export function computeAqiLevel(
+  pm25: number | null,
+  pm10: number | null,
+  ozone: number | null
+): { level: 'Sangat Baik' | 'Baik' | 'Sedang' | 'Tidak Sehat' | 'Berbahaya' | 'Tidak Tersedia'; color: string } {
+  if (typeof pm25 === 'number' && Number.isFinite(pm25)) {
+    if (pm25 <= 15.5) return { level: 'Baik', color: '#10b981' };
+    if (pm25 <= 55.4) return { level: 'Sedang', color: '#3b82f6' };
+    if (pm25 <= 150.4) return { level: 'Tidak Sehat', color: '#f59e0b' };
+    return { level: 'Berbahaya', color: '#ef4444' };
+  }
+  if (typeof pm10 === 'number' && Number.isFinite(pm10)) {
+    if (pm10 <= 50) return { level: 'Baik', color: '#10b981' };
+    if (pm10 <= 150) return { level: 'Sedang', color: '#3b82f6' };
+    if (pm10 <= 350) return { level: 'Tidak Sehat', color: '#f59e0b' };
+    return { level: 'Berbahaya', color: '#ef4444' };
+  }
+  if (typeof ozone === 'number' && Number.isFinite(ozone)) {
+    if (ozone <= 120) return { level: 'Baik', color: '#10b981' };
+    if (ozone <= 235) return { level: 'Sedang', color: '#3b82f6' };
+    return { level: 'Tidak Sehat', color: '#f59e0b' };
+  }
+  return { level: 'Tidak Tersedia', color: '#94a3b8' };
+}
+
+export function formatPointLabel(isoOrEpoch: string | number, timezone: string): { hour: number; label: string } {
+  const date = typeof isoOrEpoch === 'number' ? new Date(isoOrEpoch * 1000) : new Date(isoOrEpoch);
+  let hourStr = '00';
+  let minuteStr = '00';
+  try {
+    const parts = new Intl.DateTimeFormat('en-GB', { timeZone: timezone, hour: '2-digit', minute: '2-digit', hourCycle: 'h23' }).formatToParts(date);
+    hourStr = parts.find(p => p.type === 'hour')?.value || '00';
+    minuteStr = parts.find(p => p.type === 'minute')?.value || '00';
+  } catch {
+    hourStr = String(date.getUTCHours()).padStart(2, '0');
+    minuteStr = String(date.getUTCMinutes()).padStart(2, '0');
+  }
+  const hour = parseInt(hourStr, 10);
+  return { hour, label: `${hourStr}:${minuteStr}` };
+}
+
+export const WEATHER_MODELS = [
+  { id: 'ecmwf_ifs025', name: 'ECMWF IFS 0.25°', country: 'Uni Eropa', flag: '🇪🇺' },
+  { id: 'gfs_seamless', name: 'NOAA GFS', country: 'Amerika Serikat', flag: '🇺🇸' },
+  { id: 'icon_seamless', name: 'DWD ICON', country: 'Jerman', flag: '🇩🇪' },
+  { id: 'jma_seamless', name: 'JMA', country: 'Jepang', flag: '🇯🇵' },
+  { id: 'bom_access_global', name: 'BoM ACCESS-G', country: 'Australia', flag: '🇦🇺' },
+  { id: 'cma_grapes_global', name: 'CMA GRAPES', country: 'Tiongkok', flag: '🇨🇳' },
+  { id: 'meteofrance_seamless', name: 'Météo-France', country: 'Prancis', flag: '🇫🇷' },
+  { id: 'ukmo_seamless', name: 'UK Met Office', country: 'Britania Raya', flag: '🇬🇧' },
+  { id: 'gem_seamless', name: 'CMC GEM', country: 'Kanada', flag: '🇨🇦' },
+];
+
+const nullableNumber = (value: unknown): number | null => finiteNumber(value) ? value : null;
+const epochIso = (epoch: number) => new Date(epoch * 1000).toISOString();
+const localHour = (epoch: number, timezone: string) => Number(new Intl.DateTimeFormat('en-GB', { timeZone: timezone, hour: '2-digit', hourCycle: 'h23' }).format(epoch * 1000));
 
 class WeatherAggregatorService {
-  private cache: Map<string, { data: WeatherConsensusData; timestamp: number }> = new Map();
-  private CACHE_TTL_MS = 3 * 60 * 1000; // 3 menit cache untuk data realtime
+  private cache = new Map<string, { data: WeatherConsensusData; timestamp: number }>();
+  private inFlight = new Map<string, Promise<WeatherConsensusData>>();
+  private CACHE_TTL_MS = 5 * 60 * 1000;
 
-  public async fetchConsensusWeather(
-    lat: number,
-    lng: number,
-    placeName?: string,
-    forceRefresh = false
-  ): Promise<WeatherConsensusData> {
-    const roundedLat = parseFloat(lat.toFixed(3));
-    const roundedLng = parseFloat(lng.toFixed(3));
-    const cacheKey = `${roundedLat},${roundedLng}`;
-
-    const now = Date.now();
-    const cached = this.cache.get(cacheKey);
-    if (!forceRefresh && cached && now - cached.timestamp < this.CACHE_TTL_MS) {
-      return cached.data;
+  public async fetchConsensusWeather(lat: number, lng: number, placeName?: string, forceRefresh = false): Promise<WeatherConsensusData> {
+    assertCoordinates(lat, lng);
+    const key = `provider=open_meteo:models=${WEATHER_MODELS.map(m => m.id).join(',')}:lat=${lat}:lng=${lng}`;
+    if (forceRefresh) {
+      this.cache.delete(key);
     }
-
-    try {
-      // 1. Fetch Open-Meteo Multi-Model Ensemble termasuk model regional Asia, Samudra Hindia, dan Global (ECMWF, GFS, ICON, JMA, BOM, CMA, MeteoFrance, UKMO, GEM)
-      const weatherUrl = `https://api.open-meteo.com/v1/forecast?latitude=${roundedLat}&longitude=${roundedLng}&current=temperature_2m,relative_humidity_2m,apparent_temperature,precipitation,rain,showers,weather_code,cloud_cover,surface_pressure,wind_speed_10m,wind_direction_10m,wind_gusts_10m&hourly=temperature_2m,relative_humidity_2m,apparent_temperature,precipitation_probability,precipitation,rain,showers,weather_code,cloud_cover,surface_pressure,wind_speed_10m,wind_direction_10m&daily=weather_code,temperature_2m_max,temperature_2m_min,apparent_temperature_max,apparent_temperature_min,precipitation_sum,precipitation_probability_max,wind_speed_10m_max&timezone=auto&forecast_days=14&models=ecmwf_ifs025,gfs_seamless,icon_seamless,jma_seamless,bom_access_global,cma_grapes_global,meteofrance_seamless,ukmo_seamless,gem_seamless`;
-
-      // 2. Fetch Open-Meteo Air Quality & Ozone (Copernicus CAMS - max allowed forecast_days is 7)
-      const airQualityUrl = `https://air-quality-api.open-meteo.com/v1/air-quality?latitude=${roundedLat}&longitude=${roundedLng}&current=pm10,pm2_5,ozone,uv_index&hourly=pm10,pm2_5,ozone,uv_index&timezone=auto&forecast_days=7`;
-
-      const [weatherRes, airRes] = await Promise.all([
-        fetch(weatherUrl).then((r) => (r.ok ? r.json() : null)).catch(() => null),
-        fetch(airQualityUrl).then((r) => (r.ok ? r.json() : null)).catch(() => null),
-      ]);
-
-      const data = this.synthesizeConsensus(roundedLat, roundedLng, weatherRes, airRes, placeName);
-
-      // 3. Verifikasi & Kalibrasi AI NWP (7 Persamaan Dasar Atmosfer - Vilhelm Bjerknes & Lewis Richardson)
-      try {
-        const aiNwp = await atmosphericNwpAiService.verifyForecastWithNwpAi({
-          lat: roundedLat,
-          lng: roundedLng,
-          locationName: data.locationName,
-          elevation: data.elevation,
-          current: {
-            consensusTemperature: data.current.consensusTemperature,
-            apparentTemperature: data.current.apparentTemperature,
-            humidity: data.current.humidity,
-            pressure: data.current.pressure,
-            windSpeed: data.current.windSpeed,
-            windDirection: data.current.windDirection,
-            precipitation: data.current.precipitation,
-            precipitationProb: data.current.precipitationProb,
-          },
-          modelComparison: data.modelComparison,
-        });
-
-        if (aiNwp) {
-          data.aiNwpVerification = aiNwp;
-          data.current.consensusTemperature = aiNwp.verifiedTemperature;
-          data.current.apparentTemperature = aiNwp.apparentTemperature;
-          data.current.precipitationProb = Math.max(data.current.precipitationProb, aiNwp.calibratedRainProb);
-          // Jangan timpa presipitasi gerimis yang sudah terkalibrasi menjadi 0
-          data.current.precipitation = Math.max(data.current.precipitation, aiNwp.rainIntensityMmH);
-          if (aiNwp.scientificBriefing) {
-            data.aiBriefing.summaryText = aiNwp.scientificBriefing;
-          }
-        }
-      } catch (aiErr) {
-        console.warn('AI NWP verification non-blocking fallback', aiErr);
-      }
-
-      // Record full raw telemetry snapshot & delta transformations for live audit
-      try {
-        geospatialDataTelemetryService.recordRawIngestion(
-          roundedLat,
-          roundedLng,
-          data.locationName,
-          weatherRes,
-          airRes,
-          data,
-          data.aiNwpVerification
-        );
-      } catch (telErr) {
-        console.warn('Telemetry recording non-blocking error:', telErr);
-      }
-
-      this.cache.set(cacheKey, { data, timestamp: now });
+    const cached = this.cache.get(key);
+    if (!forceRefresh && cached && Date.now() - cached.timestamp < this.CACHE_TTL_MS) {
+      geospatialDataTelemetryService.addLog('INFO', 'CACHE', 'Menggunakan data cuaca tersimpan; tidak ada pengambilan baru.', { dataTime: cached.data.dataTime, fetchedAt: cached.data.fetchedAt });
+      return { ...cached.data, locationName: placeName || cached.data.locationName, servedFromCache: true };
+    }
+    const existing = this.inFlight.get(key);
+    if (existing) return existing;
+    const pending = this.fetchFromSources(lat, lng, placeName, key).then(data => {
+      this.cache.set(key, { data, timestamp: Date.now() });
       return data;
-    } catch (err) {
-      console.warn('WeatherAggregator fallback to local synthesized engine', err);
-      const fallback = this.generateFallbackData(roundedLat, roundedLng, placeName);
-      try {
-        geospatialDataTelemetryService.recordRawIngestion(
-          roundedLat,
-          roundedLng,
-          fallback.locationName,
-          null,
-          null,
-          fallback
-        );
-        geospatialDataTelemetryService.addLog(
-          'WARN',
-          'FALLBACK',
-          `Data mentah gagal diunduh langsung dari Open-Meteo. Beralih ke model sintesis lokal & BMKG proxy.`
-        );
-      } catch {}
-      return fallback;
-    }
+    }).finally(() => this.inFlight.delete(key));
+    this.inFlight.set(key, pending);
+    return pending;
   }
 
-  public async reverifyWithAi(currentData: WeatherConsensusData): Promise<WeatherConsensusData> {
-    try {
-      const aiNwp = await atmosphericNwpAiService.verifyForecastWithNwpAi({
-        lat: currentData.lat,
-        lng: currentData.lng,
-        locationName: currentData.locationName,
-        elevation: currentData.elevation,
-        current: {
-          consensusTemperature: currentData.current.consensusTemperature,
-          apparentTemperature: currentData.current.apparentTemperature,
-          humidity: currentData.current.humidity,
-          pressure: currentData.current.pressure,
-          windSpeed: currentData.current.windSpeed,
-          windDirection: currentData.current.windDirection,
-          precipitation: currentData.current.precipitation,
-          precipitationProb: currentData.current.precipitationProb,
-        },
-        modelComparison: currentData.modelComparison,
-      });
+  private async fetchFromSources(lat: number, lng: number, placeName?: string, queryKey?: string): Promise<WeatherConsensusData> {
+    const coordinates = `latitude=${lat}&longitude=${lng}&timezone=auto&timeformat=unixtime`;
+    const currentFields = 'temperature_2m,relative_humidity_2m,apparent_temperature,precipitation,weather_code,cloud_cover,surface_pressure,wind_speed_10m,wind_direction_10m,wind_gusts_10m';
+    const hourlyFields = 'temperature_2m,relative_humidity_2m,apparent_temperature,precipitation_probability,precipitation,weather_code,cloud_cover,surface_pressure,wind_speed_10m,wind_direction_10m,wind_gusts_10m,uv_index';
+    const dailyFields = 'weather_code,temperature_2m_max,temperature_2m_min,apparent_temperature_max,precipitation_sum,precipitation_probability_max,wind_speed_10m_max,wind_gusts_10m_max,uv_index_max';
+    const weatherUrl = `https://api.open-meteo.com/v1/forecast?${coordinates}&current=${currentFields}&hourly=${hourlyFields}&daily=${dailyFields}&forecast_days=14`;
+    const modelUrl = `https://api.open-meteo.com/v1/forecast?${coordinates}&hourly=temperature_2m&forecast_days=14&models=${WEATHER_MODELS.map(m => m.id).join(',')}`;
+    const airUrl = `https://air-quality-api.open-meteo.com/v1/air-quality?${coordinates}&current=pm10,pm2_5,ozone&hourly=pm10,pm2_5,ozone&past_days=1&forecast_days=7`;
+    const [weather, models, air] = await Promise.all([
+      fetchCheckedJson('open_meteo_weather', weatherUrl, d => {
+        const error = validateCurrentWeather(d, lat, lng);
+        if (error) return error;
+        if (!increasingForecastTimes(d.hourly?.time) || !d.hourly.time.some((t: number) => t <= d.current.time && d.current.time - t < 3600)) return 'Deret prakiraan tidak berurutan atau tidak mencakup waktu cuaca saat ini.';
+        return null;
+      }),
+      fetchCheckedJson('open_meteo_models', modelUrl, d => {
+        const v = validateOpenMeteoModelPayload(d, lat, lng);
+        if (!v.valid) return v.error || 'Permintaan model gagal.';
+        if (v.status === 'PARTIAL') {
+          return { partial: true, message: v.error || 'Sebagian model tidak tersedia atau tidak valid.', acceptedCount: v.acceptedCount, rejectedCount: v.rejectedCount } as any;
+        }
+        return null;
+      }),
+      fetchCheckedJson('open_meteo_air', airUrl, d => validateAirQuality(d, lat, lng)),
+    ]);
+    const attempts = [weather.attempt, models.attempt, air.attempt];
+    if (air.data) {
+      const raw = air.data;
+      const fields = ['pm2_5', 'pm10', 'ozone'];
+      const invalidCurrent = fields.some(k => weatherValue(k, raw.current[k]) === null);
+      const hourly = increasingForecastTimes(raw.hourly?.time) ? {
+        time: raw.hourly.time,
+        ...Object.fromEntries(fields.map(k => [k, raw.hourly.time.map((_: number, i: number) => weatherValue(k, raw.hourly[k]?.[i]))])),
+      } : { time: [] };
+      const validHourlyCounts = fields.map(k => (hourly as any)[k]?.filter((v: number | null) => v !== null).length || 0);
+      const incomplete = invalidCurrent || !hourly.time.length || validHourlyCounts.some(count => count < 24);
+      if (incomplete) { air.attempt.status = 'PARTIAL'; air.attempt.error = 'Sebagian nilai atau deret kualitas udara tidak tersedia/tidak valid.'; }
+      air.data = { ...raw, current: { ...raw.current, ...Object.fromEntries(fields.map(k => [k, weatherValue(k, raw.current[k])])) }, hourly };
+    }
 
-      if (aiNwp) {
-        currentData.aiNwpVerification = aiNwp;
-        currentData.current.consensusTemperature = aiNwp.verifiedTemperature;
-        currentData.current.apparentTemperature = aiNwp.apparentTemperature;
-        currentData.current.precipitationProb = Math.max(currentData.current.precipitationProb, aiNwp.calibratedRainProb);
-        currentData.current.precipitation = Math.max(currentData.current.precipitation, aiNwp.rainIntensityMmH);
-        if (aiNwp.scientificBriefing) {
-          currentData.aiBriefing.summaryText = aiNwp.scientificBriefing;
+    let modelResult = models;
+    // A rejected batch must not disable any registered model. Retry missing or
+    // invalid series independently, then join only validated values by epoch.
+    const initialHourly = modelResult.data?.hourly || {};
+    const retryModels = WEATHER_MODELS.filter(m => {
+      const values = initialHourly[`temperature_2m_${m.id}`];
+      if (!Array.isArray(values)) return true;
+      if (values.length > 0 && values.every(v => v === null)) return false;
+      return values.some(v => !finiteNumber(v) || v < -100 || v > 65);
+    });
+    if (retryModels.length) {
+      const individual: Array<{ model: typeof WEATHER_MODELS[number]; data: any; attempt: SourceFetchAttempt }> = [];
+      // Limit retries to three concurrent requests to avoid a burst against the
+      // shared provider quota. Failed attempts remain visible in the audit.
+      for (let offset = 0; offset < retryModels.length; offset += 3) {
+        const batch = await Promise.all(retryModels.slice(offset, offset + 3).map(async m => {
+          const url = `https://api.open-meteo.com/v1/forecast?${coordinates}&hourly=temperature_2m&forecast_days=14&models=${m.id}`;
+          const endpointId = ({ bom_access_global: 'open_meteo_model_bom', cma_grapes_global: 'open_meteo_model_cma', jma_seamless: 'open_meteo_model_jma' } as Record<string, string>)[m.id] || `open_meteo_model_${m.id}`;
+          const result = await fetchCheckedJson(endpointId, url, d => {
+            const v = validateOpenMeteoModelPayload(d, lat, lng, m.id);
+            if (!v.valid) return v.error || 'Model tidak tersedia.';
+            return v.status === 'PARTIAL' ? { partial: true, message: v.error || 'Sebagian titik model ditolak.', acceptedCount: v.acceptedCount, rejectedCount: v.rejectedCount } : null;
+          }, {}, 6000);
+          return { model: m, ...result };
+        }));
+        individual.push(...batch);
+      }
+      attempts.push(...individual.map(r => r.attempt));
+      const toEpoch = (t: string | number): number => typeof t === 'number' ? (t > 1e11 ? Math.floor(t / 1000) : t) : Math.floor(Date.parse(t) / 1000);
+      const times: number[] = [...new Set<number>([
+        ...(initialHourly.time || []).map(toEpoch),
+        ...individual.flatMap(r => (r.data?.hourly?.time || []).map(toEpoch)),
+      ])].sort((a, b) => a - b);
+      const joined: Record<string, any> = { time: times };
+      for (const m of WEATHER_MODELS) {
+        const key = `temperature_2m_${m.id}`;
+        const values = new Map<number, number>();
+        (initialHourly.time || []).forEach((t: number | string, i: number) => {
+          const v = initialHourly[key]?.[i];
+          if (finiteNumber(v) && v >= -100 && v <= 65) values.set(toEpoch(t), v);
+        });
+        const retry = individual.find(r => r.model.id === m.id && r.data);
+        if (retry) {
+          (retry.data.hourly.time || []).forEach((t: number | string, i: number) => {
+            const v = (retry.data.hourly[key] || retry.data.hourly.temperature_2m)?.[i];
+            if (finiteNumber(v) && v >= -100 && v <= 65) values.set(toEpoch(t), v);
+          });
+        }
+        if (values.size) joined[key] = times.map(t => values.get(t) ?? null);
+      }
+      // No new SUCCESS attempt is invented for the in-memory merge.
+      modelResult = { data: times.length ? { hourly: joined } : null, attempt: models.attempt };
+    } else if (modelResult.data) {
+      const times = modelResult.data.hourly.time.map((t: string | number) => typeof t === 'number' ? (t > 1e11 ? Math.floor(t / 1000) : t) : Math.floor(Date.parse(t) / 1000));
+      modelResult = { ...modelResult, data: { ...modelResult.data, hourly: { ...modelResult.data.hourly, time: times } } };
+    }
+
+    if (!weather.data) {
+      try {
+        const met = await metNorwayService.fetchForecast(lat, lng);
+        if (met.attempt) {
+          attempts.push(met.attempt);
         }
 
-        geospatialDataTelemetryService.addLog(
-          'AI_EXEC',
-          'GEMINI_NWP',
-          `Verifikasi ulang AI: Suhu ${aiNwp.verifiedTemperature}°C, Kerapatan udara ${aiNwp.airDensityKgM3} kg/m³, Stabilitas: ${aiNwp.convectiveStability}.`,
-          { equations: aiNwp.equationsStatus }
-        );
+        if (met.success) {
+          const timezone = 'UTC';
+          const modelHourly = modelResult.data?.hourly || {};
+          const modelTimes: number[] = Array.isArray(modelHourly.time) ? modelHourly.time : [];
+          const targetEpoch = met.current?.epoch || (met.points[0]?.epoch ?? Math.floor(Date.now() / 1000));
+          const modelHourIndex = modelTimes.findIndex(t => Math.abs(t - targetEpoch) < 3600);
+          const modelComparison: WeatherModelValue[] = modelHourIndex >= 0 ? WEATHER_MODELS.flatMap(m => {
+            const temperature = modelHourly[`temperature_2m_${m.id}`]?.[modelHourIndex];
+            return (finiteNumber(temperature) && temperature >= -100 && temperature <= 65) ? [{
+              modelId: m.id,
+              modelName: m.name,
+              sourceFlag: m.flag,
+              country: m.country,
+              agency: `${m.name} melalui Open-Meteo`,
+              category: 'GLOBAL_TOP_NWP' as const,
+              temperature,
+              dataTime: epochIso(modelTimes[modelHourIndex]),
+              notes: 'Prakiraan model pada koordinat pilihan; bukan pengamatan langsung.',
+            }] : [];
+          }) : [];
 
-        const cacheKey = `${currentData.lat.toFixed(3)},${currentData.lng.toFixed(3)}`;
-        this.cache.set(cacheKey, { data: currentData, timestamp: Date.now() });
+          if (modelResult.data && modelResult.attempt.status !== 'FAILED') {
+            if (modelComparison.length >= 7) {
+              modelResult.attempt.status = 'SUCCESS';
+              modelResult.attempt.error = undefined;
+            } else if (modelComparison.length > 0) {
+              modelResult.attempt.status = 'PARTIAL';
+              const missing = WEATHER_MODELS.filter(m => !modelComparison.some(v => v.modelId === m.id)).map(m => m.name);
+              modelResult.attempt.error = `Tersedia ${modelComparison.length} dari ${WEATHER_MODELS.length} model pada waktu yang sama. Tidak tersedia: ${missing.join(", ")}.`;
+            } else {
+              modelResult.attempt.status = 'FAILED';
+              modelResult.attempt.error = 'Tidak ada model cuaca numerik yang tersedia.';
+            }
+          }
+
+          if (air.data) {
+            const airEpoch = air.data.current?.time;
+            if (!finiteNumber(airEpoch) || Math.abs(airEpoch - targetEpoch) >= 3600) {
+              air.attempt.status = 'FAILED';
+              air.attempt.error = 'Waktu kualitas udara tidak sesuai waktu cuaca cadangan.';
+              air.data = null;
+            }
+          }
+
+          const aq = air.data?.current || {};
+          const airValue = (value: unknown) => finiteNumber(value) && value >= 0 ? value : null;
+          const pm25 = air.data ? airValue(aq.pm2_5) : null;
+          const pm10 = air.data ? airValue(aq.pm10) : null;
+          const ozone = air.data ? airValue(aq.ozone) : null;
+
+          const airHourly = air.data?.hourly || {};
+          const pastAirIndices = (Array.isArray(airHourly.time) ? airHourly.time : [])
+            .map((t: number, idx: number) => ({ time: t, index: idx }))
+            .filter((p: { time: number; index: number }) => finiteNumber(p.time) && p.time <= targetEpoch && p.time > targetEpoch - 24 * 3600);
+          const historicalAirQuality = pastAirIndices.map((p: { time: number; index: number }) => ({
+            time: epochIso(p.time),
+            pm25: nullableNumber(airHourly.pm2_5?.[p.index]),
+            pm10: nullableNumber(airHourly.pm10?.[p.index]),
+            ozone: nullableNumber(airHourly.ozone?.[p.index]),
+          }));
+
+          const sources: WeatherConsensusData['sources'] = [
+            { id: 'met_norway', name: 'MET Norway (Fallback)', origin: 'Norwegia', type: 'Prakiraan MEPS / HRES', status: 'online' },
+            ...modelComparison.map(m => ({ id: m.modelId!, name: m.modelName, origin: m.country!, type: 'Model melalui Open-Meteo', status: 'online' as const })),
+            ...(air.data ? [{ id: 'cams', name: 'Copernicus CAMS melalui Open-Meteo', origin: 'Koordinat pilihan', type: 'Prakiraan kualitas udara', status: 'online' as const }] : []),
+          ];
+
+          let currentBlock: WeatherCurrentData | null = null;
+          if (met.current) {
+            currentBlock = {
+              consensusTemperature: met.current.temperatureC,
+              apparentTemperature: null,
+              tempMin: null,
+              tempMax: null,
+              confidenceScore: null,
+              humidity: met.current.relativeHumidityPct,
+              precipitation: met.current.precipitationNext1hMm,
+              precipitationProb: null,
+              cloudCover: met.current.cloudAreaFractionPct,
+              pressure: null,
+              windSpeed: met.current.windSpeedKmh,
+              windDirection: met.current.windFromDirectionDeg,
+              windGusts: met.current.windGustsKmh ?? null,
+              conditionCode: mapMetSymbolToWmo(met.current.symbolCode),
+              conditionText: formatMetSymbolText(met.current.symbolCode),
+              pm25,
+              pm10,
+              ozone,
+              uvIndex: null,
+              aqiLevel: computeAqiLevel(pm25, pm10, ozone).level,
+              aqiColor: computeAqiLevel(pm25, pm10, ozone).color,
+            };
+          }
+
+          const fallbackData: WeatherConsensusData = {
+            locationName: placeName || `Koordinat (${lat.toFixed(3)}, ${lng.toFixed(3)})`,
+            lat,
+            lng,
+            elevation: 0,
+            timestamp: new Intl.DateTimeFormat('id-ID', { hour: '2-digit', minute: '2-digit' }).format(new Date()),
+            timezone,
+            dataTime: met.current?.time || (met.points[0]?.time ?? new Date().toISOString()),
+            fetchedAt: new Date().toISOString(),
+            sourceFetches: attempts,
+            dataStatus: 'PARTIAL',
+            modelSpread: modelComparison.length > 1 ? Math.max(...modelComparison.map(m => m.temperature)) - Math.min(...modelComparison.map(m => m.temperature)) : null,
+            accuracyValidated: false,
+            coverageScope: 'Data fallback MET Norway; sumber primer Open-Meteo mengalami gangguan.',
+            historicalAirQuality,
+            current: currentBlock,
+            modelComparison,
+            sources,
+            hourly: (met.points || []).slice(0, 24).map((p) => {
+              const { hour, label } = formatPointLabel(p.time, timezone);
+              const mIdx = modelTimes.findIndex(t => Math.abs(t - p.epoch) < 1800);
+              const getModel = (id: string) => {
+                if (mIdx < 0) return undefined;
+                const v = modelHourly[`temperature_2m_${id}`]?.[mIdx];
+                return (finiteNumber(v) && v >= -100 && v <= 65) ? v : undefined;
+              };
+              const aIdx = (airHourly.time || []).findIndex((t: number) => Math.abs(t - p.epoch) < 1800);
+              return {
+                time: p.time,
+                hour,
+                label,
+                temperature: p.temperatureC,
+                apparentTemp: null,
+                humidity: p.relativeHumidityPct,
+                precipitation: p.precipitationNext1hMm,
+                precipitationProb: null,
+                cloudCover: p.cloudAreaFractionPct,
+                pressure: null,
+                seaLevelPressure: p.airPressureSeaLevelHpa,
+                windSpeed: p.windSpeedKmh,
+                windDirection: p.windFromDirectionDeg,
+                windGusts: p.windGustsKmh ?? null,
+                conditionCode: mapMetSymbolToWmo(p.symbolCode),
+                conditionText: p.symbolCode || 'Tidak Diketahui',
+                ecmwfTemp: getModel('ecmwf_ifs025'),
+                gfsTemp: getModel('gfs_seamless'),
+                iconTemp: getModel('icon_seamless'),
+                jmaTemp: getModel('jma_seamless'),
+                pm25: nullableNumber(airHourly.pm2_5?.[aIdx]),
+                ozone: nullableNumber(airHourly.ozone?.[aIdx]),
+                uvIndex: null,
+              };
+            }),
+            extendedHourly: (met.points || []).map((p) => {
+              const { hour, label } = formatPointLabel(p.time, timezone);
+              const mIdx = modelTimes.findIndex(t => Math.abs(t - p.epoch) < 1800);
+              const getModel = (id: string) => {
+                if (mIdx < 0) return undefined;
+                const v = modelHourly[`temperature_2m_${id}`]?.[mIdx];
+                return (finiteNumber(v) && v >= -100 && v <= 65) ? v : undefined;
+              };
+              const aIdx = (airHourly.time || []).findIndex((t: number) => Math.abs(t - p.epoch) < 1800);
+              return {
+                time: p.time,
+                hour,
+                label,
+                temperature: p.temperatureC,
+                apparentTemp: null,
+                humidity: p.relativeHumidityPct,
+                precipitation: p.precipitationNext1hMm,
+                precipitationProb: null,
+                cloudCover: p.cloudAreaFractionPct,
+                pressure: null,
+                seaLevelPressure: p.airPressureSeaLevelHpa,
+                windSpeed: p.windSpeedKmh,
+                windDirection: p.windFromDirectionDeg,
+                windGusts: p.windGustsKmh ?? null,
+                conditionCode: mapMetSymbolToWmo(p.symbolCode),
+                conditionText: p.symbolCode || 'Tidak Diketahui',
+                ecmwfTemp: getModel('ecmwf_ifs025'),
+                gfsTemp: getModel('gfs_seamless'),
+                iconTemp: getModel('icon_seamless'),
+                jmaTemp: getModel('jma_seamless'),
+                pm25: nullableNumber(airHourly.pm2_5?.[aIdx]),
+                ozone: nullableNumber(airHourly.ozone?.[aIdx]),
+                uvIndex: null,
+              };
+            }),
+            daily: [],
+            aiBriefing: {
+              summaryText: currentBlock ? `Prakiraan cuaca disediakan oleh penyedia cadangan MET Norway (${currentBlock.conditionText}, suhu ${currentBlock.consensusTemperature}°C).` : 'Prakiraan cuaca saat ini tidak tersedia dari MET Norway; deret masa depan ditampilkan.',
+              preparednessAdvice: ['Data fallback operasional; periksa pembaruan berikutnya saat sumber primer kembali aktif.'],
+            },
+          };
+          const rawWeatherForTelemetry = {
+            provider: 'met_norway',
+            fallback: 'met_norway',
+            ...(met.rawPayload || {}),
+            metData: met,
+            modelComparisonResponse: modelResult.data,
+          };
+          geospatialDataTelemetryService.recordRawIngestion(lat, lng, fallbackData.locationName, rawWeatherForTelemetry, air.data, fallbackData, undefined, queryKey);
+          return fallbackData;
+        }
+      } catch (metErr: any) {
+        attempts.push({
+          id: 'met_norway_fallback',
+          url: `https://api.met.no/weatherapi/locationforecast/2.0/compact?lat=${lat}&lon=${lng}`,
+          status: 'FAILED',
+          httpStatus: null,
+          latencyMs: 0,
+          checkedAt: new Date().toISOString(),
+          payloadBytes: 0,
+          error: metErr.message,
+        });
       }
-    } catch (e) {
-      console.warn('Re-verification with AI failed:', e);
-    }
-    return { ...currentData };
-  }
 
-
-  private synthesizeConsensus(
-    lat: number,
-    lng: number,
-    wData: any,
-    airData: any,
-    placeName?: string
-  ): WeatherConsensusData {
-    if (!wData) {
-      return this.generateFallbackData(lat, lng, placeName);
+      geospatialDataTelemetryService.recordFailedIngestion(lat, lng, placeName || 'Lokasi pilihan', attempts, queryKey);
+      throw new Error(`Data cuaca gagal diambil: ${weather.attempt.error}`);
     }
 
-    const current = wData.current || {};
-    const daily = wData.daily || {};
-    const hourly = wData.hourly || {};
-    const airCurrent = airData?.current || {};
-    const airHourly = airData?.hourly || {};
-
-    // 1. Identify current hour index in hourly array for accurate model comparison
-    let targetHourIdx = 0;
-    if (hourly.time && Array.isArray(hourly.time)) {
-      const currentIsoPrefix = new Date().toISOString().slice(0, 13);
-      const foundIdx = hourly.time.findIndex((t: string) => typeof t === 'string' && t.startsWith(currentIsoPrefix));
-      if (foundIdx !== -1) targetHourIdx = foundIdx;
+    const w = weather.data, c = w.current;
+    const sanitizeSeries = (series: any): any => {
+      if (!increasingForecastTimes(series?.time)) return { time: [] };
+      return Object.fromEntries(Object.entries(series).map(([field, values]) => [field,
+        field === 'time' ? values : Array.isArray(values) ? series.time.map((_: number, i: number) => weatherValue(field, values[i])) : []]));
+    };
+    const h = sanitizeSeries(w.hourly), d = sanitizeSeries(w.daily);
+    if (air.data && Math.abs(air.data.current.time - c.time) >= 3600) { air.attempt.status = "FAILED"; air.attempt.error = "Waktu kualitas udara tidak sesuai waktu cuaca."; air.data = null; }
+    const timezone = typeof w.timezone === 'string' ? w.timezone : 'UTC';
+    const currentEpoch = c.time;
+    const baseTimes: number[] = Array.isArray(h.time) ? h.time : [];
+    const matchingTimes = baseTimes.filter(t => finiteNumber(t) && t <= currentEpoch && currentEpoch - t < 3600);
+    const currentHourEpoch = matchingTimes[matchingTimes.length - 1];
+    if (!finiteNumber(currentHourEpoch)) {
+      weather.attempt.status = 'FAILED'; weather.attempt.error = 'Tidak ada titik prakiraan yang sesuai waktu data saat ini.';
+      geospatialDataTelemetryService.recordFailedIngestion(lat, lng, placeName || 'Lokasi pilihan', attempts, queryKey);
+      throw new Error(weather.attempt.error);
     }
-
-    const getHourlyVal = (field: string, fallback: number) => {
-      const arr = hourly[field];
-      if (arr && Array.isArray(arr) && arr[targetHourIdx] != null && !isNaN(Number(arr[targetHourIdx]))) {
-        return parseFloat(Number(arr[targetHourIdx]).toFixed(1));
+    const modelHourly = modelResult.data?.hourly || {};
+    const modelIndex = (modelHourly.time || []).indexOf(currentHourEpoch);
+    const modelComparison: WeatherModelValue[] = WEATHER_MODELS.flatMap(m => {
+      const temperature = modelHourly[`temperature_2m_${m.id}`]?.[modelIndex];
+      return (finiteNumber(temperature) && temperature >= -100 && temperature <= 65) ? [{ modelId: m.id, modelName: m.name, sourceFlag: m.flag, country: m.country, agency: `${m.name} melalui Open-Meteo`, category: 'GLOBAL_TOP_NWP' as const, temperature, dataTime: epochIso(currentHourEpoch), notes: 'Prakiraan model pada koordinat pilihan; bukan pengamatan langsung.' }] : [];
+    });
+    if (modelResult.data && modelResult.attempt.status !== 'FAILED') {
+      if (modelComparison.length >= 7) {
+        modelResult.attempt.status = 'SUCCESS';
+        modelResult.attempt.error = undefined;
+      } else if (modelComparison.length > 0) {
+        modelResult.attempt.status = 'PARTIAL';
+        const missing = WEATHER_MODELS.filter(m => !modelComparison.some(v => v.modelId === m.id)).map(m => m.name);
+        modelResult.attempt.error = `Tersedia ${modelComparison.length} dari ${WEATHER_MODELS.length} model pada waktu yang sama. Tidak tersedia: ${missing.join(", ")}.`;
+      } else {
+        modelResult.attempt.status = 'FAILED';
+        modelResult.attempt.error = 'Tidak ada model cuaca numerik yang tersedia.';
       }
-      return parseFloat(Number(fallback).toFixed(1));
+    }
+    const hourlyTimes: number[] = Array.isArray(h.time) ? h.time : [];
+    const currentIdx = hourlyTimes.indexOf(currentHourEpoch);
+    const airHourly = air.data?.hourly || {};
+    const hourlyRequired = ['temperature_2m', 'relative_humidity_2m', 'precipitation', 'weather_code', 'cloud_cover', 'surface_pressure', 'wind_speed_10m', 'wind_direction_10m'];
+    const buildHourlyPoint = (time: number, index: number): WeatherHourlyPoint | null => {
+      if (!hourlyRequired.every(k => finiteNumber(h[k]?.[index]))) return null;
+      const airIndex = (airHourly.time || []).indexOf(time);
+      const modelHourIndex = (modelHourly.time || []).indexOf(time);
+      const getModel = (id: string) => {
+        const val = modelHourly[`temperature_2m_${id}`]?.[modelHourIndex];
+        return (finiteNumber(val) && val >= -100 && val <= 65) ? val : undefined;
+      };
+      const hour = localHour(time, timezone);
+      return {
+        time: epochIso(time),
+        hour,
+        label: `${String(hour).padStart(2, '0')}:00`,
+        temperature: h.temperature_2m[index],
+        apparentTemp: finiteNumber(h.apparent_temperature?.[index]) ? h.apparent_temperature[index] : undefined,
+        ecmwfTemp: getModel('ecmwf_ifs025'),
+        gfsTemp: getModel('gfs_seamless'),
+        iconTemp: getModel('icon_seamless'),
+        jmaTemp: getModel('jma_seamless'),
+        humidity: h.relative_humidity_2m[index],
+        precipitation: h.precipitation[index],
+        precipitationProb: nullableNumber(h.precipitation_probability?.[index]),
+        cloudCover: h.cloud_cover[index],
+        conditionCode: h.weather_code[index],
+        conditionText: getWeatherConditionText(h.weather_code[index]),
+        pressure: h.surface_pressure[index],
+        windSpeed: h.wind_speed_10m[index],
+        windDirection: h.wind_direction_10m[index],
+        windGusts: nullableNumber(h.wind_gusts_10m?.[index]),
+        pm25: nullableNumber(airHourly.pm2_5?.[airIndex]),
+        ozone: nullableNumber(airHourly.ozone?.[airIndex]),
+        uvIndex: nullableNumber(h.uv_index?.[index]),
+      };
     };
 
-    // Global & Regional NWP Feeds directly from Open-Meteo
-    const ecmwfTemp = getHourlyVal('temperature_2m_ecmwf_ifs025', current.temperature_2m ?? 28.5);
-    const gfsTemp = getHourlyVal('temperature_2m_gfs_seamless', ecmwfTemp + 0.3);
-    const iconTemp = getHourlyVal('temperature_2m_icon_seamless', ecmwfTemp - 0.2);
-    const jmaTemp = getHourlyVal('temperature_2m_jma_seamless', ecmwfTemp + 0.1);
-    const bomTemp = getHourlyVal('temperature_2m_bom_access_global', ecmwfTemp - 0.1);
-    const cmaTemp = getHourlyVal('temperature_2m_cma_grapes_global', ecmwfTemp + 0.2);
-    const meteofranceTemp = getHourlyVal('temperature_2m_meteofrance_seamless', ecmwfTemp + 0.3);
-    const ukmoTemp = getHourlyVal('temperature_2m_ukmo_seamless', ecmwfTemp + 0.1);
-    const gemTemp = getHourlyVal('temperature_2m_gem_seamless', ecmwfTemp - 0.1);
-
-    // Neighboring Countries & Regional Mesoscale Baselines (ASEAN & Indo-Pacific)
-    // 1. Indonesia (BMKG): Asimilasi WRF 3km maritim khatulistiwa (ECMWF boundary + Himawari-9 + BoM)
-    const bmkgTemp = parseFloat(((ecmwfTemp * 0.45 + jmaTemp * 0.35 + bomTemp * 0.2)).toFixed(1));
-    // 2. Singapura (MSS / CCRS): Convection-permitting SINGV model (UKMO core + JMA satellite)
-    const mssTemp = parseFloat(((jmaTemp * 0.45 + ecmwfTemp * 0.35 + ukmoTemp * 0.2)).toFixed(1));
-    // 3. Malaysia (MetMalaysia): Regional WRF-ARW Semenanjung & Borneo (ECMWF + GFS + JMA)
-    const metMalaysiaTemp = parseFloat(((ecmwfTemp * 0.4 + gfsTemp * 0.3 + jmaTemp * 0.3)).toFixed(1));
-    // 4. Filipina (PAGASA): Tropical Cyclone & Pacific Trough WRF (JMA + GFS + CMA)
-    const pagasaTemp = parseFloat(((jmaTemp * 0.5 + gfsTemp * 0.3 + cmaTemp * 0.2)).toFixed(1));
-    // 5. Thailand (TMD): Indochina Monsoon & Gulf of Thailand High-Res NWP (CMA + ECMWF + GFS)
-    const tmdTemp = parseFloat(((cmaTemp * 0.4 + ecmwfTemp * 0.35 + gfsTemp * 0.25)).toFixed(1));
-    // 6. Vietnam (NCHMF): Marine Atmosphere HRM Laut Natuna Utara & Indochina (CMA + JMA + ECMWF)
-    const nchmfTemp = parseFloat(((cmaTemp * 0.4 + jmaTemp * 0.3 + ecmwfTemp * 0.3)).toFixed(1));
-    // 7. India (IMD): Indian Ocean Basin GFS-NCMRWF (GFS + ECMWF + BoM)
-    const imdTemp = parseFloat(((gfsTemp * 0.45 + ecmwfTemp * 0.35 + bomTemp * 0.2)).toFixed(1));
-
-    const modelTemps: WeatherModelValue[] = [
-      { modelName: 'BMKG WRF Meso (Indonesia)', sourceFlag: '🇮🇩', temperature: bmkgTemp, country: 'Indonesia', agency: 'BMKG RI', category: 'ASEAN_NEIGHBOR', resolution: '3km', notes: 'Model numerik meso maritim khatulistiwa' },
-      { modelName: 'MSS SINGV (Singapura)', sourceFlag: '🇸🇬', temperature: mssTemp, country: 'Singapura', agency: 'MSS / CCRS', category: 'ASEAN_NEIGHBOR', resolution: '1.5km', notes: 'Pemodelan konveksi awan tropis Selat Malaka & Riau' },
-      { modelName: 'MetMalaysia WRF (Malaysia)', sourceFlag: '🇲🇾', temperature: metMalaysiaTemp, country: 'Malaysia', agency: 'MetMalaysia', category: 'ASEAN_NEIGHBOR', resolution: '4km', notes: 'Model regional angin muson Semenanjung & Borneo' },
-      { modelName: 'PAGASA Meso (Filipina)', sourceFlag: '🇵🇭', temperature: pagasaTemp, country: 'Filipina', agency: 'PAGASA', category: 'ASEAN_NEIGHBOR', resolution: '5km', notes: 'Pemantauan siklon tropis & palung Pasifik Barat' },
-      { modelName: 'TMD Indochina (Thailand)', sourceFlag: '🇹🇭', temperature: tmdTemp, country: 'Thailand', agency: 'TMD Thailand', category: 'ASEAN_NEIGHBOR', resolution: '7km', notes: 'Sirkulasi monsun Indochina & Teluk Thailand' },
-      { modelName: 'NCHMF Marine (Vietnam)', sourceFlag: '🇻🇳', temperature: nchmfTemp, country: 'Vietnam', agency: 'NCHMF Vietnam', category: 'ASEAN_NEIGHBOR', resolution: '6km', notes: 'Adveksi maritim Laut Natuna Utara & Indochina' },
-      { modelName: 'IMD GFS (India)', sourceFlag: '🇮🇳', temperature: imdTemp, country: 'India', agency: 'IMD / NCMRWF', category: 'INDO_PACIFIC', resolution: '12km', notes: 'Dinamika monsun Samudra Hindia khatulistiwa' },
-      { modelName: 'BoM ACCESS-G (Australia)', sourceFlag: '🇦🇺', temperature: bomTemp, country: 'Australia', agency: 'Bureau of Meteorology', category: 'INDO_PACIFIC', resolution: '12km', notes: 'Model Benua Maritim & Samudra Hindia Selatan' },
-      { modelName: 'JMA Seamless (Jepang)', sourceFlag: '🇯🇵', temperature: jmaTemp, country: 'Jepang', agency: 'Japan Meteorological Agency', category: 'INDO_PACIFIC', resolution: '5km', notes: 'Asimilasi satelit geostasioner Himawari-9' },
-      { modelName: 'CMA GRAPES (Tiongkok)', sourceFlag: '🇨🇳', temperature: cmaTemp, country: 'Tiongkok', agency: 'China Meteorological Administration', category: 'INDO_PACIFIC', resolution: '12km', notes: 'Asimilasi satelit Fengyun-4B & radiasi tropis' },
-      { modelName: 'ECMWF IFS (Uni Eropa)', sourceFlag: '🇪🇺', temperature: ecmwfTemp, country: 'Uni Eropa', agency: 'ECMWF', category: 'GLOBAL_TOP_NWP', resolution: '9km', notes: 'Standar Emas WMO dengan asimilasi 4D-Var' },
-      { modelName: 'NOAA GFS (Amerika Serikat)', sourceFlag: '🇺🇸', temperature: gfsTemp, country: 'Amerika Serikat', agency: 'NOAA NCEP', category: 'GLOBAL_TOP_NWP', resolution: '13km', notes: 'Model asimilasi satelit global spektral' },
-      { modelName: 'UK Met Office (Inggris)', sourceFlag: '🇬🇧', temperature: ukmoTemp, country: 'Britania Raya', agency: 'UK Met Office', category: 'GLOBAL_TOP_NWP', resolution: '10km', notes: 'Unified Model global atmosphere 10km grid' },
-      { modelName: 'DWD ICON (Jerman)', sourceFlag: '🇩🇪', temperature: iconTemp, country: 'Jerman', agency: 'Deutscher Wetterdienst', category: 'GLOBAL_TOP_NWP', resolution: '13km', notes: 'Grid ikosahedral non-hidrostatik tanpa singularitas' },
-      { modelName: 'Météo-France ARPEGE (Prancis)', sourceFlag: '🇫🇷', temperature: meteofranceTemp, country: 'Prancis', agency: 'Météo-France', category: 'GLOBAL_TOP_NWP', resolution: '10km', notes: 'Model spektral interaksi massa udara maritim' },
-      { modelName: 'CMC GEM (Kanada)', sourceFlag: '🇨🇦', temperature: gemTemp, country: 'Kanada', agency: 'Environment Canada', category: 'GLOBAL_TOP_NWP', resolution: '15km', notes: 'Prediksi ensemble multiskala global' },
-    ];
-
-    // Calculate weighted consensus temperature
-    const sumTemp = modelTemps.reduce((acc, m) => acc + m.temperature, 0);
-    const consensusTemp = parseFloat((sumTemp / modelTemps.length).toFixed(1));
-    const tempMin = Math.min(...modelTemps.map((m) => m.temperature));
-    const tempMax = Math.max(...modelTemps.map((m) => m.temperature));
-    const tempSpread = tempMax - tempMin;
-    const confidenceScore = Math.max(90, Math.min(99.4, 100 - tempSpread * 3.5));
-
-    // Air Quality
-    const pm25 = airCurrent.pm2_5 ?? 18.5;
-    const pm10 = airCurrent.pm10 ?? 26.2;
-    const ozone = airCurrent.ozone ?? 44.0;
-    const uvIndex = airCurrent.uv_index ?? 6.2;
-
-    let aqiLevel: 'Sangat Baik' | 'Baik' | 'Sedang' | 'Tidak Sehat' | 'Berbahaya' = 'Baik';
-    let aqiColor = '#10b981';
-    if (pm25 > 55) {
-      aqiLevel = 'Tidak Sehat';
-      aqiColor = '#ef4444';
-    } else if (pm25 > 35) {
-      aqiLevel = 'Sedang';
-      aqiColor = '#f59e0b';
-    } else if (pm25 <= 15) {
-      aqiLevel = 'Sangat Baik';
-      aqiColor = '#06b6d4';
-    }
-
-    // Format Hourly series (next 24 hours)
-    const hourlyPoints: WeatherHourlyPoint[] = [];
-    const hourlyTimes: string[] = hourly.time || [];
-    const limit = Math.min(hourlyTimes.length, 24);
-    const currentLocalHour = new Date().getHours();
-
-    for (let i = 0; i < limit; i++) {
-      const dateObj = new Date(hourlyTimes[i]);
-      const hourNum = dateObj.getHours();
-      const hEcmwf = hourly.temperature_2m_ecmwf_ifs025?.[i] ?? hourly.temperature_2m?.[i] ?? 28;
-      const hGfs = hourly.temperature_2m_gfs_seamless?.[i] ?? (hEcmwf + 0.2);
-      const hIcon = hourly.temperature_2m_icon_seamless?.[i] ?? (hEcmwf - 0.2);
-      const hJma = hourly.temperature_2m_jma_seamless?.[i] ?? hEcmwf;
-      const hConsensus = parseFloat(((hEcmwf + hGfs + hIcon + hJma) / 4).toFixed(1));
-
-      // Drizzle & rain physical calibration per hour:
-      const rawPrecip = hourly.precipitation?.[i] ?? 0;
-      const rawRain = hourly.rain?.[i] ?? 0;
-      const rawShowers = hourly.showers?.[i] ?? 0;
-      const rawWeatherCode = hourly.weather_code?.[i] ?? 1;
-      let hourlyPrecip = Math.max(rawPrecip, rawRain, rawShowers);
-
-      // Kalibrasi jika kode cuaca adalah gerimis (51-55) atau hujan
-      if (rawWeatherCode >= 51 && rawWeatherCode <= 55 && hourlyPrecip < 0.3) {
-        hourlyPrecip = 0.4;
-      } else if (rawWeatherCode >= 61 && rawWeatherCode <= 65 && hourlyPrecip < 1.0) {
-        hourlyPrecip = 1.6;
-      } else if (rawWeatherCode >= 80 && rawWeatherCode <= 82 && hourlyPrecip < 1.5) {
-        hourlyPrecip = 2.4;
-      } else if (rawWeatherCode >= 95 && hourlyPrecip < 2.0) {
-        hourlyPrecip = 4.0;
-      }
-
-      const hourlyCloud = Math.round(hourly.cloud_cover?.[i] ?? 25);
-      const rawProb = hourly.precipitation_probability?.[i] ?? (hourlyPrecip > 0 ? 65 : 15);
-      const hourlyProb = Math.round(hourlyPrecip > 0 ? Math.max(rawProb, 65) : rawProb);
-
-      const hHumid = Math.round(hourly.relative_humidity_2m?.[i] ?? 75);
-      const hWind = parseFloat((hourly.wind_speed_10m?.[i] ?? 12).toFixed(1));
-      const e = (hHumid / 100) * 6.105 * Math.exp((17.27 * hConsensus) / (237.7 + hConsensus));
-      const apparentTemp = Math.round((hConsensus + 0.33 * e - 0.7 * (hWind / 3.6) - 4.0) * 10) / 10;
-
-      hourlyPoints.push({
-        time: hourlyTimes[i],
-        hour: hourNum,
-        label: `${hourNum.toString().padStart(2, '0')}:00`,
-        temperature: hConsensus,
-        apparentTemp,
-        ecmwfTemp: parseFloat(Number(hEcmwf).toFixed(1)),
-        gfsTemp: parseFloat(Number(hGfs).toFixed(1)),
-        iconTemp: parseFloat(Number(hIcon).toFixed(1)),
-        jmaTemp: parseFloat(Number(hJma).toFixed(1)),
-        humidity: hHumid,
-        precipitation: parseFloat(hourlyPrecip.toFixed(1)),
-        precipitationProb: hourlyProb,
-        cloudCover: hourlyCloud,
-        conditionCode: rawWeatherCode,
-        conditionText: getWeatherConditionText(rawWeatherCode),
-        pressure: Math.round(hourly.surface_pressure?.[i] ?? 1012),
-        windSpeed: hWind,
-        windDirection: Math.round(hourly.wind_direction_10m?.[i] ?? 180),
-        pm25: parseFloat((airHourly.pm2_5?.[i] ?? pm25).toFixed(1)),
-        ozone: parseFloat((airHourly.ozone?.[i] ?? ozone).toFixed(1)),
-        uvIndex: parseFloat((airHourly.uv_index?.[i] ?? 0).toFixed(1)),
-      });
-    }
-
-    // Format Daily series (up to 14 days)
-    const dailyPoints: WeatherDailyPoint[] = [];
-    const dailyTimes: string[] = daily.time || [];
-    const daysIndo = ['Min', 'Sen', 'Sel', 'Rab', 'Kam', 'Jum', 'Sab'];
-
-    for (let d = 0; d < Math.min(dailyTimes.length, 14); d++) {
-      const dObj = new Date(dailyTimes[d]);
-      const dayName = d === 0 ? 'Hari Ini' : d === 1 ? 'Besok' : daysIndo[dObj.getDay()];
-      const dCode = daily.weather_code?.[d] ?? 1;
-
-      dailyPoints.push({
-        date: dailyTimes[d],
-        dayName,
-        tempMax: parseFloat(Number(daily.temperature_2m_max?.[d] ?? 31.0).toFixed(1)),
-        tempMin: parseFloat(Number(daily.temperature_2m_min?.[d] ?? 23.5).toFixed(1)),
-        precipitationSum: parseFloat(Number(daily.precipitation_sum?.[d] ?? 2.5).toFixed(1)),
-        precipitationProbMax: Math.round(daily.precipitation_probability_max?.[d] ?? 40),
-        windSpeedMax: parseFloat(Number(daily.wind_speed_10m_max?.[d] ?? 16.0).toFixed(1)),
-        uvIndexMax: parseFloat(Number(daily.uv_index_max?.[d] ?? 7.0).toFixed(1)),
-        condition: getWeatherConditionText(dCode),
-      });
-    }
-
-    // Current Precipitation calibration (Solves "tadi di sini gerimis sedikit tapi terbaca 0 mm"):
-    const curHourPoint = hourlyPoints.find((h) => h.hour === currentLocalHour) || hourlyPoints[0];
-    const currentRawPrecip = current.precipitation ?? 0;
-    const currentRawRain = current.rain ?? 0;
-    const currentRawShowers = current.showers ?? 0;
-    let currentWeatherCode = current.weather_code ?? (curHourPoint?.conditionCode ?? 1);
-
-    let calibratedCurrentPrecip = Math.max(currentRawPrecip, currentRawRain, currentRawShowers);
-    if (curHourPoint && curHourPoint.precipitation > calibratedCurrentPrecip) {
-      calibratedCurrentPrecip = curHourPoint.precipitation;
-    }
-
-    // Jika kode cuaca terdeteksi gerimis (51-55) atau hujan, kalibrasi nilai presipitasi fisik
-    if (currentWeatherCode >= 51 && currentWeatherCode <= 55) {
-      if (calibratedCurrentPrecip < 0.3) {
-        calibratedCurrentPrecip = 0.4;
-      }
-    } else if (currentWeatherCode >= 61 && currentWeatherCode <= 65) {
-      if (calibratedCurrentPrecip < 1.0) {
-        calibratedCurrentPrecip = 1.8;
-      }
-    } else if (currentWeatherCode >= 80 && currentWeatherCode <= 82) {
-      if (calibratedCurrentPrecip < 1.5) {
-        calibratedCurrentPrecip = 2.5;
-      }
-    } else if (currentWeatherCode >= 95) {
-      if (calibratedCurrentPrecip < 2.0) {
-        calibratedCurrentPrecip = 4.0;
-      }
-    }
-
-    if (calibratedCurrentPrecip >= 0.3 && currentWeatherCode < 50) {
-      currentWeatherCode = 51;
-    }
-
-    const currentCloudCover = Math.round(current.cloud_cover ?? (curHourPoint?.cloudCover ?? 25));
-    const currentRainProb = Math.max(
-      curHourPoint?.precipitationProb ?? 20,
-      currentWeatherCode >= 51 ? 75 : 20,
-      Math.round(dailyPoints[0]?.precipitationProbMax ?? 30)
-    );
-
-    // AI Weather Synthesis & Advice
-    const rainChance = calibratedCurrentPrecip;
-    const windSpd = current.wind_speed_10m ?? 10;
-    const adviceList: string[] = [];
-
-    if (rainChance > 5.0 || (dailyPoints[0]?.precipitationProbMax ?? 0) > 70) {
-      adviceList.push('Sedia payung / jas hujan: Potensi hujan lebat disertai petir terdeteksi.');
-    } else if (currentWeatherCode >= 51 && currentWeatherCode <= 55) {
-      adviceList.push('Gerimis ringan terdeteksi, berhati-hati jalanan basah dan gunakan jas hujan.');
-    } else {
-      adviceList.push('Cuaca cenderung kondusif untuk mobilitas luar ruangan.');
-    }
-
-    if (windSpd > 25) {
-      adviceList.push(`Waspada hembusan angin kencang (${windSpd} km/h), hati-hati pohon rimbun & baliho.`);
-    }
-
-    if (uvIndex > 7.0) {
-      adviceList.push(`Indeks UV mencapai ${uvIndex.toFixed(1)} (Sangat Tinggi) pada siang hari, gunakan pelindung tabir surya.`);
-    }
-
-    if (pm25 > 40) {
-      adviceList.push(`Kadar partikulat PM2.5 (${pm25} µg/m³) sedikit meningkat, disarankan masker bagi kelompok sensitif.`);
-    }
-
-    // Evaluasi Termodinamika Awan & Adveksi Angin (Prediksi Menguap vs Mengembun)
-    const cloudThermo = cloudThermodynamicsEngine.evaluateCloudDynamics({
-      temperatureC: consensusTemp,
-      relativeHumidityPercent: Math.round(current.relative_humidity_2m ?? 75),
-      surfacePressureHpa: Math.round(current.surface_pressure ?? 1012),
-      cloudCoverPercent: currentCloudCover,
-      windSpeedKmh: parseFloat(Number(current.wind_speed_10m ?? 12).toFixed(1)),
-      windDirectionDeg: Math.round(current.wind_direction_10m ?? 160),
-      elevationM: wData.elevation ?? 50,
-      lat,
+    const futureIndices = hourlyTimes.map((time, index) => ({ time, index })).filter(p => finiteNumber(p.time) && p.time >= currentHourEpoch).slice(0, 24);
+    const hourly: WeatherHourlyPoint[] = futureIndices.flatMap(({ time, index }) => {
+      const p = buildHourlyPoint(time, index);
+      return p ? [p] : [];
     });
 
-    const aiBriefing = {
-      summaryText: `Konsensus ${modelTemps.length} model cuaca (termasuk JMA Jepang, BOM Australia, CMA Tiongkok & BMKG) memprediksi suhu ${consensusTemp}°C dengan akurasi ${confidenceScore.toFixed(1)}%. Kondisi ${getWeatherConditionText(currentWeatherCode)}. ${cloudThermo.cloudEvolutionDescription}`,
-      hazardAlert: rainChance > 8 ? 'Peringatan Dini: Potensi genangan air pada rute jalan rendah' : undefined,
-      preparednessAdvice: adviceList,
-    };
+    const pastIndices = hourlyTimes.map((time, index) => ({ time, index })).filter(p => finiteNumber(p.time) && p.time < currentHourEpoch);
+    const allFutureIndices = hourlyTimes.map((time, index) => ({ time, index })).filter(p => finiteNumber(p.time) && p.time >= currentHourEpoch).slice(0, 48);
+    const selectedPastIndices = pastIndices.slice(-24);
+    const extendedHourlyIndices = [...selectedPastIndices, ...allFutureIndices];
+    const extendedHourly: WeatherHourlyPoint[] = extendedHourlyIndices.flatMap(({ time, index }) => {
+      const p = buildHourlyPoint(time, index);
+      return p ? [p] : [];
+    });
+    const daily: WeatherDailyPoint[] = (Array.isArray(d.time) ? d.time : []).flatMap((time: number, index: number) => {
+      if (!finiteNumber(time) || time > Date.now() / 1000 + 30 * 86400 || !['temperature_2m_max', 'temperature_2m_min', 'precipitation_sum', 'wind_speed_10m_max', 'weather_code'].every(k => finiteNumber(d[k]?.[index])) || d.temperature_2m_min[index] > d.temperature_2m_max[index]) return [];
+      return [{ date: epochIso(time), dayName: new Intl.DateTimeFormat('id-ID', { timeZone: timezone, weekday: 'short' }).format(time * 1000), tempMax: d.temperature_2m_max[index], tempMin: d.temperature_2m_min[index], apparentTempMax: nullableNumber(d.apparent_temperature_max?.[index]), windGustMax: nullableNumber(d.wind_gusts_10m_max?.[index]), precipitationSum: d.precipitation_sum[index], precipitationProbMax: nullableNumber(d.precipitation_probability_max?.[index]), windSpeedMax: d.wind_speed_10m_max[index], uvIndexMax: nullableNumber(d.uv_index_max?.[index]), condition: getWeatherConditionText(d.weather_code[index]) }];
+    });
+    if (hourly.length < 24 || daily.length < 14 || hourly.some(p => p.windGusts === null || p.apparentTemp == null || p.uvIndex === null || p.precipitationProb === null) || daily.some(p => p.windGustMax === null || p.apparentTempMax === null || p.uvIndexMax === null || p.precipitationProbMax === null)) {
+      weather.attempt.status = 'PARTIAL';
+      weather.attempt.error = 'Sebagian deret prakiraan tidak tersedia; titik kosong tidak dibuatkan angka pengganti.';
+    }
+    const aq = air.data?.current || {};
+    const airValue = (value: unknown) => finiteNumber(value) && value >= 0 ? value : null;
+    const pm25 = airValue(aq.pm2_5), pm10 = airValue(aq.pm10), ozone = airValue(aq.ozone);
+    if (air.data && [pm25, pm10, ozone].some(v => v === null)) { air.attempt.status = 'PARTIAL'; air.attempt.error = 'Sebagian parameter kualitas udara tidak tersedia.'; }
+    if (air.data && hourly.some(point => point.pm25 === null || point.ozone === null)) { air.attempt.status = 'PARTIAL'; air.attempt.error = 'Sebagian deret kualitas udara tidak tersedia pada waktu prakiraan cuaca.'; }
+    const temperatures = modelComparison.map(m => m.temperature).filter(t => finiteNumber(t) && t >= -100 && t <= 65);
+    const modelSpread = temperatures.length > 1 ? Math.max(...temperatures) - Math.min(...temperatures) : null;
+    const cloudThermo = cloudThermodynamicsEngine.evaluateCloudDynamics({ temperatureC: c.temperature_2m, relativeHumidityPercent: c.relative_humidity_2m, surfacePressureHpa: c.surface_pressure, cloudCoverPercent: c.cloud_cover, windSpeedKmh: c.wind_speed_10m, windDirectionDeg: c.wind_direction_10m, elevationM: finiteNumber(w.elevation) ? w.elevation : 0, lat });
 
-    return {
-      locationName: placeName || `Koordinat (${lat.toFixed(2)}°, ${lng.toFixed(2)}°)`,
-      lat,
-      lng,
-      elevation: wData.elevation ?? 50,
-      timestamp: new Date().toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' }),
-      timezone: wData.timezone || 'Asia/Jakarta',
-      current: {
-        consensusTemperature: consensusTemp,
-        apparentTemperature: parseFloat(Number(current.apparent_temperature ?? consensusTemp).toFixed(1)),
-        tempMin,
-        tempMax,
-        confidenceScore,
-        humidity: Math.round(current.relative_humidity_2m ?? 75),
-        precipitation: parseFloat(calibratedCurrentPrecip.toFixed(1)),
-        precipitationProb: currentRainProb,
-        cloudCover: currentCloudCover,
-        pressure: Math.round(current.surface_pressure ?? 1012),
-        windSpeed: parseFloat(Number(current.wind_speed_10m ?? 12).toFixed(1)),
-        windDirection: Math.round(current.wind_direction_10m ?? 160),
-        windGusts: parseFloat(Number(current.wind_gusts_10m ?? 18).toFixed(1)),
-        conditionCode: currentWeatherCode,
-        conditionText: getWeatherConditionText(currentWeatherCode),
-        pm25,
-        pm10,
-        ozone,
-        uvIndex,
-        aqiLevel,
-        aqiColor,
-      },
-      modelComparison: modelTemps,
-      sources: [
-        { id: 'ecmwf', name: 'ECMWF Integrated Forecasting System (IFS)', origin: 'Uni Eropa', type: 'High Resolution NWP', status: 'online' },
-        { id: 'gfs', name: 'NOAA GFS Seamless', origin: 'Amerika Serikat', type: 'Global Satellite Model', status: 'online' },
-        { id: 'icon', name: 'DWD ICON Global', origin: 'Jerman', type: 'Icosahedral Nonhydrostatic', status: 'online' },
-        { id: 'jma', name: 'JMA Meso / Global (Jepang)', origin: 'Jepang & Pasifik Barat', type: 'Meteorological Radar Model', status: 'online' },
-        { id: 'bom', name: 'BOM ACCESS-G (Australia & Benua Maritim)', origin: 'Australia & Samudra Hindia', type: 'Maritime Continent Ensemble', status: 'online' },
-        { id: 'cma', name: 'CMA GRAPES Global (Tiongkok)', origin: 'Asia Tropis & Timur', type: 'Global NWP Asian Focus', status: 'online' },
-        { id: 'cams', name: 'Copernicus CAMS Atmosphere', origin: 'Eropa', type: 'Ozone & Air Quality Sensor', status: 'online' },
-        { id: 'bmkg', name: 'BMKG Indonesia Network Proxy', origin: 'Indonesia', type: 'Stasiun Terestrial & Radar', status: 'active' },
-      ],
-      hourly: hourlyPoints,
-      daily: dailyPoints,
-      aiBriefing,
-      cloudThermodynamics: cloudThermo,
+    const pastAirIndices = (Array.isArray(airHourly.time) ? airHourly.time : [])
+      .map((t: number, idx: number) => ({ time: t, index: idx }))
+      .filter((p: { time: number; index: number }) => finiteNumber(p.time) && p.time <= currentHourEpoch && p.time > currentHourEpoch - 24 * 3600);
+    const historicalAirQuality = pastAirIndices.map((p: { time: number; index: number }) => ({
+      time: epochIso(p.time),
+      pm25: nullableNumber(airHourly.pm2_5?.[p.index]),
+      pm10: nullableNumber(airHourly.pm10?.[p.index]),
+      ozone: nullableNumber(airHourly.ozone?.[p.index]),
+    }));
+
+    const data: WeatherConsensusData = {
+      locationName: placeName || `Koordinat (${lat.toFixed(3)}, ${lng.toFixed(3)})`, lat, lng,
+      elevation: finiteNumber(w.elevation) ? w.elevation : 0,
+      timestamp: new Intl.DateTimeFormat('id-ID', { timeZone: timezone, hour: '2-digit', minute: '2-digit' }).format(currentEpoch * 1000), timezone,
+      dataTime: epochIso(currentEpoch), fetchedAt: new Date().toISOString(), sourceFetches: attempts,
+      dataStatus: attempts.every(a => a.status === 'SUCCESS') ? 'AVAILABLE' : 'PARTIAL',
+      modelSpread, accuracyValidated: false, coverageScope: 'Koordinat pilihan; asal lembaga model tidak berarti semua wilayah negaranya diunduh.',
+      historicalAirQuality,
+      current: { consensusTemperature: c.temperature_2m, apparentTemperature: c.apparent_temperature, tempMin: temperatures.length ? Math.min(...temperatures) : c.temperature_2m, tempMax: temperatures.length ? Math.max(...temperatures) : c.temperature_2m, confidenceScore: null,
+        humidity: c.relative_humidity_2m, precipitation: c.precipitation, precipitationProb: nullableNumber(h.precipitation_probability?.[currentIdx]), cloudCover: c.cloud_cover, pressure: c.surface_pressure, windSpeed: c.wind_speed_10m, windDirection: c.wind_direction_10m, windGusts: c.wind_gusts_10m, conditionCode: c.weather_code, conditionText: getWeatherConditionText(c.weather_code), pm25, pm10, ozone, uvIndex: nullableNumber(h.uv_index?.[currentIdx]),
+        aqiLevel: computeAqiLevel(pm25, pm10, ozone).level, aqiColor: computeAqiLevel(pm25, pm10, ozone).color },
+      modelComparison, sources: [
+        { id: 'open_meteo', name: 'Open-Meteo Best Match', origin: 'Koordinat pilihan', type: 'Prakiraan model', status: 'online' },
+        ...modelComparison.map(m => ({ id: m.modelId!, name: m.modelName, origin: m.country!, type: 'Model melalui Open-Meteo', status: 'online' as const })),
+        ...(air.data ? [{ id: 'cams', name: 'Copernicus CAMS melalui Open-Meteo', origin: 'Koordinat pilihan', type: 'Prakiraan kualitas udara', status: 'online' as const }] : []),
+      ], hourly, extendedHourly: extendedHourly.length > 0 ? extendedHourly : hourly, daily, cloudThermodynamics: cloudThermo,
+      aiBriefing: { summaryText: `Prakiraan Open-Meteo untuk ${placeName || 'koordinat pilihan'}: ${getWeatherConditionText(c.weather_code)}, suhu ${c.temperature_2m}°C, angin ${c.wind_speed_10m} km/jam dari ${c.wind_direction_10m}°, tutupan awan ${c.cloud_cover}%. ${modelComparison.length} model tersedia untuk perbandingan suhu pada waktu yang sama. Akurasi belum diuji terhadap pengamatan lapangan.`, preparednessAdvice: ['Periksa waktu data dan peringatan resmi setempat sebelum mengambil keputusan keselamatan.'] },
     };
+    geospatialDataTelemetryService.recordRawIngestion(lat, lng, data.locationName, { ...w, modelComparisonResponse: modelResult.data }, air.data, data, undefined, queryKey);
+    return data;
   }
 
-  private generateFallbackData(lat: number, lng: number, placeName?: string): WeatherConsensusData {
-    const baseTemp = 28.6;
-    return {
-      locationName: placeName || `Wilayah Indonesia (${lat.toFixed(2)}°, ${lng.toFixed(2)}°)`,
-      lat,
-      lng,
-      elevation: 45,
-      timestamp: new Date().toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' }),
-      timezone: 'Asia/Jakarta',
+  public async reverifyWithAi(data: WeatherConsensusData, forceRefresh = false): Promise<WeatherConsensusData> {
+    if (!data.current) return data;
+    const c = data.current;
+    const result = await atmosphericNwpAiService.verifyForecastWithNwpAi({
+      lat: data.lat,
+      lng: data.lng,
+      locationName: data.locationName,
+      elevation: data.elevation,
       current: {
-        consensusTemperature: baseTemp,
-        apparentTemperature: 31.2,
-        tempMin: 28.1,
-        tempMax: 29.2,
-        confidenceScore: 97.2,
-        humidity: 78,
-        precipitation: 1.2,
-        precipitationProb: 45,
-        cloudCover: 25,
-        pressure: 1011,
-        windSpeed: 14.5,
-        windDirection: 175,
-        windGusts: 21.0,
-        conditionCode: 2,
-        conditionText: 'Cerah Berawan',
-        pm25: 18.0,
-        pm10: 27.5,
-        ozone: 42.0,
-        uvIndex: 6.5,
-        aqiLevel: 'Baik',
-        aqiColor: '#10b981',
+        consensusTemperature: c.consensusTemperature,
+        apparentTemperature: c.apparentTemperature,
+        humidity: c.humidity,
+        pressure: c.pressure,
+        windSpeed: c.windSpeed,
+        windDirection: c.windDirection,
+        precipitation: c.precipitation,
+        precipitationProb: c.precipitationProb,
       },
-      modelComparison: [
-        { modelName: 'BMKG WRF Meso (Indonesia)', sourceFlag: '🇮🇩', temperature: 28.7, country: 'Indonesia', agency: 'BMKG RI', category: 'ASEAN_NEIGHBOR', resolution: '3km' },
-        { modelName: 'MSS SINGV (Singapura)', sourceFlag: '🇸🇬', temperature: 28.6, country: 'Singapura', agency: 'MSS / CCRS', category: 'ASEAN_NEIGHBOR', resolution: '1.5km' },
-        { modelName: 'MetMalaysia WRF (Malaysia)', sourceFlag: '🇲🇾', temperature: 28.8, country: 'Malaysia', agency: 'MetMalaysia', category: 'ASEAN_NEIGHBOR', resolution: '4km' },
-        { modelName: 'PAGASA Meso (Filipina)', sourceFlag: '🇵🇭', temperature: 28.7, country: 'Filipina', agency: 'PAGASA', category: 'ASEAN_NEIGHBOR', resolution: '5km' },
-        { modelName: 'TMD Indochina (Thailand)', sourceFlag: '🇹🇭', temperature: 28.5, country: 'Thailand', agency: 'TMD Thailand', category: 'ASEAN_NEIGHBOR', resolution: '7km' },
-        { modelName: 'NCHMF Marine (Vietnam)', sourceFlag: '🇻🇳', temperature: 28.6, country: 'Vietnam', agency: 'NCHMF Vietnam', category: 'ASEAN_NEIGHBOR', resolution: '6km' },
-        { modelName: 'IMD GFS (India)', sourceFlag: '🇮🇳', temperature: 28.8, country: 'India', agency: 'IMD / NCMRWF', category: 'INDO_PACIFIC', resolution: '12km' },
-        { modelName: 'BoM ACCESS-G (Australia)', sourceFlag: '🇦🇺', temperature: 28.4, country: 'Australia', agency: 'Bureau of Meteorology', category: 'INDO_PACIFIC', resolution: '12km' },
-        { modelName: 'JMA Seamless (Jepang)', sourceFlag: '🇯🇵', temperature: 28.6, country: 'Jepang', agency: 'Japan Meteorological Agency', category: 'INDO_PACIFIC', resolution: '5km' },
-        { modelName: 'CMA GRAPES (Tiongkok)', sourceFlag: '🇨🇳', temperature: 28.8, country: 'Tiongkok', agency: 'China Meteorological Administration', category: 'INDO_PACIFIC', resolution: '12km' },
-        { modelName: 'ECMWF IFS (Uni Eropa)', sourceFlag: '🇪🇺', temperature: 28.5, country: 'Uni Eropa', agency: 'ECMWF', category: 'GLOBAL_TOP_NWP', resolution: '9km' },
-        { modelName: 'NOAA GFS (Amerika Serikat)', sourceFlag: '🇺🇸', temperature: 28.9, country: 'Amerika Serikat', agency: 'NOAA NCEP', category: 'GLOBAL_TOP_NWP', resolution: '13km' },
-        { modelName: 'UK Met Office (Inggris)', sourceFlag: '🇬🇧', temperature: 28.6, country: 'Britania Raya', agency: 'UK Met Office', category: 'GLOBAL_TOP_NWP', resolution: '10km' },
-        { modelName: 'DWD ICON (Jerman)', sourceFlag: '🇩🇪', temperature: 28.4, country: 'Jerman', agency: 'Deutscher Wetterdienst', category: 'GLOBAL_TOP_NWP', resolution: '13km' },
-        { modelName: 'Météo-France ARPEGE (Prancis)', sourceFlag: '🇫🇷', temperature: 28.7, country: 'Prancis', agency: 'Météo-France', category: 'GLOBAL_TOP_NWP', resolution: '10km' },
-        { modelName: 'CMC GEM (Kanada)', sourceFlag: '🇨🇦', temperature: 28.5, country: 'Kanada', agency: 'Environment Canada', category: 'GLOBAL_TOP_NWP', resolution: '15km' },
-      ],
-      sources: [
-        { id: 'ecmwf', name: 'ECMWF IFS Global', origin: 'Uni Eropa', type: 'NWP Model', status: 'online' },
-        { id: 'gfs', name: 'NOAA GFS', origin: 'USA', type: 'Global Satellite', status: 'online' },
-        { id: 'icon', name: 'DWD ICON', origin: 'Jerman', type: 'NWP Grid', status: 'online' },
-        { id: 'bmkg', name: 'BMKG Terintegrasi', origin: 'Indonesia', type: 'Radar & Sensor', status: 'active' },
-      ],
-      hourly: Array.from({ length: 24 }).map((_, i) => {
-        const temp = parseFloat((25 + Math.sin((i - 6) / 4) * 6).toFixed(1));
-        const humid = Math.round(85 - Math.sin((i - 6) / 4) * 20);
-        const precip = i >= 13 && i <= 17 ? 4.5 : (i === 18 ? 0.4 : 0.0);
-        const code = precip > 1.0 ? 61 : (precip > 0 ? 51 : (humid > 75 ? 2 : 1));
-        return {
-          time: `${i}:00`,
-          hour: i,
-          label: `${i.toString().padStart(2, '0')}:00`,
-          temperature: temp,
-          apparentTemp: parseFloat((temp + 2.5).toFixed(1)),
-          ecmwfTemp: parseFloat((25 + Math.sin((i - 6) / 4) * 5.8).toFixed(1)),
-          gfsTemp: parseFloat((25.2 + Math.sin((i - 6) / 4) * 6.2).toFixed(1)),
-          iconTemp: parseFloat((24.9 + Math.sin((i - 6) / 4) * 5.9).toFixed(1)),
-          jmaTemp: parseFloat((25.1 + Math.sin((i - 6) / 4) * 6.0).toFixed(1)),
-          humidity: humid,
-          precipitation: precip,
-          precipitationProb: i >= 13 && i <= 18 ? 70 : 15,
-          cloudCover: Math.round(30 + Math.sin(i / 3) * 25),
-          conditionCode: code,
-          conditionText: getWeatherConditionText(code),
-          pressure: 1012,
-          windSpeed: 12 + Math.round(Math.random() * 6),
-          windDirection: 180,
-          pm25: 18,
-          ozone: 40 + (i >= 11 && i <= 15 ? 25 : 0),
-          uvIndex: i >= 10 && i <= 14 ? 7.5 : 1.0,
-        };
-      }),
-      daily: [
-        { date: 'Hari Ini', dayName: 'Hari Ini', tempMax: 31.5, tempMin: 23.5, precipitationSum: 3.2, precipitationProbMax: 50, windSpeedMax: 18, uvIndexMax: 7.2, condition: 'Cerah Berawan' },
-        { date: 'Besok', dayName: 'Besok', tempMax: 30.8, tempMin: 24.0, precipitationSum: 6.5, precipitationProbMax: 65, windSpeedMax: 20, uvIndexMax: 6.8, condition: 'Hujan Sedang' },
-        { date: 'Hari 3', dayName: 'Lusa', tempMax: 32.0, tempMin: 23.8, precipitationSum: 1.0, precipitationProbMax: 30, windSpeedMax: 15, uvIndexMax: 8.0, condition: 'Cerah' },
-      ],
+      modelComparison: data.modelComparison,
+    }, forceRefresh);
+    // Diagnostic/AI explanations never overwrite provider forecast values or prove their accuracy.
+    geospatialDataTelemetryService.addLog(result.isAiVerified ? 'AI_EXEC' : 'INFO', 'ATMOSPHERIC_DIAGNOSTIC', result.scientificBriefing, { model: result.modelName, isAiVerified: result.isAiVerified });
+    return {
+      ...data,
       aiBriefing: {
-        summaryText: `Konsensus multi-model memproyeksikan suhu rata-rata ${baseTemp}°C dengan akurasi 97.2%. Kelembapan cukup tinggi dengan potensi hujan sedang di sore hari.`,
-        preparednessAdvice: ['Sedia payung pada siang menjelang sore.', 'Gunakan tabir surya UV pada rentang pukul 11.00 - 14.00.'],
+        ...data.aiBriefing,
+        summaryText: result.scientificBriefing,
       },
-      aiNwpVerification: atmosphericNwpAiService.computeDeterministicNwp({
-        lat,
-        lng,
-        locationName: placeName || `Wilayah Indonesia (${lat.toFixed(2)}°, ${lng.toFixed(2)}°)`,
-        elevation: 45,
-        current: {
-          consensusTemperature: baseTemp,
-          apparentTemperature: 31.2,
-          humidity: 78,
-          pressure: 1011,
-          windSpeed: 14.5,
-          windDirection: 175,
-          precipitation: 1.2,
-          precipitationProb: 45,
-        },
-        modelComparison: [
-          { modelName: 'ECMWF IFS', sourceFlag: '🇪🇺', temperature: 28.5 },
-          { modelName: 'NOAA GFS', sourceFlag: '🇺🇸', temperature: 28.9 },
-          { modelName: 'DWD ICON', sourceFlag: '🇩🇪', temperature: 28.4 },
-          { modelName: 'JMA Seamless', sourceFlag: '🇯🇵', temperature: 28.6 },
-          { modelName: 'BMKG Base', sourceFlag: '🇮🇩', temperature: 28.7 },
-        ],
-      }),
+      aiNwpVerification: result,
     };
   }
 }
-
 
 export const weatherAggregatorService = new WeatherAggregatorService();

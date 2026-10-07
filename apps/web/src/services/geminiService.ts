@@ -356,3 +356,39 @@ export async function askGemini(
 ) {
   return askChatbotAI(prompt, history);
 }
+
+export interface RouteCopilotPayload {
+  route: any;
+  userQuery?: string;
+  chatHistory?: Array<{ role: 'user' | 'ai'; text: string }>;
+}
+
+export async function askRouteCopilotAI(payload: RouteCopilotPayload): Promise<string> {
+  try {
+    const route = payload.route || {};
+    const res = await apiClient.post('/api/ai/route-copilot', {
+      origin: route.origin,
+      destination: route.destination,
+      distanceKm: route.distanceKm,
+      durationText: route.durationText,
+      durationMin: route.durationMin,
+      departureTimeText: route.departureTimeText,
+      arrivalTimeText: route.arrivalTimeText,
+      timelineStages: route.timelineStages,
+      safetyScore: route.safetyScore,
+      safetyLevel: route.safetyLevel,
+      weatherRiskSummary: route.weatherRiskSummary,
+      volcanoHazardSummary: route.volcanoHazardSummary,
+      userQuery: payload.userQuery,
+      chatHistory: payload.chatHistory,
+    });
+
+    if (res && res.success && res.text) {
+      return res.text;
+    }
+    return res?.text || 'Analisis rute selesai.';
+  } catch (err: any) {
+    console.error('Route Copilot AI error:', err);
+    throw err;
+  }
+}

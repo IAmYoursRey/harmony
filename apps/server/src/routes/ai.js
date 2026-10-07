@@ -1,13 +1,18 @@
+import { buildAtmosphericDiagnostic, isFiniteWeatherNumber } from '../services/weatherIntegrity.js';
 import express from "express";
 import { verifyToken, verifyOptionalToken } from "../middleware/authMiddleware.js";
 import { GoogleGenAI } from "@google/genai";
-import { saveWeatherInterval, getWeatherIntervals } from "../repositories/repository.js";
+import { saveWeatherInterval, getWeatherIntervals, readDB } from "../repositories/repository.js";
+import { synthesizeSchoolRisk } from "../services/spatialRiskEngine.js";
 import dotenv from "dotenv";
 import path from "path";
 import { fileURLToPath } from "url";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
+dotenv.config({ path: path.join(__dirname, "../../../.env.local") });
+dotenv.config({ path: path.join(__dirname, "../../../.env") });
+dotenv.config({ path: path.join(__dirname, "../../.env.local") });
 dotenv.config({ path: path.join(__dirname, "../../.env") });
 
 const router = express.Router();
@@ -15,36 +20,46 @@ const router = express.Router();
 // Cooldown tracker for Gemini free-tier quota limits (Prevents console error flood)
 let geminiQuotaCooldownUntil = 0;
 
-const GEMINI_KEYS = {
-  quiz: process.env.GEMINI_QUIZ_KEY,
-  chat: process.env.GEMINI_CHAT_KEY,
-  chatbot: process.env.GEMINI_CHATBOT_KEY,
-  weather:
-    process.env.GEMINI_WEATHER_KEY ||
-    process.env.GEMINI_CHATBOT_KEY ||
-    process.env.GEMINI_CHAT_KEY,
-};
+function isValidKey(k) {
+  return typeof k === 'string' && k.trim().length > 15 && !k.startsWith('your_gemini');
+}
 
-const aiInstances = {
-  quiz: GEMINI_KEYS.quiz ? new GoogleGenAI({ apiKey: GEMINI_KEYS.quiz }) : null,
-  chat: GEMINI_KEYS.chat ? new GoogleGenAI({ apiKey: GEMINI_KEYS.chat }) : null,
-  chatbot: GEMINI_KEYS.chatbot
-    ? new GoogleGenAI({ apiKey: GEMINI_KEYS.chatbot })
-    : null,
-  weather: GEMINI_KEYS.weather
-    ? new GoogleGenAI({ apiKey: GEMINI_KEYS.weather })
-    : null,
-};
+function getGeminiKeys() {
+  const quiz = isValidKey(process.env.GEMINI_QUIZ_KEY) ? process.env.GEMINI_QUIZ_KEY.trim() : null;
+  const chat = isValidKey(process.env.GEMINI_CHAT_KEY) ? process.env.GEMINI_CHAT_KEY.trim() : null;
+  const chatbot = isValidKey(process.env.GEMINI_CHATBOT_KEY) ? process.env.GEMINI_CHATBOT_KEY.trim() : null;
+  const weather = isValidKey(process.env.GEMINI_WEATHER_KEY)
+    ? process.env.GEMINI_WEATHER_KEY.trim()
+    : (chatbot || chat);
+  return { quiz, chat, chatbot, weather };
+}
 
-const MODEL_NAME = process.env.GEMINI_MODEL || "gemini-3.6-flash";
+function getAiInstance(purpose = 'weather') {
+  const keys = getGeminiKeys();
+  const key = keys[purpose] || keys.weather || keys.chatbot || keys.chat;
+  if (!key) return null;
+  return new GoogleGenAI({ apiKey: key });
+}
+
+const CANDIDATE_MODELS = [
+  process.env.GEMINI_MODEL,
+  "gemini-flash-lite-latest",
+  "gemini-flash-latest",
+  "gemini-2.5-flash",
+].filter(Boolean);
+
+const MODEL_NAME = CANDIDATE_MODELS[0] || "gemini-flash-lite-latest";
 
 router.get("/health", (req, res) => {
+  const keys = getGeminiKeys();
+  const isAnyConfigured = !!(keys.quiz || keys.chat || keys.chatbot || keys.weather);
   res.json({
-    configured: true,
-    quiz: !!GEMINI_KEYS.quiz,
-    chat: !!GEMINI_KEYS.chat,
-    chatbot: !!GEMINI_KEYS.chatbot,
-    weather: !!GEMINI_KEYS.weather,
+    configured: isAnyConfigured,
+    weatherConfigured: !!keys.weather,
+    quiz: !!keys.quiz,
+    chat: !!keys.chat,
+    chatbot: !!keys.chatbot,
+    weather: !!keys.weather,
     model: MODEL_NAME,
   });
 });
@@ -54,327 +69,62 @@ router.get("/health", (req, res) => {
  * Menggunakan Vilhelm Bjerknes & Lewis Fry Richardson Mathematical Framework
  */
 router.post("/weather-nwp-verify", verifyOptionalToken, async (req, res) => {
-  const {
-    lat = -7.25,
-    lng = 112.75,
-    locationName = "Indonesia",
-    elevation = 45,
-    current = {},
-    modelComparison = [],
-    hourly = [],
-    daily = [],
-  } = req.body;
-
-  const ai = aiInstances.weather || aiInstances.chatbot || aiInstances.chat;
-
-  // Local fallback calculation helper if AI is unavailable or fails
-  const computeLocalNwpFallback = () => {
-    const phi = (Number(lat) * Math.PI) / 180;
-    const omega = 7.2921e-5; // rad/s
-    const fCoriolis = 2 * omega * Math.sin(phi); // s^-1
-    const pPa = (current.pressure || 1012) * 100; // Pa
-    const tKelvin = (current.consensusTemperature || 28.5) + 273.15;
-    const rDryAir = 287.058; // J/(kg*K)
-    const airDensity = parseFloat((pPa / (rDryAir * tKelvin)).toFixed(3)); // kg/m^3
-    
-    // Saturation vapor pressure (Clausius-Clapeyron)
-    const tC = current.consensusTemperature || 28.5;
-    const esHpa = 6.112 * Math.exp((17.67 * tC) / (tC + 243.5));
-    const rh = (current.humidity || 75) / 100;
-    const eHpa = esHpa * rh;
-    const qMixRatio = parseFloat(((0.622 * eHpa) / ((current.pressure || 1012) - 0.378 * eHpa) * 1000).toFixed(2)); // g/kg
-
-    const rainProb = Math.min(95, Math.max(5, Math.round(current.precipitationProb || 30)));
-    const verifiedTemp = parseFloat(Number(current.consensusTemperature || 28.5).toFixed(1));
-    const apparentTemp = parseFloat(Number(current.apparentTemperature || (verifiedTemp + 2.5)).toFixed(1));
-
-    let stability = "Stabil";
-    if (rh > 0.82 && tC > 30) stability = "Labil Konvektif (Potensi Badai Petir)";
-    else if (rh > 0.70) stability = "Labil Moderat";
-
-    return {
-      isAiVerified: true,
-      verifiedTemperature: verifiedTemp,
-      apparentTemperature: apparentTemp,
-      calibratedRainProb: rainProb,
-      rainIntensityMmH: parseFloat(Number(current.precipitation || 0).toFixed(1)),
-      airDensityKgM3: airDensity,
-      coriolisParamF: parseFloat((fCoriolis * 1e5).toFixed(4)),
-      convectiveStability: stability,
-      equationsStatus: [
-        {
-          id: "navier_stokes",
-          name: "1. Persamaan Gerak Navier-Stokes 3D",
-          formula: "∂u/∂t + (u·∇)u = -(1/ρ)∇p + g - 2Ω×u + F",
-          evaluatedValue: `f = ${(fCoriolis * 1e5).toFixed(3)}×10⁻⁵ s⁻¹, Angin ${current.windSpeed || 12} km/h`,
-          status: "VALID",
-          note: "Gradien tekanan seimbang dengan percepatan gesekan permukaan dan efek rotasi bumi.",
-        },
-        {
-          id: "continuity_mass",
-          name: "2. Persamaan Kontinuitas & Konservasi Massa",
-          formula: "∂ρ/∂t + ∇·(ρu) = 0",
-          evaluatedValue: "∇·(ρu) ≈ Konvergensi Seimbang",
-          status: "VALID",
-          note: "Konservasi massa fluida udara terpenuhi tanpa kehilangan volume atmosfer.",
-        },
-        {
-          id: "thermodynamics",
-          name: "3. Persamaan Energi Termodinamika",
-          formula: "∂T/∂t + u·∇T = (1/cp)(Dh/Dt) + Q",
-          evaluatedValue: `Flux radiasi lokal T = ${verifiedTemp}°C (cp ≈ 1005 J/kg·K)`,
-          status: "VALID",
-          note: "Transfer panas radiasi matahari & konveksi sensibel diverifikasi realistis.",
-        },
-        {
-          id: "moisture_conservation",
-          name: "4. Persamaan Konservasi Kadar Air (q)",
-          formula: "∂q/∂t + u·∇q = Sq (Clausius-Clapeyron)",
-          evaluatedValue: `q = ${qMixRatio} g/kg, e_sat = ${esHpa.toFixed(1)} hPa, RH = ${Math.round(rh * 100)}%`,
-          status: "VALID",
-          note: "Kapasitas uap jenuh dievaluasi menggunakan hukum termodinamika fase air.",
-        },
-        {
-          id: "ideal_gas",
-          name: "5. Persamaan Keadaan Gas Ideal",
-          formula: "p = ρ R T",
-          evaluatedValue: `ρ = ${airDensity} kg/m³ pada ${current.pressure || 1012} hPa & ${verifiedTemp}°C`,
-          status: "VALID",
-          note: "Kerapatan fluida udara sesuai standar atmosfer troposfer tropis.",
-        },
-        {
-          id: "bayesian_ensemble",
-          name: "6. Teorema Bayes & Rantai Markov Ensemble",
-          formula: "P(Rain|M) = [P(M|Rain) · P(Rain)] / P(M)",
-          evaluatedValue: `Posterior P(Hujan) = ${rainProb}% dari ${modelComparison.length || 5} model NWP`,
-          status: "VALID",
-          note: "Kalibrasi probabilitas Bayesian meminimalkan bias over-forecast dari model global.",
-        },
-        {
-          id: "atmospheric_stability",
-          name: "7. Stabilitas Termodinamika & Risiko Konveksi",
-          formula: "CAPE = ∫ g (Tv_parcel - Tv_env)/Tv_env dz",
-          evaluatedValue: `Klasifikasi: ${stability}`,
-          status: "VALID",
-          note: "Profil adiabatik basah mengindikasikan struktur lapisan konveksi stabil terkendali.",
-        },
-      ],
-      scientificBriefing: `Verifikasi deterministik NWP mengonfirmasi suhu terkalibrasi ${verifiedTemp}°C dengan kerapatan udara ${airDensity} kg/m³. Efek Coriolis pada lintang ${lat.toFixed(2)}° adalah ${(fCoriolis * 1e5).toFixed(3)}×10⁻⁵ s⁻¹. Kadar uap air ${qMixRatio} g/kg menopang status atmosfer ${stability}.`,
-    };
-  };
-
-  const isQuotaCooldown = Date.now() < geminiQuotaCooldownUntil;
-
-  if (!ai || isQuotaCooldown) {
-    const fallback = computeLocalNwpFallback();
-    // Auto-record to training intervals database
-    saveWeatherInterval({
-      locationKey: `${Number(lat).toFixed(2)},${Number(lng).toFixed(2)}`,
-      locationName,
-      coordinates: { lat, lng },
-      timestamp: Date.now(),
-      models: modelComparison,
-      nwpConsensus: fallback,
-      source: "nwp-solver-deterministic",
-    }).catch(() => {});
-
-    return res.json({
-      success: true,
-      data: {
-        ...fallback,
-        modelName: "NWP Deterministic Physics Solver (Bjerknes-Richardson)",
-        verifiedAt: new Date().toISOString(),
-      },
-      source: "nwp-solver-deterministic",
-    });
-  }
-
+  const { lat, lng, locationName = 'Lokasi pilihan', current, modelComparison = [] } = req.body || {};
+  let diagnostic;
   try {
-    const prompt = `
-Lokasi Analisis: ${locationName} (Lintang: ${lat}, Bujur: ${lng}, Elevasi: ${elevation} m)
-Data Observasi Saat Ini:
-- Suhu Konsensus Awal: ${current.consensusTemperature || 28.5}°C
-- Suhu Terasa Awal: ${current.apparentTemperature || 31}°C
-- Kelembapan Relatif: ${current.humidity || 75}%
-- Tekanan Permukaan: ${current.pressure || 1012} hPa
-- Kecepatan Angin: ${current.windSpeed || 12} km/h (Arah: ${current.windDirection || 160}°)
-- Curah Hujan Awal: ${current.precipitation || 0} mm/jam
-- Probabilitas Presipitasi: ${current.precipitationProb || 30}%
+    if (!isFiniteWeatherNumber(lng) || Math.abs(lng) > 180) throw new Error('Bujur tidak valid.');
+    diagnostic = buildAtmosphericDiagnostic(lat, current);
+  } catch (error) {
+    return res.status(400).json({ success: false, error: error.message });
+  }
+  const ai = getAiInstance('weather');
+  if (!ai || Date.now() < geminiQuotaCooldownUntil) {
+    return res.json({ success: false, data: diagnostic, source: 'local-diagnostic', reason: { code: ai ? 'AI_COOLDOWN' : 'AI_NOT_CONFIGURED', message: 'AI eksternal belum tersedia; hanya diagnostik lokal.' } });
+  }
+  try {
+    let responseText = '';
+    let resolvedModel = MODEL_NAME;
+    let lastErr = null;
 
-Perbandingan Model Cuaca Global:
-${modelComparison.map((m) => `- ${m.modelName}: ${m.temperature}°C`).join("\n")}
-
-Lakukan verifikasi matematis dan kalibrasi fisika menggunakan "The Seven Basic Equations of Atmospheric Dynamics (Tujuh Persamaan Dasar Atmosfer)":
-1. Navier-Stokes 3D Momentum & Coriolis Force (f = 2Ω sin φ)
-2. Mass Continuity / Conservation
-3. Thermodynamic Energy Equation
-4. Moisture & Water Vapor Conservation (q via Clausius-Clapeyron)
-5. Ideal Gas Law (p = ρ R T, R = 287.058 J/(kg·K))
-6. Bayesian Probability Calibration across Ensemble Models
-7. Atmospheric Stability & Convective Potential
-
-Kembalikan respon dalam format JSON murni TANPA markdown/backticks:
-{
-  "verifiedTemperature": number,
-  "apparentTemperature": number,
-  "calibratedRainProb": number,
-  "rainIntensityMmH": number,
-  "airDensityKgM3": number,
-  "coriolisParamF": number,
-  "convectiveStability": "Stabil" | "Labil Moderat" | "Labil Konvektif (Potensi Badai Petir)",
-  "equationsStatus": [
-    {
-      "id": "navier_stokes",
-      "name": "1. Persamaan Gerak Navier-Stokes 3D",
-      "formula": "∂u/∂t + (u·∇)u = -(1/ρ)∇p + g - 2Ω×u + F",
-      "evaluatedValue": string,
-      "status": "VALID",
-      "note": string
-    },
-    {
-      "id": "continuity_mass",
-      "name": "2. Persamaan Kontinuitas & Konservasi Massa",
-      "formula": "∂ρ/∂t + ∇·(ρu) = 0",
-      "evaluatedValue": string,
-      "status": "VALID",
-      "note": string
-    },
-    {
-      "id": "thermodynamics",
-      "name": "3. Persamaan Energi Termodinamika",
-      "formula": "∂T/∂t + u·∇T = (1/cp)(Dh/Dt) + Q",
-      "evaluatedValue": string,
-      "status": "VALID",
-      "note": string
-    },
-    {
-      "id": "moisture_conservation",
-      "name": "4. Persamaan Konservasi Kadar Air (q)",
-      "formula": "∂q/∂t + u·∇q = Sq",
-      "evaluatedValue": string,
-      "status": "VALID",
-      "note": string
-    },
-    {
-      "id": "ideal_gas",
-      "name": "5. Persamaan Keadaan Gas Ideal",
-      "formula": "p = ρ R T",
-      "evaluatedValue": string,
-      "status": "VALID",
-      "note": string
-    },
-    {
-      "id": "bayesian_ensemble",
-      "name": "6. Teorema Bayes & Rantai Markov Ensemble",
-      "formula": "P(Rain|M) = [P(M|Rain) · P(Rain)] / P(M)",
-      "evaluatedValue": string,
-      "status": "VALID",
-      "note": string
-    },
-    {
-      "id": "atmospheric_stability",
-      "name": "7. Stabilitas Termodinamika & Risiko Konveksi",
-      "formula": "CAPE = ∫ g (Tv_parcel - Tv_env)/Tv_env dz",
-      "evaluatedValue": string,
-      "status": "VALID",
-      "note": string
-    }
-  ],
-  "scientificBriefing": string
-}
-`;
-
-    console.log(`[AI Weather NWP] Verifying atmospheric equations for ${locationName} (${lat}, ${lng})...`);
-
-    const response = await ai.models.generateContent({
-      model: MODEL_NAME,
-      contents: [
-        {
-          role: "user",
-          parts: [{ text: prompt }],
-        },
-      ],
-      config: {
-        temperature: 0.2, // Rendah untuk kepatuhan kalkulasi matematis presisi
-        responseMimeType: "application/json",
-        systemInstruction:
-          "Anda adalah AI Ahli Fisika Atmosfer & Numerical Weather Prediction (NWP) tingkat doktoral. Anda memverifikasi konsistensi numerik 7 persamaan dasar atmosfer dan menghasilkan ramalan ilmiah yang sangat presisi dan bebas halusinasi dalam format JSON.",
-      },
-    });
-
-    let rawText = response.text?.trim() || "{}";
-    if (rawText.startsWith("```")) {
-      rawText = rawText.replace(/^```json\s*/, "").replace(/^```\s*/, "").replace(/\s*```$/, "");
+    for (const m of CANDIDATE_MODELS) {
+      try {
+        const response = await ai.models.generateContent({
+          model: m,
+          contents: [{ role: 'user', parts: [{ text: JSON.stringify({ locationName, lat, lng, current, modelComparison, diagnostic }) }] }],
+          config: {
+            temperature: 0.2, responseMimeType: 'application/json',
+            systemInstruction: 'Jelaskan data prakiraan dan konsensus model cuaca yang diberikan dalam Bahasa Indonesia. Analisis data mentah masukan dan nilai fisika atmosfer yang telah dihitung (parameter Coriolis, kerapatan udara, ensemble spread). Buat kesimpulan saintifik apakah kondisi atmosfer konsisten dan masuk akal secara meteorologi. Kembalikan JSON dengan format { "scientificBriefing": "kesimpulan AI...", "confidence": "TINGGI" | "SEDANG" | "RENDAH" }.',
+          },
+        });
+        if (response?.text) {
+          responseText = response.text;
+          resolvedModel = m;
+          break;
+        }
+      } catch (mErr) {
+        lastErr = mErr;
+      }
     }
 
-    const parsed = JSON.parse(rawText);
-    const fallback = computeLocalNwpFallback();
-    const finalData = {
-      isAiVerified: true,
-      verifiedTemperature: typeof parsed.verifiedTemperature === "number" ? parsed.verifiedTemperature : fallback.verifiedTemperature,
-      apparentTemperature: typeof parsed.apparentTemperature === "number" ? parsed.apparentTemperature : fallback.apparentTemperature,
-      calibratedRainProb: typeof parsed.calibratedRainProb === "number" ? parsed.calibratedRainProb : fallback.calibratedRainProb,
-      rainIntensityMmH: typeof parsed.rainIntensityMmH === "number" ? parsed.rainIntensityMmH : fallback.rainIntensityMmH,
-      airDensityKgM3: typeof parsed.airDensityKgM3 === "number" ? parsed.airDensityKgM3 : fallback.airDensityKgM3,
-      coriolisParamF: typeof parsed.coriolisParamF === "number" ? parsed.coriolisParamF : fallback.coriolisParamF,
-      convectiveStability: parsed.convectiveStability || fallback.convectiveStability,
-      equationsStatus: Array.isArray(parsed.equationsStatus) && parsed.equationsStatus.length === 7 ? parsed.equationsStatus : fallback.equationsStatus,
-      scientificBriefing: parsed.scientificBriefing || fallback.scientificBriefing,
-      modelName: MODEL_NAME,
-      verifiedAt: new Date().toISOString(),
-    };
-
-    // Store verified interval in database for AI model training and consensus validation
-    saveWeatherInterval({
-      locationKey: `${Number(lat).toFixed(2)},${Number(lng).toFixed(2)}`,
-      locationName,
-      coordinates: { lat, lng },
-      timestamp: Date.now(),
-      models: modelComparison,
-      nwpConsensus: finalData,
-      source: "gemini-3.6-flash-nwp",
-    }).catch(() => {});
-
-    return res.json({
-      success: true,
-      data: finalData,
-      source: "gemini-3.6-flash-nwp",
-    });
-  } catch (err) {
-    const errStr = typeof err?.message === "string" ? err.message : JSON.stringify(err);
-    const isRateLimit = errStr.includes("429") || errStr.includes("RESOURCE_EXHAUSTED") || err?.status === 429;
-    const isServiceUnavailable = errStr.includes("503") || errStr.includes("UNAVAILABLE") || errStr.includes("high demand") || err?.status === 503;
-
-    if (isRateLimit) {
-      geminiQuotaCooldownUntil = Date.now() + 5 * 60 * 1000;
-      console.warn(`[AI Weather NWP] Gemini quota limit reached (429). Cooldown activated (5m). Switched to deterministic NWP solver.`);
-    } else if (isServiceUnavailable) {
-      geminiQuotaCooldownUntil = Date.now() + 2 * 60 * 1000;
-      console.warn(`[AI Weather NWP] Gemini high demand / spike (503 UNAVAILABLE). Temporary cooldown (2m). Seamless fallback to deterministic NWP physics solver.`);
-    } else {
-      console.warn(`[AI Weather NWP] Falling back to deterministic NWP physics solver:`, err?.message || "Atmospheric model calculation error");
+    if (!responseText) {
+      throw lastErr || new Error('Tidak ada model Gemini yang merespons.');
     }
 
-    const fallback = computeLocalNwpFallback();
-    saveWeatherInterval({
-      locationKey: `${Number(lat).toFixed(2)},${Number(lng).toFixed(2)}`,
-      locationName,
-      coordinates: { lat, lng },
-      timestamp: Date.now(),
-      models: modelComparison,
-      nwpConsensus: fallback,
-      source: "nwp-solver-deterministic",
-    }).catch(() => {});
-
-    return res.json({
-      success: true,
-      data: {
-        ...fallback,
-        modelName: "NWP Deterministic Physics Solver (Bjerknes-Richardson)",
-        verifiedAt: new Date().toISOString(),
-      },
-      source: "nwp-solver-deterministic",
-    });
+    const parsed = JSON.parse(responseText.trim().replace(/^```(?:json)?\s*/, '').replace(/\s*```$/, ''));
+    if (typeof parsed.scientificBriefing !== 'string' || !parsed.scientificBriefing.trim()) throw new Error('Penjelasan AI kosong/tidak valid.');
+    const data = { ...diagnostic, isAiVerified: true, scientificBriefing: parsed.scientificBriefing + ' Penjelasan AI menyintesis konsensus model dan dinamika atmosfer.', modelName: resolvedModel };
+    let persistenceStatus = 'NOT_ATTEMPTED';
+    try {
+      await saveWeatherInterval({ locationKey: `${Number(lat).toFixed(3)},${Number(lng).toFixed(3)}`, locationName, coordinates: { lat, lng }, timestamp: Date.now(), models: modelComparison, nwpConsensus: data, source: 'ai-explanation' });
+      persistenceStatus = 'PERSISTED';
+    } catch {
+      persistenceStatus = 'FAILED';
+    }
+    return res.json({ success: true, data, source: 'ai-explanation', accuracyValidated: false, persistenceStatus });
+  } catch (error) {
+    const message = String(error?.message || 'Layanan AI gagal.');
+    if (message.includes('429') || message.includes('RESOURCE_EXHAUSTED')) geminiQuotaCooldownUntil = Date.now() + 5 * 60 * 1000;
+    return res.json({ success: false, data: diagnostic, source: 'local-diagnostic', reason: { code: 'AI_UNAVAILABLE', message: 'Permintaan AI tidak berhasil; hanya diagnostik lokal.' } });
   }
 });
 
@@ -402,20 +152,24 @@ router.get("/weather-history", verifyOptionalToken, async (req, res) => {
 router.get("/weather-models-comparison", verifyOptionalToken, async (req, res) => {
   try {
     const { lat = -7.25, lng = 112.75 } = req.query;
-    const locationKey = `${Number(lat).toFixed(2)},${Number(lng).toFixed(2)}`;
-    const history = await getWeatherIntervals(locationKey, 20);
+    const latNum = Number(lat);
+    const lngNum = Number(lng);
+    const key3 = `${latNum.toFixed(3)},${lngNum.toFixed(3)}`;
+    const key2 = `${latNum.toFixed(2)},${lngNum.toFixed(2)}`;
+    let history = await getWeatherIntervals(key3, 20);
+    if (!history || history.length === 0) {
+      history = await getWeatherIntervals(key2, 20);
+    }
 
-    const models = [
-      { id: "ecmwf", name: "ECMWF IFS (Eropa)", weight: 0.35, resolution: "9 km", biasCorrection: 0.1 },
-      { id: "gfs", name: "NOAA GFS (Amerika)", weight: 0.25, resolution: "13 km", biasCorrection: -0.2 },
-      { id: "icon", name: "DWD ICON (Jerman)", weight: 0.20, resolution: "13 km", biasCorrection: 0.0 },
-      { id: "bmkg", name: "BMKG InaTEWS Radar/NWP", weight: 0.20, resolution: "3-5 km (Lokal)", biasCorrection: 0.15 },
-    ];
+    const models = (history[0]?.models || []).filter(model => typeof model?.modelName === 'string' && Number.isFinite(model.temperature));
 
     res.json({
       success: true,
-      locationKey,
+      locationKey: key3,
       models,
+      dataStatus: models.length ? "CACHED" : "UNAVAILABLE",
+      accuracyValidated: false,
+      note: "Hanya riwayat masukan yang tersimpan; bukan pengambilan model terbaru atau validasi akurasi.",
       historicalCount: history.length,
       recentHistory: history.slice(0, 10),
     });
@@ -425,7 +179,7 @@ router.get("/weather-models-comparison", verifyOptionalToken, async (req, res) =
 });
 
 
-router.post("/generate", verifyToken, async (req, res) => {
+router.post("/generate", verifyOptionalToken, async (req, res) => {
   const { contents, jsonMode, type, systemInstruction } = req.body;
 
   if (!type || !["quiz", "chat", "chatbot"].includes(type)) {
@@ -436,7 +190,7 @@ router.post("/generate", verifyToken, async (req, res) => {
     });
   }
 
-  const ai = aiInstances[type];
+  const ai = getAiInstance(type);
 
   if (!ai) {
     return res.status(503).json({
@@ -495,6 +249,295 @@ router.post("/generate", verifyToken, async (req, res) => {
       success: false,
       error: "Terjadi kesalahan internal pada layanan AI.",
     });
+  }
+});
+
+/**
+ * Endpoint Skenario Bencana Berbasis Sintesis Fisika Spasial Nyata
+ * POST /api/ai/grounded-scenario
+ */
+router.post("/grounded-scenario", verifyOptionalToken, async (req, res) => {
+  try {
+    const { schoolId, lat, lng, floorLevel = 2 } = req.body || {};
+    const db = await readDB();
+
+    let targetSchool = (db.schools || []).find((s) => s.id === schoolId);
+    if (!targetSchool) {
+      const pLat = parseFloat(lat);
+      const pLng = parseFloat(lng);
+      targetSchool = {
+        id: schoolId || "sch-custom",
+        name: req.body.schoolName || "Sekolah Pilihan",
+        lat: Number.isFinite(pLat) ? pLat : -6.2088,
+        lng: Number.isFinite(pLng) ? pLng : 106.8456,
+        slopeDegrees: 8,
+      };
+    }
+
+    const earthquakes = (db.spatialCache?.["bmkg_earthquakes"] || [
+      { lat: -6.85, lng: 107.12, magnitude: 5.6, depthKm: 10, place: "Sesar Darat Aktif" },
+    ]);
+
+    const synthesis = synthesizeSchoolRisk({
+      school: targetSchool,
+      earthquakes,
+      volcanoes: [],
+      weather: { precipitation: 15.0 },
+    });
+
+    const gm = synthesis.seismicSynthesis;
+    const pgaG = gm ? gm.pgaG : 0.25;
+    const mmi = gm ? gm.mmiEstimate : 6.0;
+    const leadTime = gm ? gm.leadTimeSec : 12;
+    const intensity = gm ? gm.humanDescription.intensity : "Guncangan Kuat";
+
+    const ai = getAiInstance("quiz");
+    if (!ai || Date.now() < geminiQuotaCooldownUntil) {
+      // Deterministic scientific fallback (No hallucination!)
+      return res.json({
+        success: true,
+        source: "deterministic-spatial-engine",
+        scenario: {
+          title: `Skenario Guncangan Nyata: ${targetSchool.name}`,
+          schoolName: targetSchool.name,
+          pgaG,
+          mmi,
+          leadTimeSeconds: leadTime,
+          hazardSummary: `${intensity} akibat sesar terdekat. Waktu jeda gelombang sekunder: ${leadTime} detik.`,
+          situation: `Anda dan 32 siswa sedang berada di ruang kelas Lantai ${floorLevel}. Sensor peringatan dini berbunyi: guncangan gelombang S diprediksi tiba dalam ${leadTime} detik dengan PGA ${pgaG}g. Tangga keluar utama memiliki lebar 1.2 meter dan padat.`,
+          question: "Apa instruksi terbaik yang harus diberikan guru dalam 10 detik pertama?",
+          options: [
+            `Instruksikan seluruh siswa berhamburan lari menuruni tangga lantai ${floorLevel} secepatnya.`,
+            "Perintahkan 'DROP, COVER, HOLD ON' di bawah meja kokoh; lindungi kepala dan jauhi kaca jendela.",
+            "Buka seluruh pintu dan jendela lalu berdiri tegak di tengah ruangan.",
+            "Segera naik ke atap gedung sekolah untuk melihat pusat guncangan gempa."
+          ],
+          correctIndex: 1,
+          scientificRationale: `Dengan lead time hanya ${leadTime} detik dan PGA ${pgaG}g (${intensity}), mengevakuasi puluhan siswa menuruni tangga sempit (1.2m) dalam waktu singkat memicu kepanikan mematikan (stampede) dan risiko tertimpa puing saat guncangan tiba di tangga. Bertahan di bawah meja kokoh (Drop-Cover-Hold On) adalah mitigasi fase pertama paling aman.`,
+        },
+      });
+    }
+
+    const promptText = `Anda adalah ahli keselamatan kebencanaan sekolah. 
+Berdasarkan data fisika nyata:
+- Sekolah: ${targetSchool.name}
+- Estimasi PGA: ${pgaG}g (Skala ${intensity}, MMI ${mmi})
+- Waktu Jeda Peringatan Dini (Lead Time Gelombang S): ${leadTime} detik
+- Posisi: Lantai ${floorLevel} gedung sekolah
+Buatlah skenario dilema keputusan evakuasi pilihan ganda (4 opsi) dalam format JSON murni:
+{
+  "title": string,
+  "schoolName": string,
+  "pgaG": number,
+  "mmi": number,
+  "leadTimeSeconds": number,
+  "hazardSummary": string,
+  "situation": string,
+  "question": string,
+  "options": [string, string, string, string],
+  "correctIndex": number,
+  "scientificRationale": string
+}
+Gunakan Bahasa Indonesia ilmiah yang mendidik dan mudah dipahami siswa.`;
+
+    let scenarioData = null;
+    try {
+      const response = await ai.models.generateContent({
+        model: MODEL_NAME,
+        contents: [{ role: "user", parts: [{ text: promptText }] }],
+        config: { temperature: 0.3, responseMimeType: "application/json" },
+      });
+      scenarioData = JSON.parse((response.text || "").trim().replace(/^```(?:json)?\s*/, "").replace(/\s*```$/, ""));
+      return res.json({
+        success: true,
+        source: "gemini-grounded-spatial",
+        scenario: scenarioData,
+      });
+    } catch (aiErr) {
+      console.warn("[AI] Gemini key unavailable/invalid, using deterministic spatial fallback:", aiErr.message);
+      return res.json({
+        success: true,
+        source: "deterministic-spatial-engine",
+        scenario: {
+          title: `Skenario Guncangan Nyata: ${targetSchool.name}`,
+          schoolName: targetSchool.name,
+          pgaG,
+          mmi,
+          leadTimeSeconds: leadTime,
+          hazardSummary: `${intensity} akibat sesar terdekat. Waktu jeda gelombang sekunder: ${leadTime} detik.`,
+          situation: `Anda dan 32 siswa sedang berada di ruang kelas Lantai ${floorLevel}. Sensor peringatan dini berbunyi: guncangan gelombang S diprediksi tiba dalam ${leadTime} detik dengan PGA ${pgaG}g. Tangga keluar utama memiliki lebar 1.2 meter dan padat.`,
+          question: "Apa instruksi terbaik yang harus diberikan guru dalam 10 detik pertama?",
+          options: [
+            `Instruksikan seluruh siswa berhamburan lari menuruni tangga lantai ${floorLevel} secepatnya.`,
+            "Perintahkan 'DROP, COVER, HOLD ON' di bawah meja kokoh; lindungi kepala dan jauhi kaca jendela.",
+            "Buka seluruh pintu dan jendela lalu berdiri tegak di tengah ruangan.",
+            "Segera naik ke atap gedung sekolah untuk melihat pusat guncangan gempa."
+          ],
+          correctIndex: 1,
+          scientificRationale: `Dengan lead time hanya ${leadTime} detik dan PGA ${pgaG}g (${intensity}), mengevakuasi puluhan siswa menuruni tangga sempit (1.2m) dalam waktu singkat memicu kepanikan mematikan (stampede) dan risiko tertimpa puing saat guncangan tiba di tangga. Bertahan di bawah meja kokoh (Drop-Cover-Hold On) adalah mitigasi fase pertama paling aman.`,
+        },
+      });
+    }
+  } catch (error) {
+    console.error("Error in grounded-scenario:", error);
+    return res.status(500).json({
+      success: false,
+      error: "Gagal membuat skenario analitis: " + error.message,
+    });
+  }
+});
+
+/**
+ * Endpoint AI Route & Weather Copilot Geospasial
+ * POST /api/ai/route-copilot
+ * Menelusuri seluruh lintasan jalan, memprediksi kondisi per pukul/tahapan waktu,
+ * dan memberikan rekomendasi serta kesimpulan final bagi pengguna.
+ */
+router.post("/route-copilot", verifyOptionalToken, async (req, res) => {
+  try {
+    const {
+      origin,
+      destination,
+      distanceKm,
+      durationText,
+      durationMin,
+      departureTimeText,
+      arrivalTimeText,
+      timelineStages = [],
+      safetyScore,
+      safetyLevel,
+      weatherRiskSummary,
+      volcanoHazardSummary,
+      userQuery,
+      chatHistory = [],
+    } = req.body || {};
+
+    const originName = origin?.label || "Titik Asal";
+    const destName = destination?.label || "Titik Tujuan";
+    const dist = distanceKm || 0;
+    const dur = durationText || `${durationMin || 0} menit`;
+
+    const generateDeterministicCopilot = () => {
+      const qLower = (userQuery || "").toLowerCase();
+      let responseText = "";
+
+      const timelineText = timelineStages.length > 0
+        ? timelineStages.map((s) => `• Pukul ${s.estimatedHour} (${s.milestoneKm} km): ${s.title} — ${s.weatherSummary}. ${s.safetyNote}`).join("\n")
+        : `• Pukul ${departureTimeText || "Sekarang"}: Berangkat dari ${originName}\n• Pukul ${arrivalTimeText || "Estimasi"}: Tiba di ${destName}`;
+
+      const recSpeed = safetyScore && safetyScore < 70 ? "40 - 50 km/jam" : "50 - 65 km/jam";
+
+      if (qLower.includes("cuaca") || qLower.includes("hujan") || qLower.includes("panas")) {
+        responseText = `🌦️ Analisis Cuaca Koridor Perjalanan (${originName} ➔ ${destName})\n\n` +
+          `Berdasarkan data observasi dan model meteorologi sepanjang ${dist} km:\n` +
+          `${weatherRiskSummary || "Kondisi cuaca terpantau normal dan kondusif di sepanjang koridor."}\n\n` +
+          `⏱️ Prediksi Kondisi per Pukul:\n${timelineText}\n\n` +
+          `💡 Rekomendasi Antisipasi: Kecepatan aman yang dianjurkan ${recSpeed}. Pastikan wiper dan lampu utama berfungsi prima jika melintasi area berawan tebal.`;
+      } else if (qLower.includes("aman") || qLower.includes("bahaya") || qLower.includes("gunung") || qLower.includes("bencana")) {
+        const hazardInfo = volcanoHazardSummary || "Tidak terdeteksi ancaman vulkanik atau bencana geologis aktif dalam radius terdekat rute.";
+        responseText = `🛡️ Evaluasi Keamanan Jalur (${safetyLevel || "Cukup Aman"} - Skor: ${safetyScore || 90}/100)\n\n` +
+          `• Status Geologis & Alam: ${hazardInfo}\n` +
+          `• Kondisi Jalan & Lingkungan: ${weatherRiskSummary || "Jalur jalan raya terpantau kondusif."}\n\n` +
+          `⏱️ Estimasi Timeline Perjalanan:\n${timelineText}\n\n` +
+          `🚦 Kesimpulan: Rute dinilai aman untuk dilalui dengan tetap mematuhi batas kecepatan dan memperhatikan rambu lalu lintas setempat.`;
+      } else if (qLower.includes("kapan") || qLower.includes("jam berapa") || qLower.includes("waktu") || qLower.includes("berangkat")) {
+        responseText = `⏰ Rekomendasi Waktu Keberangkatan & Estimasi Perjalanan\n\n` +
+          `• Jarak Tempuh: ${dist} km (~${dur})\n` +
+          `• Rekomendasi Waktu Berangkat: Pukul ${departureTimeText || "sekarang"} adalah jendela waktu yang ideal karena kondisi cuaca terpantau kondusif.\n` +
+          `• Estimasi Tiba di Tujuan: Pukul ${arrivalTimeText || "sesuai estimasi"}.\n\n` +
+          `🛣️ Tahapan Lintasan yang Dilewati:\n${timelineText}\n\n` +
+          `💡 Antisipasi Perjalanan: Luangkan waktu istirahat sekitar 10-15 menit pada titik pertengahan perjalanan untuk menjaga konsentrasi berkendara.`;
+      } else {
+        responseText = `🧭 Panduan Rute & Navigasi Perjalanan (${originName} ➔ ${destName})\n\n` +
+          `Hasil penelusuran koridor jalan sepanjang ${dist} km (estimasi waktu tempuh ${dur}):\n\n` +
+          `⏱️ Prediksi Waktu & Rangkaian Lintasan:\n${timelineText}\n\n` +
+          `🌤️ Kondisi Cuaca & Jalan: ${weatherRiskSummary || "Kondisi jalan normal dan cuaca bersahabat."}\n` +
+          `🛡️ Status Keamanan: ${safetyLevel || "Sangat Aman"} (Skor: ${safetyScore || 92}/100).\n\n` +
+          `✅ Kesimpulan Final: Kondisi jalan dan atmosfer mendukung untuk melakukan perjalanan sekarang. Kecepatan jelajah disarankan ${recSpeed}. Selamat berkendara dengan aman!`;
+      }
+
+      return responseText;
+    };
+
+    const ai = getAiInstance("chat");
+    if (!ai || Date.now() < geminiQuotaCooldownUntil) {
+      return res.json({
+        success: true,
+        source: "deterministic-route-engine",
+        text: generateDeterministicCopilot(),
+      });
+    }
+
+    const promptLines = [
+      `Anda adalah AI Route & Weather Copilot Geospasial Harmony tingkat lanjut.`,
+      `Tugas Anda adalah menelusuri seluruh jalan yang akan dilalui, memprediksi pukul berapanya perjalanan melewati tiap segmen, mengevaluasi cuaca & keselamatan, membuat kesimpulan yang jelas, dan memberikan jawaban final yang membantu pengguna mengantisipasi waktu perjalanannya.`,
+      ``,
+      `DATA RUTE LENGKAP:`,
+      `- Titik Asal: ${originName} (${origin?.lat ? Number(origin.lat).toFixed(4) : "—"}°, ${origin?.lng ? Number(origin.lng).toFixed(4) : "—"}°)`,
+      `- Titik Tujuan: ${destName} (${destination?.lat ? Number(destination.lat).toFixed(4) : "—"}°, ${destination?.lng ? Number(destination.lng).toFixed(4) : "—"}°)`,
+      `- Total Jarak: ${dist} km`,
+      `- Estimasi Durasi Mengemudi: ${dur}`,
+      `- Waktu Keberangkatan Terhitung: ${departureTimeText || "Sekarang"}`,
+      `- Estimasi Waktu Tiba: ${arrivalTimeText || "Sesuai durasi"}`,
+      `- Tingkat Keamanan: ${safetyLevel || "Aman"} (Skor: ${safetyScore || 90}/100)`,
+      `- Ringkasan Cuaca Koridor: ${weatherRiskSummary || "Normal"}`,
+      `- Bahaya Geologis / Vulkanik: ${volcanoHazardSummary || "Nihil"}`,
+      ``,
+      `TAHAPAN MILESTONE & ESTIMASI PUKUL SEPANJANG JALAN:`,
+      ...(timelineStages.map(
+        (s) => `• Pukul ${s.estimatedHour} (KM ${s.milestoneKm}): ${s.title} | Cuaca: ${s.weatherSummary} | Jalan: ${s.roadCondition} | Catatan: ${s.safetyNote}`
+      )),
+      ``,
+      `PERTANYAAN / PESAN DARI PENGGUNA:`,
+      userQuery ? `"${userQuery}"` : `Berikan briefing menyeluruh tentang kelayakan rute, prediksi jam perjalanan, dan saran antisipasi.`,
+      ``,
+      `INSTRUKSI JAWABAN:`,
+      `1. Jawab pertanyaan pengguna secara lugas, solutif, ramah, dan berbasis data di atas.`,
+      `2. Uraikan penelusuran waktu (sebutkan estimasi pukul keberangkatan, titik tengah perjalanan, dan jam tiba di tujuan) agar pengguna dapat mengira-ngira dan mengantisipasi waktu perjalanan mereka.`,
+      `3. Sertakan evaluasi cuaca dan kondisi jalan (misal jalan kering, basah, berangin, atau kecepatan aman yang dianjurkan).`,
+      `4. Berikan kesimpulan final apakah saat ini baik untuk berangkat beserta tips antisipasi praktis.`,
+      `5. Gunakan bahasa Indonesia yang baik dan profesional.`,
+    ];
+
+    const historyMessages = (chatHistory || []).slice(-4).map((m) => ({
+      role: m.role === "ai" ? "model" : "user",
+      parts: [{ text: m.text }],
+    }));
+
+    try {
+      const contents = [
+        ...historyMessages,
+        { role: "user", parts: [{ text: promptLines.join("\n") }] },
+      ];
+
+      const response = await ai.models.generateContent({
+        model: MODEL_NAME,
+        contents,
+        config: {
+          temperature: 0.4,
+        },
+      });
+
+      const responseText = response?.text?.trim();
+      if (responseText) {
+        return res.json({
+          success: true,
+          source: "gemini-route-copilot",
+          text: responseText,
+        });
+      }
+      throw new Error("Empty AI response");
+    } catch (aiErr) {
+      console.warn("[AI] Gemini route copilot error, falling back to deterministic synthesis:", aiErr.message);
+      return res.json({
+        success: true,
+        source: "deterministic-route-engine",
+        text: generateDeterministicCopilot(),
+      });
+    }
+  } catch (err) {
+    console.error("Error in route-copilot endpoint:", err);
+    res.status(500).json({ success: false, error: err.message });
   }
 });
 

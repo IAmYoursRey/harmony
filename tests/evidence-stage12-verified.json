@@ -1,0 +1,366 @@
+{
+  "checkedAt": "2026-10-04T01:16:53.693Z",
+  "scope": "Stage 12 end-to-end data integrity remediation verification",
+  "cases": [
+    {
+      "id": "MET-omitted-values-defaulted",
+      "actual": {
+        "current": {
+          "consensusTemperature": 17,
+          "apparentTemperature": null,
+          "tempMin": null,
+          "tempMax": null,
+          "confidenceScore": null,
+          "humidity": 81,
+          "precipitation": null,
+          "precipitationProb": null,
+          "cloudCover": null,
+          "pressure": null,
+          "windSpeed": null,
+          "windDirection": null,
+          "windGusts": null,
+          "conditionCode": null,
+          "conditionText": "Data Simbol Tidak Tersedia",
+          "pm25": null,
+          "pm10": null,
+          "ozone": null,
+          "uvIndex": null,
+          "aqiLevel": "Tidak Tersedia",
+          "aqiColor": "#94a3b8"
+        },
+        "firstHour": {
+          "time": "2026-10-04T01:16:53.693Z",
+          "hour": 1,
+          "label": "01:16",
+          "temperature": 17,
+          "apparentTemp": null,
+          "humidity": 81,
+          "precipitation": null,
+          "precipitationProb": null,
+          "cloudCover": null,
+          "pressure": null,
+          "seaLevelPressure": null,
+          "windSpeed": null,
+          "windDirection": null,
+          "windGusts": null,
+          "conditionCode": null,
+          "conditionText": "Tidak Diketahui",
+          "pm25": null,
+          "ozone": null,
+          "uvIndex": null
+        },
+        "metAttempt": {
+          "id": "met_norway_fallback",
+          "url": "https://api.met.no/weatherapi/locationforecast/2.0/compact?lat=-7.41&lon=110.35",
+          "status": "SUCCESS",
+          "httpStatus": 200,
+          "latencyMs": 1,
+          "payloadBytes": 425,
+          "checkedAt": "2026-10-04T01:16:53.706Z",
+          "rejectedCount": 0,
+          "acceptedCount": 1
+        },
+        "endpoint": "ONLINE"
+      },
+      "expected": "Missing wind/cloud/pressure stay null with explicit coverage; never synthetic 0 or 1013",
+      "passed": true
+    },
+    {
+      "id": "MET-manual-partial-lost",
+      "actual": {
+        "validator": {
+          "valid": true,
+          "status": "PARTIAL",
+          "error": "1 titik prakiraan tidak valid ditolak.",
+          "acceptedCount": 1,
+          "rejectedCount": 1
+        },
+        "auditStatus": "DEGRADED",
+        "productAttempt": {
+          "id": "met_norway_fallback",
+          "url": "https://api.met.no/weatherapi/locationforecast/2.0/compact?lat=-7.42&lon=110.35",
+          "status": "PARTIAL",
+          "httpStatus": 200,
+          "latencyMs": 0,
+          "payloadBytes": 737,
+          "checkedAt": "2026-10-04T01:16:53.709Z",
+          "rejectedCount": 1,
+          "acceptedCount": 1,
+          "error": "1 titik prakiraan ditolak karena nilai tidak valid."
+        }
+      },
+      "expected": "Shared validator PARTIAL propagates through manual audit and ingestion",
+      "passed": true
+    },
+    {
+      "id": "MET-invalid-issue-offset",
+      "actual": {
+        "isoValidator": false,
+        "dateParseFinite": false,
+        "auditStatus": "OFFLINE",
+        "productSuccess": false,
+        "updatedAt": null
+      },
+      "expected": "An invalid UTC offset never becomes a valid issue timestamp",
+      "passed": true
+    },
+    {
+      "id": "model-mixed-out-of-range",
+      "actual": {
+        "validator": {
+          "valid": true,
+          "status": "PARTIAL",
+          "error": "Sebagian nilai suhu model (cma_grapes_global) tidak valid atau di luar rentang fisik.",
+          "acceptedCount": 1,
+          "rejectedCount": 1
+        },
+        "auditStatus": "DEGRADED",
+        "auditError": "Sebagian nilai suhu model (cma_grapes_global) tidak valid atau di luar rentang fisik."
+      },
+      "expected": "Validate every paired sample and declared unit; invalid values do not receive ONLINE",
+      "passed": true
+    },
+    {
+      "id": "model-unknown-unit",
+      "actual": {
+        "validator": {
+          "valid": false,
+          "status": "OFFLINE",
+          "error": "Satuan suhu model tidak didukung atau tidak sesuai kontrak query (bananas)."
+        },
+        "auditStatus": "OFFLINE",
+        "auditError": "Satuan suhu model tidak didukung atau tidak sesuai kontrak query (bananas)."
+      },
+      "expected": "Validate every paired sample and declared unit; invalid values do not receive ONLINE",
+      "passed": true
+    },
+    {
+      "id": "model-epoch-outside-date-range",
+      "actual": {
+        "validator": {
+          "valid": false,
+          "status": "OFFLINE",
+          "error": "Nilai epoch waktu model di luar rentang representasi yang sah."
+        },
+        "auditStatus": "OFFLINE",
+        "auditError": "Nilai epoch waktu model di luar rentang representasi yang sah."
+      },
+      "expected": "Validate every paired sample and declared unit; invalid values do not receive ONLINE",
+      "passed": true
+    },
+    {
+      "id": "model-invalid-offset",
+      "actual": {
+        "validator": {
+          "valid": false,
+          "status": "OFFLINE",
+          "error": "Waktu model memuat tanggal kalender yang tidak valid."
+        },
+        "auditStatus": "OFFLINE",
+        "auditError": "Waktu model memuat tanggal kalender yang tidak valid."
+      },
+      "expected": "Validate every paired sample and declared unit; invalid values do not receive ONLINE",
+      "passed": true
+    },
+    {
+      "id": "aggregator-invalid-model-temperature",
+      "actual": {
+        "modelTemperatures": [],
+        "modelAttempt": {
+          "id": "open_meteo_models",
+          "url": "https://api.open-meteo.com/v1/forecast?latitude=-7.45&longitude=112.75&timezone=auto&timeformat=unixtime&hourly=temperature_2m&forecast_days=14&models=ecmwf_ifs025,gfs_seamless,icon_seamless,jma_seamless,bom_access_global,cma_grapes_global,meteofrance_seamless,ukmo_seamless,gem_seamless",
+          "status": "FAILED",
+          "httpStatus": 200,
+          "checkedAt": "2026-10-04T01:16:53.711Z",
+          "latencyMs": 0,
+          "payloadBytes": 773,
+          "error": "Tidak ada nilai suhu model yang valid."
+        },
+        "currentMin": 17,
+        "currentMax": 17
+      },
+      "expected": "Shared model validation governs actual forecast ingestion, not only audit tests",
+      "passed": true
+    },
+    {
+      "id": "rain-sparse-two-zero-points",
+      "actual": {
+        "peakHeatHour": "01:16",
+        "peakHeatTemp": 17,
+        "minHeatHour": "01:16",
+        "minHeatTemp": 17,
+        "peakRainHour": "01:16",
+        "peakRainAmount": 0,
+        "peakRainProb": null,
+        "peakRainProbHour": null,
+        "rainWindowText": "Pada sampel yang tersedia tidak tercatat hujan; 22 interval jam lainnya belum lengkap",
+        "avgCloud": null,
+        "cloudStatus": "Data tutupan awan belum tersedia",
+        "diurnalRange": false,
+        "intervalLabel": "4 Okt – 5 Okt"
+      },
+      "expected": "Coverage and rain windows use elapsed intervals; missing amounts cannot inherit measured intensity",
+      "passed": true
+    },
+    {
+      "id": "rain-75percent-zero-rest-missing",
+      "actual": {
+        "peakHeatHour": "01:16",
+        "peakHeatTemp": 17,
+        "minHeatHour": "01:16",
+        "minHeatTemp": 17,
+        "peakRainHour": "01:16",
+        "peakRainAmount": 0,
+        "peakRainProb": null,
+        "peakRainProbHour": null,
+        "rainWindowText": "Cenderung kering pada 18 interval yang tercatat (terdapat 6 interval belum lengkap)",
+        "avgCloud": null,
+        "cloudStatus": "Data tutupan awan belum tersedia",
+        "diurnalRange": false,
+        "intervalLabel": "4 Okt – 5 Okt"
+      },
+      "expected": "Coverage and rain windows use elapsed intervals; missing amounts cannot inherit measured intensity",
+      "passed": true
+    },
+    {
+      "id": "rain-positive-and-probability-only",
+      "actual": {
+        "peakHeatHour": "01:16",
+        "peakHeatTemp": 17,
+        "minHeatHour": "01:16",
+        "minHeatTemp": 17,
+        "peakRainHour": "01:16",
+        "peakRainAmount": 10,
+        "peakRainProb": 70,
+        "peakRainProbHour": "02:16",
+        "rainWindowText": "Hujan lebat (~10 mm) sekitar pukul 01:16 UTC; indikasi potensi hujan (peluang 70%) sekitar pukul 02:16 UTC (tanpa data akumulasi)",
+        "avgCloud": null,
+        "cloudStatus": "Data tutupan awan belum tersedia",
+        "diurnalRange": false,
+        "intervalLabel": "4 Okt"
+      },
+      "expected": "Coverage and rain windows use elapsed intervals; missing amounts cannot inherit measured intensity",
+      "passed": true
+    },
+    {
+      "id": "rain-adjacent-index-24hour-gap",
+      "actual": {
+        "peakHeatHour": "01:16",
+        "peakHeatTemp": 17,
+        "minHeatHour": "01:16",
+        "minHeatTemp": 17,
+        "peakRainHour": "01:16",
+        "peakRainAmount": 1,
+        "peakRainProb": null,
+        "peakRainProbHour": null,
+        "rainWindowText": "Hujan sedang (~1 mm) sekitar pukul 4 Okt 01:16, 5 Okt 01:16 UTC",
+        "avgCloud": null,
+        "cloudStatus": "Data tutupan awan belum tersedia",
+        "diurnalRange": false,
+        "intervalLabel": "4 Okt – 5 Okt"
+      },
+      "expected": "Coverage and rain windows use elapsed intervals; missing amounts cannot inherit measured intensity",
+      "passed": true
+    },
+    {
+      "id": "selector-next-day-positive",
+      "actual": {
+        "selectedTime": "2026-10-05T01:16:53.693Z",
+        "selectedTemperature": 30
+      },
+      "expected": "Selecting a full timestamp chooses the correct second-day temperature",
+      "passed": true
+    },
+    {
+      "id": "radar-partial-cache-reset",
+      "actual": {
+        "counts": {
+          "requested": 1,
+          "loaded": 0,
+          "error": 0,
+          "activeRequested": 3,
+          "activeLoaded": 1,
+          "activeError": 1
+        },
+        "status": "PARSIAL",
+        "queriedZooms": [
+          7
+        ]
+      },
+      "expected": "Retain loaded/pending/failed coverage and use provider effective zoom rather than map zoom 13",
+      "passed": true
+    },
+    {
+      "id": "radar-still-needed-inflight-ignored",
+      "actual": {
+        "counts": {
+          "requested": 1,
+          "loaded": 1,
+          "error": 0,
+          "activeRequested": 3,
+          "activeLoaded": 2,
+          "activeError": 1
+        },
+        "status": "PARSIAL"
+      },
+      "expected": "A tile still needed in the final viewport can finish after moveend and update coverage",
+      "passed": true
+    },
+    {
+      "id": "MET-later-caller-abort",
+      "actual": {
+        "fetchCalls": 1,
+        "afterAbort": {
+          "second": {
+            "resolved": false,
+            "name": "AbortError"
+          }
+        },
+        "final": {
+          "second": {
+            "resolved": false,
+            "name": "AbortError"
+          },
+          "first": {
+            "resolved": true,
+            "success": true
+          }
+        }
+      },
+      "expected": "Each caller cancellation affects only that consumer while needed shared network work continues",
+      "passed": true
+    },
+    {
+      "id": "MET-first-caller-abort",
+      "actual": {
+        "fetchCalls": 1,
+        "afterAbort": {
+          "first": {
+            "resolved": false,
+            "name": "AbortError"
+          }
+        },
+        "final": {
+          "first": {
+            "resolved": false,
+            "name": "AbortError"
+          },
+          "second": {
+            "resolved": false,
+            "name": "AbortError"
+          }
+        }
+      },
+      "expected": "Each caller cancellation affects only that consumer while needed shared network work continues",
+      "passed": true
+    },
+    {
+      "id": "MET-unhandled-finally-rejection",
+      "actual": {
+        "unhandled": []
+      },
+      "expected": "Cleanup promise rejection is handled and does not generate unhandledRejection",
+      "passed": true
+    }
+  ]
+}

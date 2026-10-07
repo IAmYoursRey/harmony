@@ -1,5 +1,6 @@
 // Layanan Verifikasi Cuaca AI Berbasis 7 Persamaan Dasar Atmosfer (NWP)
 // Mengintegrasikan Gemini AI API & Vilhelm Bjerknes - Lewis Fry Richardson Physical Framework
+import { geospatialDataTelemetryService } from './geospatialDataTelemetryService';
 
 export interface EquationVerificationItem {
   id: string;
@@ -14,11 +15,11 @@ export interface AiNwpVerificationResult {
   isAiVerified: boolean;
   verifiedTemperature: number;
   apparentTemperature: number;
-  calibratedRainProb: number;
+  calibratedRainProb: number | null;
   rainIntensityMmH: number;
-  airDensityKgM3: number;
+  airDensityKgM3: number | null;
   coriolisParamF: number; // in 10^-5 s^-1
-  convectiveStability: 'Stabil' | 'Labil Moderat' | 'Labil Konvektif (Potensi Badai Petir)';
+  convectiveStability: 'Stabil' | 'Labil Moderat' | 'Labil Konvektif (Potensi Badai Petir)' | 'Belum dinilai';
   equationsStatus: EquationVerificationItem[];
   scientificBriefing: string;
   modelName: string;
@@ -31,14 +32,14 @@ export interface NwpVerifyPayload {
   locationName: string;
   elevation: number;
   current: {
-    consensusTemperature: number;
-    apparentTemperature: number;
-    humidity: number;
-    pressure: number;
-    windSpeed: number;
-    windDirection: number;
-    precipitation: number;
-    precipitationProb: number;
+    consensusTemperature: number | null;
+    apparentTemperature: number | null;
+    humidity: number | null;
+    pressure: number | null;
+    windSpeed: number | null;
+    windDirection: number | null;
+    precipitation: number | null;
+    precipitationProb: number | null;
   };
   modelComparison: Array<{
     modelName: string;
@@ -53,143 +54,95 @@ class AtmosphericNwpAiService {
   private CACHE_TTL_MS = 10 * 60 * 1000; // 10 menit
 
   /**
-   * Deterministic Mathematical NWP Solver (Local Physical Equations Engine)
-   * Berfungsi sebagai ground-truth fisika dan fallback jika API jaringan/kuota AI tertunda.
+   * Local diagnostic only. It cannot establish forecast accuracy or solve atmospheric dynamics.
    */
   public computeDeterministicNwp(payload: NwpVerifyPayload): AiNwpVerificationResult {
-    const { lat, current, modelComparison, locationName } = payload;
-    const tC = current.consensusTemperature || 28.5;
-    const tKelvin = tC + 273.15;
-    const pPa = (current.pressure || 1012) * 100;
-    const rDryAir = 287.058; // J/(kg*K)
-
-    // 1. Navier-Stokes Coriolis Parameter: f = 2 * Omega * sin(lat)
-    const phi = (lat * Math.PI) / 180;
-    const omega = 7.2921e-5; // rad/s
-    const fCoriolis = 2 * omega * Math.sin(phi);
-    const fScaled = parseFloat((fCoriolis * 1e5).toFixed(4));
-
-    // 2. Ideal Gas Law: p = rho * R * T => rho = p / (R * T)
-    const airDensity = parseFloat((pPa / (rDryAir * tKelvin)).toFixed(3));
-
-    // 3. Moisture Conservation & Clausius-Clapeyron: e_sat = 6.112 * exp(17.67*T / (T + 243.5))
-    const esHpa = 6.112 * Math.exp((17.67 * tC) / (tC + 243.5));
-    const rh = (current.humidity || 75) / 100;
-    const eHpa = esHpa * rh;
-    const qMixRatio = parseFloat(((0.622 * eHpa) / ((current.pressure || 1012) - 0.378 * eHpa) * 1000).toFixed(2));
-
-    // 4. Bayesian Ensemble Calibration
-    const baseRainProb = current.precipitationProb || 30;
-    const modelsHighRain = modelComparison.filter((m) => m.temperature > 30 || m.temperature < 25).length;
-    const bayesianAdjustment = modelsHighRain >= 2 ? 5 : -3;
-    const calibratedRainProb = Math.min(95, Math.max(5, baseRainProb + bayesianAdjustment));
-
-    // 5. Apparent Heat Index Calibration
-    const apparentTemp = parseFloat(
-      (
-        -8.78469475556 +
-        1.61139411 * tC +
-        2.33854883889 * rh * 100 -
-        0.14611605 * tC * (rh * 100) +
-        0.002211732 * Math.pow(tC, 2)
-      ).toFixed(1)
-    ) || parseFloat((tC + 2.4).toFixed(1));
-
-    let stability: 'Stabil' | 'Labil Moderat' | 'Labil Konvektif (Potensi Badai Petir)' = 'Stabil';
-    if (rh > 0.82 && tC > 30) {
-      stability = 'Labil Konvektif (Potensi Badai Petir)';
-    } else if (rh > 0.70) {
-      stability = 'Labil Moderat';
+    const { lat, current } = payload || {};
+    if (typeof lat !== 'number' || !Number.isFinite(lat) || Math.abs(lat) > 90) {
+      throw new Error('Koordinat lintang tidak valid untuk diagnostik atmosfer.');
+    }
+    const { consensusTemperature, apparentTemperature, humidity, pressure, windSpeed, windDirection, precipitation, precipitationProb } = current || {};
+    if (typeof consensusTemperature !== 'number' || !Number.isFinite(consensusTemperature) || consensusTemperature < -100 || consensusTemperature > 70) {
+      throw new Error('Data suhu tidak valid untuk diagnostik atmosfer.');
     }
 
-    const effectiveRainProb = Math.max(calibratedRainProb, (current.precipitation && current.precipitation > 0) ? 75 : calibratedRainProb);
-    const rainIntensity = (current.precipitation && current.precipitation > 0)
-      ? parseFloat(Number(current.precipitation).toFixed(1))
-      : (effectiveRainProb >= 70 && rh > 0.82) ? 0.4 : 0;
+    const coriolis = 2 * 7.2921e-5 * Math.sin(lat * Math.PI / 180) * 1e5;
+    const hasPressure = typeof pressure === 'number' && Number.isFinite(pressure) && pressure > 0 && pressure <= 1200;
+    const airDensity = hasPressure && consensusTemperature > -273.15
+      ? pressure * 100 / (287.058 * (consensusTemperature + 273.15))
+      : null;
+
+    const equationsStatus: EquationVerificationItem[] = [
+      {
+        id: 'coriolis',
+        name: 'Parameter Coriolis',
+        formula: 'f = 2 Ω sin(φ)',
+        evaluatedValue: `${coriolis.toFixed(4)} × 10⁻⁵ s⁻¹`,
+        status: 'VALID',
+        note: 'Nilai turunan dari lintang, bukan penyelesaian persamaan gerak atmosfer.',
+      },
+    ];
+
+    if (airDensity !== null) {
+      equationsStatus.push({
+        id: 'ideal_gas',
+        name: 'Estimasi kerapatan udara',
+        formula: 'ρ = p / (R T)',
+        evaluatedValue: `${airDensity.toFixed(3)} kg/m³`,
+        status: 'VALID',
+        note: 'Pendekatan gas ideal (gas kering) dari suhu dan tekanan model, bukan pengamatan langsung.',
+      });
+    } else {
+      equationsStatus.push({
+        id: 'ideal_gas',
+        name: 'Estimasi kerapatan udara',
+        formula: 'ρ = p / (R T)',
+        evaluatedValue: 'Belum dapat dihitung',
+        status: 'WARNING',
+        note: 'Tekanan permukaan tidak tersedia atau tidak valid; kerapatan udara tidak dapat diestimasi.',
+      });
+    }
+
+    equationsStatus.push({
+      id: 'nwp_unavailable',
+      name: 'Simulasi NWP dan CAPE',
+      formula: 'Memerlukan medan atmosfer 3D dan profil vertikal',
+      evaluatedValue: 'Belum dihitung',
+      status: 'WARNING',
+      note: 'Data satu titik permukaan tidak cukup untuk memverifikasi dinamika atmosfer 3D, adveksi, atau akurasi prakiraan.',
+    });
 
     return {
-      isAiVerified: true,
-      verifiedTemperature: parseFloat(tC.toFixed(1)),
-      apparentTemperature: apparentTemp,
-      calibratedRainProb: effectiveRainProb,
-      rainIntensityMmH: rainIntensity,
-      airDensityKgM3: airDensity,
-      coriolisParamF: fScaled,
-      convectiveStability: stability,
-      equationsStatus: [
-        {
-          id: 'navier_stokes',
-          name: '1. Persamaan Gerak Navier-Stokes 3D',
-          formula: '∂u/∂t + (u·∇)u = -(1/ρ)∇p + g - 2Ω×u + F',
-          evaluatedValue: `f = ${fScaled}×10⁻⁵ s⁻¹, Angin ${current.windSpeed || 12} km/h`,
-          status: 'VALID',
-          note: 'Gradien tekanan seimbang dengan gaya Coriolis dan gesekan lapisan batas atmosfer.',
-        },
-        {
-          id: 'continuity_mass',
-          name: '2. Persamaan Kontinuitas & Konservasi Massa',
-          formula: '∂ρ/∂t + ∇·(ρu) = 0',
-          evaluatedValue: '∇·(ρu) seimbang pada grid batas',
-          status: 'VALID',
-          note: 'Volume massa fluida atmosferik terlestarikan tanpa singularitas densitas.',
-        },
-        {
-          id: 'thermodynamics',
-          name: '3. Persamaan Energi Termodinamika',
-          formula: '∂T/∂t + u·∇T = (1/cp)(Dh/Dt) + Q',
-          evaluatedValue: `Flux radiasi & kapasitas panas cp ≈ 1005 J/kg·K (T = ${tC}°C)`,
-          status: 'VALID',
-          note: 'Pertukaran kalor sensibel dan radiasi bumi-matahari terkonfirmasi seimbang.',
-        },
-        {
-          id: 'moisture_conservation',
-          name: '4. Persamaan Konservasi Kadar Air (q)',
-          formula: '∂q/∂t + u·∇q = Sq (Clausius-Clapeyron)',
-          evaluatedValue: `q = ${qMixRatio} g/kg, e_sat = ${esHpa.toFixed(1)} hPa, RH = ${Math.round(rh * 100)}%`,
-          status: 'VALID',
-          note: 'Kelembapan spesifik dan laju kondensasi diverifikasi sesuai fase uap air.',
-        },
-        {
-          id: 'ideal_gas',
-          name: '5. Persamaan Keadaan Gas Ideal',
-          formula: 'p = ρ R T',
-          evaluatedValue: `ρ = ${airDensity} kg/m³ pada ${current.pressure || 1012} hPa`,
-          status: 'VALID',
-          note: 'Kerapatan udara memenuhi standar gas ideal atmosfer bumi (R = 287.058 J/kg·K).',
-        },
-        {
-          id: 'bayesian_ensemble',
-          name: '6. Teorema Bayes & Rantai Markov Ensemble',
-          formula: 'P(Rain|M) = [P(M|Rain) · P(Rain)] / P(M)',
-          evaluatedValue: `Posterior P(Hujan) = ${calibratedRainProb}% dari ${modelComparison.length} model`,
-          status: 'VALID',
-          note: 'Distribusi probabilitas Bayesian meminimalkan bias model tunggal.',
-        },
-        {
-          id: 'atmospheric_stability',
-          name: '7. Stabilitas Termodinamika & Risiko Konveksi',
-          formula: 'CAPE & Lapse Rate Γ = -dT/dz',
-          evaluatedValue: `Status: ${stability}`,
-          status: 'VALID',
-          note: 'Profil gradien suhu vertikal terpantau terkendali dengan sirkulasi konveksi wajar.',
-        },
-      ],
-      scientificBriefing: `Verifikasi 7 Persamaan Dasar Atmosfer (NWP) untuk ${locationName} mengonfirmasi suhu stabil ${tC}°C dengan kerapatan fluida udara ${airDensity} kg/m³. Parameter rotasi Coriolis pada lintang ${lat.toFixed(2)}° adalah ${fScaled}×10⁻⁵ s⁻¹. Kandungan uap air ${qMixRatio} g/kg dan tekanan ${current.pressure || 1012} hPa menghasilkan probabilitas presipitasi terkalibrasi ${calibratedRainProb}%.`,
-      modelName: 'NWP Deterministic Physics Solver (Bjerknes-Richardson)',
-      verifiedAt: new Date().toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' }),
+      isAiVerified: false,
+      verifiedTemperature: consensusTemperature,
+      apparentTemperature: typeof apparentTemperature === 'number' && Number.isFinite(apparentTemperature) ? apparentTemperature : consensusTemperature,
+      calibratedRainProb: typeof precipitationProb === 'number' && Number.isFinite(precipitationProb) && precipitationProb >= 0 && precipitationProb <= 100 ? precipitationProb : null,
+      rainIntensityMmH: typeof precipitation === 'number' && Number.isFinite(precipitation) && precipitation >= 0 ? precipitation : 0,
+      airDensityKgM3: airDensity !== null ? Number(airDensity.toFixed(3)) : null,
+      coriolisParamF: Number(coriolis.toFixed(4)),
+      convectiveStability: 'Belum dinilai',
+      equationsStatus,
+      scientificBriefing: airDensity !== null
+        ? 'Hanya diagnostik lokal: parameter Coriolis dan estimasi kerapatan udara. AI eksternal belum berhasil digunakan. Nilai prakiraan penyedia dipertahankan; akurasi belum divalidasi dengan pengamatan.'
+        : 'Hanya diagnostik parsial lokal: parameter Coriolis dihitung; tekanan permukaan tidak tersedia untuk estimasi kerapatan udara. AI eksternal belum digunakan. Nilai penyedia dipertahankan.',
+      modelName: 'Diagnostik atmosfer lokal (bukan solver NWP)',
+      verifiedAt: new Date().toISOString(),
     };
   }
 
   /**
    * Memverifikasi data cuaca ke backend AI (Gemini 3.6 Flash NWP Engine)
    */
-  public async verifyForecastWithNwpAi(payload: NwpVerifyPayload): Promise<AiNwpVerificationResult> {
-    const cacheKey = `${payload.lat.toFixed(2)},${payload.lng.toFixed(2)}`;
-    const cached = this.cache.get(cacheKey);
-    const now = Date.now();
-
-    if (cached && now - cached.timestamp < this.CACHE_TTL_MS) {
-      return cached.result;
+  public async verifyForecastWithNwpAi(payload: NwpVerifyPayload, forceRefresh = false): Promise<AiNwpVerificationResult> {
+    const cacheKey = JSON.stringify(payload);
+    if (forceRefresh) {
+      this.cache.delete(cacheKey);
+    } else {
+      const cached = this.cache.get(cacheKey);
+      const now = Date.now();
+      if (cached && now - cached.timestamp < this.CACHE_TTL_MS) {
+        return cached.result;
+      }
     }
 
     if (this.inFlightPromises.has(cacheKey)) {
@@ -197,10 +150,18 @@ class AtmosphericNwpAiService {
     }
 
     const promise = (async () => {
+      let timeoutId: ReturnType<typeof setTimeout> | null = null;
       try {
         const apiBase = import.meta.env.VITE_API_BASE_URL || '';
         const controller = new AbortController();
-        const timeoutId = setTimeout(() => controller.abort(), 8000);
+        timeoutId = setTimeout(() => controller.abort(), 8000);
+        geospatialDataTelemetryService.addLog(
+          'AI_EXEC',
+          'GEMINI_NWP_CLIENT',
+          `[Pra-Hitung] Mengirimkan paket telemetri atmosfer (${payload.modelComparison.length} model masukan) ke endpoint verifikasi Gemini AI...`,
+          { location: payload.locationName, lat: payload.lat, lng: payload.lng }
+        );
+
         const response = await fetch(`${apiBase}/api/ai/weather-nwp-verify`, {
           method: 'POST',
           headers: {
@@ -209,29 +170,50 @@ class AtmosphericNwpAiService {
           body: JSON.stringify(payload),
           signal: controller.signal,
         });
-        clearTimeout(timeoutId);
 
         if (!response.ok) {
           throw new Error(`Server returned status ${response.status}`);
         }
 
         const json = await response.json();
-        if (json && json.success && json.data) {
+        const d = json?.data;
+        const isTempValid = typeof d?.verifiedTemperature === 'number' && Number.isFinite(d.verifiedTemperature) && d.verifiedTemperature >= -100 && d.verifiedTemperature <= 70;
+        const isApparentValid = typeof d?.apparentTemperature === 'number' && Number.isFinite(d.apparentTemperature) && d.apparentTemperature >= -100 && d.apparentTemperature <= 100;
+        const isRainProbValid = d?.calibratedRainProb === null || (typeof d?.calibratedRainProb === 'number' && Number.isFinite(d.calibratedRainProb) && d.calibratedRainProb >= 0 && d.calibratedRainProb <= 100);
+        const isRainIntensityValid = typeof d?.rainIntensityMmH === 'number' && Number.isFinite(d.rainIntensityMmH) && d.rainIntensityMmH >= 0;
+        const isAirDensityValid = d?.airDensityKgM3 === null || (typeof d?.airDensityKgM3 === 'number' && Number.isFinite(d.airDensityKgM3) && d.airDensityKgM3 > 0 && d.airDensityKgM3 <= 5);
+        const isCoriolisValid = typeof d?.coriolisParamF === 'number' && Number.isFinite(d.coriolisParamF);
+        const isBriefingValid = typeof d?.scientificBriefing === 'string' && d.scientificBriefing.trim().length > 0;
+        const isEquationsValid = Array.isArray(d?.equationsStatus);
+
+        if (json?.success === true && d?.isAiVerified === true && isTempValid && isApparentValid && isRainProbValid && isRainIntensityValid && isAirDensityValid && isCoriolisValid && isBriefingValid && isEquationsValid) {
           const result: AiNwpVerificationResult = {
-            ...json.data,
-            modelName: json.data.modelName || 'Google Gemini 3.6 Flash (NWP Engine)',
-            verifiedAt: new Date().toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' }),
+            ...d,
+            modelName: d.modelName || 'Penjelasan AI',
+            verifiedAt: new Date().toISOString(),
           };
           this.cache.set(cacheKey, { result, timestamp: Date.now() });
+          geospatialDataTelemetryService.addLog(
+            'AI_EXEC',
+            'GEMINI_NWP_CLIENT',
+            `[Pasca-Hitung] Gemini AI (${result.modelName}) berhasil menyintesis penalaran: "${result.scientificBriefing}"`,
+            { verifiedAt: result.verifiedAt, isAiVerified: true }
+          );
           return result;
         }
 
         throw new Error('Invalid AI response payload');
       } catch (err) {
         const fallback = this.computeDeterministicNwp(payload);
-        this.cache.set(cacheKey, { result: fallback, timestamp: Date.now() });
+        geospatialDataTelemetryService.addLog(
+          'AI_EXEC',
+          'DETERMINISTIC_NWP',
+          `[Pasca-Hitung] Komputasi atmosfer deterministik lokal (Coriolis f=${fallback.coriolisParamF}×10⁻⁵ s⁻¹, ρ=${fallback.airDensityKgM3 ?? '—'} kg/m³): "${fallback.scientificBriefing}"`,
+          { isAiVerified: false, modelName: fallback.modelName }
+        );
         return fallback;
       } finally {
+        if (timeoutId) clearTimeout(timeoutId);
         this.inFlightPromises.delete(cacheKey);
       }
     })();

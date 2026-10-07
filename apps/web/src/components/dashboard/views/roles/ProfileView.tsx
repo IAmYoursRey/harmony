@@ -125,7 +125,7 @@ function EditableField({
       <div className="min-w-0 flex-1">
         <p className="text-xs text-ink-500 dark:text-slate-400">{label}</p>
         <div className="relative flex items-center gap-2">
-          <input
+          <input name="value" id="profileview-value"
             type={type}
             value={value}
             onChange={(e) => onChange(e.target.value)}
@@ -159,7 +159,7 @@ function EditableSelect({
       </span>
       <div className="min-w-0 flex-1">
         <p className="text-xs text-ink-500 dark:text-slate-400">{label}</p>
-        <select
+        <select name="value" id="profileview-value"
           value={value}
           onChange={(e) => onChange(e.target.value)}
           className="w-full bg-transparent text-sm font-semibold text-ink-900 outline-none dark:text-white"
@@ -416,7 +416,7 @@ export function ProfileView() {
   return (
     <div className="space-y-6">
       {/* Hidden file input */}
-      <input
+      <input name="input_uh21v" id="profileview-input_uh21v"
         ref={fileInputRef}
         type="file"
         accept="image/*"

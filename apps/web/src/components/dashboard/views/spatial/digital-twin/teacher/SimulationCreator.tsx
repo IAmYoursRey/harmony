@@ -190,7 +190,7 @@ export function SimulationCreator({
               <label className="block text-xs font-semibold text-ink-600 mb-1">
                 Nama Simulasi *
               </label>
-              <input
+              <input name="name" id="simulationcreator-name"
                 value={name}
                 onChange={(e) => setName(e.target.value)}
                 className="w-full px-3 py-2 rounded-lg border text-sm dark:bg-slate-800 dark:border-slate-600"
@@ -202,7 +202,7 @@ export function SimulationCreator({
               <label className="block text-xs font-semibold text-ink-600 mb-1">
                 Pilih Peta *
               </label>
-              <select
+              <select name="mapId" id="simulationcreator-mapid"
                 value={mapId}
                 onChange={(e) => {
                   setMapId(e.target.value);
@@ -248,7 +248,7 @@ export function SimulationCreator({
               <label className="block text-xs font-semibold text-ink-600 mb-1">
                 Durasi (detik)
               </label>
-              <select
+              <select name="duration" id="simulationcreator-duration"
                 value={duration}
                 onChange={(e) => setDuration(+e.target.value)}
                 className="w-full px-3 py-2 rounded-lg border text-sm dark:bg-slate-800 dark:border-slate-600"
@@ -266,7 +266,7 @@ export function SimulationCreator({
                 <label className="block text-xs font-semibold text-ink-600 mb-1">
                   Titik Spawn
                 </label>
-                <select
+                <select name="spawnPointId" id="simulationcreator-spawnpointid"
                   value={spawnPointId}
                   onChange={(e) => setSpawnPointId(e.target.value)}
                   className="w-full px-3 py-2 rounded-lg border text-sm dark:bg-slate-800 dark:border-slate-600"

@@ -10,6 +10,9 @@ import {
   Plus,
   Trash2,
   Download,
+  Eye,
+  X,
+  Info,
 } from 'lucide-react';
 
 interface GeospatialFieldSurveyTabProps {
@@ -27,12 +30,23 @@ interface SurveyEntry {
   notes: string;
   fileName?: string;
   featureCount?: number;
+  geometryType: 'Point' | 'LineString' | 'Polygon';
+  geojsonGeometry: any;
+  uavMetadata?: {
+    platform: string;
+    sensor: string;
+    altitudeAGLM: number;
+    gsdCmPx: number;
+    rtkStatus: string;
+    overlap: string;
+  };
 }
 
 export const GeospatialFieldSurveyTab: React.FC<GeospatialFieldSurveyTabProps> = ({
   currentLat,
   currentLng,
 }) => {
+  const [inspectingSurvey, setInspectingSurvey] = useState<SurveyEntry | null>(null);
   const [entries, setEntries] = useState<SurveyEntry[]>([
     {
       id: 'srv-1',
@@ -41,13 +55,32 @@ export const GeospatialFieldSurveyTab: React.FC<GeospatialFieldSurveyTabProps> =
       lat: -7.298,
       lng: 112.748,
       timestamp: '17 Sep 2026 08:30',
-      notes: 'Foto udara resolusi 3cm/piksel sensor RGB DJI Matrice 300 RTK pasca hujan lebat.',
+      notes: 'Foto udara resolusi 2.8cm/piksel sensor RGB DJI Matrice 300 RTK pasca pemantauan tanggul sungai.',
       fileName: 'ortho_kali_jagir_georeferenced.geojson',
-      featureCount: 42,
+      featureCount: 5,
+      geometryType: 'LineString',
+      geojsonGeometry: {
+        type: 'LineString',
+        coordinates: [
+          [112.7380, -7.2975],
+          [112.7420, -7.2978],
+          [112.7460, -7.2980],
+          [112.7500, -7.2982],
+          [112.7540, -7.2985],
+        ],
+      },
+      uavMetadata: {
+        platform: 'DJI Matrice 300 RTK',
+        sensor: 'Zenmuse P1 35mm Full-Frame',
+        altitudeAGLM: 120,
+        gsdCmPx: 2.8,
+        rtkStatus: 'RTK Fixed (InaCORS BIG)',
+        overlap: '80% Forward / 70% Side',
+      },
     },
     {
       id: 'srv-2',
-      title: 'Titik Rekahan Lereng Bahaya Tinggi',
+      title: 'Titik Rekahan Lereng & Sesar Aktif Sidoarjo',
       category: 'Longsor',
       lat: -7.312,
       lng: 112.721,
@@ -55,6 +88,52 @@ export const GeospatialFieldSurveyTab: React.FC<GeospatialFieldSurveyTabProps> =
       notes: 'Ditemukan rekahan tanah selebar 15cm arah timur laut, dipasangi patok ukur geodetik.',
       fileName: 'survey_waypoint_gps.csv',
       featureCount: 1,
+      geometryType: 'Point',
+      geojsonGeometry: {
+        type: 'Point',
+        coordinates: [112.7210, -7.3120],
+      },
+      uavMetadata: {
+        platform: 'Ground Survey GNSS Rover',
+        sensor: 'Dual-Frequency GNSS Emlid Reach RS2',
+        altitudeAGLM: 0,
+        gsdCmPx: 0.5,
+        rtkStatus: 'Differential GNSS Fixed (±8mm)',
+        overlap: 'Single Station Multi-Epoch',
+      },
+    },
+    {
+      id: 'srv-3',
+      title: 'Zona Tanggul & Kolam Retensi Kali Mas',
+      category: 'Banjir',
+      lat: -7.2685,
+      lng: 112.7485,
+      timestamp: '18 Sep 2026 14:15',
+      notes: 'Survei polygon batas tampungan limpasan air sungai banjir perkotaan BBWS Brantas.',
+      fileName: 'retensi_kali_mas_poly.geojson',
+      featureCount: 6,
+      geometryType: 'Polygon',
+      geojsonGeometry: {
+        type: 'Polygon',
+        coordinates: [
+          [
+            [112.7460, -7.2670],
+            [112.7510, -7.2670],
+            [112.7520, -7.2700],
+            [112.7470, -7.2710],
+            [112.7450, -7.2690],
+            [112.7460, -7.2670],
+          ],
+        ],
+      },
+      uavMetadata: {
+        platform: 'DJI Mavic 3 Enterprise Thermal',
+        sensor: 'Wide 4/3 CMOS 20MP',
+        altitudeAGLM: 85,
+        gsdCmPx: 2.3,
+        rtkStatus: 'RTK Network Fixed',
+        overlap: '75% Forward / 65% Side',
+      },
     },
   ]);
 
@@ -76,9 +155,19 @@ export const GeospatialFieldSurveyTab: React.FC<GeospatialFieldSurveyTabProps> =
       try {
         const text = event.target?.result as string;
         let featCount = 1;
+        let geometryType: SurveyEntry['geometryType'] = 'Point';
+        let geojsonGeometry: any = { type: 'Point', coordinates: [currentLng, currentLat] };
+
         if (file.name.endsWith('.geojson') || file.name.endsWith('.json')) {
           const parsed = JSON.parse(text);
-          featCount = parsed.features?.length || 1;
+          featCount = parsed.features?.length || (parsed.geometry ? 1 : 1);
+          if (parsed.features?.[0]?.geometry) {
+            geometryType = parsed.features[0].geometry.type || 'Point';
+            geojsonGeometry = parsed.features[0].geometry;
+          } else if (parsed.geometry) {
+            geometryType = parsed.geometry.type || 'Point';
+            geojsonGeometry = parsed.geometry;
+          }
         } else if (file.name.endsWith('.csv')) {
           featCount = Math.max(1, text.split('\n').length - 1);
         }
@@ -93,6 +182,8 @@ export const GeospatialFieldSurveyTab: React.FC<GeospatialFieldSurveyTabProps> =
           notes: `Data spasial diunggah via modul survei lapangan (${(file.size / 1024).toFixed(1)} KB).`,
           fileName: file.name,
           featureCount: featCount,
+          geometryType,
+          geojsonGeometry,
         };
 
         setEntries((prev) => [newEntry, ...prev]);
@@ -117,6 +208,11 @@ export const GeospatialFieldSurveyTab: React.FC<GeospatialFieldSurveyTabProps> =
       timestamp: new Date().toLocaleString('id-ID'),
       notes: formNotes.trim() || 'Titik inspeksi geospasial terverifikasi di koordinat GPS.',
       featureCount: 1,
+      geometryType: 'Point',
+      geojsonGeometry: {
+        type: 'Point',
+        coordinates: [currentLng, currentLat],
+      },
     };
 
     setEntries((prev) => [newEntry, ...prev]);
@@ -126,6 +222,34 @@ export const GeospatialFieldSurveyTab: React.FC<GeospatialFieldSurveyTabProps> =
 
   const handleDeleteEntry = (id: string) => {
     setEntries((prev) => prev.filter((e) => e.id !== id));
+  };
+
+  const handleExportSingleSurvey = (e: SurveyEntry) => {
+    const feature = {
+      type: 'Feature',
+      properties: {
+        id: e.id,
+        title: e.title,
+        category: e.category,
+        timestamp: e.timestamp,
+        notes: e.notes,
+        fileSource: e.fileName || 'Survey Waypoint',
+        uavMetadata: e.uavMetadata || null,
+      },
+      geometry: e.geojsonGeometry || {
+        type: 'Point',
+        coordinates: [e.lng, e.lat],
+      },
+    };
+    const blob = new Blob([JSON.stringify(feature, null, 2)], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `${e.title.toLowerCase().replace(/[^a-z0-9]/g, '_')}_${Date.now()}.geojson`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
   };
 
   const handleExportAllSurveys = () => {
@@ -140,8 +264,9 @@ export const GeospatialFieldSurveyTab: React.FC<GeospatialFieldSurveyTabProps> =
           timestamp: e.timestamp,
           notes: e.notes,
           fileSource: e.fileName || 'Manual Field GPS Entry',
+          uavMetadata: e.uavMetadata || null,
         },
-        geometry: {
+        geometry: e.geojsonGeometry || {
           type: 'Point',
           coordinates: [e.lng, e.lat],
         },
@@ -206,7 +331,7 @@ export const GeospatialFieldSurveyTab: React.FC<GeospatialFieldSurveyTabProps> =
         </div>
 
         <div className="relative border-2 border-dashed border-slate-300 dark:border-slate-700 rounded-2xl p-6 text-center hover:border-teal-500 dark:hover:border-teal-400 transition-colors">
-          <input
+          <input name="input_0ue24" id="geospatialfieldsurveytab-input_0ue24"
             type="file"
             accept=".geojson,.json,.kml,.csv"
             onChange={handleFileUpload}
@@ -249,7 +374,7 @@ export const GeospatialFieldSurveyTab: React.FC<GeospatialFieldSurveyTabProps> =
             <label className="text-xs font-semibold text-slate-700 dark:text-slate-300">
               Judul Observasi / Objek Lapangan
             </label>
-            <input
+            <input name="formTitle" id="geospatialfieldsurveytab-formtitle"
               type="text"
               placeholder="Contoh: Titik Genangan Luapan Tanggul Kali Mas"
               value={formTitle}
@@ -262,7 +387,7 @@ export const GeospatialFieldSurveyTab: React.FC<GeospatialFieldSurveyTabProps> =
             <label className="text-xs font-semibold text-slate-700 dark:text-slate-300">
               Kategori Geografis
             </label>
-            <select
+            <select name="formCategory" id="geospatialfieldsurveytab-formcategory"
               value={formCategory}
               onChange={(e) => setFormCategory(e.target.value as SurveyEntry['category'])}
               className="w-full px-3 py-2 text-xs rounded-xl bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 focus:outline-none focus:ring-2 focus:ring-teal-500 dark:text-white"
@@ -280,7 +405,7 @@ export const GeospatialFieldSurveyTab: React.FC<GeospatialFieldSurveyTabProps> =
           <label className="text-xs font-semibold text-slate-700 dark:text-slate-300">
             Deskripsi Kondisi Fisik Lapangan
           </label>
-          <input
+          <input name="formNotes" id="geospatialfieldsurveytab-formnotes"
             type="text"
             placeholder="Catatan kondisi ketinggian air, kerusakan tebing, atau jumlah pengungsi..."
             value={formNotes}
@@ -342,17 +467,115 @@ export const GeospatialFieldSurveyTab: React.FC<GeospatialFieldSurveyTabProps> =
                 </div>
               </div>
 
-              <button
-                onClick={() => handleDeleteEntry(item.id)}
-                className="p-2 rounded-xl text-slate-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-950/40 transition-colors self-end sm:self-center"
-                title="Hapus Rekaman Survei"
-              >
-                <Trash2 className="w-4 h-4" />
-              </button>
+              <div className="flex items-center gap-1.5 self-end sm:self-center">
+                <button
+                  type="button"
+                  onClick={() => setInspectingSurvey(item)}
+                  className="flex items-center gap-1 px-2.5 py-1.5 rounded-xl bg-teal-500/10 hover:bg-teal-500/20 text-teal-700 dark:text-teal-300 font-semibold text-xs border border-teal-500/20 transition-all cursor-pointer"
+                  title="Inspeksi Geometri & Metadata Drone"
+                >
+                  <Eye className="w-3.5 h-3.5" />
+                  <span>Inspeksi</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => handleExportSingleSurvey(item)}
+                  className="p-1.5 rounded-xl bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-600 dark:text-slate-300 transition-colors"
+                  title="Unduh GeoJSON Fitur Ini"
+                >
+                  <Download className="w-3.5 h-3.5" />
+                </button>
+                <button
+                  onClick={() => handleDeleteEntry(item.id)}
+                  className="p-1.5 rounded-xl text-slate-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-950/40 transition-colors"
+                  title="Hapus Rekaman Survei"
+                >
+                  <Trash2 className="w-3.5 h-3.5" />
+                </button>
+              </div>
             </div>
           ))}
         </div>
       </div>
+
+      {/* Geometry & Drone Metadata Inspection Modal */}
+      {inspectingSurvey && (
+        <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-xs flex items-center justify-center p-3 sm:p-4 animate-in fade-in">
+          <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl max-w-xl w-full max-h-[85vh] flex flex-col shadow-2xl overflow-hidden">
+            <div className="p-4 sm:p-5 border-b border-slate-100 dark:border-slate-800 flex items-center justify-between">
+              <div className="flex items-center gap-2.5">
+                <div className="p-2 rounded-xl bg-teal-500/15 text-teal-600 dark:text-teal-400">
+                  <Camera className="w-4 h-4" />
+                </div>
+                <div>
+                  <h3 className="text-sm font-bold text-slate-900 dark:text-white">
+                    {inspectingSurvey.title}
+                  </h3>
+                  <p className="text-[11px] text-slate-500 font-mono">
+                    Tipe Geometri: {inspectingSurvey.geometryType} • {inspectingSurvey.timestamp}
+                  </p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setInspectingSurvey(null)}
+                className="p-2 rounded-xl hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            <div className="p-4 sm:p-5 overflow-y-auto space-y-4 text-xs">
+              {inspectingSurvey.uavMetadata && (
+                <div className="p-3.5 rounded-2xl bg-teal-50/50 dark:bg-teal-950/20 border border-teal-500/20 space-y-2">
+                  <span className="font-bold text-teal-700 dark:text-teal-300 block text-[11px] uppercase tracking-wider">
+                    Telemetri Drone UAV & Fotogrametri
+                  </span>
+                  <div className="grid grid-cols-2 gap-2 text-[11px]">
+                    <div>Platform: <strong className="text-slate-800 dark:text-slate-200">{inspectingSurvey.uavMetadata.platform}</strong></div>
+                    <div>Sensor: <strong className="text-slate-800 dark:text-slate-200">{inspectingSurvey.uavMetadata.sensor}</strong></div>
+                    <div>Elevasi Terbang: <strong className="text-slate-800 dark:text-slate-200">{inspectingSurvey.uavMetadata.altitudeAGLM} m AGL</strong></div>
+                    <div>GSD: <strong className="text-slate-800 dark:text-slate-200">{inspectingSurvey.uavMetadata.gsdCmPx} cm/px</strong></div>
+                    <div>Status Koreksi: <strong className="text-slate-800 dark:text-slate-200">{inspectingSurvey.uavMetadata.rtkStatus}</strong></div>
+                    <div>Overlap: <strong className="text-slate-800 dark:text-slate-200">{inspectingSurvey.uavMetadata.overlap}</strong></div>
+                  </div>
+                </div>
+              )}
+
+              <div className="space-y-1.5">
+                <span className="font-bold text-slate-700 dark:text-slate-300 block text-[11px]">
+                  Koordinat Georeferensi (WGS 84 / EPSG:4326)
+                </span>
+                <pre className="p-3 rounded-xl bg-slate-900 text-slate-200 text-[11px] font-mono overflow-x-auto max-h-48 border border-slate-800">
+                  {JSON.stringify(inspectingSurvey.geojsonGeometry, null, 2)}
+                </pre>
+              </div>
+
+              <div className="p-3 rounded-xl bg-slate-50 dark:bg-slate-800/50 border border-slate-200/60 dark:border-slate-700/60 text-[11px] text-slate-600 dark:text-slate-400">
+                <strong>Catatan Verifikasi Lapangan:</strong> {inspectingSurvey.notes}
+              </div>
+            </div>
+
+            <div className="p-4 border-t border-slate-100 dark:border-slate-800 flex items-center justify-between">
+              <button
+                type="button"
+                onClick={() => setInspectingSurvey(null)}
+                className="px-4 py-2 rounded-xl text-xs font-semibold text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 cursor-pointer"
+              >
+                Tutup
+              </button>
+              <button
+                type="button"
+                onClick={() => handleExportSingleSurvey(inspectingSurvey)}
+                className="flex items-center gap-1.5 px-4 py-2 rounded-xl bg-teal-600 hover:bg-teal-700 text-white font-bold text-xs shadow-sm transition-all cursor-pointer"
+              >
+                <Download className="w-3.5 h-3.5" />
+                <span>Unduh GeoJSON Lengkap</span>
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

@@ -191,7 +191,7 @@ export function AILearningView() {
         {/* Input bar */}
         <div className="border-t border-brand-50 dark:border-slate-800 bg-white/80 dark:bg-slate-900/80 backdrop-blur-sm px-4 py-3">
           <div className="flex gap-3 rounded-2xl border border-brand-100 dark:border-slate-700 bg-white dark:bg-slate-800 px-4 py-2.5 shadow-sm focus-within:ring-2 focus-within:ring-brand-200">
-            <input
+            <input name="chatInput" id="ailearningview-chatinput"
               value={chatInput}
               onChange={(e) => setChatInput(e.target.value)}
               onKeyDown={(e) => {

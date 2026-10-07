@@ -135,7 +135,60 @@ Dokumen ini memuat daftar lengkap instansi resmi penyedia data, jenis data yang 
 
 ---
 
-## 12. Kebijakan Integritas Ilmiah Geospasial (Zero-Fabrication Policy)
+## 12. ESRI & Maxar Earthstar Geographics
+* **Instansi**: Environmental Systems Research Institute (ESRI), Maxar Technologies, & Earthstar Geographics.
+* **Data yang Diambil**:
+  - Mosaik citra satelit optik komposit resolusi tinggi global (World Imagery) hingga sub-meter di kawasan perkotaan dan fasilitas pendidikan.
+  - Peta topografi kartografis dan relief bayangan (World Topographic & Shaded Relief) untuk analisis kelerengan bukit dan lembah.
+* **Sumber / Portal Resmi**:
+  - Portal ArcGIS Online: [https://www.arcgis.com/](https://www.arcgis.com/)
+* **Dasar Hukum / Lisensi**: ESRI Master License Agreement & Commercial Satellite Earth Observation Open Basemap Terms.
+
+---
+
+## 13. TomTom International & OSM Corridors
+* **Instansi**: TomTom International BV & Komunitas Koridor OpenStreetMap.
+* **Data yang Diambil**:
+  - Telemetri kecepatan dan kemacetan jalan raya real-time (*Current Speed*, *Free Flow Speed*, *Current Travel Time*).
+  - Indeks kemacetan koridor evakuasi sekolah (*Jammed Factor* 0–10) dan skor keyakinan sensor (*Confidence* 0.0–1.0).
+* **Sumber / Portal Resmi**:
+  - Portal Developer TomTom: [https://developer.tomtom.com/traffic-api](https://developer.tomtom.com/traffic-api)
+* **Dasar Hukum / Standar**: TomTom Developer APIs Terms of Service & Standar Format FCD (Floating Car Data) ISO 14819.
+
+---
+
+## 14. PuSGeN (Pusat Studi Gempa Nasional)
+* **Instansi**: Pusat Studi Gempa Nasional (Kementerian PUPR, Kementerian ESDM, BMKG, dan Perguruan Tinggi).
+* **Data yang Diambil**:
+  - Peta dan koordinat garis vektor 295 patahan/sesar aktif darat di seluruh Indonesia (*Sesar Semangko, Palu-Koro, Cimandiri, Lembang, Opak, Baribis, dll.*).
+  - Estimasi laju slip tahunan (*slip rate* mm/thn) dan magnitudo maksimum (*Mmax*).
+* **Sumber / Portal Resmi**:
+  - Portal Litbang PUPR / PuSGeN: [https://litbang.pu.go.id/](https://litbang.pu.go.id/)
+* **Dasar Hukum / Standar**: Buku Peta Sumber dan Bahaya Gempa Indonesia Tahun 2017 (ISBN 978-602-5489-01-3) & SNI 1726:2019.
+
+---
+
+## 15. Open-Elevation & Copernicus DEM
+* **Instansi**: Open-Elevation Project & European Space Agency Copernicus Elevation Data.
+* **Data yang Diambil**:
+  - Titik elevasi ketinggian permukaan tanah (mdpl) berbasis koordinat lintang & bujur untuk analisis beda tinggi genangan banjir dan tsunami.
+* **Sumber / Portal Resmi**:
+  - Portal Open-Elevation: [https://open-elevation.com/](https://open-elevation.com/)
+* **Dasar Hukum / Lisensi**: Copernicus World Elevation Service Policy & Open-Elevation Free Scientific Open Data License.
+
+---
+
+## 16. MET Norway (Meteorologisk Institutt)
+* **Instansi**: Badan Meteorologi Resmi Kerajaan Norwegia (MET Norway) & NRK.
+* **Data yang Diambil**:
+  - Model prediksi numerik cuaca global berstandar WMO sebagai saluran *fallback* dan pembanding independen cuaca lokasi sekolah.
+* **Sumber / Portal Resmi**:
+  - Portal MET Norway: [https://www.met.no/](https://www.met.no/)
+* **Dasar Hukum / Lisensi**: Norwegian Open Government Data License (NLOD) & WMO Resolution 40.
+
+---
+
+## 17. Kebijakan Integritas Ilmiah Geospasial (Zero-Fabrication Policy)
 
 Platform HARMONY menerapkan prinsip keterbukaan ilmiah dan kejujuran data mutlak. Sistem secara tegas membedakan 7 status sumber data:
 

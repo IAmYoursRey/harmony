@@ -309,6 +309,8 @@ export const MapGeoprocessingModal: React.FC<MapGeoprocessingModalProps> = ({
               </span>
             </div>
             <input
+              id="buffer-radius-slider"
+              name="bufferRadius"
               type="range"
               min="1"
               max="50"

@@ -1,0 +1,1078 @@
+[
+  {
+    "index": 1,
+    "name": "System Debug & PostGIS Status",
+    "endpoint": "GET /debug",
+    "auth": "Public",
+    "probe1": {
+      "status": 200,
+      "duration": 254,
+      "ok": true,
+      "preview": "ok:true",
+      "dataLength": 76,
+      "error": null
+    },
+    "probe2": {
+      "status": 200,
+      "duration": 233,
+      "ok": true,
+      "preview": "ok:true",
+      "dataLength": 76,
+      "error": null
+    },
+    "verdict": "ACTIVE_HEALTHY",
+    "isStuck": false
+  },
+  {
+    "index": 2,
+    "name": "AI Health & Model Check",
+    "endpoint": "GET /ai/health",
+    "auth": "Public",
+    "probe1": {
+      "status": 200,
+      "duration": 3,
+      "ok": true,
+      "preview": "keys:[configured,weatherConfigured,quiz,chat]",
+      "dataLength": 125,
+      "error": null
+    },
+    "probe2": {
+      "status": 200,
+      "duration": 2,
+      "ok": true,
+      "preview": "keys:[configured,weatherConfigured,quiz,chat]",
+      "dataLength": 125,
+      "error": null
+    },
+    "verdict": "ACTIVE_HEALTHY",
+    "isStuck": false
+  },
+  {
+    "index": 3,
+    "name": "Spatial Core Health",
+    "endpoint": "GET /spatial/health",
+    "auth": "Public",
+    "probe1": {
+      "status": 200,
+      "duration": 229,
+      "ok": true,
+      "preview": "keys:[status,timestamp,postgis,capabilities]",
+      "dataLength": 329,
+      "error": null
+    },
+    "probe2": {
+      "status": 200,
+      "duration": 36,
+      "ok": true,
+      "preview": "keys:[status,timestamp,postgis,capabilities]",
+      "dataLength": 328,
+      "error": null
+    },
+    "verdict": "ACTIVE_HEALTHY",
+    "isStuck": false
+  },
+  {
+    "index": 4,
+    "name": "BMKG Auto Gempa M5.0+ (Live/Cache)",
+    "endpoint": "GET /bmkg/autogempa",
+    "auth": "Public",
+    "probe1": {
+      "status": 502,
+      "duration": 128,
+      "preview": "success:false",
+      "dataLength": 713,
+      "error": null
+    },
+    "probe2": {
+      "status": 502,
+      "duration": 46,
+      "preview": "success:false",
+      "dataLength": 713,
+      "error": null
+    },
+    "verdict": "FAILED",
+    "isStuck": false
+  },
+  {
+    "index": 5,
+    "name": "BMKG Gempa Terkini",
+    "endpoint": "GET /bmkg/gempaterkini",
+    "auth": "Public",
+    "probe1": {
+      "status": 200,
+      "duration": 55,
+      "ok": true,
+      "preview": "success:true",
+      "dataLength": 3663,
+      "error": null
+    },
+    "probe2": {
+      "status": 200,
+      "duration": 2,
+      "ok": true,
+      "preview": "success:true",
+      "dataLength": 3664,
+      "error": null
+    },
+    "verdict": "ACTIVE_HEALTHY",
+    "isStuck": false
+  },
+  {
+    "index": 6,
+    "name": "BMKG Gempa Dirasakan",
+    "endpoint": "GET /bmkg/gempa/dirasakan",
+    "auth": "Public",
+    "probe1": {
+      "status": 502,
+      "duration": 49,
+      "preview": "success:false",
+      "dataLength": 4144,
+      "error": null
+    },
+    "probe2": {
+      "status": 502,
+      "duration": 45,
+      "preview": "success:false",
+      "dataLength": 4144,
+      "error": null
+    },
+    "verdict": "FAILED",
+    "isStuck": false
+  },
+  {
+    "index": 7,
+    "name": "BMKG Doppler Radar Inventory",
+    "endpoint": "GET /bmkg/radar",
+    "auth": "Public",
+    "probe1": {
+      "status": 200,
+      "duration": 2,
+      "ok": true,
+      "preview": "success:true",
+      "dataLength": 2251,
+      "error": null
+    },
+    "probe2": {
+      "status": 200,
+      "duration": 1,
+      "ok": true,
+      "preview": "success:true",
+      "dataLength": 2251,
+      "error": null
+    },
+    "verdict": "ACTIVE_HEALTHY",
+    "isStuck": false
+  },
+  {
+    "index": 8,
+    "name": "BMKG Himawari-9 Products Catalog",
+    "endpoint": "GET /bmkg/satellite/products",
+    "auth": "Public",
+    "probe1": {
+      "status": 200,
+      "duration": 1,
+      "ok": true,
+      "preview": "success:true",
+      "dataLength": 3970,
+      "error": null
+    },
+    "probe2": {
+      "status": 200,
+      "duration": 1,
+      "ok": true,
+      "preview": "success:true",
+      "dataLength": 3970,
+      "error": null
+    },
+    "verdict": "ACTIVE_HEALTHY",
+    "isStuck": false
+  },
+  {
+    "index": 9,
+    "name": "BMKG Satellite Image Proxy (Binary)",
+    "endpoint": "GET /bmkg/satellite/image?product=ir_enhanced",
+    "auth": "Public",
+    "probe1": {
+      "status": 200,
+      "duration": 225,
+      "ok": true,
+      "preview": "[Binary: 392210 B, type: image/webp]",
+      "dataLength": 392210,
+      "error": null
+    },
+    "probe2": {
+      "status": 200,
+      "duration": 86,
+      "ok": true,
+      "preview": "[Binary: 392210 B, type: image/webp]",
+      "dataLength": 392210,
+      "error": null
+    },
+    "verdict": "ACTIVE_HEALTHY",
+    "isStuck": false
+  },
+  {
+    "index": 10,
+    "name": "BMKG Contracted Guard (No Invented Data)",
+    "endpoint": "GET /bmkg/weather/warnings",
+    "auth": "Public",
+    "probe1": {
+      "status": 503,
+      "duration": 1,
+      "ok": true,
+      "preview": "success:false",
+      "dataLength": 235,
+      "error": null
+    },
+    "probe2": {
+      "status": 503,
+      "duration": 1,
+      "ok": true,
+      "preview": "success:false",
+      "dataLength": 235,
+      "error": null
+    },
+    "verdict": "INTENDED_GUARD",
+    "isStuck": false
+  },
+  {
+    "index": 11,
+    "name": "Spatial Overpass Hydrology",
+    "endpoint": "GET /spatial/overpass?bbox=106.8,-6.3,106.9,-6.2&layer=Rivers",
+    "auth": "Public",
+    "probe1": {
+      "status": 200,
+      "duration": 239,
+      "ok": true,
+      "preview": "keys:[elements]",
+      "dataLength": 93,
+      "error": null
+    },
+    "probe2": {
+      "status": 200,
+      "duration": 34,
+      "ok": true,
+      "preview": "keys:[elements]",
+      "dataLength": 93,
+      "error": null
+    },
+    "verdict": "ACTIVE_HEALTHY",
+    "isStuck": false
+  },
+  {
+    "index": 12,
+    "name": "Spatial Unified Identify Point",
+    "endpoint": "GET /spatial/identify?lat=-6.2088&lng=106.8456",
+    "auth": "Public",
+    "probe1": {
+      "status": 200,
+      "duration": 704,
+      "ok": true,
+      "preview": "success:true",
+      "dataLength": 377,
+      "error": null
+    },
+    "probe2": {
+      "status": 200,
+      "duration": 616,
+      "ok": true,
+      "preview": "success:true",
+      "dataLength": 377,
+      "error": null
+    },
+    "verdict": "ACTIVE_HEALTHY",
+    "isStuck": false
+  },
+  {
+    "index": 13,
+    "name": "Spatial Current Weather Observation",
+    "endpoint": "GET /spatial/weather/current?lat=-6.2088&lng=106.8456",
+    "auth": "Public",
+    "probe1": {
+      "status": 200,
+      "duration": 805,
+      "ok": true,
+      "preview": "success:true",
+      "dataLength": 539,
+      "error": null
+    },
+    "probe2": {
+      "status": 200,
+      "duration": 1,
+      "ok": true,
+      "preview": "success:true",
+      "dataLength": 538,
+      "error": null
+    },
+    "verdict": "ACTIVE_HEALTHY",
+    "isStuck": false
+  },
+  {
+    "index": 14,
+    "name": "Spatial NASA FIRMS Hotspots",
+    "endpoint": "GET /spatial/hotspots?bbox=106.0,-7.0,108.0,-6.0",
+    "auth": "Public",
+    "probe1": {
+      "status": 200,
+      "duration": 1,
+      "ok": true,
+      "preview": "success:false",
+      "dataLength": 702,
+      "error": null
+    },
+    "probe2": {
+      "status": 200,
+      "duration": 1,
+      "ok": true,
+      "preview": "success:false",
+      "dataLength": 702,
+      "error": null
+    },
+    "verdict": "ACTIVE_HEALTHY",
+    "isStuck": false
+  },
+  {
+    "index": 15,
+    "name": "Spatial TomTom Traffic Flow",
+    "endpoint": "GET /spatial/traffic/flow?lat=-6.2088&lng=106.8456",
+    "auth": "Public",
+    "probe1": {
+      "status": 200,
+      "duration": 1,
+      "ok": true,
+      "preview": "success:false",
+      "dataLength": 336,
+      "error": null
+    },
+    "probe2": {
+      "status": 200,
+      "duration": 2,
+      "ok": true,
+      "preview": "success:false",
+      "dataLength": 336,
+      "error": null
+    },
+    "verdict": "ACTIVE_HEALTHY",
+    "isStuck": false
+  },
+  {
+    "index": 16,
+    "name": "Spatial AOI Analyze",
+    "endpoint": "POST /spatial/aoi/analyze",
+    "auth": "Public",
+    "probe1": {
+      "status": 200,
+      "duration": 602,
+      "ok": true,
+      "preview": "success:true",
+      "dataLength": 331,
+      "error": null
+    },
+    "probe2": {
+      "status": 200,
+      "duration": 550,
+      "ok": true,
+      "preview": "success:true",
+      "dataLength": 331,
+      "error": null
+    },
+    "verdict": "ACTIVE_HEALTHY",
+    "isStuck": false
+  },
+  {
+    "index": 17,
+    "name": "Spatial STAC Satellite Search",
+    "endpoint": "POST /spatial/stac/search",
+    "auth": "Public",
+    "probe1": {
+      "status": 200,
+      "duration": 1039,
+      "ok": true,
+      "preview": "keys:[type,stac_version,stac_extensions,context]",
+      "dataLength": 63589,
+      "error": null
+    },
+    "probe2": {
+      "status": 200,
+      "duration": 947,
+      "ok": true,
+      "preview": "keys:[type,stac_version,stac_extensions,context]",
+      "dataLength": 63589,
+      "error": null
+    },
+    "verdict": "ACTIVE_HEALTHY",
+    "isStuck": false
+  },
+  {
+    "index": 18,
+    "name": "Spatial Isochrones 15-Minute City",
+    "endpoint": "POST /spatial/network/isochrones",
+    "auth": "Public",
+    "probe1": {
+      "status": 200,
+      "duration": 1,
+      "ok": true,
+      "preview": "success:true",
+      "dataLength": 3887,
+      "error": null
+    },
+    "probe2": {
+      "status": 200,
+      "duration": 2,
+      "ok": true,
+      "preview": "success:true",
+      "dataLength": 3887,
+      "error": null
+    },
+    "verdict": "ACTIVE_HEALTHY",
+    "isStuck": false
+  },
+  {
+    "index": 19,
+    "name": "Spatial Facility Accessibility Matrix",
+    "endpoint": "POST /spatial/network/accessibility",
+    "auth": "Public",
+    "probe1": {
+      "status": 200,
+      "duration": 1,
+      "ok": true,
+      "preview": "success:true",
+      "dataLength": 1760,
+      "error": null
+    },
+    "probe2": {
+      "status": 200,
+      "duration": 2,
+      "ok": true,
+      "preview": "success:true",
+      "dataLength": 1760,
+      "error": null
+    },
+    "verdict": "ACTIVE_HEALTHY",
+    "isStuck": false
+  },
+  {
+    "index": 20,
+    "name": "Spatial Transport Carbon Footprint",
+    "endpoint": "POST /spatial/transport/emissions",
+    "auth": "Public",
+    "probe1": {
+      "status": 200,
+      "duration": 1,
+      "ok": true,
+      "preview": "success:true",
+      "dataLength": 617,
+      "error": null
+    },
+    "probe2": {
+      "status": 200,
+      "duration": 2,
+      "ok": true,
+      "preview": "success:true",
+      "dataLength": 617,
+      "error": null
+    },
+    "verdict": "ACTIVE_HEALTHY",
+    "isStuck": false
+  },
+  {
+    "index": 21,
+    "name": "Schools Provinces List",
+    "endpoint": "GET /schools/provinces",
+    "auth": "Public",
+    "probe1": {
+      "status": 200,
+      "duration": 25,
+      "ok": true,
+      "preview": "keys:[provinces]",
+      "dataLength": 1517,
+      "error": null
+    },
+    "probe2": {
+      "status": 200,
+      "duration": 21,
+      "ok": true,
+      "preview": "keys:[provinces]",
+      "dataLength": 1517,
+      "error": null
+    },
+    "verdict": "ACTIVE_HEALTHY",
+    "isStuck": false
+  },
+  {
+    "index": 22,
+    "name": "Schools Regencies List",
+    "endpoint": "GET /schools/regencies?province=DKI%20JAKARTA",
+    "auth": "Public",
+    "probe1": {
+      "status": 200,
+      "duration": 9,
+      "ok": true,
+      "preview": "keys:[regencies]",
+      "dataLength": 16,
+      "error": null
+    },
+    "probe2": {
+      "status": 200,
+      "duration": 11,
+      "ok": true,
+      "preview": "keys:[regencies]",
+      "dataLength": 16,
+      "error": null
+    },
+    "verdict": "ACTIVE_HEALTHY",
+    "isStuck": false
+  },
+  {
+    "index": 23,
+    "name": "Schools Base Query",
+    "endpoint": "GET /schools?limit=5",
+    "auth": "Public",
+    "probe1": {
+      "status": 200,
+      "duration": 1,
+      "ok": true,
+      "preview": "keys:[schools]",
+      "dataLength": 18455,
+      "error": null
+    },
+    "probe2": {
+      "status": 200,
+      "duration": 2,
+      "ok": true,
+      "preview": "keys:[schools]",
+      "dataLength": 18455,
+      "error": null
+    },
+    "verdict": "ACTIVE_HEALTHY",
+    "isStuck": false
+  },
+  {
+    "index": 24,
+    "name": "Schools Search Engine",
+    "endpoint": "GET /schools/search?q=SMA",
+    "auth": "Public",
+    "probe1": {
+      "status": 200,
+      "duration": 35,
+      "ok": true,
+      "preview": "keys:[schools]",
+      "dataLength": 369026,
+      "error": null
+    },
+    "probe2": {
+      "status": 200,
+      "duration": 31,
+      "ok": true,
+      "preview": "keys:[schools]",
+      "dataLength": 369026,
+      "error": null
+    },
+    "verdict": "ACTIVE_HEALTHY",
+    "isStuck": false
+  },
+  {
+    "index": 25,
+    "name": "Schools GeoPoints Spatial Cluster",
+    "endpoint": "GET /schools/map?limit=10",
+    "auth": "Public",
+    "probe1": {
+      "status": 200,
+      "duration": 125,
+      "ok": true,
+      "preview": "keys:[schools]",
+      "dataLength": 17909041,
+      "error": null
+    },
+    "probe2": {
+      "status": 200,
+      "duration": 108,
+      "ok": true,
+      "preview": "keys:[schools]",
+      "dataLength": 17909041,
+      "error": null
+    },
+    "verdict": "ACTIVE_HEALTHY",
+    "isStuck": false
+  },
+  {
+    "index": 26,
+    "name": "Mountains & Volcanoes (PVMBG)",
+    "endpoint": "GET /mountains",
+    "auth": "Public",
+    "probe1": {
+      "status": 200,
+      "duration": 12,
+      "ok": true,
+      "preview": "success:true",
+      "dataLength": 2672453,
+      "error": null
+    },
+    "probe2": {
+      "status": 200,
+      "duration": 12,
+      "ok": true,
+      "preview": "success:true",
+      "dataLength": 2672453,
+      "error": null
+    },
+    "verdict": "ACTIVE_HEALTHY",
+    "isStuck": false
+  },
+  {
+    "index": 27,
+    "name": "Auth Current Account (/me)",
+    "endpoint": "GET /auth/me",
+    "auth": "JWT",
+    "probe1": {
+      "status": 200,
+      "duration": 1296,
+      "ok": true,
+      "preview": "keys:[account]",
+      "dataLength": 141,
+      "error": null
+    },
+    "probe2": {
+      "status": 200,
+      "duration": 994,
+      "ok": true,
+      "preview": "keys:[account]",
+      "dataLength": 141,
+      "error": null
+    },
+    "verdict": "ACTIVE_HEALTHY",
+    "isStuck": false
+  },
+  {
+    "index": 28,
+    "name": "User Directory (Dev RBAC)",
+    "endpoint": "GET /users",
+    "auth": "JWT",
+    "probe1": {
+      "status": 200,
+      "duration": 912,
+      "ok": true,
+      "preview": "keys:[users,profiles]",
+      "dataLength": 174000,
+      "error": null
+    },
+    "probe2": {
+      "status": 200,
+      "duration": 978,
+      "ok": true,
+      "preview": "keys:[users,profiles]",
+      "dataLength": 174000,
+      "error": null
+    },
+    "verdict": "ACTIVE_HEALTHY",
+    "isStuck": false
+  },
+  {
+    "index": 29,
+    "name": "User Profile Detail",
+    "endpoint": "GET /profile",
+    "auth": "JWT",
+    "probe1": {
+      "status": 200,
+      "duration": 888,
+      "ok": true,
+      "preview": "keys:[profile]",
+      "dataLength": 255,
+      "error": null
+    },
+    "probe2": {
+      "status": 200,
+      "duration": 1035,
+      "ok": true,
+      "preview": "keys:[profile]",
+      "dataLength": 255,
+      "error": null
+    },
+    "verdict": "ACTIVE_HEALTHY",
+    "isStuck": false
+  },
+  {
+    "index": 30,
+    "name": "All User Profiles Roster",
+    "endpoint": "GET /profile/all",
+    "auth": "JWT",
+    "probe1": {
+      "status": 200,
+      "duration": 2203,
+      "ok": true,
+      "preview": "keys:[profiles]",
+      "dataLength": 118278,
+      "error": null
+    },
+    "probe2": {
+      "status": 200,
+      "duration": 2300,
+      "ok": true,
+      "preview": "keys:[profiles]",
+      "dataLength": 118278,
+      "error": null
+    },
+    "verdict": "ACTIVE_HEALTHY",
+    "isStuck": false
+  },
+  {
+    "index": 31,
+    "name": "Geodetic School Safety (GSS)",
+    "endpoint": "GET /profile/gss",
+    "auth": "JWT",
+    "probe1": {
+      "status": 200,
+      "duration": 1007,
+      "ok": true,
+      "preview": "success:true",
+      "dataLength": 506,
+      "error": null
+    },
+    "probe2": {
+      "status": 200,
+      "duration": 984,
+      "ok": true,
+      "preview": "success:true",
+      "dataLength": 506,
+      "error": null
+    },
+    "verdict": "ACTIVE_HEALTHY",
+    "isStuck": false
+  },
+  {
+    "index": 32,
+    "name": "Linked User Accounts Roster",
+    "endpoint": "GET /profile/accounts",
+    "auth": "JWT",
+    "probe1": {
+      "status": 200,
+      "duration": 894,
+      "ok": true,
+      "preview": "keys:[accounts]",
+      "dataLength": 27932,
+      "error": null
+    },
+    "probe2": {
+      "status": 200,
+      "duration": 984,
+      "ok": true,
+      "preview": "keys:[accounts]",
+      "dataLength": 27932,
+      "error": null
+    },
+    "verdict": "ACTIVE_HEALTHY",
+    "isStuck": false
+  },
+  {
+    "index": 33,
+    "name": "Analytics System Hardware & DB",
+    "endpoint": "GET /analytics/system",
+    "auth": "JWT",
+    "probe1": {
+      "status": 200,
+      "duration": 889,
+      "ok": true,
+      "preview": "success:true",
+      "dataLength": 144,
+      "error": null
+    },
+    "probe2": {
+      "status": 200,
+      "duration": 990,
+      "ok": true,
+      "preview": "success:true",
+      "dataLength": 144,
+      "error": null
+    },
+    "verdict": "ACTIVE_HEALTHY",
+    "isStuck": false
+  },
+  {
+    "index": 34,
+    "name": "Analytics Class Cohort Performance",
+    "endpoint": "GET /analytics/class?grade=X&classSection=1",
+    "auth": "JWT",
+    "probe1": {
+      "status": 200,
+      "duration": 893,
+      "ok": true,
+      "preview": "success:true",
+      "dataLength": 178,
+      "error": null
+    },
+    "probe2": {
+      "status": 200,
+      "duration": 996,
+      "ok": true,
+      "preview": "success:true",
+      "dataLength": 178,
+      "error": null
+    },
+    "verdict": "ACTIVE_HEALTHY",
+    "isStuck": false
+  },
+  {
+    "index": 35,
+    "name": "School Resilience Index (SRI)",
+    "endpoint": "GET /analytics/sri?schoolId=qa-school-1791194668483",
+    "auth": "JWT",
+    "probe1": {
+      "status": 200,
+      "duration": 900,
+      "ok": true,
+      "preview": "success:true",
+      "dataLength": 1002,
+      "error": null
+    },
+    "probe2": {
+      "status": 200,
+      "duration": 1000,
+      "ok": true,
+      "preview": "success:true",
+      "dataLength": 1002,
+      "error": null
+    },
+    "verdict": "ACTIVE_HEALTHY",
+    "isStuck": false
+  },
+  {
+    "index": 36,
+    "name": "Classes Roster",
+    "endpoint": "GET /classes",
+    "auth": "JWT",
+    "probe1": {
+      "status": 200,
+      "duration": 885,
+      "ok": true,
+      "preview": "keys:[classes]",
+      "dataLength": 14,
+      "error": null
+    },
+    "probe2": {
+      "status": 200,
+      "duration": 982,
+      "ok": true,
+      "preview": "keys:[classes]",
+      "dataLength": 14,
+      "error": null
+    },
+    "verdict": "ACTIVE_HEALTHY",
+    "isStuck": false
+  },
+  {
+    "index": 37,
+    "name": "Educational Disaster Events",
+    "endpoint": "GET /events",
+    "auth": "JWT",
+    "probe1": {
+      "status": 200,
+      "duration": 892,
+      "ok": true,
+      "preview": "keys:[data]",
+      "dataLength": 2058,
+      "error": null
+    },
+    "probe2": {
+      "status": 200,
+      "duration": 1015,
+      "ok": true,
+      "preview": "keys:[data]",
+      "dataLength": 2058,
+      "error": null
+    },
+    "verdict": "ACTIVE_HEALTHY",
+    "isStuck": false
+  },
+  {
+    "index": 38,
+    "name": "Digital Twin Public Maps Showcase",
+    "endpoint": "GET /digital-twin/maps/public",
+    "auth": "JWT",
+    "probe1": {
+      "status": 200,
+      "duration": 937,
+      "ok": true,
+      "preview": "keys:[data]",
+      "dataLength": 11,
+      "error": null
+    },
+    "probe2": {
+      "status": 200,
+      "duration": 993,
+      "ok": true,
+      "preview": "keys:[data]",
+      "dataLength": 11,
+      "error": null
+    },
+    "verdict": "ACTIVE_HEALTHY",
+    "isStuck": false
+  },
+  {
+    "index": 39,
+    "name": "Digital Twin School Floor Plans",
+    "endpoint": "GET /digital-twin/maps?schoolId=qa-school-1791194668483",
+    "auth": "JWT",
+    "probe1": {
+      "status": 200,
+      "duration": 964,
+      "ok": true,
+      "preview": "keys:[data]",
+      "dataLength": 11,
+      "error": null
+    },
+    "probe2": {
+      "status": 200,
+      "duration": 1029,
+      "ok": true,
+      "preview": "keys:[data]",
+      "dataLength": 11,
+      "error": null
+    },
+    "verdict": "ACTIVE_HEALTHY",
+    "isStuck": false
+  },
+  {
+    "index": 40,
+    "name": "Digital Twin Simulations Catalog",
+    "endpoint": "GET /digital-twin/simulations?schoolId=qa-school-1791194668483",
+    "auth": "JWT",
+    "probe1": {
+      "status": 200,
+      "duration": 905,
+      "ok": true,
+      "preview": "keys:[data]",
+      "dataLength": 472,
+      "error": null
+    },
+    "probe2": {
+      "status": 200,
+      "duration": 976,
+      "ok": true,
+      "preview": "keys:[data]",
+      "dataLength": 472,
+      "error": null
+    },
+    "verdict": "ACTIVE_HEALTHY",
+    "isStuck": false
+  },
+  {
+    "index": 41,
+    "name": "Digital Twin Active Multiplayer Rooms",
+    "endpoint": "GET /digital-twin/rooms?schoolId=qa-school-1791194668483",
+    "auth": "JWT",
+    "probe1": {
+      "status": 200,
+      "duration": 888,
+      "ok": true,
+      "preview": "keys:[data]",
+      "dataLength": 11,
+      "error": null
+    },
+    "probe2": {
+      "status": 200,
+      "duration": 1003,
+      "ok": true,
+      "preview": "keys:[data]",
+      "dataLength": 11,
+      "error": null
+    },
+    "verdict": "ACTIVE_HEALTHY",
+    "isStuck": false
+  },
+  {
+    "index": 42,
+    "name": "Digital Twin Phase 1 Maps Roster",
+    "endpoint": "GET /digital-twin/phase1/maps?schoolId=qa-school-1791194668483",
+    "auth": "JWT",
+    "probe1": {
+      "status": 200,
+      "duration": 482,
+      "ok": true,
+      "preview": "keys:[data]",
+      "dataLength": 11,
+      "error": null
+    },
+    "probe2": {
+      "status": 200,
+      "duration": 552,
+      "ok": true,
+      "preview": "keys:[data]",
+      "dataLength": 11,
+      "error": null
+    },
+    "verdict": "ACTIVE_HEALTHY",
+    "isStuck": false
+  },
+  {
+    "index": 43,
+    "name": "AI NWP Numerical Atmospheric Verification",
+    "endpoint": "POST /ai/weather-nwp-verify",
+    "auth": "JWT",
+    "probe1": {
+      "status": 200,
+      "duration": 123,
+      "ok": true,
+      "preview": "success:false",
+      "dataLength": 1354,
+      "error": null
+    },
+    "probe2": {
+      "status": 200,
+      "duration": 52,
+      "ok": true,
+      "preview": "success:false",
+      "dataLength": 1354,
+      "error": null
+    },
+    "verdict": "ACTIVE_HEALTHY",
+    "isStuck": false
+  },
+  {
+    "index": 44,
+    "name": "AI Weather History Diagnostics",
+    "endpoint": "GET /ai/weather-history",
+    "auth": "JWT",
+    "probe1": {
+      "status": 200,
+      "duration": 129,
+      "ok": true,
+      "preview": "success:true",
+      "dataLength": 296998,
+      "error": null
+    },
+    "probe2": {
+      "status": 200,
+      "duration": 175,
+      "ok": true,
+      "preview": "success:true",
+      "dataLength": 296998,
+      "error": null
+    },
+    "verdict": "ACTIVE_HEALTHY",
+    "isStuck": false
+  },
+  {
+    "index": 45,
+    "name": "AI Multi-Model Weather Comparison",
+    "endpoint": "GET /ai/weather-models-comparison",
+    "auth": "JWT",
+    "probe1": {
+      "status": 200,
+      "duration": 35,
+      "ok": true,
+      "preview": "success:true",
+      "dataLength": 5802,
+      "error": null
+    },
+    "probe2": {
+      "status": 200,
+      "duration": 37,
+      "ok": true,
+      "preview": "success:true",
+      "dataLength": 5802,
+      "error": null
+    },
+    "verdict": "ACTIVE_HEALTHY",
+    "isStuck": false
+  }
+]

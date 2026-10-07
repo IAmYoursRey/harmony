@@ -1,3 +1,9 @@
+import { readWeatherTileCoverage } from '../../../../services/geospatial/weatherTileCoverage';
+import { 
+  isValidUsgsFeed, 
+  earthquakeSnapshotService, 
+  EarthquakeSnapshot 
+} from '../../../../services/geospatial/earthquakeSnapshotService';
 import "ol/ol.css";
 import Map from "ol/Map";
 import View from "ol/View";
@@ -14,11 +20,11 @@ import VectorSource from "ol/source/Vector";
 import Feature from "ol/Feature";
 import Point from "ol/geom/Point";
 import LineString from "ol/geom/LineString";
-import Polygon from "ol/geom/Polygon";
+import Polygon, { fromCircle } from "ol/geom/Polygon";
 import CircleGeom from "ol/geom/Circle";
 import { Style, RegularShape, Fill, Stroke, Circle as CircleStyle, Text } from "ol/style";
 import TopoJSON from "ol/format/TopoJSON";
-import { useEffect, useRef, useState, useMemo, useCallback } from "react";
+import { useEffect, useRef, useState, useMemo, useCallback, lazy, Suspense } from "react";
 import { createPortal } from "react-dom";
 import { apiClient } from "@/services/apiClient";
 import { 
@@ -27,22 +33,28 @@ import {
   Newspaper, Palette, Paintbrush, Box, Compass, RotateCcw, RotateCw, LocateFixed, CloudSun,
   Waves, Gauge, Flame, AlertCircle, Navigation, Satellite, Layers, Car, Info, ShieldCheck,
   ArrowUp, ArrowUpRight, Check, Eye, Radio, BookOpen, ExternalLink, Calendar, Sparkles, Droplets,
-  ChevronUp, ChevronDown, Database
+  ChevronUp, ChevronDown, Database, Zap, Cpu
 } from "lucide-react";
 import { useNavigate, useOutletContext } from "react-router-dom";
 import { seasonalIntelligenceService, type SeasonalInfo, EQUATOR_MONUMENTS } from "@/services/seasonalIntelligenceService";
 import { useAuth } from "@/hooks/useAuth";
 import { useSchool } from "@/hooks/useSchool";
+import { useHardwarePerformance } from "@/hooks/useHardwarePerformance";
+import { hardwarePerformanceService, type PerformanceMode } from "@/services/hardwarePerformanceService";
 import { motion, AnimatePresence } from "framer-motion";
-import { GlobeView3D } from "./GlobeView3D";
+const CesiumGlobe3D = lazy(() => import("./CesiumGlobe3D").then(module => ({ default: module.CesiumGlobe3D })));
+const GlobeView3D = lazy(() => import("./GlobeView3D").then(module => ({ default: module.GlobeView3D })));
 import { volcanoService } from "@/services/volcanoService";
-import { GeospatialWeatherModal } from "./GeospatialWeatherModal";
+import { GeospatialWeatherModal, STUDIO_DOMAINS, type StudioDomain } from "./GeospatialWeatherModal";
 import { RouteNavigatorModal } from "./RouteNavigatorModal";
-import { RouteResult } from "@/services/routingService";
+import { RouteResult, routingService } from "@/services/routingService";
+import { WebGISTutorialModal } from "./WebGISTutorialModal";
+import { DisasterRiskCenterModal, LANDSLIDE_SUSCEPTIBILITY_ZONES, TSUNAMI_HAZARD_ZONES } from "./DisasterRiskCenterModal";
 import { preciseGeocodingService, PreciseLocationInfo } from "@/services/preciseGeocodingService";
 import { geospatialAnalysisService } from "@/services/geospatialAnalysisService";
 import { weatherAggregatorService } from "@/services/weatherAggregatorService";
 import { bmkgService } from "@/services/bmkgService";
+import { hotspotFireService, ActiveFireHotspot, HotspotSnapshot } from "@/services/hotspotFireService";
 import {
   type TrafficCorridor,
   type TrafficSegment,
@@ -74,6 +86,8 @@ import { MapIdentifyPanel } from "./map/MapIdentifyPanel";
 import { MapLayerManager, ManagedLayer } from "./map/MapLayerManager";
 import { MapGeoprocessingModal, PointDataset } from "./map/MapGeoprocessingModal";
 import { MapWeatherObservationCard } from "./map/MapWeatherObservationCard";
+import { SchoolRiskSynthesisCard } from "./SchoolRiskSynthesisCard";
+import { GroundedScenarioModal } from "./GroundedScenarioModal";
 import { aoiService, AreaOfInterest } from "@/services/geospatial/aoiService";
 
 // Basemap Types & Provenance Metadata (>2020 High-Accuracy Datasets)
@@ -96,24 +110,24 @@ export const BASEMAP_METADATA: Record<MapBasemapType, BasemapMetadata> = {
   osm: {
     id: 'osm',
     name: 'Peta Vektor Standar',
-    category: 'Rupa Bumi & Jalan Nasional',
-    year: '2025 - 2026 (Live Terverifikasi)',
-    provider: 'OpenStreetMap & Komunitas SIG Indonesia',
-    resolution: 'Vektor Skala 1:5.000 s.d. 1:50.000',
-    accuracy: 'Akurasi Topologi Standar BIG',
-    description: 'Jaringan jalan nasional, batas administrasi, toponimi wilayah resmi, dan fasilitas publik.',
+    category: 'Rupa Bumi & Jalan (Komunitas)',
+    year: 'Pembaruan Kontinu Komunitas',
+    provider: 'OpenStreetMap Contributors (ODbL)',
+    resolution: 'Vektor Multi-Skala',
+    accuracy: 'Bervariasi per kontributor (Bukan sertifikasi resmi BIG)',
+    description: 'Jaringan jalan, batas administrasi, dan fasilitas umum berbasis kontribusi komunitas global OpenStreetMap.',
     color: '#3b82f6',
-    badge: 'Realtime 2026',
+    badge: 'Peta Komunitas',
   },
   satellite: {
     id: 'satellite',
     name: 'Citra Satelit Optik (Hybrid)',
-    category: 'Penginderaan Jauh Optik',
-    year: '2023 - 2025 (Pasca-2020 Terverifikasi)',
-    provider: 'ESRI World Imagery & Labels Overlay',
-    resolution: '0.3m s.d. 10m Ground Sampling Distance',
-    accuracy: 'Ortorektifikasi CE90 < 2.5m',
-    description: 'Citra satelit resolusi tinggi dilengkapi batas wilayah, jalan & toponimi nama kota.',
+    category: 'Penginderaan Jauh Optik Komposit',
+    year: 'Bervariasi per mosaik/wilayah',
+    provider: 'ESRI World Imagery, Maxar, Earthstar Geographics',
+    resolution: 'Komposit Multi-Resolusi (GSD bervariasi)',
+    accuracy: 'Akurasi geolokasi bergantung pada mosaik citra setempat',
+    description: 'Mosaik citra satelit komposit optik global dilengkapi overlay toponimi dan jalan.',
     color: '#10b981',
     badge: 'Citra Satelit',
   },
@@ -121,10 +135,10 @@ export const BASEMAP_METADATA: Record<MapBasemapType, BasemapMetadata> = {
     id: 'elevation',
     name: 'Topografi & Relief Elevasi',
     category: 'Morfologi & Topografi',
-    year: '2024 - 2025 (Pasca-2020)',
+    year: 'Model Elevasi Global (SRTM/USGS)',
     provider: 'ESRI World Topo Map & Relief',
     resolution: 'Kontur Ketinggian & Shaded Relief',
-    accuracy: 'Akurasi Geodesi Standar Kontur',
+    accuracy: 'Akurasi vertikal bervariasi sesuai resolusi kontur sumber',
     description: 'Peta kontur elevasi, pegunungan, morfologi lereng, dan toponimi rupa bumi.',
     color: '#d97706',
     badge: 'Topografi',
@@ -133,34 +147,34 @@ export const BASEMAP_METADATA: Record<MapBasemapType, BasemapMetadata> = {
     id: 'thermal',
     name: 'Peta Fisik & Bioklimat',
     category: 'Fisik Bumi & Iklim Makro',
-    year: '2024 - 2026 (Pasca-2020)',
+    year: 'Data Bio-Fisik Global',
     provider: 'ESRI World Physical Map',
-    resolution: '1 km Spatial Grid & Vegetasi',
-    accuracy: 'Klasifikasi Bentang Alam Global',
-    description: 'Peta bentang alam fisik, cekungan hidrologi, tutupan vegetasi, dan zona bioklimat.',
+    resolution: '1 km Spatial Grid & Vegetasi Makro',
+    accuracy: 'Klasifikasi bentang alam makro global',
+    description: 'Peta bentang alam fisik, cekungan hidrologi, tutupan vegetasi, dan zona bioklimat global.',
     color: '#ef4444',
     badge: 'Fisik Bumi',
   },
   traffic: {
     id: 'traffic',
-    name: 'Lintasan Jalan & Trafik Live HD',
+    name: 'Lintasan Jalan & Trafik Aliran',
     category: 'Infrastruktur Transportasi & Navigasi',
-    year: '2025 - 2026 (Live Terverifikasi)',
-    provider: 'Google Maps Live Traffic & OpenStreetMap Corridors',
-    resolution: 'Tingkat Lajur & Setiap Sudut Jalan Realtime',
-    accuracy: 'Kecepatan Lalu Lintas Multi-Segmen Realtime',
-    description: 'Peta navigasi jalan raya, jalan tol, arteri nasional, hingga jalan lokal di setiap sudut dengan pantauan lalu lintas realtime.',
+    year: 'Koridor Geometri OSM (Aliran Live jika Proxy Aktif)',
+    provider: 'OpenStreetMap Corridors & Proxy TomTom (Opsional)',
+    resolution: 'Segmen Koridor Utama',
+    accuracy: 'Simulasi/model kecuali terhubung ke penyedia aliran langsung',
+    description: 'Jaringan jalan utama dan arteri. Data kecepatan aktual memerlukan konfigurasi proxy penyedia aliran lalu lintas.',
     color: '#8b5cf6',
-    badge: 'Lalu Lintas Live',
+    badge: 'Lalu Lintas',
   },
   dark: {
     id: 'dark',
     name: 'Peta Kanvas Gelap (Night Mode)',
     category: 'Geometri Malam & Kontras Tinggi',
-    year: '2024 - 2025 (Terkini)',
+    year: 'Kanvas Vektor Standar',
     provider: 'ESRI World Dark Canvas & Geometri',
     resolution: 'Resolusi Vektor Kontras Tinggi',
-    accuracy: 'Presisi Spasial Geodesi',
+    accuracy: 'Presisi Spasial Geodesi ESRI',
     description: 'Tampilan malam kontras tinggi untuk pemantauan data sensor dan sebaran titik bencana.',
     color: '#6366f1',
     badge: 'Mode Malam',
@@ -186,16 +200,23 @@ export const WINDY_PARAM_CONFIG: WindyParamMeta[] = [
   {
     id: 'radar',
     name: 'Doppler Radar',
-    badge: 'Live Echo',
+    badge: 'Mosaik Radar',
     icon: '📡',
-    desc: 'Reflektivitas radar cuaca komposit BMKG',
+    desc: 'Reflektivitas radar cuaca mosaik (RainViewer Doppler / BMKG)',
   },
   {
     id: 'clouds',
     name: 'Satelit & Awan',
-    badge: 'Inframerah',
+    badge: 'Model Awan',
     icon: '☁️',
-    desc: 'Citra satelit Himawari-9 & tutupan awan',
+    desc: 'Model tutupan awan & kelembaban atmosfer (ECMWF)',
+  },
+  {
+    id: 'satellite',
+    name: 'Citra Satelit',
+    badge: 'Satelit Windy',
+    icon: '🛰️',
+    desc: 'Citra satelit inframerah interaktif via Penampil Windy',
   },
   {
     id: 'temp',
@@ -328,6 +349,8 @@ export interface MapLayerSettings {
   showKota: boolean;
   showKabupaten: boolean;
   showDesa: boolean;
+  showLandslideZones?: boolean;
+  showTsunamiZones?: boolean;
 }
 
 const DEFAULT_MAP_SETTINGS: MapLayerSettings = {
@@ -344,6 +367,8 @@ const DEFAULT_MAP_SETTINGS: MapLayerSettings = {
   showKota: false,
   showKabupaten: false,
   showDesa: false,
+  showLandslideZones: false,
+  showTsunamiZones: false,
 };
 
 function getSynchronousUserId(): string {
@@ -422,12 +447,12 @@ function useUserMapSettings(userId: string, profileMapSettings?: Partial<MapLaye
 }
 
 // Reusable Toggle Component
-const Toggle = ({ checked, onChange, activeClass = "bg-brand-500" }: { checked: boolean, onChange: (v: boolean) => void, activeClass?: string }) => (
-  <div className="relative inline-flex items-center cursor-pointer" onClick={() => onChange(!checked)}>
+const Toggle = ({ checked, onChange, activeClass = "bg-brand-500", label = "Aktifkan lapisan" }: { checked: boolean, onChange: (v: boolean) => void, activeClass?: string, label?: string }) => (
+  <button type="button" role="switch" aria-checked={checked} aria-label={label} className="relative inline-flex shrink-0 items-center cursor-pointer rounded-full focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-500" onClick={() => onChange(!checked)}>
     <div className={`w-9 h-5 rounded-full transition-colors ${checked ? activeClass : 'bg-slate-200 dark:bg-slate-700'}`}>
       <div className={`absolute top-0.5 left-0.5 bg-white border border-slate-200 rounded-full h-4 w-4 transition-transform ${checked ? 'translate-x-4 border-transparent shadow-sm' : ''}`}></div>
     </div>
-  </div>
+  </button>
 );
 
 // SD (Cyan/Light Blue)
@@ -456,7 +481,10 @@ export function MapsView() {
   const navigate = useNavigate();
   const { setMobileOpen } = useOutletContext<{ setMobileOpen: (v: boolean) => void }>();
   const { currentProfile, currentUser } = useAuth();
-  const { setSelection } = useSchool();
+  const { selection, setSelection } = useSchool();
+  const [userCoords, setUserCoords] = useState<{ lat: number; lng: number } | null>(null);
+  const [userAccuracy, setUserAccuracy] = useState<number | null>(null);
+  const [userPreciseLocation, setUserPreciseLocation] = useState<PreciseLocationInfo | null>(null);
   
   // Custom Event Listener for popup buttons
   useEffect(() => {
@@ -470,62 +498,32 @@ export function MapsView() {
     return () => window.removeEventListener('view-school-profile', handleViewProfile);
   }, [navigate, setSelection]);
 
-  const userSchoolId = currentProfile?.schoolId;
+  const userSchoolId = currentUser ? currentProfile?.schoolId : null;
+  const activeSchoolName = currentUser ? (selection?.school?.name || (currentProfile as any)?.schoolName || '') : '';
+  const activeSchoolId = currentUser ? (selection?.school?.id || userSchoolId || null) : null;
+  const activeSchoolLat = (currentUser && (selection?.school?.lat ?? (currentProfile as any)?.schoolLat)) ?? userCoords?.lat ?? -6.2088;
+  const activeSchoolLng = (currentUser && (selection?.school?.lng ?? (currentProfile as any)?.schoolLng)) ?? userCoords?.lng ?? 106.8456;
 
-  const [mountains, setMountains] = useState<any[]>([]);
+  const [mountains, setMountains] = useState<any[]>(() => volcanoService.getAllMonitoredVolcanoes());
   const [schools, setSchools] = useState<any[]>([]);
-  const [earthquakes, setEarthquakes] = useState<any[]>([
-    { place: 'Selatan Jawa Timur (Samudra Hindia)', lat: -8.82, lng: 112.54, mag: 4.8, depth: 24 },
-    { place: 'Selat Sunda (Banten)', lat: -6.42, lng: 105.18, mag: 5.1, depth: 10 },
-    { place: 'Palu - Sigi Sulawesi Tengah', lat: -1.02, lng: 119.88, mag: 4.4, depth: 15 },
-    { place: 'Barat Daya Malang Jawa Timur', lat: -8.95, lng: 112.48, mag: 4.2, depth: 32 },
-  ]);
+  const [earthquakes, setEarthquakes] = useState<any[]>([]);
+  const [hotspots, setHotspots] = useState<ActiveFireHotspot[]>([]);
+  const [quakeSnapshot, setQuakeSnapshot] = useState<EarthquakeSnapshot | null>(() => earthquakeSnapshotService.getLatestSnapshot('2.5_day'));
+  const [hotspotSnapshot, setHotspotSnapshot] = useState<HotspotSnapshot | null>(() => hotspotFireService.getLatestSnapshot({ bbox: [-180, -90, 180, 90], source: 'ALL' }));
 
   useEffect(() => {
-    let isMounted = true;
-    const fetchLiveBMKGQuakes = async () => {
-      try {
-        const [autoGempa, terkini] = await Promise.all([
-          bmkgService.getAutoGempa(),
-          bmkgService.getGempaTerkini(),
-        ]);
-        if (!isMounted) return;
-        const list: any[] = [];
-        if (autoGempa && autoGempa.lat && autoGempa.lng) {
-          list.push({
-            place: `[BMKG InaTEWS Terkini] ${autoGempa.location}`,
-            lat: autoGempa.lat,
-            lng: autoGempa.lng,
-            mag: autoGempa.magnitude,
-            depth: autoGempa.depthKm,
-            felt: autoGempa.felt,
-            shakemapUrl: autoGempa.shakemapUrl,
-            time: `${autoGempa.date} ${autoGempa.time}`,
-          });
-        }
-        if (Array.isArray(terkini)) {
-          terkini.forEach((g) => {
-            if (g.lat && g.lng) {
-              list.push({
-                place: g.location,
-                lat: g.lat,
-                lng: g.lng,
-                mag: g.magnitude,
-                depth: g.depthKm,
-                time: `${g.date} ${g.time}`,
-              });
-            }
-          });
-        }
-        if (list.length > 0) {
-          setEarthquakes(list);
-        }
-      } catch (err) {
-        console.warn('Could not fetch live BMKG quakes in MapsView:', err);
-      }
+    const unsubQuakes = earthquakeSnapshotService.subscribeEarthquakes({ feed: '2.5_day' }, (snap) => {
+      setQuakeSnapshot(snap);
+      setEarthquakes(snap.records as any[]);
+    });
+    const unsubHotspots = hotspotFireService.subscribeHotspots({ bbox: [-180, -90, 180, 90], source: 'ALL' }, (snap) => {
+      setHotspotSnapshot(snap);
+      setHotspots(snap.records as any[]);
+    });
+    return () => {
+      unsubQuakes();
+      unsubHotspots();
     };
-    fetchLiveBMKGQuakes();
-    return () => { isMounted = false; };
   }, []);
   const [mapReady, setMapReady] = useState(false);
   
@@ -534,7 +532,7 @@ export function MapsView() {
   const [isModeDropdownOpen, setIsModeDropdownOpen] = useState(false);
   
   const [showPanel, setShowPanel] = useState(false);
-  const [panelTab, setPanelTab] = useState<'all' | 'basemap' | 'disaster' | 'weather' | 'places'>('all');
+  const [panelTab, setPanelTab] = useState<'all' | 'tools' | 'basemap' | 'disaster' | 'weather' | 'places'>('all');
 
   // Basemap & Provenance State (>2020 High Accuracy Standards)
   const [activeMapBasemap, setActiveMapBasemap] = useState<MapBasemapType>(() => {
@@ -560,6 +558,159 @@ export function MapsView() {
   const [lastTrafficSyncTime, setLastTrafficSyncTime] = useState<string>('Baru saja');
   const [isAutoSyncTraffic, setIsAutoSyncTraffic] = useState<boolean>(true);
   const [syncCountdown, setSyncCountdown] = useState<number>(8);
+  const [uiExperienceMode, setUiExperienceMode] = useState<'education' | 'expert'>(() => {
+    try {
+      const saved = window.localStorage.getItem('hm_ui_experience_mode');
+      if (saved === 'expert' || saved === 'education') return saved;
+    } catch (e) {}
+    return 'education';
+  });
+  const [showGroundedScenarioModal, setShowGroundedScenarioModal] = useState<boolean>(false);
+  const [tomtomProbeResult, setTomtomProbeResult] = useState<{
+    corridorId: string;
+    loading: boolean;
+    status: 'LIVE' | 'NOT_CONFIGURED' | 'FAILED' | 'UNAVAILABLE' | 'LOADING';
+    message: string;
+    currentSpeedKmh?: number | null;
+    freeFlowSpeedKmh?: number | null;
+    confidence?: number | null;
+    roadClosure?: boolean | null;
+  } | null>(null);
+
+  const handleCheckTomTomLive = async (corridor: TrafficCorridor) => {
+    const reqCorridorId = corridor.id;
+    const reqId = ((globalThis as any).__harmony_traffic_seq = ((globalThis as any).__harmony_traffic_seq || 0) + 1);
+    (globalThis as any).__harmony_active_traffic_request_id = reqId;
+    (globalThis as any).__harmony_active_traffic_corridor = reqCorridorId;
+    setTomtomProbeResult({
+      corridorId: corridor.id,
+      loading: true,
+      status: 'LOADING',
+      message: 'Menghubungi proxy TomTom Traffic Flow...',
+    });
+    try {
+      const trafficUrl = `/api/spatial/traffic/flow?lat=${corridor.center[1]}&lng=${corridor.center[0]}`;
+      const res = await apiClient.get<any>(trafficUrl);
+      if ((globalThis as any).__harmony_active_traffic_request_id !== reqId) return;
+
+      const data = res?.data;
+      const hasValidSpeeds = Boolean(
+        data &&
+        typeof data.currentSpeedKmh === 'number' && Number.isFinite(data.currentSpeedKmh) && data.currentSpeedKmh >= 0 &&
+        typeof data.freeFlowSpeedKmh === 'number' && Number.isFinite(data.freeFlowSpeedKmh) && data.freeFlowSpeedKmh >= 0
+      );
+
+      const hasValidConfidence = Boolean(
+        data &&
+        typeof data.confidence === 'number' && Number.isFinite(data.confidence) && data.confidence >= 0 && data.confidence <= 1
+      );
+
+      const hasValidRoadClosure = Boolean(
+        data &&
+        typeof data.roadClosure === 'boolean'
+      );
+
+      const isGeometryValid = Boolean(
+        data &&
+        Array.isArray(data.coordinates) &&
+        data.coordinates.length >= 2 &&
+        data.coordinates.every((c: any) =>
+          Array.isArray(c) &&
+          c.length >= 2 &&
+          typeof c[0] === 'number' && Number.isFinite(c[0]) && c[0] >= -180 && c[0] <= 180 &&
+          typeof c[1] === 'number' && Number.isFinite(c[1]) && c[1] >= -90 && c[1] <= 90
+        )
+      );
+
+      const isCompleteContractValid = Boolean(hasValidSpeeds && hasValidConfidence && hasValidRoadClosure && isGeometryValid);
+
+      if (res?.success && isCompleteContractValid) {
+        setTomtomProbeResult({
+          corridorId: corridor.id,
+          loading: false,
+          status: 'LIVE',
+          message: `TomTom Live: ${data.currentSpeedKmh} km/jam (Bebas Hambatan: ${data.freeFlowSpeedKmh} km/jam)`,
+          currentSpeedKmh: data.currentSpeedKmh,
+          freeFlowSpeedKmh: data.freeFlowSpeedKmh,
+          confidence: data.confidence,
+          roadClosure: data.roadClosure,
+        });
+
+        // Sinkronisasi data koridor dengan telemetri arus langsung TomTom
+        const liveStatus = data.currentSpeedKmh >= 70 ? 'Lancar' : data.currentSpeedKmh >= 40 ? 'Ramai Lancar' : data.currentSpeedKmh >= 20 ? 'Padat Merayap' : 'Macet Total';
+        if (typeof setTrafficDataList === 'function') {
+          setTrafficDataList((prev) =>
+            prev.map((c) =>
+              c.id === corridor.id
+                ? {
+                    ...c,
+                    speedKmh: data.currentSpeedKmh,
+                    status: liveStatus,
+                    condition: data.roadClosure ? 'Jalan Ditutup / Hambatan Signifikan (TomTom Live)' : `Arus Nyata TomTom: ${data.currentSpeedKmh} km/jam`,
+                  }
+                : c
+            )
+          );
+        }
+        if (typeof setSelectedCorridor === 'function') {
+          setSelectedCorridor((prev) =>
+            prev && prev.id === corridor.id
+              ? {
+                  ...prev,
+                  speedKmh: data.currentSpeedKmh,
+                  status: liveStatus,
+                  condition: data.roadClosure ? 'Jalan Ditutup / Hambatan Signifikan (TomTom Live)' : `Arus Nyata TomTom: ${data.currentSpeedKmh} km/jam`,
+                }
+              : prev
+          );
+        }
+      } else if (res?.reason?.code === 'NOT_CONFIGURED') {
+        setTomtomProbeResult({
+          corridorId: corridor.id,
+          loading: false,
+          status: 'NOT_CONFIGURED',
+          message: 'TomTom API: NOT_CONFIGURED. Masukkan TomTom API Key pada menu Transparansi Data untuk mengaktifkan telemetri arus langsung riil.',
+        });
+      } else if (res?.success && !isCompleteContractValid) {
+        setTomtomProbeResult({
+          corridorId: corridor.id,
+          loading: false,
+          status: 'UNAVAILABLE',
+          message: 'Data lalu lintas TomTom tidak valid atau tidak memenuhi kontrak lengkap (kecepatan, confidence, status penutupan jalan, atau geometri wajib).',
+          currentSpeedKmh: hasValidSpeeds ? data.currentSpeedKmh : null,
+          freeFlowSpeedKmh: hasValidSpeeds ? data.freeFlowSpeedKmh : null,
+          confidence: hasValidConfidence ? data.confidence : null,
+          roadClosure: hasValidRoadClosure ? data.roadClosure : null,
+        });
+      } else {
+        setTomtomProbeResult({
+          corridorId: corridor.id,
+          loading: false,
+          status: 'FAILED',
+          message: res?.reason?.message || res?.error || 'Pengambilan TomTom Traffic gagal.',
+        });
+      }
+    } catch (err: any) {
+      if ((globalThis as any).__harmony_active_traffic_request_id !== reqId) return;
+      const isNotConfigured = err?.data?.reason?.code === 'NOT_CONFIGURED' ||
+        (typeof err?.message === 'string' && err.message.includes('NOT_CONFIGURED'));
+      if (isNotConfigured) {
+        setTomtomProbeResult({
+          corridorId: corridor.id,
+          loading: false,
+          status: 'NOT_CONFIGURED',
+          message: 'TomTom API: NOT_CONFIGURED (Kunci API belum diatur pada server). Menampilkan simulasi ilustratif terpisah.',
+        });
+      } else {
+        setTomtomProbeResult({
+          corridorId: corridor.id,
+          loading: false,
+          status: 'FAILED',
+          message: `Gagal menghubungi server traffic: ${err?.message || 'HTTP Error'}`,
+        });
+      }
+    }
+  };
 
   // Observation Coverage & Radar Station Drawer States
   const [obsSubTab, setObsSubTab] = useState<'summary' | 'radar' | 'blank'>('summary');
@@ -701,18 +852,21 @@ export function MapsView() {
 
   const handleRefreshTraffic = useCallback(() => {
     setIsTrafficRefreshing(true);
+    if (selectedCorridor) {
+      handleCheckTomTomLive(selectedCorridor);
+    }
     setTimeout(() => {
       setTrafficDataList((prev) => {
         const sim = simulateRealtimeTraffic(prev);
         setLastTrafficSyncTime(sim.syncTime);
         return sim.updatedCorridors;
       });
-      setSyncCountdown(8);
+      setSyncCountdown(300);
       setIsTrafficRefreshing(false);
     }, 450);
-  }, []);
+  }, [selectedCorridor, handleCheckTomTomLive]);
 
-  // Automated Realtime Traffic Telemetry: Sinkronisasi otomatis setiap 8 detik
+  // Automated Realtime Traffic Telemetry: Sinkronisasi otomatis berkala setiap 5 menit (300 detik)
   useEffect(() => {
     if (!showTrafficCorridors && activeMapBasemap !== 'traffic') return;
     if (!isAutoSyncTraffic) return;
@@ -720,19 +874,22 @@ export function MapsView() {
     const timer = setInterval(() => {
       setSyncCountdown((prev) => {
         if (prev <= 1) {
+          if (selectedCorridor) {
+            handleCheckTomTomLive(selectedCorridor);
+          }
           setTrafficDataList((curr) => {
             const sim = simulateRealtimeTraffic(curr);
             setLastTrafficSyncTime(sim.syncTime);
             return sim.updatedCorridors;
           });
-          return 8;
+          return 300;
         }
         return prev - 1;
       });
     }, 1000);
 
     return () => clearInterval(timer);
-  }, [showTrafficCorridors, activeMapBasemap, isAutoSyncTraffic]);
+  }, [showTrafficCorridors, activeMapBasemap, isAutoSyncTraffic, selectedCorridor, handleCheckTomTomLive]);
 
   const handleFocusCorridor = useCallback((corridor: TrafficCorridor) => {
     setSelectedCorridor(corridor);
@@ -830,6 +987,13 @@ export function MapsView() {
   const profileMapSettings = (currentProfile as any)?.mapSettings;
   const { settings, updateSetting } = useUserMapSettings(activeUserId, profileMapSettings);
 
+  const {
+    profile: perfProfile,
+    mode: perfMode,
+    effectiveMode: effectivePerfMode,
+    setMode: setPerfMode,
+  } = useHardwarePerformance();
+
   // 3D Perspective & Globe Mode State (Persisted per user)
   const [is3D, setIs3D] = useState<boolean>(() => {
     try {
@@ -839,10 +1003,11 @@ export function MapsView() {
     }
   });
 
-  const [globeType, setGlobeType] = useState<'globe' | 'perspective'>(() => {
+  const [globeType, setGlobeType] = useState<'globe' | 'perspective' | 'cesium'>(() => {
     try {
       const stored = window.localStorage.getItem(`hm_globetype_${activeUserId}`);
-      return stored === 'perspective' ? 'perspective' : 'globe';
+      if (stored === 'perspective' || stored === 'cesium' || stored === 'globe') return stored;
+      return 'globe';
     } catch (e) {
       return 'globe';
     }
@@ -859,18 +1024,20 @@ export function MapsView() {
         setIs3D(stored === 'true');
       }
       const storedType = window.localStorage.getItem(`hm_globetype_${activeUserId}`);
-      if (storedType === 'perspective' || storedType === 'globe') {
-        setGlobeType(storedType as 'globe' | 'perspective');
+      if (storedType === 'perspective' || storedType === 'cesium' || storedType === 'globe') {
+        setGlobeType(storedType as 'globe' | 'perspective' | 'cesium');
+      } else {
+        setGlobeType('globe');
       }
     } catch (e) {}
   }, [activeUserId]);
 
-  const handleSetGlobeType = (type: 'globe' | 'perspective') => {
+  const handleSetGlobeType = (type: 'globe' | 'perspective' | 'cesium') => {
     setGlobeType(type);
     try {
       window.localStorage.setItem(`hm_globetype_${activeUserId}`, type);
     } catch (e) {}
-    if (type !== 'globe') {
+    if (type === 'perspective') {
       setTimeout(() => { mapRef.current?.updateSize(); }, 750);
     }
   };
@@ -886,12 +1053,13 @@ export function MapsView() {
       if (center) {
         const [lng, lat] = toLonLat(center);
         setGlobeInitialCenter({ lat, lng });
+        setGlobeInitialZoom(Math.round(view?.getZoom() || 6));
       }
     }
     try {
       window.localStorage.setItem(`hm_is3d_${activeUserId}`, String(val));
     } catch (e) {}
-    if (globeType !== 'globe') {
+    if (globeType === 'perspective') {
       setTimeout(() => { mapRef.current?.updateSize(); }, 750);
     }
   };
@@ -904,7 +1072,7 @@ export function MapsView() {
     } catch (e) {}
 
     // Switch from 3D globe to 2D view so the user can immediately see the selected basemap
-    if (is3D && globeType === 'globe') {
+    if (is3D && (globeType === 'globe' || globeType === 'cesium')) {
       handleToggle3D(false);
     }
 
@@ -1015,18 +1183,30 @@ export function MapsView() {
     }
   };
 
+  const pointerAnimFrame = useRef<number | null>(null);
+
   const handlePointerMove = (e: React.PointerEvent) => {
     if (isPointerRotating.current && mapRef.current) {
-      const deltaX = e.clientX - pointerStartX.current;
-      const deltaRot = (deltaX / 300) * (2 * Math.PI);
-      const newRot = pointerStartRot.current + deltaRot;
-      mapRef.current.getView().setRotation(newRot);
-      const deg = Math.round((((newRot % (2 * Math.PI)) + 2 * Math.PI) % (2 * Math.PI) * 180) / Math.PI);
-      setCurrentRotation(deg);
+      const clientX = e.clientX;
+      if (pointerAnimFrame.current !== null) return;
+      pointerAnimFrame.current = requestAnimationFrame(() => {
+        pointerAnimFrame.current = null;
+        if (!isPointerRotating.current || !mapRef.current) return;
+        const deltaX = clientX - pointerStartX.current;
+        const deltaRot = (deltaX / 300) * (2 * Math.PI);
+        const newRot = pointerStartRot.current + deltaRot;
+        mapRef.current.getView().setRotation(newRot);
+        const deg = Math.round((((newRot % (2 * Math.PI)) + 2 * Math.PI) % (2 * Math.PI) * 180) / Math.PI);
+        setCurrentRotation(deg);
+      });
     }
   };
 
   const handlePointerUp = (e: React.PointerEvent) => {
+    if (pointerAnimFrame.current !== null) {
+      cancelAnimationFrame(pointerAnimFrame.current);
+      pointerAnimFrame.current = null;
+    }
     if (isPointerRotating.current) {
       isPointerRotating.current = false;
       try {
@@ -1050,19 +1230,73 @@ export function MapsView() {
   const showSMA = settings.showSMA;
   const setShowSMA = (v: boolean | ((prev: boolean) => boolean)) => updateSetting('showSMA', v);
 
-  // Geological & Atmospheric States
   const showTectonic = settings.showTectonic;
   const setShowTectonic = (v: boolean | ((prev: boolean) => boolean)) => updateSetting('showTectonic', v);
   const showEarthquakes = settings.showEarthquakes;
   const setShowEarthquakes = (v: boolean | ((prev: boolean) => boolean)) => updateSetting('showEarthquakes', v);
   const showTsunamiSensors = settings.showTsunamiSensors ?? false;
   const setShowTsunamiSensors = (v: boolean | ((prev: boolean) => boolean)) => updateSetting('showTsunamiSensors', v);
+  const showLandslideZones = settings.showLandslideZones ?? false;
+  const setShowLandslideZones = (v: boolean | ((prev: boolean) => boolean)) => updateSetting('showLandslideZones', v);
+  const showTsunamiZones = settings.showTsunamiZones ?? false;
+  const setShowTsunamiZones = (v: boolean | ((prev: boolean) => boolean)) => updateSetting('showTsunamiZones', v);
+
+  // Pusat Risiko Bencana & Edukasi Sekolah Tangguh
+  const [showWebGisTutorial, setShowWebGisTutorial] = useState<boolean>(() => {
+    try {
+      return window.localStorage.getItem('hm_webgis_tutorial_seen') !== 'true';
+    } catch (e) {
+      return false;
+    }
+  });
+  const [showDisasterRiskCenter, setShowDisasterRiskCenter] = useState<boolean>(false);
+  const landslideLayerRef = useRef<VectorLayer<VectorSource> | null>(null);
+  const tsunamiLayerRef = useRef<VectorLayer<VectorSource> | null>(null);
+
+  const selectedSchoolData = useMemo(() => {
+    if (!currentUser || schools.length === 0) return null;
+    const targetId = userSchoolId;
+    const found = targetId ? schools.find(s => s[0] === targetId) : (selection?.school?.id ? schools.find(s => s[0] === selection.school.id) : null);
+    if (!found) return null;
+    return {
+      id: String(found[0]),
+      name: String(found[4] || 'Sekolah Terpilih'),
+      lat: Number(found[1]),
+      lng: Number(found[2]),
+      regency: String(found[5] || 'Indonesia'),
+      province: String(found[6] || 'Indonesia'),
+      elevationM: Number(found[7] || 35),
+    };
+  }, [currentUser, schools, userSchoolId, selection?.school]);
 
   // Weather Map Layer Integration (Native OpenLayers Doppler Radar & Windy ECMWF Studio)
   const [weatherMapOverlay, setWeatherMapOverlay] = useState<string>('none');
   const [weatherRenderMode, setWeatherRenderMode] = useState<'native' | 'windy'>('native');
-  const [rainviewerPath, setRainviewerPath] = useState<string>('/v2/radar/nowcast_5');
+  const [rainviewerPath, setRainviewerPath] = useState<string>('');
   const [rainviewerSatellitePath, setRainviewerSatellitePath] = useState<string>('');
+  const [rainviewerHost, setRainviewerHost] = useState<string>('https://tilecache.rainviewer.com');
+  const [radarFrameTime, setRadarFrameTime] = useState<number | null>(null);
+  const [radarTileLoadError, setRadarTileLoadError] = useState<boolean>(false);
+  const [radarMetadataStale, setRadarMetadataStale] = useState<boolean>(false);
+  const [radarTileCounts, setRadarTileCounts] = useState<{
+    requested: number;
+    loaded: number;
+    error: number;
+    activeRequested?: number;
+    activeLoaded?: number;
+    activeError?: number;
+  }>({
+    requested: 0,
+    loaded: 0,
+    error: 0,
+    activeRequested: 0,
+    activeLoaded: 0,
+    activeError: 0,
+  });
+  const [gibsAvailableTime, setGibsAvailableTime] = useState<string | null>(null);
+  const [gibsMetadataStale, setGibsMetadataStale] = useState<boolean>(false);
+  const [gibsFrameTime, setGibsFrameTime] = useState<number | null>(null);
+  const gibsController = useRef<AbortController | null>(null);
   const weatherTileLayerRef = useRef<TileLayer<any> | null>(null);
   const tsunamiSensorsLayerRef = useRef<VectorLayer<VectorSource> | null>(null);
   const [showWindyModal, setShowWindyModal] = useState(false);
@@ -1071,6 +1305,15 @@ export function MapsView() {
   const [weatherOverlayOpacity, setWeatherOverlayOpacity] = useState<number>(0.85);
   const [weatherInteractionTarget, setWeatherInteractionTarget] = useState<'weather' | 'disaster'>('weather');
   const [windyCoords, setWindyCoords] = useState<{ lat: number; lng: number; zoom: number }>({ lat: -2.5, lng: 118.0, zoom: 5 });
+
+  useEffect(() => {
+    if (!showWindyModal) return;
+    const handleEscape = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') setShowWindyModal(false);
+    };
+    window.addEventListener('keydown', handleEscape);
+    return () => window.removeEventListener('keydown', handleEscape);
+  }, [showWindyModal]);
 
   const updateWindyLocation = useCallback(() => {
     const center = mapRef.current?.getView()?.getCenter();
@@ -1085,8 +1328,22 @@ export function MapsView() {
     }
   }, []);
 
+  const handleApplyWeatherOverlay = useCallback((overlayKey: string) => {
+    if (is3D && (globeType === 'globe' || globeType === 'cesium')) {
+      handleToggle3D(false);
+    }
+    updateWindyLocation();
+    setWeatherMapOverlay(overlayKey);
+    const isNativeSupported = overlayKey === 'radar' || overlayKey === 'bmkg_radar' || overlayKey === 'rain';
+    if (!isNativeSupported) {
+      setWeatherRenderMode('windy');
+    }
+    const windyKey = overlayKey === 'bmkg_radar' ? 'radar' : overlayKey === 'bmkg_sat' ? 'satellite' : overlayKey;
+    setWindyOverlay(windyKey);
+  }, [updateWindyLocation, is3D, globeType]);
+
   const handleSelectWeatherOverlay = useCallback((overlayKey: string) => {
-    if (is3D && globeType === 'globe') {
+    if (is3D && (globeType === 'globe' || globeType === 'cesium')) {
       handleToggle3D(false);
     }
     updateWindyLocation();
@@ -1095,6 +1352,10 @@ export function MapsView() {
       setShowWindyMenu(false);
     } else {
       setWeatherMapOverlay(overlayKey);
+      const isNativeSupported = overlayKey === 'radar' || overlayKey === 'bmkg_radar' || overlayKey === 'rain';
+      if (!isNativeSupported) {
+        setWeatherRenderMode('windy');
+      }
       const windyKey = overlayKey === 'bmkg_radar' ? 'radar' : overlayKey === 'bmkg_sat' ? 'satellite' : overlayKey;
       setWindyOverlay(windyKey);
       setShowWindyMenu(true);
@@ -1116,9 +1377,9 @@ export function MapsView() {
   // GPS Location & Realtime Tracking State
   const [showRouteModal, setShowRouteModal] = useState(false);
   const [activeRoute, setActiveRoute] = useState<RouteResult | null>(null);
-  const [userCoords, setUserCoords] = useState<{ lat: number; lng: number } | null>(null);
-  const [userAccuracy, setUserAccuracy] = useState<number | null>(null);
-  const [userPreciseLocation, setUserPreciseLocation] = useState<PreciseLocationInfo | null>(null);
+  const [isPickingRouteLocation, setIsPickingRouteLocation] = useState(false);
+  const [pickedRouteDestination, setPickedRouteDestination] = useState<{ lat: number; lng: number; label: string } | null>(null);
+  const isPickingRouteLocationRef = useRef(false);
   const [isLocatingUser, setIsLocatingUser] = useState(false);
   const [isTrackingLive, setIsTrackingLive] = useState(false);
   const [locationStatusToast, setLocationStatusToast] = useState<{
@@ -1134,6 +1395,7 @@ export function MapsView() {
     fullAddress?: string;
   } | null>(null);
   const [globeInitialCenter, setGlobeInitialCenter] = useState<{ lat: number; lng: number } | undefined>(undefined);
+  const [globeInitialZoom, setGlobeInitialZoom] = useState<number>(6);
   const routeLayerRef = useRef<VectorLayer<VectorSource> | null>(null);
   const userMarkerLayerRef = useRef<VectorLayer<VectorSource> | null>(null);
   const watchIdRef = useRef<number | null>(null);
@@ -1151,7 +1413,32 @@ export function MapsView() {
   const equatorLayerRef = useRef<VectorLayer<VectorSource> | null>(null);
   const trafficVectorLayerRef = useRef<VectorLayer<VectorSource> | null>(null);
   const observationCoverageLayerRef = useRef<VectorLayer<VectorSource> | null>(null);
-  const [geospatialModalDomain, setGeospatialModalDomain] = useState<string>('weather');
+  const [geospatialModalDomain, setGeospatialModalDomain] = useState<StudioDomain>('weather');
+
+  const closeMapDrawers = () => {
+    setShowPanel(false);
+    setShowBasemapMenu(false);
+    setShowLayerManager(false);
+    setShowWindyMenu(false);
+    setShowTrafficCorridors(false);
+    setShowObservationCoverage(false);
+  };
+
+  const openStudioDomain = (domain: StudioDomain = 'weather') => {
+    closeMapDrawers();
+    setGeospatialModalDomain(domain);
+    setShowGeospatialModal(true);
+  };
+
+  const openWindyFullscreen = () => {
+    closeMapDrawers();
+    updateWindyLocation();
+    if (weatherMapOverlay === 'none') {
+      setWeatherMapOverlay('rain');
+      setWindyOverlay('rain');
+    }
+    setShowWindyModal(true);
+  };
 
   // Safety Watchdog: Auto-clear layer loading spinner if stalled
   useEffect(() => {
@@ -1175,17 +1462,18 @@ export function MapsView() {
   const [showWeatherCard, setShowWeatherCard] = useState<boolean>(true);
   const [showSeasonalModal, setShowSeasonalModal] = useState<boolean>(false);
 
-  // Update Seasonal Intelligence when user location changes
+  // Update Seasonal Intelligence when user location or active school changes
   useEffect(() => {
-    const lat = userCoords?.lat ?? -7.2575;
-    const lng = userCoords?.lng ?? 112.7521;
+    const lat = userCoords?.lat ?? selection?.school?.lat ?? activeSchoolLat;
+    const lng = userCoords?.lng ?? selection?.school?.lng ?? activeSchoolLng;
     const info = seasonalIntelligenceService.calculateSeasonalIntelligence(lat, lng);
     setSeasonalInfo(info);
 
     let isCancelled = false;
+    setGlobalWeatherSummary(null);
     seasonalIntelligenceService.fetchGlobalWeatherAndSeason(lat, lng)
       .then((res: any) => {
-        if (!isCancelled && res) {
+        if (!isCancelled && res?.dataStatus === 'AVAILABLE') {
           setGlobalWeatherSummary({
             temperature: res.currentTemp,
             weatherDesc: res.weatherDesc,
@@ -1199,7 +1487,7 @@ export function MapsView() {
     return () => {
       isCancelled = true;
     };
-  }, [userCoords?.lat, userCoords?.lng]);
+  }, [userCoords?.lat, userCoords?.lng, selection?.school?.lat, selection?.school?.lng, activeSchoolLat, activeSchoolLng]);
 
   // Sync Equator Layer visibility
   useEffect(() => {
@@ -1224,27 +1512,36 @@ export function MapsView() {
     };
   }, []);
 
-  // Fetch real-time wind data for current location
+  // Fetch real-time wind & weather data for current location with 5-minute periodic auto-refresh
   useEffect(() => {
     let isMounted = true;
-    const fetchWind = async () => {
+    const fetchWind = async (force = false) => {
       try {
-        const targetLat = userCoords?.lat ?? -7.2575;
-        const targetLng = userCoords?.lng ?? 112.7521;
-        const res = await weatherAggregatorService.fetchConsensusWeather(targetLat, targetLng);
+        const targetLat = userCoords?.lat ?? selection?.school?.lat ?? activeSchoolLat;
+        const targetLng = userCoords?.lng ?? selection?.school?.lng ?? activeSchoolLng;
+        const res = await weatherAggregatorService.fetchConsensusWeather(targetLat, targetLng, undefined, force);
         if (isMounted && res?.current) {
-          if (res.current.windDirection !== undefined) {
+          if (res.current.windDirection !== undefined && res.current.windDirection !== null) {
             setWindDirectionDeg(res.current.windDirection);
           }
-          if (res.current.windSpeed !== undefined) {
+          if (res.current.windSpeed !== undefined && res.current.windSpeed !== null) {
             setWindSpeedKmh(res.current.windSpeed);
           }
         }
       } catch (e) {}
     };
     fetchWind();
-    return () => { isMounted = false; };
-  }, [userCoords]);
+
+    const FIVE_MINUTES_MS = 5 * 60 * 1000;
+    const intervalTimer = setInterval(() => {
+      fetchWind(true);
+    }, FIVE_MINUTES_MS);
+
+    return () => {
+      isMounted = false;
+      clearInterval(intervalTimer);
+    };
+  }, [userCoords?.lat, userCoords?.lng, selection?.school?.lat, selection?.school?.lng, activeSchoolLat, activeSchoolLng]);
 
   const handleFindUserLocation = () => {
     // If already tracking and we have user coords, re-center camera on current user location
@@ -1442,7 +1739,7 @@ export function MapsView() {
     if (analysisSourceRef.current) {
       list.push({
         id: 'analysis_results',
-        name: 'Hasil Geoprosesing & Buffer',
+        name: 'Hasil Analisis & Buffer',
         source: analysisSourceRef.current,
         getFeatures: () => analysisSourceRef.current?.getFeatures() || [],
       });
@@ -1575,10 +1872,10 @@ export function MapsView() {
         category: 'infrastructure',
         visible: showTrafficCorridors,
         opacity: trafficOpacity,
-        sourceStatus: 'LIVE',
+        sourceStatus: 'STATIC',
         color: '#06b6d4',
         featureCount: INDONESIA_TRAFFIC_CORRIDORS.length,
-        description: `${INDONESIA_TRAFFIC_CORRIDORS.length} koridor jalan raya & pantauan lalu lintas hybrid`,
+        description: `${INDONESIA_TRAFFIC_CORRIDORS.length} koridor jalan raya & estimasi kepadatan lalu lintas hybrid`,
         onToggle: (v) => setShowTrafficCorridors(v),
         onOpacityChange: (op) => setTrafficOpacity(op),
       },
@@ -1588,10 +1885,10 @@ export function MapsView() {
         category: 'earth_observation',
         visible: showObservationCoverage,
         opacity: 0.9,
-        sourceStatus: 'LIVE',
+        sourceStatus: 'CATALOG',
         color: '#10b981',
         featureCount: BMKG_DOPPLER_RADAR_NETWORK.length + BMKG_BLANK_SPOT_ZONES.length,
-        description: `${BMKG_DOPPLER_RADAR_NETWORK.length} radar Doppler & ${BMKG_BLANK_SPOT_ZONES.length} zona kesenjangan data`,
+        description: `${BMKG_DOPPLER_RADAR_NETWORK.length} radar Doppler & ${BMKG_BLANK_SPOT_ZONES.length} zona kesenjangan data (Katalog inventaris BMKG)`,
         onToggle: (v) => setShowObservationCoverage(v),
       },
       {
@@ -1612,9 +1909,9 @@ export function MapsView() {
         category: 'earth_observation',
         visible: weatherMapOverlay === 'radar',
         opacity: weatherOverlayOpacity,
-        sourceStatus: 'LIVE',
+        sourceStatus: 'EXTERNAL',
         color: '#3b82f6',
-        description: 'Pita radar curah hujan real-time BMKG',
+        description: 'Pita radar cuaca RainViewer / inventaris radar BMKG',
         onToggle: (v) => handleSelectWeatherOverlay(v ? 'radar' : 'none'),
         onOpacityChange: (op) => setWeatherOverlayOpacity(op),
       },
@@ -1624,10 +1921,10 @@ export function MapsView() {
         category: 'disaster',
         visible: showEarthquakes,
         opacity: 1,
-        sourceStatus: 'LIVE',
+        sourceStatus: (quakeSnapshot?.status ?? (earthquakes.length > 0 ? 'LIVE' : 'UNAVAILABLE')) as any,
         color: '#ef4444',
         featureCount: earthquakes.length,
-        description: `${earthquakes.length} gempa bumi M ≥ 2.5 termonitor BMKG InaTEWS`,
+        description: `${earthquakes.length} entri gempa dari feed BMKG/USGS; sumber dan waktu mengikuti data masing-masing`,
         onToggle: (v) => setShowEarthquakes(v),
         onZoomToExtent: () => {
           const src = earthquakeLayerRef.current?.getSource();
@@ -1645,10 +1942,10 @@ export function MapsView() {
         category: 'disaster',
         visible: showActive,
         opacity: 1,
-        sourceStatus: 'LIVE',
+        sourceStatus: 'CATALOG',
         color: '#f97316',
         featureCount: mountains.length,
-        description: `${mountains.length} gunung api dan pos pengamatan PVMBG`,
+        description: `${mountains.length} gunung api dan pos pengamatan (Katalog PVMBG / MAGMA)`,
         onToggle: (v) => setShowActive(v),
         onZoomToExtent: () => {
           const src = vectorLayerRef.current?.getSource();
@@ -1672,15 +1969,39 @@ export function MapsView() {
         onToggle: (v) => setShowTectonic(v),
       },
       {
+        id: 'landslide_zones',
+        name: 'Zona Kerentanan Gerakan Tanah & Longsor (PVMBG)',
+        category: 'disaster',
+        visible: showLandslideZones,
+        opacity: 0.85,
+        sourceStatus: 'CATALOG',
+        color: '#dc2626',
+        featureCount: LANDSLIDE_SUSCEPTIBILITY_ZONES.length,
+        description: 'Zona kerentanan gerakan tanah PVMBG/Badan Geologi (Tinggi/Menengah/Rendah) dan lereng pemicu longsor',
+        onToggle: (v) => setShowLandslideZones(v),
+      },
+      {
+        id: 'tsunami_zones',
+        name: 'Zona Inundasi Bahaya Tsunami Pesisir (InaTEWS)',
+        category: 'disaster',
+        visible: showTsunamiZones,
+        opacity: 0.85,
+        sourceStatus: 'CATALOG',
+        color: '#0284c7',
+        featureCount: TSUNAMI_HAZARD_ZONES.length,
+        description: 'Zona penyangga rawan inundasi tsunami pesisir pantai selatan Jawa, Sumatera, Bali & Sulawesi (BMKG InaTEWS)',
+        onToggle: (v) => setShowTsunamiZones(v),
+      },
+      {
         id: 'sensors',
         name: 'Sensor Geospasial Multi-Bahaya',
         category: 'sensors',
         visible: showTsunamiSensors,
         opacity: 1,
-        sourceStatus: 'LIVE',
+        sourceStatus: 'CATALOG',
         color: '#0284c7',
         featureCount: tsunamiSensorsLayerRef.current?.getSource()?.getFeatures().length || 18,
-        description: 'Jaringan stasiun sensor InaTEWS, DART, & BMKG',
+        description: 'Jaringan stasiun sensor InaTEWS, DART, & BMKG (Katalog terdaftar)',
         onToggle: (v) => setShowTsunamiSensors(v),
         onZoomToExtent: () => {
           const src = tsunamiSensorsLayerRef.current?.getSource();
@@ -1731,7 +2052,7 @@ export function MapsView() {
         category: 'user_layers',
         visible: showUserDrawings,
         opacity: userDrawingsOpacity,
-        sourceStatus: 'LIVE',
+        sourceStatus: drawingFeaturesCount > 0 ? 'USER_DIGITIZED' : 'STATIC',
         color: '#2563eb',
         featureCount: drawingFeaturesCount,
         description:
@@ -1764,8 +2085,8 @@ export function MapsView() {
         featureCount: analysisFeaturesCount,
         description:
           analysisFeaturesCount > 0
-            ? `${analysisFeaturesCount} zona hasil analisis spasial & buffer aktif`
-            : 'Belum ada hasil analisis (buka Analisis Geoprosesing / Buffer AOI)',
+            ? `${analysisFeaturesCount} objek hasil analisis; periksa sumber dan status pada data hasil`
+            : 'Belum ada hasil analisis (buka Studio Geospasial atau Buffer AOI)',
         onToggle: (v) => setShowAnalysisLayer(v),
         onOpacityChange: (op) => setAnalysisLayerOpacity(op),
         onZoomToExtent: () => {
@@ -1799,6 +2120,8 @@ export function MapsView() {
     showActive,
     mountains,
     showTectonic,
+    showLandslideZones,
+    showTsunamiZones,
     showTsunamiSensors,
     showSD,
     showSMP,
@@ -2005,8 +2328,11 @@ export function MapsView() {
       url: '/indonesia-hutan.topojson',
       format: new TopoJSON()
     });
+    const perfProfile = hardwarePerformanceService.getProfile();
+
     const forestLayer = new VectorLayer({
       source: forestSource,
+      renderBuffer: 20,
       zIndex: 2,
       visible: false,
       style: (feature) => {
@@ -2043,6 +2369,7 @@ export function MapsView() {
     });
     const kotaLayer = new VectorLayer({
       source: kotaSource,
+      renderBuffer: 20,
       zIndex: 2,
       visible: false,
       style: (feature) => {
@@ -2062,6 +2389,7 @@ export function MapsView() {
     });
     const kabupatenLayer = new VectorLayer({
       source: kabupatenSource,
+      renderBuffer: 20,
       zIndex: 2,
       visible: false,
       style: (feature) => {
@@ -2081,6 +2409,7 @@ export function MapsView() {
     });
     const desaLayer = new VectorLayer({
       source: desaSource,
+      renderBuffer: 20,
       zIndex: 2,
       minZoom: 12,
       visible: false,
@@ -2095,6 +2424,8 @@ export function MapsView() {
 
     const baseTile = new TileLayer({
       source: getSourceForBasemap(activeMapBasemap),
+      cacheSize: perfProfile.effectiveMode === 'lite' ? 128 : 256,
+      preload: 0,
       zIndex: 1
     });
     baseTileLayerRef.current = baseTile;
@@ -2105,6 +2436,8 @@ export function MapsView() {
         maxZoom: 19,
         crossOrigin: 'anonymous',
       }),
+      cacheSize: 128,
+      preload: 0,
       zIndex: 4,
       visible: activeMapBasemap === 'satellite',
     });
@@ -2383,6 +2716,8 @@ export function MapsView() {
 
     const map = new Map({
       target: containerRef.current,
+      pixelRatio: perfProfile.openLayersPixelRatio,
+      maxTilesLoading: perfProfile.maxTilesLoading,
       layers: [
         baseTile,
         satelliteRefLayer,
@@ -2397,6 +2732,8 @@ export function MapsView() {
         center: fromLonLat([113.9213, -0.7893]), // Center of Indonesia
         zoom: 5,
         maxZoom: 20,
+        enableRotation: true,
+        constrainResolution: true,
       }),
     });
 
@@ -2404,6 +2741,7 @@ export function MapsView() {
     const tectonicSource = new VectorSource();
     const tectonicLayer = new VectorLayer({
       source: tectonicSource,
+      renderBuffer: 20,
       style: new Style({ stroke: new Stroke({ color: '#f97316', width: 2 }) }),
       zIndex: 19,
       visible: false
@@ -2440,6 +2778,7 @@ export function MapsView() {
 
     const equatorLayer = new VectorLayer({
       source: equatorSource,
+      renderBuffer: 20,
       zIndex: 18,
       visible: showEquatorZones,
       style: (feature) => {
@@ -2762,12 +3101,33 @@ export function MapsView() {
     const routeLayer = new VectorLayer({
       source: routeSource,
       zIndex: 35,
-      style: new Style({
-        stroke: new Stroke({
-          color: '#06b6d4',
-          width: 5,
-        }),
-      }),
+      style: (feature) => {
+        const geom = feature.getGeometry();
+        if (geom && geom.getType() === 'Point') {
+          const isEnd = feature.get('isRouteEnd');
+          return new Style({
+            image: new CircleStyle({
+              radius: 9,
+              fill: new Fill({ color: isEnd ? '#ef4444' : '#10b981' }),
+              stroke: new Stroke({ color: '#ffffff', width: 2.5 }),
+            }),
+            text: new Text({
+              text: isEnd ? '🏁 Tujuan' : '🟢 Asal',
+              offsetY: -16,
+              font: 'bold 11px Inter, sans-serif',
+              fill: new Fill({ color: '#0f172a' }),
+              stroke: new Stroke({ color: '#ffffff', width: 3 }),
+            }),
+            zIndex: 40,
+          });
+        }
+        return new Style({
+          stroke: new Stroke({
+            color: '#06b6d4',
+            width: 5,
+          }),
+        });
+      },
     });
     routeLayerRef.current = routeLayer;
     map.addLayer(routeLayer);
@@ -2920,10 +3280,113 @@ export function MapsView() {
     analysisLayerRef.current = analysisLayer;
     map.addLayer(analysisLayer);
 
+    // 8. Zona Kerentanan Gerakan Tanah & Longsor (PVMBG) (zIndex: 22)
+    const landslideSource = new VectorSource();
+    LANDSLIDE_SUSCEPTIBILITY_ZONES.forEach((zone) => {
+      const centerMercator = fromLonLat([zone.lng, zone.lat]);
+      const radiusMeters = zone.radiusKm * 1000;
+      const circleGeom = new CircleGeom(centerMercator, radiusMeters);
+      const polygonGeom = fromCircle(circleGeom, 32);
+
+      const feat = new Feature({
+        geometry: polygonGeom,
+        id: zone.id,
+        name: zone.name,
+        type: 'landslide_hazard_zone',
+        riskLevel: zone.riskLevel,
+        slope: zone.slope,
+        triggerFactor: zone.triggerFactor,
+        pvmbgCriteria: zone.pvmbgCriteria,
+        affectedSchoolsSample: zone.affectedSchoolsSample,
+      });
+      landslideSource.addFeature(feat);
+    });
+
+    const landslideLayer = new VectorLayer({
+      source: landslideSource,
+      renderBuffer: 20,
+      zIndex: 22,
+      visible: showLandslideZones,
+      style: (feature) => {
+        const risk = feature.get('riskLevel');
+        const color = risk === 'SANGAT_TINGGI' 
+          ? 'rgba(225, 29, 72, 0.28)' 
+          : risk === 'TINGGI' 
+          ? 'rgba(234, 88, 12, 0.28)' 
+          : 'rgba(234, 179, 8, 0.25)';
+        const strokeColor = risk === 'SANGAT_TINGGI' 
+          ? '#e11d48' 
+          : risk === 'TINGGI' 
+          ? '#ea580c' 
+          : '#eab308';
+        return new Style({
+          fill: new Fill({ color }),
+          stroke: new Stroke({ color: strokeColor, width: 2, lineDash: [5, 4] }),
+          text: new Text({
+            text: `⚠️ ${feature.get('name')}`,
+            font: 'bold 10px system-ui, sans-serif',
+            fill: new Fill({ color: strokeColor }),
+            stroke: new Stroke({ color: '#ffffff', width: 2.5 }),
+          })
+        });
+      }
+    });
+    landslideLayerRef.current = landslideLayer;
+    map.addLayer(landslideLayer);
+
+    // 9. Zona Inundasi Tsunami Pesisir (InaTEWS) (zIndex: 23)
+    const tsunamiSource = new VectorSource();
+    TSUNAMI_HAZARD_ZONES.forEach((zone) => {
+      const centerMercator = fromLonLat([zone.lng, zone.lat]);
+      const radiusMeters = zone.bufferKm * 1000;
+      const circleGeom = new CircleGeom(centerMercator, radiusMeters);
+      const polygonGeom = fromCircle(circleGeom, 32);
+
+      const feat = new Feature({
+        geometry: polygonGeom,
+        id: zone.id,
+        name: zone.name,
+        type: 'tsunami_hazard_zone',
+        megathrustSegment: zone.megathrustSegment,
+        estimatedArrivalTimeMin: zone.estimatedArrivalTimeMin,
+        maxRunupM: zone.maxRunupM,
+        evacuationOrder: zone.evacuationOrder,
+      });
+      tsunamiSource.addFeature(feat);
+    });
+
+    const tsunamiLayer = new VectorLayer({
+      source: tsunamiSource,
+      renderBuffer: 20,
+      zIndex: 23,
+      visible: showTsunamiZones,
+      style: (feature) => {
+        return new Style({
+          fill: new Fill({ color: 'rgba(2, 132, 199, 0.28)' }),
+          stroke: new Stroke({ color: '#0284c7', width: 2.2, lineDash: [6, 3] }),
+          text: new Text({
+            text: `🌊 ${feature.get('name')} (Golden: ${feature.get('estimatedArrivalTimeMin')}m)`,
+            font: 'bold 10px system-ui, sans-serif',
+            fill: new Fill({ color: '#0369a1' }),
+            stroke: new Stroke({ color: '#ffffff', width: 2.5 }),
+          })
+        });
+      }
+    });
+    tsunamiLayerRef.current = tsunamiLayer;
+    map.addLayer(tsunamiLayer);
+
     mapRef.current = map;
     setMapReady(true);
 
+    const unsubPerf = hardwarePerformanceService.subscribe(() => {
+      if (mapRef.current) {
+        mapRef.current.updateSize();
+      }
+    });
+
     return () => {
+      unsubPerf();
       map.setTarget(undefined);
       mapRef.current = null;
       setMapReady(false);
@@ -2937,6 +3400,8 @@ export function MapsView() {
       tsunamiSensorsLayerRef.current = null;
       equatorLayerRef.current = null;
       observationCoverageLayerRef.current = null;
+      landslideLayerRef.current = null;
+      tsunamiLayerRef.current = null;
     };
   }, []);
 
@@ -2950,12 +3415,13 @@ export function MapsView() {
     const handleResolutionChange = () => {
       if (is3D || switchingTo3D || mapMode !== 'spatial') return;
       const curZoom = view.getZoom();
-      if (curZoom !== undefined && curZoom <= 3.8) {
+      if (curZoom !== undefined && curZoom <= 3.5) {
         switchingTo3D = true;
         const center = view.getCenter();
         if (center) {
           const [lng, lat] = toLonLat(center);
           setGlobeInitialCenter({ lat, lng });
+          setGlobeInitialZoom(curZoom);
         }
         // Set 2D zoom to 5 for clean state when returned
         view.setZoom(5);
@@ -3135,38 +3601,37 @@ export function MapsView() {
       tectonicLayerRef.current.setVisible(showTectonic);
     }
 
-    // Earthquakes USGS Real-time (Animated Pulsing)
+    // Earthquakes USGS + BMKG Shared Snapshot (Animated Pulsing)
     if (earthquakeLayerRef.current) {
       const source = earthquakeLayerRef.current.getSource();
-      if (showEarthquakes && source && source.getFeatures().length === 0) {
-        setActiveLayerLoads(prev => prev + 1);
-        fetch('https://earthquake.usgs.gov/earthquakes/feed/v1.0/summary/2.5_week.geojson')
-          .then(r => r.json())
-          .then(data => {
-            const features = new GeoJSON().readFeatures(data, { featureProjection: 'EPSG:3857' });
-            source.addFeatures(features);
-            if (data.features && data.features.length > 0) {
-              const parsed = data.features.slice(0, 50).map((f: any) => ({
-                place: f.properties?.place || 'Gempa Lepas Pantai',
-                lat: f.geometry?.coordinates[1],
-                lng: f.geometry?.coordinates[0],
-                mag: f.properties?.mag || 4.5,
-                depth: f.geometry?.coordinates[2] || 10,
-              }));
-              setEarthquakes(parsed);
-            }
-          })
-          .catch(console.error)
-          .finally(() => setActiveLayerLoads(prev => Math.max(0, prev - 1)));
+      if (showEarthquakes && source) {
+        source.clear();
+        const records = quakeSnapshot?.records || [];
+        const features = records.map((q) => {
+          return new Feature({
+            geometry: new Point(fromLonLat([q.lng, q.lat])),
+            id: q.id,
+            name: q.name,
+            mag: q.mag,
+            depth: q.depth,
+            place: q.place,
+            time: q.time,
+            felt: q.felt,
+            source: q.source,
+            monitoringSource: q.monitoringSource,
+            visualSummary: q.visualSummary,
+          });
+        });
+        source.addFeatures(features);
       }
 
       earthquakeLayerRef.current.setVisible(showEarthquakes);
 
       // Animation Loop (paused when 3D globe is active to prevent lag)
-      if (showEarthquakes && !(is3D && globeType === 'globe')) {
+      if (showEarthquakes && !(is3D && (globeType === 'globe' || globeType === 'cesium'))) {
         let lastRender = 0;
         const animateEq = (timestamp: number) => {
-          if (earthquakeLayerRef.current?.getVisible() && !(is3D && globeType === 'globe')) {
+          if (earthquakeLayerRef.current?.getVisible() && !(is3D && (globeType === 'globe' || globeType === 'cesium'))) {
             if (timestamp - lastRender >= 100) {
               earthquakeLayerRef.current.changed();
               lastRender = timestamp;
@@ -3181,7 +3646,14 @@ export function MapsView() {
       }
     }
 
-  }, [showTectonic, showEarthquakes, is3D, globeType]);
+    if (landslideLayerRef.current) {
+      landslideLayerRef.current.setVisible(showLandslideZones);
+    }
+    if (tsunamiLayerRef.current) {
+      tsunamiLayerRef.current.setVisible(showTsunamiZones);
+    }
+
+  }, [showTectonic, showEarthquakes, showLandslideZones, showTsunamiZones, is3D, globeType, quakeSnapshot]);
 
   
   // ================= LAYER UPDATES (ADMIN & LANDUSE BOUNDARIES) ================= //
@@ -3211,6 +3683,19 @@ export function MapsView() {
     // completely freezes the browser thread. Clicks will still work.
 
     const handleClick = (e: any) => {
+      if (isPickingRouteLocationRef.current && e.coordinate) {
+        const coords = toLonLat(e.coordinate);
+        const lng = coords[0];
+        const lat = coords[1];
+        preciseGeocodingService.reverseGeocode(lat, lng).then((info) => {
+          const label = info.shortDisplay || `Titik Koordinat (${lat.toFixed(4)}°, ${lng.toFixed(4)}°)`;
+          setPickedRouteDestination({ lat, lng, label });
+          setIsPickingRouteLocation(false);
+          setShowRouteModal(true);
+        });
+        return;
+      }
+
       const feature = map.forEachFeatureAtPixel(
         e.pixel,
         (f) => f,
@@ -3271,8 +3756,8 @@ export function MapsView() {
             const meta = SENSOR_FAMILY_META[family];
             const flag = feature.get('flag') || '📡';
             const platform = feature.get('platform') || 'GROUND_STATION';
-            const status = feature.get('status') || 'ONLINE';
-            const currentValue = feature.get('currentValue') || (feature.get('waterPressureMpa') ? `${feature.get('waterPressureMpa')} MPa` : 'Aktif (Normal)');
+            const status = 'KATALOG · BELUM TERHUBUNG';
+            const currentValue = 'Data pengukuran belum tersedia';
             const accuracy = feature.get('accuracy') || 'High Precision';
             const provider = feature.get('provider') || feature.get('network') || 'National Network';
             const coverage = feature.get('coverage') || feature.get('seaArea') || 'Indonesia & Sekitarnya';
@@ -3338,11 +3823,11 @@ export function MapsView() {
                     flag: feature.get('flag') || '📡',
                     lat: toLonLat(coords)[1],
                     lng: toLonLat(coords)[0],
-                    status: feature.get('status') || 'ONLINE',
+                    status: feature.get('status') || 'UNCHECKED',
                     samplingRate: feature.get('samplingRate') || '10 Hz',
                     primaryMeasurement: feature.get('primaryMeasurement') || 'Tekanan Dasar Laut / Getaran Seismik',
                     unit: feature.get('unit') || 'MPa / gal',
-                    currentValue: feature.get('currentValue') || `${feature.get('waterPressureMpa') || 0} MPa`,
+                    currentValue: feature.get('currentValue') ?? 'Belum terhubung',
                     accuracy: feature.get('accuracy') || 'High Precision Standard',
                     coverage: feature.get('coverage') || feature.get('seaArea') || 'Kawasan Pengamatan',
                     disasterRelevance: feature.get('disasterRelevance') || ['TSUNAMI', 'GEMPA'],
@@ -3519,7 +4004,7 @@ export function MapsView() {
                     <div style="display: flex; align-items: center; gap: 6px; margin-bottom: 5px;">
                       <span style="font-size: 15px;">📡</span>
                       <span style="font-size: 9px; font-weight: 800; text-transform: uppercase; color: #047857; background: #d1fae5; padding: 1.5px 6px; border-radius: 4px;">RADAR DOPPLER BMKG</span>
-                      <span style="font-size: 9px; font-weight: 700; color: #059669; background: #ecfdf5; padding: 1px 5px; border-radius: 4px; margin-left: auto;">● ${radar.status}</span>
+                      <span style="font-size: 9px; font-weight: 700; color: #475569; background: #f1f5f9; padding: 1px 5px; border-radius: 4px; margin-left: auto;">📋 ${radar.operationalStatus === 'ONLINE' ? 'Live Online' : 'Katalog Terdaftar (Live Belum Terverifikasi)'}</span>
                     </div>
                     <strong style="font-size: 12.5px; color: #0f172a; display: block; margin-bottom: 2px; padding-right: 18px; line-height: 1.3;">${radar.name}</strong>
                     <div style="font-size: 10px; color: #64748b; margin-bottom: 6px;">📍 ${radar.city}, ${radar.province} (Elevasi: ${radar.elevationM}m)</div>
@@ -3609,6 +4094,74 @@ export function MapsView() {
                 });
               }
             }
+          } else if (feature.get('type') === 'landslide_hazard_zone') {
+            const name = feature.get('name');
+            const risk = feature.get('riskLevel');
+            const slope = feature.get('slope');
+            const trigger = feature.get('triggerFactor');
+            const pvmbg = feature.get('pvmbgCriteria');
+            popupRef.current.innerHTML = `
+              <div style="min-width: 250px; max-width: 320px; font-family: Inter, sans-serif;" class="p-1 relative">
+                <button id="close-popup-btn" style="position: absolute; top: -2px; right: -2px; background: #f1f5f9; border-radius: 50%; padding: 2px 6px; border: none; cursor: pointer; color: #94a3b8; font-size: 12px; font-weight: bold;">✖</button>
+                <div style="display: flex; align-items: center; gap: 6px; margin-bottom: 5px;">
+                  <span style="font-size: 15px;">⛰️</span>
+                  <span style="font-size: 9px; font-weight: 800; text-transform: uppercase; color: #be123c; background: #ffe4e6; padding: 1.5px 6px; border-radius: 4px;">ZONA KERENTANAN GERAKAN TANAH</span>
+                  <span style="font-size: 9px; font-weight: 700; color: #e11d48; background: #fff1f2; padding: 1px 5px; border-radius: 4px; margin-left: auto;">${risk}</span>
+                </div>
+                <strong style="font-size: 12.5px; color: #0f172a; display: block; margin-bottom: 2px; padding-right: 18px; line-height: 1.3;">${name}</strong>
+                <div style="font-size: 10px; color: #64748b; margin-bottom: 6px;">PVMBG Badan Geologi • Kemiringan Lereng: ${slope}</div>
+
+                <div style="background: #fff5f5; border: 1px solid #fed7d7; border-radius: 8px; padding: 6px 8px; margin-bottom: 8px; font-size: 10px; line-height: 1.5;">
+                  <div style="color: #742a2a; margin-bottom: 3px;"><strong>Pemicu Geologis:</strong> ${trigger}</div>
+                  <div style="color: #4a5568; font-size: 9.5px;"><strong>Kriteria PVMBG:</strong> ${pvmbg}</div>
+                </div>
+
+                <button id="open-risk-center-btn" style="width: 100%; display: flex; align-items: center; justify-content: center; gap: 5px; font-size: 10.5px; font-weight: 700; color: #ffffff; background: linear-gradient(135deg, #e11d48, #ea580c); border: none; border-radius: 8px; padding: 6px 10px; cursor: pointer; transition: all 0.2s;">
+                  <span>Buka Profil Risiko Sekolah & Evakuasi ↗</span>
+                </button>
+              </div>
+            `;
+            const closeBtn = popupRef.current.querySelector('#close-popup-btn');
+            if (closeBtn) closeBtn.addEventListener('click', () => { if (popupRef.current) popupRef.current.style.display = 'none'; });
+            const riskBtn = popupRef.current.querySelector('#open-risk-center-btn');
+            if (riskBtn) riskBtn.addEventListener('click', () => {
+              if (popupRef.current) popupRef.current.style.display = 'none';
+              setShowDisasterRiskCenter(true);
+            });
+          } else if (feature.get('type') === 'tsunami_hazard_zone') {
+            const name = feature.get('name');
+            const segment = feature.get('megathrustSegment');
+            const arrival = feature.get('estimatedArrivalTimeMin');
+            const runup = feature.get('maxRunupM');
+            const evac = feature.get('evacuationOrder');
+            popupRef.current.innerHTML = `
+              <div style="min-width: 250px; max-width: 320px; font-family: Inter, sans-serif;" class="p-1 relative">
+                <button id="close-popup-btn" style="position: absolute; top: -2px; right: -2px; background: #f1f5f9; border-radius: 50%; padding: 2px 6px; border: none; cursor: pointer; color: #94a3b8; font-size: 12px; font-weight: bold;">✖</button>
+                <div style="display: flex; align-items: center; gap: 6px; margin-bottom: 5px;">
+                  <span style="font-size: 15px;">🌊</span>
+                  <span style="font-size: 9px; font-weight: 800; text-transform: uppercase; color: #0284c7; background: #e0f2fe; padding: 1.5px 6px; border-radius: 4px;">ZONA INUNDASI TSUNAMI</span>
+                  <span style="font-size: 9px; font-weight: 700; color: #0369a1; background: #f0f9ff; padding: 1px 5px; border-radius: 4px; margin-left: auto;">Golden: ${arrival}m</span>
+                </div>
+                <strong style="font-size: 12.5px; color: #0f172a; display: block; margin-bottom: 2px; padding-right: 18px; line-height: 1.3;">${name}</strong>
+                <div style="font-size: 10px; color: #64748b; margin-bottom: 6px;">Segmen: ${segment} • Runup Maks: ~${runup}m</div>
+
+                <div style="background: #f0f9ff; border: 1px solid #bae6fd; border-radius: 8px; padding: 6px 8px; margin-bottom: 8px; font-size: 10px; line-height: 1.5;">
+                  <div style="color: #0369a1; margin-bottom: 2px;"><strong>Protokol BMKG:</strong> ${evac}</div>
+                  <div style="color: #4a5568; font-size: 9.5px;">Golden time evakuasi sekolah: segera bergerak ke dataran tinggi aman.</div>
+                </div>
+
+                <button id="open-risk-center-btn" style="width: 100%; display: flex; align-items: center; justify-content: center; gap: 5px; font-size: 10.5px; font-weight: 700; color: #ffffff; background: linear-gradient(135deg, #0284c7, #2563eb); border: none; border-radius: 8px; padding: 6px 10px; cursor: pointer; transition: all 0.2s;">
+                  <span>Buka Rute Evakuasi Sekolah Tangguh ↗</span>
+                </button>
+              </div>
+            `;
+            const closeBtn = popupRef.current.querySelector('#close-popup-btn');
+            if (closeBtn) closeBtn.addEventListener('click', () => { if (popupRef.current) popupRef.current.style.display = 'none'; });
+            const riskBtn = popupRef.current.querySelector('#open-risk-center-btn');
+            if (riskBtn) riskBtn.addEventListener('click', () => {
+              if (popupRef.current) popupRef.current.style.display = 'none';
+              setShowDisasterRiskCenter(true);
+            });
           }
           
           popupOverlayRef.current.setPosition(coords);
@@ -3671,12 +4224,36 @@ export function MapsView() {
         geometry: new LineString(coords),
       });
       source.addFeature(feat);
+
+      const startCoord = coords[0];
+      const endCoord = coords[coords.length - 1];
+      const startPin = new Feature({
+        geometry: new Point(startCoord),
+        isRouteStart: true,
+        label: activeRoute.origin.label,
+      });
+      const endPin = new Feature({
+        geometry: new Point(endCoord),
+        isRouteEnd: true,
+        label: activeRoute.destination.label,
+      });
+      source.addFeatures([startPin, endPin]);
+
       const ext = source.getExtent();
       if (ext && !ext.some(isNaN)) {
         mapRef.current?.getView().fit(ext, { padding: [80, 80, 80, 80], duration: 900 });
       }
     }
   }, [activeRoute]);
+
+  // Sync cursor when picking route destination on map
+  useEffect(() => {
+    isPickingRouteLocationRef.current = isPickingRouteLocation;
+    const targetEl = mapRef.current?.getTargetElement();
+    if (targetEl) {
+      targetEl.style.cursor = isPickingRouteLocation ? 'crosshair' : '';
+    }
+  }, [isPickingRouteLocation]);
 
   // Dynamically switch basemap source and toggle traffic & satellite reference layers
   useEffect(() => {
@@ -3698,31 +4275,240 @@ export function MapsView() {
     mapRef.current?.render();
   }, [activeMapBasemap, showTrafficCorridors]);
 
-  // Fetch latest RainViewer radar and satellite timestamp paths on mount
-  useEffect(() => {
-    let mounted = true;
-    fetch('https://api.rainviewer.com/public/weather-maps.json')
-      .then((res) => res.json())
+  // Fetch and periodically refresh RainViewer radar and satellite timestamp paths
+  const rainViewerFetchGen = useRef(0);
+  const rainViewerController = useRef<AbortController | null>(null);
+
+  const fetchRainViewerMetadata = useCallback(() => {
+    rainViewerController.current?.abort();
+    const controller = new AbortController();
+    rainViewerController.current = controller;
+    const currentGen = ++rainViewerFetchGen.current;
+
+    fetch('https://api.rainviewer.com/public/weather-maps.json', { signal: controller.signal })
+      .then((res) => {
+        if (!res.ok) throw new Error(`RainViewer HTTP ${res.status}`);
+        return res.json();
+      })
       .then((data) => {
-        if (!mounted || !data) return;
-        const radarList = data.radar?.past || [];
-        if (radarList.length > 0) {
-          const latest = radarList[radarList.length - 1];
-          setRainviewerPath(latest.path);
+        if (currentGen !== rainViewerFetchGen.current) return;
+        if (!data || typeof data !== 'object') {
+          setRadarMetadataStale(true);
+          return;
         }
-        const satList = data.satellite?.infrared || [];
+        const radarList = Array.isArray(data.radar?.past) ? data.radar.past : [];
+        const hasValidRadarList = radarList.length > 0;
+        const latest = hasValidRadarList ? radarList[radarList.length - 1] : null;
+        const isLatestRadarValid = Boolean(
+          latest &&
+          typeof latest.path === 'string' && latest.path.length > 0 &&
+          typeof latest.time === 'number' && Number.isFinite(latest.time) && latest.time > 0
+        );
+
+        if (!hasValidRadarList || !isLatestRadarValid) {
+          // Empty or invalid radar frames: mark as stale, do not clear stale flag
+          setRadarMetadataStale(true);
+          return;
+        }
+
+        if (typeof data.host === 'string' && data.host) setRainviewerHost(data.host);
+        setRainviewerPath(latest!.path);
+        setRadarFrameTime(latest!.time);
+
+        const satList = Array.isArray(data.satellite?.infrared) ? data.satellite.infrared : [];
         if (satList.length > 0) {
           const latestSat = satList[satList.length - 1];
-          setRainviewerSatellitePath(latestSat.path);
+          if (typeof latestSat?.path === 'string') setRainviewerSatellitePath(latestSat.path);
+        } else {
+          setRainviewerSatellitePath('');
+        }
+        setRadarMetadataStale(false);
+      })
+      .catch((err) => {
+        if (controller.signal.aborted) return;
+        setRadarMetadataStale(true);
+        console.warn('RainViewer metadata fetch failed; menandai status sebagai STALE:', err);
+      });
+  }, []);
+
+  useEffect(() => {
+    fetchRainViewerMetadata();
+    const interval = setInterval(fetchRainViewerMetadata, 300000); // 5 min cadence
+    const handleVisChange = () => {
+      if (!document.hidden) fetchRainViewerMetadata();
+    };
+    document.addEventListener('visibilitychange', handleVisChange);
+    return () => {
+      clearInterval(interval);
+      document.removeEventListener('visibilitychange', handleVisChange);
+      rainViewerController.current?.abort();
+    };
+  }, [fetchRainViewerMetadata]);
+
+  const fetchGibsMetadata = useCallback(() => {
+    if (gibsController.current) gibsController.current.abort('superseded');
+    const controller = new AbortController();
+    gibsController.current = controller;
+    const reqGen = ((gibsController as any)._activeGen = ((gibsController as any)._activeGen || 0) + 1);
+
+    const timeoutId = setTimeout(() => controller.abort('timeout'), 10000);
+
+    fetch('https://gibs.earthdata.nasa.gov/wmts/epsg3857/best/1.0.0/WMTSCapabilities.xml', {
+      signal: controller.signal,
+    })
+      .then(async (res) => {
+        if (controller.signal.aborted || (gibsController as any)._activeGen !== reqGen) return;
+        if (!res.ok) throw new Error(`GIBS HTTP ${res.status}`);
+        const xml = await res.text();
+        if (controller.signal.aborted || (gibsController as any)._activeGen !== reqGen) return;
+        const layerMatch = xml.match(/<Layer[\s>][\s\S]*?<\/Layer>/g) || [];
+        const layer = layerMatch.find((x) => x.includes('<ows:Identifier>Himawari_AHI_Band13_Clean_Infrared</ows:Identifier>'));
+        if (!layer) throw new Error('Himawari layer not found in GIBS capabilities');
+        const defaultTime = layer.match(/<Default>(.*?)<\/Default>/)?.[1];
+        if (defaultTime && !isNaN(Date.parse(defaultTime))) {
+          if (controller.signal.aborted || (gibsController as any)._activeGen !== reqGen) return;
+          const frameMs = new Date(defaultTime).getTime();
+          const frameAgeHours = (Date.now() - frameMs) / (3600 * 1000);
+          setGibsAvailableTime(defaultTime);
+          setGibsFrameTime(frameMs / 1000);
+          setGibsMetadataStale(frameAgeHours > 24);
+        } else {
+          throw new Error('Default time not found in GIBS capabilities');
         }
       })
       .catch((err) => {
-        console.warn('RainViewer API fetch failed, using fallback nowcast path:', err);
+        if ((gibsController as any)._activeGen !== reqGen) return;
+        const isTimeout = controller.signal.aborted && (controller.signal.reason === 'timeout' || err?.name === 'TimeoutError');
+        if (!controller.signal.aborted || isTimeout) {
+          setGibsMetadataStale(true);
+        }
+      })
+      .finally(() => {
+        clearTimeout(timeoutId);
       });
-    return () => {
-      mounted = false;
-    };
   }, []);
+
+  useEffect(() => {
+    if (weatherMapOverlay === 'satellite' || weatherMapOverlay === 'bmkg_sat') {
+      fetchGibsMetadata();
+      const interval = setInterval(fetchGibsMetadata, 600000);
+      return () => {
+        clearInterval(interval);
+        gibsController.current?.abort();
+      };
+    }
+  }, [weatherMapOverlay, fetchGibsMetadata]);
+
+  // Weather radar/satellite tile layer integration with OpenLayers
+  useEffect(() => {
+    const map = mapRef.current;
+    if (!map || !mapReady) return;
+
+    if (weatherTileLayerRef.current) {
+      map.removeLayer(weatherTileLayerRef.current);
+      weatherTileLayerRef.current.dispose();
+      weatherTileLayerRef.current = null;
+    }
+
+    if (weatherMapOverlay === 'none' || weatherRenderMode !== 'native') {
+      map.render();
+      return;
+    }
+
+    let tileUrl = '';
+    const isRadar = weatherMapOverlay === 'radar' || weatherMapOverlay === 'bmkg_radar' || weatherMapOverlay === 'rain';
+    const isSat = weatherMapOverlay === 'satellite' || weatherMapOverlay === 'bmkg_sat';
+
+    if (isRadar && rainviewerPath) {
+      tileUrl = `${rainviewerHost}${rainviewerPath}/256/{z}/{x}/{y}/2/1_1.png`;
+    } else if (isSat) {
+      if (gibsAvailableTime) {
+        tileUrl = `https://gibs.earthdata.nasa.gov/wmts/epsg3857/best/Himawari_AHI_Band13_Clean_Infrared/default/${gibsAvailableTime}/GoogleMapsCompatible_Level6/{z}/{y}/{x}.png`;
+      } else if (rainviewerSatellitePath) {
+        tileUrl = `${rainviewerHost}${rainviewerSatellitePath}/256/{z}/{x}/{y}/0/1_1.png`;
+      }
+    }
+
+    if (!tileUrl) {
+      map.render();
+      return;
+    }
+
+    const tileSource = new XYZ({
+      url: tileUrl,
+      attributions: isSat
+        ? '© NASA GIBS / JMA Himawari-9 AHI Band 13 Clean Infrared (Visualisasi citra satelit; bukan suhu permukaan / LST numerik)'
+        : '© RainViewer Radar Mosaic (Bukan observasi radar BMKG langsung)',
+      maxZoom: isSat ? 6 : 7, // GoogleMapsCompatible_Level6 max zoom is 6; RainViewer is 7
+      minZoom: 1,
+      wrapX: true,
+    });
+
+    let requested = 0;
+    let loaded = 0;
+    let error = 0;
+    let disposed = false;
+    let previousCounts = '';
+    const started = new WeakSet<object>();
+    const completed = new WeakSet<object>();
+    const failed = new WeakSet<object>();
+    const updateCoverage = () => {
+      if (disposed || weatherTileLayerRef.current !== newLayer) return;
+      const coverage = readWeatherTileCoverage(map, newLayer);
+      const next = { requested, loaded, error, ...coverage };
+      const signature = JSON.stringify(next);
+      if (signature === previousCounts) return;
+      previousCounts = signature;
+      setRadarTileLoadError(coverage.activeError > 0);
+      setRadarTileCounts(next);
+    };
+    const handleTileLoadStart = (e: any) => {
+      if (e?.tile && !started.has(e.tile)) { started.add(e.tile); requested++; }
+      updateCoverage();
+    };
+    const handleTileLoadEnd = (e: any) => {
+      if (e?.tile && !completed.has(e.tile)) { completed.add(e.tile); loaded++; }
+      updateCoverage();
+    };
+    const handleTileLoadError = (e: any) => {
+      if (e?.tile && !failed.has(e.tile)) { failed.add(e.tile); error++; }
+      updateCoverage();
+    };
+    tileSource.on('tileloadstart', handleTileLoadStart);
+    tileSource.on('tileloadend', handleTileLoadEnd);
+    tileSource.on('tileloaderror', handleTileLoadError);
+    map.on('moveend', updateCoverage);
+    map.on('postrender', updateCoverage);
+    map.on('change:size', updateCoverage);
+
+    const newLayer = new TileLayer({
+      source: tileSource,
+      opacity: weatherOverlayOpacity,
+      zIndex: 42,
+      visible: true,
+      properties: { name: `Weather_${weatherMapOverlay}` },
+    });
+
+    weatherTileLayerRef.current = newLayer;
+    map.addLayer(newLayer);
+    updateCoverage();
+    map.render();
+
+    return () => {
+      tileSource.un('tileloadstart', handleTileLoadStart);
+      tileSource.un('tileloadend', handleTileLoadEnd);
+      tileSource.un('tileloaderror', handleTileLoadError);
+      disposed = true;
+      map.un('moveend', updateCoverage);
+      map.un('postrender', updateCoverage);
+      map.un('change:size', updateCoverage);
+      if (weatherTileLayerRef.current && mapRef.current) {
+        mapRef.current.removeLayer(weatherTileLayerRef.current);
+        weatherTileLayerRef.current.dispose();
+        weatherTileLayerRef.current = null;
+      }
+    };
+  }, [mapReady, weatherMapOverlay, weatherRenderMode, rainviewerPath, rainviewerSatellitePath, rainviewerHost, weatherOverlayOpacity, gibsAvailableTime]);
 
   // Auto-sync Windy overlay coordinates on OpenLayers map move (debounced)
   useEffect(() => {
@@ -3753,14 +4539,6 @@ export function MapsView() {
     };
   }, [mapReady]);
 
-  // Keep OpenLayers weather tile layer off because Windy directly powers the active weather map
-  useEffect(() => {
-    const weatherLayer = weatherTileLayerRef.current;
-    if (weatherLayer) {
-      weatherLayer.setVisible(false);
-    }
-  }, [weatherMapOverlay]);
-
   // Sync Earth Sensors layer visibility & family filter
   useEffect(() => {
     if (!tsunamiSensorsLayerRef.current) return;
@@ -3778,6 +4556,54 @@ export function MapsView() {
       }
     });
   }, [showTsunamiSensors, sensorFamilyFilter]);
+
+  const weatherStatusText = weatherMapOverlay === 'none'
+    ? 'SIAP'
+    : weatherRenderMode === 'native'
+    ? ['radar', 'bmkg_radar', 'rain'].includes(weatherMapOverlay)
+      ? radarMetadataStale
+        ? (radarTileCounts.loaded > 0 ? 'STALE' : 'UNAVAILABLE')
+        : radarFrameTime && Date.now() - radarFrameTime * 1000 > 7200000
+        ? (radarTileCounts.loaded > 0 ? 'STALE' : 'UNAVAILABLE')
+        : ((radarTileCounts as any).activeRequested !== undefined ? (radarTileCounts as any).activeRequested : radarTileCounts.requested) > 0
+        ? ((((radarTileCounts as any).activeLoaded !== undefined ? (radarTileCounts as any).activeLoaded : radarTileCounts.loaded) === 0 && ((radarTileCounts as any).activeError !== undefined ? (radarTileCounts as any).activeError : radarTileCounts.error) > 0)
+            ? 'UNAVAILABLE'
+            : (((radarTileCounts as any).activeLoaded !== undefined ? (radarTileCounts as any).activeLoaded : radarTileCounts.loaded) > 0 && ((radarTileCounts as any).activeError !== undefined ? (radarTileCounts as any).activeError : radarTileCounts.error) > 0)
+            ? 'PARSIAL'
+            : (((radarTileCounts as any).activeLoaded !== undefined ? (radarTileCounts as any).activeLoaded : radarTileCounts.loaded) >= ((radarTileCounts as any).activeRequested !== undefined ? (radarTileCounts as any).activeRequested : radarTileCounts.requested))
+            ? 'LIVE RADAR'
+            : 'MEMUAT')
+        : 'MEMUAT'
+      : ['satellite', 'bmkg_sat'].includes(weatherMapOverlay)
+      ? ((typeof gibsMetadataStale !== 'undefined' && gibsMetadataStale) || (typeof gibsFrameTime !== 'undefined' && gibsFrameTime && Date.now() - Number(gibsFrameTime) * 1000 > 86400000))
+        ? ((((radarTileCounts as any).activeLoaded !== undefined ? (radarTileCounts as any).activeLoaded : radarTileCounts.loaded) > 0 || radarTileCounts.loaded > 0) ? 'STALE CITRA' : 'UNAVAILABLE')
+        : ((radarTileCounts as any).activeRequested !== undefined ? (radarTileCounts as any).activeRequested : radarTileCounts.requested) > 0
+        ? ((((radarTileCounts as any).activeLoaded !== undefined ? (radarTileCounts as any).activeLoaded : radarTileCounts.loaded) === 0 && ((radarTileCounts as any).activeError !== undefined ? (radarTileCounts as any).activeError : radarTileCounts.error) > 0)
+            ? 'UNAVAILABLE'
+            : (((radarTileCounts as any).activeLoaded !== undefined ? (radarTileCounts as any).activeLoaded : radarTileCounts.loaded) > 0 && ((radarTileCounts as any).activeError !== undefined ? (radarTileCounts as any).activeError : radarTileCounts.error) > 0)
+            ? 'PARSIAL CITRA'
+            : (((radarTileCounts as any).activeLoaded !== undefined ? (radarTileCounts as any).activeLoaded : radarTileCounts.loaded) >= ((radarTileCounts as any).activeRequested !== undefined ? (radarTileCounts as any).activeRequested : radarTileCounts.requested))
+            ? 'NASA GIBS IR'
+            : 'MEMUAT CITRA')
+        : 'MEMUAT CITRA'
+      : 'PERLU WINDY'
+    : 'MODEL ECMWF';
+
+  const weatherBadgeColor = weatherMapOverlay === 'none'
+    ? 'bg-slate-500/20 text-slate-600 dark:text-slate-400 border-slate-500/30'
+    : weatherStatusText === 'STALE' || weatherStatusText === 'STALE CITRA'
+    ? 'bg-amber-500/20 text-amber-600 dark:text-amber-400 border-amber-500/30'
+    : weatherStatusText === 'PARSIAL' || weatherStatusText === 'PARSIAL CITRA'
+    ? 'bg-amber-500/20 text-amber-600 dark:text-amber-400 border-amber-500/30'
+    : weatherStatusText === 'UNAVAILABLE'
+    ? 'bg-rose-500/20 text-rose-600 dark:text-rose-400 border-rose-500/30'
+    : weatherStatusText === 'PERLU WINDY'
+    ? 'bg-amber-500/20 text-amber-600 dark:text-amber-400 border-amber-500/30'
+    : weatherStatusText === 'MEMUAT' || weatherStatusText === 'MEMUAT CITRA'
+    ? 'bg-blue-500/20 text-blue-600 dark:text-blue-400 border-blue-500/30'
+    : weatherRenderMode === 'windy'
+    ? 'bg-sky-500/20 text-sky-600 dark:text-sky-400 border-sky-500/30'
+    : 'bg-emerald-500/20 text-emerald-600 dark:text-emerald-400 border-emerald-500/30';
 
   return (
     <div 
@@ -3806,8 +4632,8 @@ export function MapsView() {
         <div className="pointer-events-none absolute inset-x-0 top-0 h-44 bg-gradient-to-b from-slate-950 via-slate-950/60 to-transparent z-10 transition-opacity duration-700" />
       )}
 
-      {/* 3D Active Status Pill */}
-      {is3D && mapMode === 'spatial' && globeType !== 'globe' && (
+      {/* 3D Active Status Pill (Perspective mode only) */}
+      {is3D && mapMode === 'spatial' && globeType === 'perspective' && (
         <div className="pointer-events-none absolute top-16 left-1/2 -translate-x-1/2 z-20 flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-slate-900/90 backdrop-blur-md border border-indigo-500/50 text-[11px] font-bold text-indigo-200 shadow-xl animate-in fade-in duration-300">
           <Globe className={`w-3.5 h-3.5 text-sky-400 ${isOrbiting ? 'animate-spin' : ''}`} style={{ animationDuration: '4s' }} />
           <span>Perspektif 3D (360°)</span>
@@ -3817,64 +4643,90 @@ export function MapsView() {
         </div>
       )}
 
-      {/* Real 3D Globe (Three.js WebGL) */}
-      {is3D && mapMode === 'spatial' && globeType === 'globe' && (
+      {/* 3D Photorealistic Cosmic Globe (CesiumJS) */}
+      {is3D && mapMode === 'spatial' && (globeType === 'globe' || globeType === 'cesium') && (
         <div className="absolute inset-0 z-10 animate-in fade-in duration-500">
-          <GlobeView3D 
-            mountains={mountains}
-            showActiveVolcanoes={showActive}
-            showInactiveVolcanoes={showInactive}
-            showPeaks={showPeaks}
-            showTectonicPlates={showTectonic}
-            showEarthquakes={showEarthquakes}
-            showEarthSensors={showTsunamiSensors}
-            onSelectSensor={(sensor) => setSelectedSensorForInspection(sensor)}
-            activeRouteCoords={activeRoute?.coordinates}
-            initialCenter={globeInitialCenter}
-            userCoords={userCoords}
-            onSwitchTo2D={(lat, lng, targetZoom = 7.5) => {
-              handleToggle3D(false);
-              mapRef.current?.getView().animate({
-                center: fromLonLat([lng, lat]),
-                zoom: targetZoom,
-                duration: 600,
-              });
-            }}
-          />
+          <Suspense fallback={<div role="status" className="p-6 text-white">Memuat semesta tata surya 3D Cesium…</div>}>
+            <CesiumGlobe3D 
+              initialCenter={globeInitialCenter}
+              initialZoom={globeInitialZoom}
+              userCoords={userCoords}
+              activeRouteCoords={activeRoute?.coordinates}
+              earthquakes={quakeSnapshot?.records || earthquakes}
+              hotspots={hotspotSnapshot?.records || hotspots}
+              mountains={mountains}
+              showActiveVolcanoes={showActive}
+              showInactiveVolcanoes={showInactive}
+              showPeaks={showPeaks}
+              showTectonicPlates={showTectonic}
+              showEarthquakes={showEarthquakes}
+              showEarthSensors={showTsunamiSensors}
+              sensorFamilyFilter={sensorFamilyFilter}
+              showObservationCoverage={showObservationCoverage}
+              showEquatorZones={showEquatorZones}
+              schools={schools}
+              userSchoolId={userSchoolId}
+              showSD={showSD}
+              showSMP={showSMP}
+              showSMA={showSMA}
+              weatherMapOverlay={weatherMapOverlay}
+              rainviewerPath={rainviewerPath}
+              rainviewerHost={rainviewerHost}
+              rainviewerSatellitePath={rainviewerSatellitePath}
+              onSelectSensor={setSelectedSensorForInspection}
+              quakeSnapshot={quakeSnapshot}
+              hotspotSnapshot={hotspotSnapshot}
+              basemap={activeMapBasemap}
+              onBasemapChange={setActiveMapBasemap}
+              showTrafficCorridors={showTrafficCorridors}
+              trafficDataList={trafficDataList}
+              onToggleTraffic={() => setShowTrafficCorridors(prev => !prev)}
+              showHeatmapLayer={activeMapBasemap === 'thermal'}
+              globeType={globeType}
+              onSwitchTo2D={(lat, lng, targetZoom = 7.5) => {
+                handleToggle3D(false);
+                mapRef.current?.getView().animate({
+                  center: fromLonLat([lng, lat]),
+                  zoom: targetZoom,
+                  duration: 600,
+                });
+              }}
+            />
+          </Suspense>
         </div>
       )}
 
       {/* 2D OpenLayers Map - Always rendered, hidden when true 3D globe is shown */}
       <div 
         className={`absolute inset-0 flex items-center justify-center transition-all duration-700 ${
-          is3D && globeType !== 'globe'
+          is3D && (globeType !== 'globe' && globeType !== 'cesium')
             ? 'map-viewport-3d' 
             : 'map-viewport-2d'
         }`}
         style={{
-          perspective: (is3D && globeType !== 'globe') ? '1200px' : 'none',
+          perspective: (is3D && (globeType !== 'globe' && globeType !== 'cesium')) ? '1200px' : 'none',
           perspectiveOrigin: '50% 50%',
-          opacity: (is3D && globeType === 'globe') ? 0 : 1,
-          pointerEvents: (is3D && globeType === 'globe') ? 'none' : 'auto',
+          opacity: (is3D && (globeType === 'globe' || globeType === 'cesium')) ? 0 : 1,
+          pointerEvents: (is3D && (globeType === 'globe' || globeType === 'cesium')) ? 'none' : 'auto',
         }}
       >
         <div 
           className={`w-full h-full transition-transform duration-700 ${
-            is3D && globeType !== 'globe' ? 'map-tilt-3d' : 'map-tilt-2d'
+            is3D && (globeType !== 'globe' && globeType !== 'cesium') ? 'map-tilt-3d' : 'map-tilt-2d'
           }`}
         >
-          {/* OpenLayers Map Canvas (Active when weather overlay is off) */}
+          {/* OpenLayers Map Canvas (Active in 2D spatial mode, supports native radar overlay) */}
           <div 
             ref={containerRef} 
             className="w-full h-full" 
             style={{ 
-              opacity: (mapMode === 'spatial' && weatherMapOverlay === 'none') ? 1 : 0, 
-              pointerEvents: (mapMode === 'spatial' && weatherMapOverlay === 'none') ? 'auto' : 'none' 
+              opacity: (mapMode === 'spatial' && (weatherMapOverlay === 'none' || weatherRenderMode === 'native')) ? 1 : 0, 
+              pointerEvents: (mapMode === 'spatial' && (weatherMapOverlay === 'none' || weatherRenderMode === 'native')) ? 'auto' : 'none' 
             }}
           />
 
-          {/* Full Windy Map Canvas (Directly replaces OpenLayers when weather is active to prevent tile zoom errors) */}
-          {weatherMapOverlay !== 'none' && mapMode === 'spatial' && (
+          {/* Full Windy Map Canvas (Only rendered when user chooses external Windy ECMWF viewer mode) */}
+          {weatherMapOverlay !== 'none' && weatherRenderMode === 'windy' && mapMode === 'spatial' && (
             <div className="absolute inset-0 w-full h-full z-10 bg-slate-950 animate-in fade-in duration-300">
               <iframe 
                 key={`windy-direct-${windyOverlay}-${Math.round(windyCoords.lat * 5) / 5}-${Math.round(windyCoords.lng * 5) / 5}-${windyCoords.zoom}`}
@@ -3882,7 +4734,7 @@ export function MapsView() {
                 height="100%" 
                 src={`https://embed.windy.com/embed.html?type=map&location=coordinates&metricRain=mm&metricTemp=%C2%B0C&metricWind=km/h&zoom=${windyCoords.zoom}&overlay=${windyOverlay}&product=ecmwf&level=surface&lat=${windyCoords.lat}&lon=${windyCoords.lng}`} 
                 frameBorder="0"
-                title="Peta Cuaca Windy Realtime"
+                title="Peta Cuaca Eksternal Windy ECMWF"
                 className="w-full h-full block"
                 style={{ border: 'none', pointerEvents: 'auto' }}
                 allow="fullscreen; geolocation"
@@ -4061,157 +4913,6 @@ export function MapsView() {
             )}
           </AnimatePresence>
         </div>
-
-        {/* Geospatial Earth Intelligence Studio Button (Below Mode Switcher) */}
-        <button
-          onClick={() => setShowGeospatialModal(true)}
-          className="flex h-11 w-11 items-center justify-center rounded-2xl bg-white/95 dark:bg-slate-900/95 shadow-glass backdrop-blur-xl border border-slate-200/80 dark:border-slate-800 text-sky-500 hover:text-sky-600 hover:bg-sky-50 dark:hover:bg-slate-800 transition-all active:scale-95 group shadow-lg"
-          title="Studio Geospasial & Observasi Bumi (SIG, Sentinel-1/2, GNSS, DEM, Cuaca)"
-          aria-label="Studio Geospasial & Observasi Bumi"
-        >
-          <CloudSun className="h-5 w-5 transition-transform group-hover:scale-110" />
-        </button>
-
-        {/* Earth Sensor Taxonomy Catalog Button */}
-        <button
-          onClick={() => setShowMasterTaxonomyModal(true)}
-          className="flex h-11 w-11 items-center justify-center rounded-2xl bg-white/95 dark:bg-slate-900/95 shadow-glass backdrop-blur-xl border border-slate-200/80 dark:border-slate-800 text-sky-600 dark:text-sky-400 hover:text-sky-700 hover:bg-sky-50 dark:hover:bg-slate-800 transition-all active:scale-95 group shadow-lg"
-          title="Katalog Master Sensor Pengamatan Bumi (10 Keluarga Inti & 40 Kategori Observasi)"
-          aria-label="Katalog Master Sensor Bumi"
-        >
-          <Radio className="h-5 w-5 transition-transform group-hover:scale-110" />
-        </button>
-
-        {/* Quick Windy Weather Map Button */}
-        <button
-          onClick={() => {
-            if (weatherMapOverlay === 'none') {
-              handleSelectWeatherOverlay('rain');
-            } else {
-              setShowWindyMenu((prev) => !prev);
-              setShowPanel(false);
-              setShowBasemapMenu(false);
-              setShowLayerManager(false);
-            }
-          }}
-          className={`flex h-11 w-11 items-center justify-center rounded-2xl shadow-glass backdrop-blur-xl border transition-all active:scale-95 group shadow-lg ${
-            weatherMapOverlay !== 'none'
-              ? 'bg-blue-600 text-white border-blue-400 shadow-blue-500/30 ring-2 ring-blue-400/40'
-              : 'bg-white/95 dark:bg-slate-900/95 border-slate-200/80 dark:border-slate-800 text-blue-500 hover:text-blue-600 hover:bg-blue-50 dark:hover:bg-slate-800'
-          }`}
-          title={weatherMapOverlay !== 'none' ? `Peta Cuaca Windy Aktif (${windyOverlay.toUpperCase()}). Klik untuk buka/tutup menu cuaca.` : "Aktifkan Peta Cuaca Windy (Hujan, Suhu, Angin, Awan, Radar)"}
-          aria-label="Lapisan Cuaca Windy"
-        >
-          <CloudRain className="h-5 w-5 transition-transform group-hover:scale-110" />
-        </button>
-
-        {/* Toggle Operational Weather Observation Card (5-Minute Refresh) */}
-        <button
-          onClick={() => setShowWeatherCard((prev) => !prev)}
-          className={`flex h-11 w-11 items-center justify-center rounded-2xl shadow-glass backdrop-blur-xl border transition-all active:scale-95 group shadow-lg ${
-            showWeatherCard
-              ? 'bg-sky-500 text-white border-sky-400 shadow-sky-500/30 ring-2 ring-sky-400/40'
-              : 'bg-white/95 dark:bg-slate-900/95 border-slate-200/80 dark:border-slate-800 text-sky-500 hover:text-sky-600 hover:bg-sky-50 dark:hover:bg-slate-800'
-          }`}
-          title={showWeatherCard ? "Sembunyikan Kartu Cuaca Operasional" : "Tampilkan Kartu Cuaca Operasional (Siklus 5-Menit)"}
-          aria-label="Kartu Cuaca Operasional"
-        >
-          <Thermometer className="h-5 w-5 transition-transform group-hover:scale-110" />
-        </button>
-
-        {/* Quick Basemap Switcher Button */}
-        <button
-          onClick={() => {
-            setShowPanel(false);
-            setShowLayerManager(false);
-            setShowWindyMenu(false);
-            setShowTrafficCorridors(false);
-            setShowObservationCoverage(false);
-            setShowBasemapMenu((prev) => !prev);
-          }}
-          className={`relative flex h-11 w-11 items-center justify-center rounded-2xl shadow-glass backdrop-blur-xl border transition-all active:scale-95 group shadow-lg cursor-pointer ${
-            showBasemapMenu
-              ? 'bg-indigo-600 text-white border-indigo-400 shadow-indigo-500/30 ring-2 ring-indigo-400/40'
-              : 'bg-white/95 dark:bg-slate-900/95 border-slate-200/80 dark:border-slate-800 text-indigo-600 dark:text-indigo-400 hover:bg-indigo-50 dark:hover:bg-slate-800'
-          }`}
-          title={`Ganti Mode Peta (Aktif: ${BASEMAP_METADATA[activeMapBasemap].name})`}
-          aria-label="Mode Peta"
-        >
-          <span className="text-lg leading-none select-none">
-            {activeMapBasemap === 'osm' && '🗺️'}
-            {activeMapBasemap === 'satellite' && '🛰️'}
-            {activeMapBasemap === 'elevation' && '⛰️'}
-            {activeMapBasemap === 'thermal' && '🌡️'}
-            {activeMapBasemap === 'traffic' && '🛣️'}
-            {activeMapBasemap === 'dark' && '🌌'}
-          </span>
-          <span className="absolute -bottom-1 -right-1 flex h-4 w-4 items-center justify-center rounded-full bg-indigo-600 text-[9px] text-white font-bold shadow-sm ring-1 ring-white dark:ring-slate-900">
-            <Layers className="h-2.5 w-2.5" />
-          </span>
-        </button>
-
-        {/* Layer Manager Quick Toggle */}
-        <button
-          onClick={() => {
-            setShowPanel(false);
-            setShowBasemapMenu(false);
-            setShowWindyMenu(false);
-            setShowTrafficCorridors(false);
-            setShowObservationCoverage(false);
-            setShowLayerManager((prev) => !prev);
-          }}
-          className={`flex h-11 w-11 items-center justify-center rounded-2xl shadow-glass backdrop-blur-xl border transition-all active:scale-95 group shadow-lg ${
-            showLayerManager
-              ? 'bg-indigo-600 text-white border-indigo-400 shadow-indigo-500/30 ring-2 ring-indigo-400/40'
-              : 'bg-white/95 dark:bg-slate-900/95 border-slate-200/80 dark:border-slate-800 text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800'
-          }`}
-          title="Manajer Lapisan Spasial WebGIS (10 Kategori Lapisan)"
-          aria-label="Manajer Lapisan Spasial"
-        >
-          <Layers className="h-5 w-5 transition-transform group-hover:scale-110" />
-        </button>
-
-        {/* Traffic Structure Quick Toggle */}
-        <button
-          onClick={() => {
-            setShowPanel(false);
-            setShowLayerManager(false);
-            setShowBasemapMenu(false);
-            setShowWindyMenu(false);
-            setShowObservationCoverage(false);
-            setShowTrafficCorridors((prev) => !prev);
-          }}
-          className={`flex h-11 w-11 items-center justify-center rounded-2xl shadow-glass backdrop-blur-xl border transition-all active:scale-95 group shadow-lg cursor-pointer ${
-            showTrafficCorridors
-              ? 'bg-purple-600 text-white border-purple-400 shadow-purple-500/30 ring-2 ring-purple-400/40'
-              : 'bg-white/95 dark:bg-slate-900/95 border-slate-200/80 dark:border-slate-800 text-purple-600 dark:text-purple-400 hover:bg-purple-50 dark:hover:bg-slate-800'
-          }`}
-          title="Struktur Lintasan Jalan & Koridor Lalu Lintas Indonesia"
-          aria-label="Struktur Lalu Lintas"
-        >
-          <Car className="h-5 w-5 transition-transform group-hover:scale-110" />
-        </button>
-
-        {/* Observation Coverage & Doppler Radar Quick Toggle */}
-        <button
-          onClick={() => {
-            setShowPanel(false);
-            setShowLayerManager(false);
-            setShowBasemapMenu(false);
-            setShowWindyMenu(false);
-            setShowTrafficCorridors(false);
-            setShowObservationCoverage((prev) => !prev);
-          }}
-          className={`flex h-11 w-11 items-center justify-center rounded-2xl shadow-glass backdrop-blur-xl border transition-all active:scale-95 group shadow-lg cursor-pointer ${
-            showObservationCoverage
-              ? 'bg-emerald-600 text-white border-emerald-400 shadow-emerald-500/30 ring-2 ring-emerald-400/40'
-              : 'bg-white/95 dark:bg-slate-900/95 border-slate-200/80 dark:border-slate-800 text-emerald-600 dark:text-emerald-400 hover:bg-emerald-50 dark:hover:bg-slate-800'
-          }`}
-          title="Cakupan Sensor Observasi, Jaringan Radar BMKG & Zona Blank Spot"
-          aria-label="Cakupan Sensor Observasi"
-        >
-          <Radio className="h-5 w-5 transition-transform group-hover:scale-110" />
-        </button>
 
         {/* Navigasi Geospasial Terpadu: GPS Realtime & Orientasi Kompas 360 */}
         <div className="relative flex items-stretch gap-1.5 mt-1 p-1.5 rounded-2xl bg-white/90 dark:bg-slate-900/90 shadow-glass backdrop-blur-xl border border-slate-200/80 dark:border-slate-800 shadow-lg select-none">
@@ -4477,6 +5178,8 @@ export function MapsView() {
           <div className="flex h-11 w-full items-center overflow-hidden rounded-full bg-white px-4 shadow-glass backdrop-blur-md dark:bg-slate-900/90 dark:border dark:border-slate-800 focus-within:ring-2 focus-within:ring-brand-500 transition-shadow">
             <Search className="h-4 w-4 text-slate-400" />
             <input
+              id="maps-school-search-input"
+              name="schoolSearch"
               type="text"
               placeholder="Cari sekolah..."
               value={searchQuery}
@@ -4521,38 +5224,116 @@ export function MapsView() {
         </div>
       </div>
 
-      {/* Harmony Left Top Stack: GIS Tools Toolbar & Operational Weather Observation Card */}
-      <div className="absolute top-20 left-4 z-30 flex flex-col items-start gap-2.5 pointer-events-none transition-all duration-200">
-        <div className="pointer-events-auto relative z-30">
-          <MapGISToolbar
-            className="relative"
-            map={mapRef.current}
-            drawingSource={drawingSourceRef.current}
-            drawingVisible={showUserDrawings}
-            drawingOpacity={userDrawingsOpacity}
-            selectedFeatureId={selectedFeatureId}
-            onSelectFeatureId={setSelectedFeatureId}
-            onAOISet={(aoi) => setActiveAOI(aoi)}
-            onOpenAttributeTable={() => setShowAttributeTable(true)}
-            onIdentifyCoordinate={(coord) => {
-              setIdentifiedCoordinate(coord);
-              setShowIdentifyPanel(true);
-            }}
-            onOpenGeoprocess={() => setShowGeoprocessModal(true)}
-            onOpenLayerManager={() => {
-              setShowPanel(false);
-              setShowLayerManager(true);
-            }}
-          />
-        </div>
+      {/* Top Quick Actions: Daerah Rawan Bencana, Panduan WebGIS & Experience Mode Switcher */}
+      <div className="absolute top-4 left-[calc(4rem+20.5rem)] lg:left-[calc(4rem+24.5rem)] z-20 hidden md:flex items-center gap-2">
+        <button
+          type="button"
+          onClick={() => setShowDisasterRiskCenter(true)}
+          className="flex items-center gap-2 px-3.5 py-2.5 rounded-full bg-gradient-to-r from-rose-500/15 to-amber-500/15 hover:from-rose-500/25 hover:to-amber-500/25 border border-rose-400/40 text-rose-700 dark:text-rose-300 text-xs font-bold shadow-glass backdrop-blur-md transition-all active:scale-95 cursor-pointer"
+          title="Buka Pusat Edukasi Daerah Rawan Bencana & Profil Risiko Sekolah"
+        >
+          <span className="text-sm">⚠️</span>
+          <span>Zona Rawan Bencana</span>
+          <span className="text-[10px] font-black uppercase px-1.5 py-0.2 rounded-full bg-rose-500 text-white">
+            Edukasi
+          </span>
+        </button>
 
-        {showWeatherCard && (
-          <div className="pointer-events-auto relative z-10 transition-all duration-200">
-            <MapWeatherObservationCard
-              lat={userCoords?.lat ?? -7.2575}
-              lng={userCoords?.lng ?? 112.7521}
+        <button
+          type="button"
+          onClick={() => setShowWebGisTutorial(true)}
+          className="flex items-center gap-1.5 px-3.5 py-2.5 rounded-full bg-white/90 hover:bg-white dark:bg-slate-900/90 dark:hover:bg-slate-800 border border-slate-200/80 dark:border-slate-700 text-sky-700 dark:text-sky-300 text-xs font-bold shadow-glass backdrop-blur-md transition-all active:scale-95 cursor-pointer"
+          title="Buka Panduan Tutorial Interaktif Penggunaan WebGIS"
+        >
+          <span className="text-sm">❓</span>
+          <span>Panduan WebGIS</span>
+        </button>
+
+        {/* Progressive Disclosure Mode Switcher: Edukasi/Awam vs Studio GIS */}
+        <div className="flex items-center rounded-full bg-white/95 dark:bg-slate-900/95 p-1 shadow-glass backdrop-blur-md border border-slate-200/80 dark:border-slate-800 ml-1">
+          <button
+            type="button"
+            onClick={() => {
+              setUiExperienceMode('education');
+              try { window.localStorage.setItem('hm_ui_experience_mode', 'education'); } catch (e) {}
+            }}
+            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-bold transition-all cursor-pointer ${
+              uiExperienceMode === 'education'
+                ? 'bg-gradient-to-r from-emerald-600 to-teal-600 text-white shadow-xs'
+                : 'text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white'
+            }`}
+            title="Mode Siswa/Awam: Ringkas, fokus sintesis risiko, bahasa manusia, bebas jargon teknis"
+          >
+            <span>🎓 Edukasi &amp; Siswa</span>
+          </button>
+          <button
+            type="button"
+            onClick={() => {
+              setUiExperienceMode('expert');
+              try { window.localStorage.setItem('hm_ui_experience_mode', 'expert'); } catch (e) {}
+            }}
+            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-bold transition-all cursor-pointer ${
+              uiExperienceMode === 'expert'
+                ? 'bg-gradient-to-r from-indigo-600 to-brand-600 text-white shadow-xs'
+                : 'text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white'
+            }`}
+            title="Mode Studio GIS: Analisis spasial mendalam, layer manager, buffer, digitasi, dan inspeksi sensor untuk guru & peneliti"
+          >
+            <span>⚙️ Studio GIS</span>
+          </button>
+        </div>
+      </div>
+
+      {/* Harmony Left Top Stack: Conditional Education Risk Card vs Expert GIS Toolbar */}
+      <div className="absolute top-20 left-4 z-30 flex flex-col items-start gap-2.5 pointer-events-none transition-all duration-200">
+        {uiExperienceMode === 'education' && !is3D ? (
+          <div className="pointer-events-auto relative z-30">
+            <SchoolRiskSynthesisCard
+              schoolId={activeSchoolId}
+              schoolName={activeSchoolName}
+              lat={activeSchoolLat}
+              lng={activeSchoolLng}
+              onOpenScenarioModal={() => setShowGroundedScenarioModal(true)}
+              onSwitchToExpertMode={() => {
+                setUiExperienceMode('expert');
+                try { window.localStorage.setItem('hm_ui_experience_mode', 'expert'); } catch (e) {}
+              }}
             />
           </div>
+        ) : (
+          <>
+            <div className="pointer-events-auto relative z-30">
+              <MapGISToolbar
+                className="relative"
+                map={mapRef.current}
+                drawingSource={drawingSourceRef.current}
+                drawingVisible={showUserDrawings}
+                drawingOpacity={userDrawingsOpacity}
+                selectedFeatureId={selectedFeatureId}
+                onSelectFeatureId={setSelectedFeatureId}
+                onAOISet={(aoi) => setActiveAOI(aoi)}
+                onOpenAttributeTable={() => setShowAttributeTable(true)}
+                onIdentifyCoordinate={(coord) => {
+                  setIdentifiedCoordinate(coord);
+                  setShowIdentifyPanel(true);
+                }}
+                onOpenGeoprocess={() => setShowGeoprocessModal(true)}
+                onOpenLayerManager={() => {
+                  setShowPanel(false);
+                  setShowLayerManager(true);
+                }}
+              />
+            </div>
+
+            {showWeatherCard && (
+              <div className="pointer-events-auto relative z-10 transition-all duration-200">
+                <MapWeatherObservationCard
+                  lat={userCoords?.lat ?? -7.2575}
+                  lng={userCoords?.lng ?? 112.7521}
+                />
+              </div>
+            )}
+          </>
         )}
       </div>
 
@@ -4857,7 +5638,7 @@ export function MapsView() {
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-1.5 text-purple-700 dark:text-purple-300 font-bold text-[11px]">
                     <span className="flex h-2 w-2 rounded-full bg-emerald-500 animate-pulse"></span>
-                    <span>Mesin Navigasi Open Transport</span>
+                    <span>Simulasi Koridor Jalan</span>
                   </div>
                   <span className="text-[9.5px] px-2 py-0.5 rounded-full font-bold bg-purple-100 dark:bg-purple-900/60 text-purple-700 dark:text-purple-300 border border-purple-200 dark:border-purple-800">
                     Bebas API Key / Tanpa Kuota
@@ -4879,7 +5660,7 @@ export function MapsView() {
                     </strong>
                   </div>
                   <div className="text-center">
-                    <span className="text-slate-400 block text-[9px]">Sensor Aktif</span>
+                    <span className="text-slate-400 block text-[9px]">Koridor Simulasi</span>
                     <strong className="font-mono text-emerald-600 dark:text-emerald-400 font-bold text-[11px]">
                       {trafficDataList.length} Koridor
                     </strong>
@@ -4887,7 +5668,7 @@ export function MapsView() {
                 </div>
 
                 <p className="text-[10.5px] text-slate-600 dark:text-slate-400 leading-relaxed">
-                  Visualisasi geometri jalan tol, arteri, kolektor, hingga jalan lokal dengan telemetri multi-segmen realtime di setiap sudut jalan. Dilengkapi lapisan <strong>Google Maps Live Traffic</strong> menyeluruh di seluruh pelosok Indonesia tanpa kuota API key.
+                  Kecepatan dan status koridor merupakan simulasi, bukan hasil sensor lalu lintas. Lapisan peta eksternal hanya ditampilkan; datanya tidak diunduh ke mesin prakiraan atau dipakai untuk menentukan rute evakuasi aman.
                 </p>
               </div>
 
@@ -4897,6 +5678,8 @@ export function MapsView() {
                 <div className="relative">
                   <Search className="w-3.5 h-3.5 absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
                   <input
+                    id="maps-traffic-search-input"
+                    name="trafficSearch"
                     type="text"
                     value={trafficSearchQuery}
                     onChange={(e) => setTrafficSearchQuery(e.target.value)}
@@ -5134,22 +5917,63 @@ export function MapsView() {
                           </div>
                         )}
 
+                        {/* TomTom Live Flow Probe Result */}
+                        {tomtomProbeResult && tomtomProbeResult.corridorId === corridor.id && (
+                          <div
+                            className={`p-2 rounded-xl text-[10px] space-y-1 ${
+                              tomtomProbeResult.status === 'LIVE'
+                                ? 'bg-emerald-50 dark:bg-emerald-950/40 text-emerald-800 dark:text-emerald-200 border border-emerald-300 dark:border-emerald-700'
+                                : tomtomProbeResult.status === 'NOT_CONFIGURED'
+                                ? 'bg-amber-50 dark:bg-amber-950/40 text-amber-800 dark:text-amber-200 border border-amber-300 dark:border-amber-700'
+                                : 'bg-rose-50 dark:bg-rose-950/40 text-rose-800 dark:text-rose-200 border border-rose-300 dark:border-rose-700'
+                            }`}
+                          >
+                            <div className="flex items-center justify-between font-bold">
+                              <span>TomTom Proxy: {tomtomProbeResult.status}</span>
+                              {tomtomProbeResult.roadClosure !== undefined && (
+                                <span className={tomtomProbeResult.roadClosure ? 'text-rose-600 font-bold' : 'text-emerald-600'}>
+                                  {tomtomProbeResult.roadClosure ? 'Ditutup' : 'Terbuka'}
+                                </span>
+                              )}
+                            </div>
+                            <p className="leading-snug">{tomtomProbeResult.message}</p>
+                            {tomtomProbeResult.confidence !== undefined && tomtomProbeResult.confidence !== null && (
+                              <div className="text-[9px] opacity-75 font-mono">
+                                Confidence: {Math.round(tomtomProbeResult.confidence * 100)}%
+                              </div>
+                            )}
+                          </div>
+                        )}
+
                         {/* Condition Text */}
                         <p className="text-[10.5px] text-slate-500 dark:text-slate-400 leading-tight">
                           {corridor.condition}
                         </p>
 
                         {/* Action Row */}
-                        <div className="pt-2 border-t border-slate-200/50 dark:border-slate-700/50 flex items-center justify-between gap-1.5">
-                          <button
-                            type="button"
-                            onClick={() => handleFocusCorridor(corridor)}
-                            className="px-2.5 py-1 rounded-xl bg-purple-600 hover:bg-purple-700 text-white font-bold text-[10.5px] transition-all active:scale-95 shadow-2xs flex items-center gap-1 cursor-pointer"
-                            title="Pusatkan peta ke koridor ini"
-                          >
-                            <Navigation className="w-3 h-3" />
-                            <span>Pusatkan</span>
-                          </button>
+                        <div className="pt-2 border-t border-slate-200/50 dark:border-slate-700/50 flex items-center justify-between gap-1.5 flex-wrap">
+                          <div className="flex items-center gap-1">
+                            <button
+                              type="button"
+                              onClick={() => handleFocusCorridor(corridor)}
+                              className="px-2.5 py-1 rounded-xl bg-purple-600 hover:bg-purple-700 text-white font-bold text-[10.5px] transition-all active:scale-95 shadow-2xs flex items-center gap-1 cursor-pointer"
+                              title="Pusatkan peta ke koridor ini"
+                            >
+                              <Navigation className="w-3 h-3" />
+                              <span>Pusatkan</span>
+                            </button>
+
+                            <button
+                              type="button"
+                              onClick={() => handleCheckTomTomLive(corridor)}
+                              disabled={tomtomProbeResult?.corridorId === corridor.id && tomtomProbeResult.loading}
+                              className="px-2 py-1 rounded-xl bg-indigo-50 dark:bg-indigo-950/50 hover:bg-indigo-100 text-indigo-700 dark:text-indigo-300 border border-indigo-200 dark:border-indigo-800 font-semibold text-[10px] transition-all flex items-center gap-1 cursor-pointer disabled:opacity-50"
+                              title="Periksa data live TomTom Flow API via proxy backend"
+                            >
+                              <Radio className={`w-3 h-3 ${tomtomProbeResult?.corridorId === corridor.id && tomtomProbeResult.loading ? 'animate-pulse' : ''}`} />
+                              <span>{tomtomProbeResult?.corridorId === corridor.id && tomtomProbeResult.loading ? 'Cek...' : 'Uji TomTom Live'}</span>
+                            </button>
+                          </div>
 
                           <div className="flex items-center gap-1">
                             <a
@@ -5437,6 +6261,8 @@ export function MapsView() {
                     <div className="relative">
                       <Search className="w-3.5 h-3.5 absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
                       <input
+                        id="maps-obs-search-input"
+                        name="obsSearch"
                         type="text"
                         placeholder="Cari radar BMKG, kota, provinsi..."
                         value={obsSearchQuery}
@@ -6133,6 +6959,47 @@ export function MapsView() {
           </motion.button>
         )}
 
+        {/* Quick Performance Mode Toggle Pill (Bawah Kiri) */}
+        {!showPanel && !showLayerManager && !showBasemapMenu && (
+          <motion.button
+            key="perf-mode-pill-quick"
+            type="button"
+            initial={{ opacity: 0, scale: 0.92, y: 12 }}
+            animate={{ opacity: 1, scale: 1, y: 0 }}
+            exit={{ opacity: 0, scale: 0.92, y: 12 }}
+            transition={{ duration: 0.2 }}
+            onClick={() => {
+              const nextMode: PerformanceMode =
+                perfMode === 'auto' ? 'lite' : perfMode === 'lite' ? 'high' : 'auto';
+              setPerfMode(nextMode);
+            }}
+            className="absolute bottom-6 left-4 sm:left-6 z-20 flex items-center gap-2 rounded-2xl bg-white/95 dark:bg-slate-900/95 px-3 py-2 shadow-2xl backdrop-blur-xl border border-slate-200/90 dark:border-slate-800 text-slate-800 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-800/90 transition-all hover:scale-[1.02] active:scale-95 group cursor-pointer shadow-indigo-500/10"
+            title={`Mode Performa: ${
+              perfMode === 'lite'
+                ? 'Hemat & Ringan (Anti-Lag Aktif)'
+                : perfMode === 'high'
+                ? 'Grafis Penuh'
+                : 'Otomatis Adaptif'
+            }. Klik untuk mengganti.`}
+          >
+            <div className={`flex h-7 w-7 items-center justify-center rounded-xl ${
+              effectivePerfMode === 'lite'
+                ? 'bg-emerald-100 dark:bg-emerald-950/60 text-emerald-600 dark:text-emerald-400'
+                : 'bg-indigo-100 dark:bg-indigo-950/60 text-indigo-600 dark:text-indigo-400'
+            }`}>
+              <Zap className="h-3.5 w-3.5" />
+            </div>
+            <div className="flex flex-col items-start text-left">
+              <span className="font-display font-bold text-[11px] leading-tight">
+                {perfMode === 'lite' ? '🚀 Mode Ringan' : perfMode === 'high' ? '✨ Grafis Penuh' : '⚡ Adaptif Auto'}
+              </span>
+              <span className="text-[9.5px] text-slate-400 font-medium">
+                {effectivePerfMode === 'lite' ? '60fps Anti-Lag' : 'Visual Maksimal'}
+              </span>
+            </div>
+          </motion.button>
+        )}
+
         {/* Windy Quick Pill (Ketika Cuaca Aktif tetapi Menu Diminimalkan) */}
         {weatherMapOverlay !== 'none' && !showWindyMenu && !showPanel && !showLayerManager && !showBasemapMenu && !showTrafficCorridors && !showObservationCoverage && (
           <motion.button
@@ -6144,7 +7011,7 @@ export function MapsView() {
             transition={{ duration: 0.2 }}
             onClick={() => setShowWindyMenu(true)}
             className="absolute bottom-6 right-6 z-20 flex items-center gap-3 rounded-2xl bg-gradient-to-r from-sky-600 to-blue-600 text-white px-4 py-2.5 sm:py-3 shadow-2xl backdrop-blur-xl border border-sky-400/40 hover:from-sky-500 hover:to-blue-500 transition-all hover:scale-[1.02] active:scale-95 group cursor-pointer shadow-sky-500/20"
-            title="Buka Pengaturan Menu Peta Cuaca Windy"
+            title="Buka Pengaturan Menu Peta Cuaca"
           >
             <div className="relative flex h-8 w-8 items-center justify-center rounded-xl bg-white/20 text-white shadow-xs">
               <Wind className="h-4 w-4" />
@@ -6156,7 +7023,7 @@ export function MapsView() {
             <div className="flex flex-col items-start text-left pr-0.5">
               <div className="flex items-center gap-1.5">
                 <span className="font-display font-bold text-xs sm:text-sm leading-tight">
-                  Cuaca Windy
+                  Peta Cuaca
                 </span>
                 <span className="px-1.5 py-0.2 rounded-full text-[9px] font-black bg-emerald-500 text-white shadow-xs">
                   LIVE
@@ -6187,9 +7054,11 @@ export function MapsView() {
             key="control-panel-drawer"
             initial={{ opacity: 0, x: 28, scale: 0.98 }}
               animate={{ opacity: 1, x: 0, scale: 1 }}
-              exit={{ opacity: 0, x: 28, scale: 0.98 }}
+              exit={{ opacity: 0, x: 28, scale: 0.98, pointerEvents: 'none' }}
               transition={{ type: "spring", stiffness: 350, damping: 30 }}
               className="fixed sm:absolute top-auto bottom-0 sm:top-4 sm:bottom-4 right-0 sm:right-4 left-0 sm:left-auto z-50 w-full sm:w-96 max-h-[88vh] sm:max-h-[calc(100vh-2rem)] rounded-t-3xl sm:rounded-3xl bg-white/95 dark:bg-slate-900/95 shadow-2xl backdrop-blur-2xl border-t sm:border border-slate-200/80 dark:border-slate-800 flex flex-col overflow-hidden"
+              role="dialog"
+              aria-label="Pengaturan Harmony Maps"
             >
               {/* Mobile Drag Handle Bar */}
               <div className="w-12 h-1.5 rounded-full bg-slate-300 dark:bg-slate-700 mx-auto mt-2.5 mb-1 sm:hidden shrink-0" />
@@ -6263,12 +7132,29 @@ export function MapsView() {
                     }}
                     className={`flex-1 flex items-center justify-center gap-1 py-1.5 rounded-lg text-[11px] font-bold transition-all ${
                       is3D && globeType === 'globe'
+                        ? 'bg-gradient-to-r from-sky-500 via-indigo-500 to-purple-600 text-white shadow-sm shadow-sky-500/30' 
+                        : 'text-slate-500 dark:text-slate-400 hover:text-slate-800 dark:hover:text-slate-200'
+                    }`}
+                    title="Semesta Tata Surya & Bima Sakti 3D (Three.js WebGL)"
+                  >
+                    <Sparkles className="w-3.5 h-3.5 text-amber-300" />
+                    <span>Kosmik 3D</span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      handleToggle3D(true);
+                      handleSetGlobeType('cesium');
+                    }}
+                    className={`flex-1 flex items-center justify-center gap-1 py-1.5 rounded-lg text-[11px] font-bold transition-all ${
+                      is3D && globeType === 'cesium'
                         ? 'bg-gradient-to-r from-sky-500 to-indigo-500 text-white shadow-sm shadow-sky-500/30' 
                         : 'text-slate-500 dark:text-slate-400 hover:text-slate-800 dark:hover:text-slate-200'
                     }`}
+                    title="Globe 3D Realistis CesiumJS"
                   >
                     <Globe className="w-3.5 h-3.5" />
-                    <span>Globe 3D</span>
+                    <span>Cesium 3D</span>
                   </button>
                   <button
                     type="button"
@@ -6281,39 +7167,154 @@ export function MapsView() {
                         ? 'bg-gradient-to-r from-indigo-500 to-purple-500 text-white shadow-sm shadow-indigo-500/30' 
                         : 'text-slate-500 dark:text-slate-400 hover:text-slate-800 dark:hover:text-slate-200'
                     }`}
+                    title="Sudut Pandang Miring 3D"
                   >
                     <Box className="w-3.5 h-3.5" />
                     <span>3D Miring</span>
                   </button>
                 </div>
 
-                {/* Categorized Filter Tabs */}
-                <div className="mt-3 flex items-center gap-1.5 overflow-x-auto pb-1 no-scrollbar touch-pan-x scroll-smooth snap-x">
-                  {[
-                    { id: 'all', label: '🌟 Semua' },
-                    { id: 'basemap', label: '🗺️ Mode Peta' },
-                    { id: 'disaster', label: '🌋 Bencana' },
-                    { id: 'weather', label: '🌤️ Cuaca' },
-                    { id: 'places', label: '🏫 Wilayah' },
-                  ].map((tab) => (
+                {/* Mode Performa & Kompatibilitas Perangkat */}
+                <div className="mt-2.5 p-2 rounded-xl bg-slate-50 dark:bg-slate-800/60 border border-slate-200/60 dark:border-slate-700/60 flex flex-col gap-1.5">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-1.5">
+                      <Zap className={`w-3.5 h-3.5 ${effectivePerfMode === 'lite' ? 'text-emerald-500' : 'text-indigo-500'}`} />
+                      <span className="text-[11px] font-bold text-slate-800 dark:text-slate-200">
+                        Mode Performa (Anti-Lag)
+                      </span>
+                    </div>
+                    <span className={`text-[9.5px] font-bold px-2 py-0.5 rounded-full ${
+                      effectivePerfMode === 'lite'
+                        ? 'bg-emerald-100 dark:bg-emerald-950/60 text-emerald-700 dark:text-emerald-300'
+                        : 'bg-indigo-100 dark:bg-indigo-950/60 text-indigo-700 dark:text-indigo-300'
+                    }`}>
+                      {effectivePerfMode === 'lite' ? '🚀 60fps Ringan' : '✨ Grafis Penuh'}
+                    </span>
+                  </div>
+
+                  <div className="flex items-center p-0.5 rounded-lg bg-white dark:bg-slate-900/80 border border-slate-200/60 dark:border-slate-800">
                     <button
-                      key={tab.id}
                       type="button"
-                      onClick={() => setPanelTab(tab.id as any)}
-                      className={`snap-start px-2.5 py-1 rounded-lg text-[11px] font-bold whitespace-nowrap transition-all ${
-                        panelTab === tab.id
-                          ? 'bg-brand-600 text-white shadow-xs'
-                          : 'bg-slate-100 dark:bg-slate-800/70 text-slate-600 dark:text-slate-400 hover:bg-slate-200 dark:hover:bg-slate-700'
+                      onClick={() => setPerfMode('lite')}
+                      className={`flex-1 flex items-center justify-center gap-1 py-1 rounded-md text-[10px] font-bold transition-all cursor-pointer ${
+                        perfMode === 'lite'
+                          ? 'bg-emerald-500 text-white shadow-xs'
+                          : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
                       }`}
+                      title="Mode Ringan: Anti-lag untuk PC/laptop spesifikasi rendah dan HP. Mengoptimalkan DPR dan menonaktifkan filter blur berat."
                     >
-                      {tab.label}
+                      <Zap className="w-3 h-3" />
+                      <span>Ringan</span>
                     </button>
-                  ))}
+                    <button
+                      type="button"
+                      onClick={() => setPerfMode('auto')}
+                      className={`flex-1 flex items-center justify-center gap-1 py-1 rounded-md text-[10px] font-bold transition-all cursor-pointer ${
+                        perfMode === 'auto'
+                          ? 'bg-brand-500 text-white shadow-xs'
+                          : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
+                      }`}
+                      title="Mode Otomatis: Deteksi otomatis kemampuan CPU, RAM, dan GPU perangkat"
+                    >
+                      <Cpu className="w-3 h-3" />
+                      <span>Otomatis</span>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setPerfMode('high')}
+                      className={`flex-1 flex items-center justify-center gap-1 py-1 rounded-md text-[10px] font-bold transition-all cursor-pointer ${
+                        perfMode === 'high'
+                          ? 'bg-indigo-600 text-white shadow-xs'
+                          : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
+                      }`}
+                      title="Mode Grafis Penuh: Detail retina maksimal"
+                    >
+                      <Sparkles className="w-3 h-3" />
+                      <span>Maksimal</span>
+                    </button>
+                  </div>
+
+                  <div className="flex items-center gap-1 text-[9px] text-slate-500 dark:text-slate-400 px-0.5">
+                    <Info className="w-2.5 h-2.5 shrink-0 text-slate-400" />
+                    <span className="truncate">
+                      {perfProfile.diagnostics.cores} Cores
+                      {perfProfile.diagnostics.memoryGB ? ` • ${perfProfile.diagnostics.memoryGB}GB RAM` : ''}
+                      {perfProfile.isLowSpecDetected ? ' • Profil hemat aktif otomatis' : ' • Hardware optimal'}
+                    </span>
+                  </div>
+                </div>
+
+                {/* Categorized Filter Tabs */}
+                <div className="relative mt-3">
+                  <div className="flex items-center gap-1.5 overflow-x-auto pb-1.5 scrollbar-thin scrollbar-thumb-slate-300 dark:scrollbar-thumb-slate-700 touch-pan-x scroll-smooth snap-x pr-6">
+                    {[
+                      { id: 'all', label: '🌟 Semua' },
+                      { id: 'tools', label: 'Alat & Analisis' },
+                      { id: 'basemap', label: '🗺️ Mode Peta' },
+                      { id: 'disaster', label: '🌋 Bencana' },
+                      { id: 'weather', label: '🌤️ Cuaca' },
+                      { id: 'places', label: '🏫 Wilayah' },
+                    ].map((tab) => (
+                      <button
+                        key={tab.id}
+                        type="button"
+                        onClick={() => setPanelTab(tab.id as any)}
+                        className={`shrink-0 snap-start px-2.5 py-1 rounded-lg text-[11px] font-bold whitespace-nowrap transition-all cursor-pointer ${
+                          panelTab === tab.id
+                            ? 'bg-brand-600 text-white shadow-xs'
+                            : 'bg-slate-100 dark:bg-slate-800/70 text-slate-600 dark:text-slate-400 hover:bg-slate-200 dark:hover:bg-slate-700'
+                        }`}
+                      >
+                        {tab.label}
+                      </button>
+                    ))}
+                  </div>
+                  <div className="pointer-events-none absolute right-0 top-0 bottom-1.5 w-6 bg-gradient-to-l from-white dark:from-slate-900 to-transparent" />
                 </div>
               </div>
 
               {/* Scrollable Content Body */}
               <div className="flex-1 overflow-y-auto p-4 sm:p-5 space-y-4">
+                {(panelTab === 'all' || panelTab === 'tools') && (
+                  <section aria-label="Alat dan analisis peta" className="space-y-3">
+                    <div>
+                      <h3 className="text-xs font-bold uppercase tracking-wider text-slate-400">Alat & Analisis</h3>
+                      <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">Buka alat peta dan pilih analisis dalam satu tempat.</p>
+                    </div>
+                    <div className="grid grid-cols-2 gap-2">
+                      {[
+                        { label: 'Zona Rawan Bencana', description: 'Pusat edukasi risiko sekolah & bahaya alam', icon: AlertCircle, action: () => { closeMapDrawers(); setShowDisasterRiskCenter(true); } },
+                        { label: 'Panduan WebGIS', description: 'Tutorial interaktif untuk orang awam', icon: BookOpen, action: () => { closeMapDrawers(); setShowWebGisTutorial(true); } },
+                        { label: 'Studio Geospasial', description: 'Cuaca dan observasi bumi', icon: CloudSun, action: () => openStudioDomain() },
+                        { label: 'Katalog Sensor Bumi', description: 'Alat dan jenis pengamatan', icon: Radio, action: () => { closeMapDrawers(); setShowMasterTaxonomyModal(true); } },
+                        { label: 'Manajer Lapisan', description: 'Visibilitas dan opasitas layer', icon: Layers, action: () => { closeMapDrawers(); setShowLayerManager(true); } },
+                        { label: 'Navigasi & Rute', description: 'Cari dan tampilkan perjalanan', icon: Navigation, action: () => { closeMapDrawers(); setShowRouteModal(true); } },
+                      ].map(({ label, description, icon: Icon, action }) => (
+                        <button key={label} type="button" onClick={action} className="flex items-start gap-2.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800/60 p-3 text-left transition-colors hover:border-brand-400 hover:bg-brand-50 dark:hover:bg-brand-950/30 focus-visible:outline focus-visible:outline-2 focus-visible:outline-brand-500">
+                          <Icon className="mt-0.5 h-4 w-4 shrink-0 text-brand-600 dark:text-brand-400" />
+                          <span className="min-w-0">
+                            <span className="block text-xs font-semibold text-slate-800 dark:text-slate-100">{label}</span>
+                            <span className="mt-1 block text-[11px] leading-relaxed text-slate-500 dark:text-slate-400">{description}</span>
+                          </span>
+                        </button>
+                      ))}
+                    </div>
+                    <details className="group rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50/70 dark:bg-slate-800/40">
+                      <summary className="flex cursor-pointer list-none items-center justify-between gap-2 p-3 text-xs font-semibold text-slate-700 dark:text-slate-200 [&::-webkit-details-marker]:hidden">
+                        <span>Pilih menu analisis <span className="ml-1 font-normal text-slate-500">({STUDIO_DOMAINS.length})</span></span>
+                        <ChevronDown className="h-4 w-4 shrink-0 transition-transform group-open:rotate-180" />
+                      </summary>
+                      <div className="grid grid-cols-2 gap-2 px-3 pb-3">
+                        {STUDIO_DOMAINS.map(({ id, name, icon: Icon }) => (
+                          <button key={id} type="button" onClick={() => openStudioDomain(id)} data-studio-domain={id} className="flex items-start gap-2 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900/60 px-2.5 py-2.5 text-left text-[11px] font-medium leading-relaxed text-slate-700 dark:text-slate-200 hover:border-brand-400 hover:text-brand-600 dark:hover:text-brand-400 transition-colors">
+                            <Icon className="mt-0.5 h-3.5 w-3.5 shrink-0 text-brand-500" />
+                            <span>{name}</span>
+                          </button>
+                        ))}
+                      </div>
+                    </details>
+                  </section>
+                )}
                 {/* 1. Mode & Lapisan Peta Geospasial (>2020 Data) */}
                 {(panelTab === 'all' || panelTab === 'basemap') && (
                   <div>
@@ -6370,7 +7371,8 @@ export function MapsView() {
                       </label>
                       <Toggle 
                         checked={showTrafficCorridors} 
-                        onChange={(val) => setShowTrafficCorridors(val)} 
+                        label="Lintasan Jalan & Koridor Trafik"
+                        onChange={(val) => { closeMapDrawers(); setShowTrafficCorridors(val); }}
                         activeClass="bg-purple-600" 
                       />
                     </div>
@@ -6383,7 +7385,8 @@ export function MapsView() {
                       </label>
                       <Toggle 
                         checked={showObservationCoverage} 
-                        onChange={(val) => setShowObservationCoverage(val)} 
+                        label="Cakupan Sensor & Blank Spot Observasi"
+                        onChange={(val) => { closeMapDrawers(); setShowObservationCoverage(val); }}
                         activeClass="bg-emerald-600" 
                       />
                     </div>
@@ -6423,13 +7426,6 @@ export function MapsView() {
                             <div className="pl-2 space-y-2 animate-in fade-in slide-in-from-top-1 duration-200">
                               <div className="flex items-center justify-between">
                                 <span className="text-[11px] font-medium text-slate-500 dark:text-slate-400">Filter Keluarga Sensor:</span>
-                                <button
-                                  type="button"
-                                  onClick={() => setShowMasterTaxonomyModal(true)}
-                                  className="text-[10px] font-bold text-sky-600 dark:text-sky-400 hover:underline flex items-center gap-1"
-                                >
-                                  <BookOpen className="h-3 w-3" /> Katalog Master
-                                </button>
                               </div>
 
                               <div className="flex flex-wrap gap-1">
@@ -6505,6 +7501,12 @@ export function MapsView() {
                 {/* 3. Lapisan Cuaca Realtime */}
                 {(panelTab === 'all' || panelTab === 'weather') && (
                   <div>
+                    <div className="mb-3 flex items-center justify-between gap-3 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50/70 dark:bg-slate-800/40 p-3">
+                      <label className="flex items-center gap-2 text-xs font-semibold text-slate-700 dark:text-slate-200">
+                        <Thermometer className="h-4 w-4 text-sky-500" /> Kartu Cuaca di Peta
+                      </label>
+                      <Toggle checked={showWeatherCard} onChange={setShowWeatherCard} activeClass="bg-sky-500" label="Kartu Cuaca di Peta" />
+                    </div>
                     <div className="flex items-center justify-between mb-2">
                       <h3 className="text-xs font-bold uppercase tracking-wider text-slate-400">
                         Lapisan Cuaca Realtime
@@ -6519,6 +7521,59 @@ export function MapsView() {
                       )}
                     </div>
 
+                    {/* Weather Render Mode Selector */}
+                    <div className="flex items-center gap-1 mb-2.5 p-1 rounded-xl bg-slate-100 dark:bg-slate-800 text-[11px] font-bold">
+                      <button
+                        type="button"
+                        onClick={() => setWeatherRenderMode('native')}
+                        className={`flex-1 py-1.5 px-2 rounded-lg text-center transition-all ${
+                          weatherRenderMode === 'native'
+                            ? 'bg-white dark:bg-slate-900 text-blue-600 dark:text-blue-400 shadow-xs'
+                            : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-200'
+                        }`}
+                      >
+                        📡 Radar Native (OpenLayers)
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setWeatherRenderMode('windy')}
+                        className={`flex-1 py-1.5 px-2 rounded-lg text-center transition-all ${
+                          weatherRenderMode === 'windy'
+                            ? 'bg-white dark:bg-slate-900 text-sky-600 dark:text-sky-400 shadow-xs'
+                            : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-200'
+                        }`}
+                      >
+                        🌐 Model ECMWF (Windy)
+                      </button>
+                    </div>
+
+                    {weatherRenderMode === 'native' && radarFrameTime && (
+                      <div className="mb-2 p-2 rounded-xl bg-sky-50/70 dark:bg-sky-950/30 border border-sky-200/60 dark:border-sky-800/60 text-[10.5px] text-sky-800 dark:text-sky-300 flex items-center justify-between">
+                        <span>Waktu Frame Radar: <strong>{new Intl.DateTimeFormat('id-ID', { timeZone: 'Asia/Jakarta', hour: '2-digit', minute: '2-digit', second: '2-digit' }).format(new Date(radarFrameTime * 1000))} WIB</strong></span>
+                        <span className="text-[9.5px] opacity-75">Max Zoom 7 (Overzoom visual)</span>
+                      </div>
+                    )}
+                    {weatherRenderMode === 'native' && weatherMapOverlay !== 'none' && !['radar', 'bmkg_radar', 'rain'].includes(weatherMapOverlay) && (
+                      <div className="mb-2 p-2 rounded-xl bg-amber-50 dark:bg-amber-950/30 border border-amber-300 dark:border-amber-700 text-[10.5px] text-amber-800 dark:text-amber-200 space-y-1">
+                        <div className="font-semibold flex items-center justify-between">
+                          <span>Layer {weatherMapOverlay.toUpperCase()} Membutuhkan Model ECMWF</span>
+                          <button
+                            type="button"
+                            onClick={() => setWeatherRenderMode('windy')}
+                            className="px-2 py-0.5 rounded bg-amber-600 text-white text-[9.5px] font-bold hover:bg-amber-700"
+                          >
+                            Beralih ke Windy
+                          </button>
+                        </div>
+                        <p className="text-[10px] opacity-90">Radar native OpenLayers hanya memuat reflektivitas presipitasi hujan (RainViewer). Parameter angin/suhu/awan dimodelkan melalui kanvas ECMWF Windy.</p>
+                      </div>
+                    )}
+                    {radarTileLoadError && (
+                      <div className="mb-2 p-2 rounded-xl bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800 text-[10.5px] text-amber-800 dark:text-amber-300">
+                        Sebagian tile radar cuaca tidak dapat dimuat dari penyedia (coverage terbatas atau rate limit).
+                      </div>
+                    )}
+
                     {/* Windy Status & Launcher Card */}
                     <div className="flex items-center justify-between p-2.5 rounded-xl bg-gradient-to-r from-blue-600/10 via-sky-600/10 to-indigo-600/10 border border-sky-500/30 dark:border-sky-400/20 mb-2.5">
                       <div className="flex items-center gap-2">
@@ -6527,26 +7582,26 @@ export function MapsView() {
                         </div>
                         <div>
                           <p className="text-xs font-bold text-slate-800 dark:text-slate-100 flex items-center gap-1.5">
-                            Peta Cuaca Windy
-                            <span className="text-[9px] font-extrabold uppercase px-1.5 py-0.5 rounded-full bg-emerald-500/20 text-emerald-600 dark:text-emerald-400 border border-emerald-500/30">
-                              Live
+                            Peta Cuaca
+                            <span className={`text-[9px] font-extrabold uppercase px-1.5 py-0.5 rounded-full border flex items-center gap-1 ${weatherBadgeColor}`}>
+                              {weatherStatusText === 'LIVE RADAR' || weatherStatusText === 'MODEL ECMWF' ? (
+                                <span className="w-1.5 h-1.5 rounded-full bg-current animate-ping" />
+                              ) : null}
+                              {weatherStatusText}
                             </span>
                           </p>
                           <p className="text-[10px] text-slate-500 dark:text-slate-400">
-                            {weatherMapOverlay !== 'none' ? `Aktif: ${weatherMapOverlay.toUpperCase()} (Sinkron 60 FPS di Peta)` : 'Pilih parameter di bawah'}
+                            {weatherMapOverlay !== 'none'
+                              ? `Aktif: ${weatherMapOverlay.toUpperCase()} (${weatherRenderMode === 'native' ? 'Layer OpenLayers Native' : 'Viewer Windy Eksternal'})`
+                              : 'Pilih parameter di bawah'}
                           </p>
                         </div>
                       </div>
                       <button
                         type="button"
-                        onClick={() => {
-                          if (weatherMapOverlay === 'none') {
-                            handleSelectWeatherOverlay('rain');
-                          }
-                          setShowWindyModal(true);
-                        }}
+                        onClick={openWindyFullscreen}
                         className="px-2.5 py-1 rounded-lg bg-sky-600 hover:bg-sky-700 text-white text-[10px] font-bold transition-all shadow-sm flex items-center gap-1"
-                        title="Buka Peta Cuaca Windy Layar Penuh"
+                        title="Buka Peta Cuaca Layar Penuh"
                       >
                         <ExternalLink className="w-3 h-3" /> Layar Penuh
                       </button>
@@ -6793,12 +7848,29 @@ export function MapsView() {
                     }}
                     className={`flex-1 flex items-center justify-center gap-1 py-1.5 rounded-lg text-[11px] font-bold transition-all cursor-pointer ${
                       is3D && globeType === 'globe'
+                        ? 'bg-gradient-to-r from-sky-500 via-indigo-500 to-purple-600 text-white shadow-sm shadow-sky-500/30'
+                        : 'text-slate-500 dark:text-slate-400 hover:text-slate-800 dark:hover:text-slate-200'
+                    }`}
+                    title="Semesta Tata Surya & Bima Sakti 3D (Three.js WebGL)"
+                  >
+                    <Sparkles className="w-3.5 h-3.5 text-amber-300" />
+                    <span>Kosmik 3D</span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      handleToggle3D(true);
+                      handleSetGlobeType('cesium');
+                    }}
+                    className={`flex-1 flex items-center justify-center gap-1 py-1.5 rounded-lg text-[11px] font-bold transition-all cursor-pointer ${
+                      is3D && globeType === 'cesium'
                         ? 'bg-gradient-to-r from-sky-500 to-indigo-500 text-white shadow-sm shadow-sky-500/30'
                         : 'text-slate-500 dark:text-slate-400 hover:text-slate-800 dark:hover:text-slate-200'
                     }`}
+                    title="Globe 3D Realistis CesiumJS"
                   >
                     <Globe className="w-3.5 h-3.5" />
-                    <span>Globe 3D</span>
+                    <span>Cesium 3D</span>
                   </button>
                   <button
                     type="button"
@@ -6811,10 +7883,72 @@ export function MapsView() {
                         ? 'bg-gradient-to-r from-indigo-500 to-purple-500 text-white shadow-sm shadow-indigo-500/30'
                         : 'text-slate-500 dark:text-slate-400 hover:text-slate-800 dark:hover:text-slate-200'
                     }`}
+                    title="Sudut Pandang Miring 3D"
                   >
                     <Box className="w-3.5 h-3.5" />
                     <span>3D Miring</span>
                   </button>
+                </div>
+
+                {/* Mode Performa & Kompatibilitas Perangkat */}
+                <div className="mt-2.5 p-2 rounded-xl bg-slate-50 dark:bg-slate-800/60 border border-slate-200/60 dark:border-slate-700/60 flex flex-col gap-1.5">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-1.5">
+                      <Zap className={`w-3.5 h-3.5 ${effectivePerfMode === 'lite' ? 'text-emerald-500' : 'text-indigo-500'}`} />
+                      <span className="text-[11px] font-bold text-slate-800 dark:text-slate-200">
+                        Mode Performa (Anti-Lag)
+                      </span>
+                    </div>
+                    <span className={`text-[9.5px] font-bold px-2 py-0.5 rounded-full ${
+                      effectivePerfMode === 'lite'
+                        ? 'bg-emerald-100 dark:bg-emerald-950/60 text-emerald-700 dark:text-emerald-300'
+                        : 'bg-indigo-100 dark:bg-indigo-950/60 text-indigo-700 dark:text-indigo-300'
+                    }`}>
+                      {effectivePerfMode === 'lite' ? '🚀 60fps Ringan' : '✨ Grafis Penuh'}
+                    </span>
+                  </div>
+
+                  <div className="flex items-center p-0.5 rounded-lg bg-white dark:bg-slate-900/80 border border-slate-200/60 dark:border-slate-800">
+                    <button
+                      type="button"
+                      onClick={() => setPerfMode('lite')}
+                      className={`flex-1 flex items-center justify-center gap-1 py-1 rounded-md text-[10px] font-bold transition-all cursor-pointer ${
+                        perfMode === 'lite'
+                          ? 'bg-emerald-500 text-white shadow-xs'
+                          : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
+                      }`}
+                      title="Mode Ringan: Anti-lag untuk PC/laptop spesifikasi rendah dan HP. Mengoptimalkan DPR dan menonaktifkan filter blur berat."
+                    >
+                      <Zap className="w-3 h-3" />
+                      <span>Ringan</span>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setPerfMode('auto')}
+                      className={`flex-1 flex items-center justify-center gap-1 py-1 rounded-md text-[10px] font-bold transition-all cursor-pointer ${
+                        perfMode === 'auto'
+                          ? 'bg-brand-500 text-white shadow-xs'
+                          : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
+                      }`}
+                      title="Mode Otomatis: Deteksi otomatis kemampuan CPU, RAM, dan GPU perangkat"
+                    >
+                      <Cpu className="w-3 h-3" />
+                      <span>Otomatis</span>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setPerfMode('high')}
+                      className={`flex-1 flex items-center justify-center gap-1 py-1 rounded-md text-[10px] font-bold transition-all cursor-pointer ${
+                        perfMode === 'high'
+                          ? 'bg-indigo-600 text-white shadow-xs'
+                          : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
+                      }`}
+                      title="Mode Grafis Penuh: Detail retina maksimal"
+                    >
+                      <Sparkles className="w-3 h-3" />
+                      <span>Maksimal</span>
+                    </button>
+                  </div>
                 </div>
               </div>
 
@@ -6944,7 +8078,7 @@ export function MapsView() {
         )}
       </AnimatePresence>
 
-      {/* Floating Side Drawer: Peta Cuaca Windy Live (Bagian Kanan) */}
+      {/* Floating Side Drawer: Peta Cuaca Live (Bagian Kanan) */}
       <AnimatePresence>
         {weatherMapOverlay !== 'none' && showWindyMenu && mapMode === 'spatial' && (
           <motion.div
@@ -6954,14 +8088,18 @@ export function MapsView() {
             exit={{ opacity: 0 }}
             onClick={() => setShowWindyMenu(false)}
             className="fixed inset-0 bg-slate-950/40 backdrop-blur-xs z-40 sm:hidden"
+            style={{ zIndex: showWindyModal ? 10000 : undefined }}
           />
         )}
         {weatherMapOverlay !== 'none' && showWindyMenu && mapMode === 'spatial' && (
           <motion.div
             key="windy-menu-panel"
+            role="dialog"
+            aria-label="Peta Cuaca"
+            style={{ zIndex: showWindyModal ? 10001 : undefined }}
             initial={{ opacity: 0, x: 28, scale: 0.98 }}
               animate={{ opacity: 1, x: 0, scale: 1 }}
-              exit={{ opacity: 0, x: 28, scale: 0.98 }}
+              exit={{ opacity: 0, x: 28, scale: 0.98, pointerEvents: 'none' }}
               transition={{ type: "spring", stiffness: 350, damping: 30 }}
               className="fixed sm:absolute top-auto bottom-0 sm:top-4 sm:bottom-4 right-0 sm:right-4 left-0 sm:left-auto z-50 w-full sm:w-96 max-h-[88vh] sm:max-h-[calc(100vh-2rem)] rounded-t-3xl sm:rounded-3xl bg-white/95 dark:bg-slate-900/95 shadow-2xl backdrop-blur-2xl border-t sm:border border-slate-200/80 dark:border-slate-800 flex flex-col overflow-hidden"
             >
@@ -6978,15 +8116,17 @@ export function MapsView() {
                     <div>
                       <div className="flex items-center gap-2">
                         <h2 className="font-display text-base font-bold text-ink-900 dark:text-white leading-tight">
-                          Peta Cuaca Windy
+                          Peta Cuaca
                         </h2>
-                        <span className="text-[9px] font-extrabold uppercase px-1.5 py-0.5 rounded-full bg-emerald-500/20 text-emerald-600 dark:text-emerald-400 border border-emerald-500/30 flex items-center gap-1">
-                          <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-ping" />
-                          Live
+                        <span className={`text-[9px] font-extrabold uppercase px-1.5 py-0.5 rounded-full border flex items-center gap-1 ${weatherBadgeColor}`}>
+                          {weatherStatusText === 'LIVE RADAR' || weatherStatusText === 'MODEL ECMWF' ? (
+                            <span className="w-1.5 h-1.5 rounded-full bg-current animate-ping" />
+                          ) : null}
+                          {weatherStatusText}
                         </span>
                       </div>
                       <p className="text-[11px] font-medium text-slate-500 dark:text-slate-400">
-                        Model ECMWF • Realtime Doppler &amp; Satelit
+                        Peta dari penyedia eksternal • tidak menjadi masukan numerik Harmony
                       </p>
                     </div>
                   </div>
@@ -7015,10 +8155,10 @@ export function MapsView() {
                 <div className="mt-3 flex items-center justify-between p-2 rounded-xl bg-slate-100 dark:bg-slate-800/80 border border-slate-200/60 dark:border-slate-700/60 text-xs">
                   <div className="flex items-center gap-1.5 font-semibold text-slate-700 dark:text-slate-300">
                     <span className="text-sm">
-                      {WINDY_PARAM_CONFIG.find(p => p.id === (windyOverlay === 'satellite' ? 'clouds' : windyOverlay))?.icon || '🌤️'}
+                      {WINDY_PARAM_CONFIG.find(p => p.id === windyOverlay)?.icon || '🌤️'}
                     </span>
                     <span className="truncate">
-                      Aktif: <strong className="text-sky-600 dark:text-sky-400">{WINDY_PARAM_CONFIG.find(p => p.id === (windyOverlay === 'satellite' ? 'clouds' : windyOverlay))?.name || windyOverlay.toUpperCase()}</strong>
+                      Aktif: <strong className="text-sky-600 dark:text-sky-400">{WINDY_PARAM_CONFIG.find(p => p.id === windyOverlay)?.name || windyOverlay.toUpperCase()}</strong>
                     </span>
                   </div>
                   <span className="text-[10px] font-mono px-2 py-0.5 rounded-md bg-white dark:bg-slate-700 font-bold text-slate-600 dark:text-slate-300 shadow-2xs">
@@ -7041,18 +8181,15 @@ export function MapsView() {
 
                   <div className="grid grid-cols-2 gap-2">
                     {WINDY_PARAM_CONFIG.map((param) => {
-                      const isSelected = windyOverlay === param.id || (param.id === 'clouds' && windyOverlay === 'satellite');
+                      const isSelected = windyOverlay === param.id;
                       return (
                         <button
                           key={param.id}
                           type="button"
+                          aria-pressed={isSelected}
+                          data-windy-parameter={param.id}
                           onClick={() => {
-                            if (is3D && globeType === 'globe') {
-                              handleToggle3D(false);
-                            }
-                            updateWindyLocation();
-                            setWeatherMapOverlay(param.id);
-                            setWindyOverlay(param.id);
+                            handleApplyWeatherOverlay(param.id);
                           }}
                           className={`flex flex-col items-start p-2.5 rounded-xl border text-left transition-all cursor-pointer ${
                             isSelected
@@ -7094,18 +8231,19 @@ export function MapsView() {
               <div className="p-3 sm:p-4 border-t border-slate-100 dark:border-slate-800/80 shrink-0 bg-slate-50/80 dark:bg-slate-900/80 flex items-center gap-2">
                 <button
                   type="button"
-                  onClick={() => setShowWindyModal(true)}
+                  onClick={() => showWindyModal ? setShowWindyModal(false) : openWindyFullscreen()}
                   className="flex items-center justify-center gap-1.5 py-2 px-3 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-200 text-xs font-semibold hover:bg-slate-100 dark:hover:bg-slate-700 transition-all shrink-0 cursor-pointer"
-                  title="Buka Peta Cuaca Windy Layar Penuh"
+                  title={showWindyModal ? 'Keluar dari Layar Penuh' : 'Buka Peta Cuaca Layar Penuh'}
                 >
                   <ExternalLink className="w-3.5 h-3.5 text-sky-500" />
-                  <span>Layar Penuh</span>
+                  <span>{showWindyModal ? 'Keluar Layar Penuh' : 'Layar Penuh'}</span>
                 </button>
                 <button
                   type="button"
                   onClick={() => {
                     setWeatherMapOverlay('none');
                     setShowWindyMenu(false);
+                    setShowWindyModal(false);
                   }}
                   className="flex-1 py-2 rounded-xl bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white text-xs font-bold transition-all shadow-sm active:scale-[0.99] cursor-pointer text-center flex items-center justify-center gap-1.5"
                   title="Nonaktifkan Peta Cuaca dan Kembali ke Peta Geospasial Utama"
@@ -7139,25 +8277,98 @@ export function MapsView() {
       <GeospatialWeatherModal
         isOpen={showGeospatialModal}
         onClose={() => setShowGeospatialModal(false)}
-        initialDomain={geospatialModalDomain as any}
-        lat={userCoords?.lat ?? -7.2575}
-        lng={userCoords?.lng ?? 112.7521}
-        locationName={userPreciseLocation?.shortDisplay || (userCoords ? 'Lokasi Pengguna Terverifikasi' : 'Surabaya (Pusat Geospasial)')}
+        initialDomain={geospatialModalDomain}
+        lat={userCoords?.lat ?? selection?.school?.lat ?? activeSchoolLat}
+        lng={userCoords?.lng ?? selection?.school?.lng ?? activeSchoolLng}
+        locationName={userPreciseLocation?.shortDisplay || (currentUser ? (selection?.school?.name || activeSchoolName) : null) || (userCoords ? `Koordinat (${userCoords.lat.toFixed(3)}°, ${userCoords.lng.toFixed(3)}°)` : 'Wilayah Geospasial')}
         userPreciseLocation={userPreciseLocation}
         mountains={mountains}
         earthquakes={earthquakes}
         schools={schools}
+        onApplyFeaturesToMap={(features: any[], _layerName?: string) => {
+          if (!analysisSourceRef.current) return;
+          try {
+            const olGeoJSON = new GeoJSON();
+            const olFeatures = olGeoJSON.readFeatures(
+              { type: 'FeatureCollection', features },
+              { featureProjection: 'EPSG:3857', dataProjection: 'EPSG:4326' }
+            );
+
+            const layerType = features[0]?.properties?.layerType;
+            const group = ['isochrone', 'facility', 'candidate_facility'].includes(layerType)
+              ? 'studio-accessibility'
+              : `studio-${layerType || 'analysis'}`;
+            // Replacing a result must update its geometry, not retain features with old IDs.
+            analysisSourceRef.current.getFeatures()
+              .filter(feature => feature.get('studioGroup') === group)
+              .forEach(feature => analysisSourceRef.current.removeFeature(feature));
+
+            olFeatures.forEach((feat) => {
+              feat.set('studioGroup', group);
+              const props = feat.getProperties();
+              if (props.layerType === 'isochrone') {
+                feat.setStyle(new Style({
+                  fill: new Fill({ color: props.color ? `${props.color}35` : 'rgba(59, 130, 246, 0.25)' }),
+                  stroke: new Stroke({ color: props.color || '#3b82f6', width: 2.5 }),
+                }));
+              } else if (props.layerType === 'hotspot') {
+                feat.setStyle(new Style({
+                  image: new CircleStyle({
+                    radius: 7,
+                    fill: new Fill({ color: props.color || '#ef4444' }),
+                    stroke: new Stroke({ color: '#ffffff', width: 2 }),
+                  }),
+                }));
+              } else if (props.layerType === 'facility' || props.layerType === 'candidate_facility') {
+                feat.setStyle(new Style({
+                  image: new CircleStyle({
+                    radius: props.isPlanCandidate ? 8 : 6,
+                    fill: new Fill({ color: props.isPlanCandidate ? '#8b5cf6' : '#10b981' }),
+                    stroke: new Stroke({ color: '#ffffff', width: 2 }),
+                  }),
+                }));
+              }
+              analysisSourceRef.current.addFeature(feat);
+            });
+
+            setShowAnalysisLayer(true);
+            if (analysisLayerRef.current) {
+              analysisLayerRef.current.setVisible(true);
+            }
+            if (olFeatures.length && mapRef.current) {
+              const resultSource = new VectorSource({ features: olFeatures });
+              const extent = resultSource.getExtent();
+              if (extent && extent.every(Number.isFinite)) {
+                mapRef.current.getView().fit(extent, {
+                  padding: [70, 60, 90, 60], maxZoom: 12, duration: 400,
+                });
+              }
+            }
+            setShowGeospatialModal(false);
+          } catch (e) {
+            console.error('Failed to apply features to OpenLayers map:', e);
+          }
+        }}
       />
 
       {/* AI Route & Weather Copilot Modal (Find Button) */}
       <RouteNavigatorModal
         isOpen={showRouteModal}
-        onClose={() => setShowRouteModal(false)}
+        onClose={() => {
+          setShowRouteModal(false);
+          setIsPickingRouteLocation(false);
+        }}
         userCoords={userCoords}
         onApplyRoute={(route) => setActiveRoute(route)}
-        onClearRoute={() => setActiveRoute(null)}
+        onClearRoute={() => {
+          setActiveRoute(null);
+          setPickedRouteDestination(null);
+        }}
         activeRoute={activeRoute}
         schools={schools}
+        isPickingOnMap={isPickingRouteLocation}
+        onTogglePickOnMap={(active) => setIsPickingRouteLocation(active)}
+        pickedCoords={pickedRouteDestination}
       />
 
       {/* Earth Sensor Detailed Inspector Modal */}
@@ -7187,12 +8398,73 @@ export function MapsView() {
         onClose={() => setShowDataProvenanceModal(false)}
       />
 
+      {/* Interactive WebGIS Tutorial Onboarding Modal (Ahli Validasi Masukan UI) */}
+      <WebGISTutorialModal
+        isOpen={showWebGisTutorial}
+        onClose={() => {
+          setShowWebGisTutorial(false);
+          try {
+            window.localStorage.setItem('hm_webgis_tutorial_seen', 'true');
+          } catch (e) {}
+        }}
+        onOpenDisasterCenter={() => {
+          setShowWebGisTutorial(false);
+          setShowDisasterRiskCenter(true);
+        }}
+      />
+
+      {/* Disaster Hazard & School Risk Profiler Modal (Sekolah Tangguh Bencana) */}
+      <DisasterRiskCenterModal
+        isOpen={showDisasterRiskCenter}
+        onClose={() => setShowDisasterRiskCenter(false)}
+        showTectonic={showTectonic}
+        onToggleTectonic={setShowTectonic}
+        showEarthquakes={showEarthquakes}
+        onToggleEarthquakes={setShowEarthquakes}
+        showVolcanoes={showActive}
+        onToggleVolcanoes={setShowActive}
+        showLandslideZones={showLandslideZones}
+        onToggleLandslideZones={setShowLandslideZones}
+        showTsunamiZones={showTsunamiZones}
+        onToggleTsunamiZones={setShowTsunamiZones}
+        selectedSchool={selectedSchoolData}
+        onTriggerEvacuationRoute={async (school, scenario) => {
+          try {
+            const plan = await routingService.calculateEmergencyEvacuationRoute(
+              { lat: school.lat, lng: school.lng, label: school.name },
+              scenario
+            );
+            setActiveRoute(plan);
+            setShowRouteModal(true);
+            if (mapRef.current) {
+              mapRef.current.getView().animate({
+                center: fromLonLat([school.lng, school.lat]),
+                zoom: 13,
+                duration: 600,
+              });
+            }
+          } catch (err) {
+            console.error('Failed to trigger emergency evacuation route:', err);
+          }
+        }}
+      />
+
+      {/* Grounded Disaster AI Scenario Simulation Modal */}
+      <GroundedScenarioModal
+        isOpen={showGroundedScenarioModal}
+        onClose={() => setShowGroundedScenarioModal(false)}
+        schoolId={activeSchoolId}
+        schoolName={activeSchoolName}
+        lat={activeSchoolLat}
+        lng={activeSchoolLng}
+      />
+
       {/* Fullscreen Weather Mode */}
       {showWindyModal && (
-        <div className="absolute inset-0 z-[9999] flex flex-col md:flex-row bg-slate-900 animate-in fade-in duration-300 overflow-hidden overscroll-none">
+        <div aria-label="Peta Cuaca Layar Penuh" className="absolute inset-0 z-[9999] bg-slate-900 animate-in fade-in duration-300 overflow-hidden overscroll-none">
           {/* Iframe takes up remaining space */}
           <div 
-            className="flex-1 w-full h-full relative order-1 md:order-none min-h-[50vh]"
+            className="w-full h-full relative"
             style={{ WebkitOverflowScrolling: 'touch', overflow: 'hidden' }}
           >
 
@@ -7202,94 +8474,34 @@ export function MapsView() {
               height="100%" 
               src={`https://embed.windy.com/embed.html?type=map&location=coordinates&metricRain=mm&metricTemp=%C2%B0C&metricWind=km/h&zoom=${windyCoords.zoom}&overlay=${windyOverlay}&product=ecmwf&level=surface&lat=${windyCoords.lat}&lon=${windyCoords.lng}`} 
               frameBorder="0"
-              title="Windy Weather Map"
+              title="Peta Cuaca Layar Penuh"
               className="w-full h-full block"
               style={{ pointerEvents: 'auto', touchAction: 'none', border: 'none' }}
               allow="fullscreen; geolocation"
             ></iframe>
           </div>
 
-          {/* Responsive Panel: Bottom on Mobile, Right Sidebar on Desktop */}
-          <div className="w-full md:w-72 h-auto max-h-[45vh] md:max-h-full md:h-full bg-white dark:bg-slate-900 border-t md:border-t-0 md:border-l border-slate-200 dark:border-slate-800 shadow-2xl flex flex-col z-10 order-2 md:order-none shrink-0">
-            <div className="p-3 md:p-5 border-b border-slate-100 dark:border-slate-800/60 bg-slate-50 dark:bg-slate-900/50 flex items-center justify-between md:block">
-              <div>
-                <h2 className="text-sm md:text-base font-bold text-slate-800 dark:text-white flex items-center gap-2">
-                  <CloudRain className="h-4 w-4 md:h-5 md:w-5 text-blue-500" />
-                  Mode Cuaca Windy
-                </h2>
-                <p className="text-[10px] md:text-xs text-slate-500 mt-0.5 md:mt-1 hidden md:block">Pilih parameter atmosfer realtime ECMWF</p>
-              </div>
-              
-              {/* Mobile Close Button (Top right of the bottom drawer) */}
-              <button 
-                onClick={() => setShowWindyModal(false)}
-                className="md:hidden p-2 rounded-lg bg-slate-200 dark:bg-slate-800 text-slate-600 dark:text-slate-300 hover:bg-slate-300 transition-colors"
+          <div className="absolute top-3 left-3 z-10 flex items-center gap-2">
+            {!showWindyMenu && (
+              <button
+                type="button"
+                onClick={() => setShowWindyMenu(true)}
+                aria-label="Buka Menu Cuaca di Layar Penuh"
+                className="flex items-center gap-2 rounded-xl bg-white/95 dark:bg-slate-900/95 px-3 py-2.5 text-xs font-bold text-sky-700 dark:text-sky-300 shadow-lg border border-slate-200 dark:border-slate-700 hover:bg-sky-50 dark:hover:bg-slate-800 transition-colors"
               >
-                <X className="h-4 w-4" />
+                <Wind className="h-4 w-4" />
+                Menu Cuaca
               </button>
-            </div>
-            
-            <div className="flex-1 overflow-y-auto p-3 md:p-4 grid grid-cols-2 md:grid-cols-1 gap-2 md:gap-3 content-start">
-              <button onClick={() => setWindyOverlay('rain')} className={`w-full flex items-center gap-2 md:gap-3 p-2 md:p-3 rounded-xl border transition-colors ${windyOverlay === 'rain' ? 'bg-blue-50 border-blue-200 dark:bg-blue-900/20 dark:border-blue-800' : 'bg-slate-50 border-transparent hover:bg-slate-100 dark:bg-slate-800/50 dark:hover:bg-slate-800'}`}>
-                <CloudRain className={`h-4 w-4 md:h-5 md:w-5 ${windyOverlay === 'rain' ? 'text-blue-600 dark:text-blue-400' : 'text-slate-400'}`} />
-                <span className={`text-xs md:text-sm font-medium ${windyOverlay === 'rain' ? 'text-blue-700 dark:text-blue-300' : 'text-slate-600 dark:text-slate-400'}`}>Hujan & Petir</span>
-              </button>
-
-              <button onClick={() => setWindyOverlay('temp')} className={`w-full flex items-center gap-2 md:gap-3 p-2 md:p-3 rounded-xl border transition-colors ${windyOverlay === 'temp' ? 'bg-rose-50 border-rose-200 dark:bg-rose-900/20 dark:border-rose-800' : 'bg-slate-50 border-transparent hover:bg-slate-100 dark:bg-slate-800/50 dark:hover:bg-slate-800'}`}>
-                <Thermometer className={`h-4 w-4 md:h-5 md:w-5 ${windyOverlay === 'temp' ? 'text-rose-600 dark:text-rose-400' : 'text-slate-400'}`} />
-                <span className={`text-xs md:text-sm font-medium ${windyOverlay === 'temp' ? 'text-rose-700 dark:text-rose-300' : 'text-slate-600 dark:text-slate-400'}`}>Suhu</span>
-              </button>
-
-              <button onClick={() => setWindyOverlay('wind')} className={`w-full flex items-center gap-2 md:gap-3 p-2 md:p-3 rounded-xl border transition-colors ${windyOverlay === 'wind' ? 'bg-teal-50 border-teal-200 dark:bg-teal-900/20 dark:border-teal-800' : 'bg-slate-50 border-transparent hover:bg-slate-100 dark:bg-slate-800/50 dark:hover:bg-slate-800'}`}>
-                <Wind className={`h-4 w-4 md:h-5 md:w-5 ${windyOverlay === 'wind' ? 'text-teal-600 dark:text-teal-400' : 'text-slate-400'}`} />
-                <span className={`text-xs md:text-sm font-medium ${windyOverlay === 'wind' ? 'text-teal-700 dark:text-teal-300' : 'text-slate-600 dark:text-slate-400'}`}>Angin</span>
-              </button>
-
-              <button onClick={() => setWindyOverlay('clouds')} className={`w-full flex items-center gap-2 md:gap-3 p-2 md:p-3 rounded-xl border transition-colors ${windyOverlay === 'clouds' ? 'bg-slate-100 border-slate-300 dark:bg-slate-700/50 dark:border-slate-600' : 'bg-slate-50 border-transparent hover:bg-slate-100 dark:bg-slate-800/50 dark:hover:bg-slate-800'}`}>
-                <Cloud className={`h-4 w-4 md:h-5 md:w-5 ${windyOverlay === 'clouds' ? 'text-slate-600 dark:text-slate-300' : 'text-slate-400'}`} />
-                <span className={`text-xs md:text-sm font-medium ${windyOverlay === 'clouds' ? 'text-slate-700 dark:text-slate-200' : 'text-slate-600 dark:text-slate-400'}`}>Awan</span>
-              </button>
-
-              <button onClick={() => setWindyOverlay('pm2p5')} className={`w-full flex items-center gap-2 md:gap-3 p-2 md:p-3 rounded-xl border transition-colors ${windyOverlay === 'pm2p5' ? 'bg-purple-50 border-purple-200 dark:bg-purple-900/20 dark:border-purple-800' : 'bg-slate-50 border-transparent hover:bg-slate-100 dark:bg-slate-800/50 dark:hover:bg-slate-800'}`}>
-                <Activity className={`h-4 w-4 md:h-5 md:w-5 ${windyOverlay === 'pm2p5' ? 'text-purple-600 dark:text-purple-400' : 'text-slate-400'}`} />
-                <span className={`text-xs md:text-sm font-medium ${windyOverlay === 'pm2p5' ? 'text-purple-700 dark:text-purple-300' : 'text-slate-600 dark:text-slate-400'}`}>Polusi Udara</span>
-              </button>
-
-              <button onClick={() => setWindyOverlay('ozone')} className={`w-full flex items-center gap-2 md:gap-3 p-2 md:p-3 rounded-xl border transition-colors ${windyOverlay === 'ozone' ? 'bg-indigo-50 border-indigo-200 dark:bg-indigo-900/20 dark:border-indigo-800' : 'bg-slate-50 border-transparent hover:bg-slate-100 dark:bg-slate-800/50 dark:hover:bg-slate-800'}`}>
-                <Globe className={`h-4 w-4 md:h-5 md:w-5 ${windyOverlay === 'ozone' ? 'text-indigo-600 dark:text-indigo-400' : 'text-slate-400'}`} />
-                <span className={`text-xs md:text-sm font-medium ${windyOverlay === 'ozone' ? 'text-indigo-700 dark:text-indigo-300' : 'text-slate-600 dark:text-slate-400'}`}>Ozon</span>
-              </button>
-
-              <button onClick={() => setWindyOverlay('waves')} className={`w-full flex items-center gap-2 md:gap-3 p-2 md:p-3 rounded-xl border transition-colors ${windyOverlay === 'waves' ? 'bg-cyan-50 border-cyan-200 dark:bg-cyan-900/20 dark:border-cyan-800' : 'bg-slate-50 border-transparent hover:bg-slate-100 dark:bg-slate-800/50 dark:hover:bg-slate-800'}`}>
-                <Waves className={`h-4 w-4 md:h-5 md:w-5 ${windyOverlay === 'waves' ? 'text-cyan-600 dark:text-cyan-400' : 'text-slate-400'}`} />
-                <span className={`text-xs md:text-sm font-medium ${windyOverlay === 'waves' ? 'text-cyan-700 dark:text-cyan-300' : 'text-slate-600 dark:text-slate-400'}`}>Gelombang Laut</span>
-              </button>
-
-              <button onClick={() => setWindyOverlay('pressure')} className={`w-full flex items-center gap-2 md:gap-3 p-2 md:p-3 rounded-xl border transition-colors ${windyOverlay === 'pressure' ? 'bg-amber-50 border-amber-200 dark:bg-amber-900/20 dark:border-amber-800' : 'bg-slate-50 border-transparent hover:bg-slate-100 dark:bg-slate-800/50 dark:hover:bg-slate-800'}`}>
-                <Gauge className={`h-4 w-4 md:h-5 md:w-5 ${windyOverlay === 'pressure' ? 'text-amber-600 dark:text-amber-400' : 'text-slate-400'}`} />
-                <span className={`text-xs md:text-sm font-medium ${windyOverlay === 'pressure' ? 'text-amber-700 dark:text-amber-300' : 'text-slate-600 dark:text-slate-400'}`}>Tekanan Udara</span>
-              </button>
-
-              <button onClick={() => setWindyOverlay('radar')} className={`w-full flex items-center gap-2 md:gap-3 p-2 md:p-3 rounded-xl border transition-colors ${windyOverlay === 'radar' ? 'bg-sky-50 border-sky-200 dark:bg-sky-900/20 dark:border-sky-800' : 'bg-slate-50 border-transparent hover:bg-slate-100 dark:bg-slate-800/50 dark:hover:bg-slate-800'}`}>
-                <Radio className={`h-4 w-4 md:h-5 md:w-5 ${windyOverlay === 'radar' ? 'text-sky-600 dark:text-sky-400' : 'text-slate-400'}`} />
-                <span className={`text-xs md:text-sm font-medium ${windyOverlay === 'radar' ? 'text-sky-700 dark:text-sky-300' : 'text-slate-600 dark:text-slate-400'}`}>Radar Cuaca</span>
-              </button>
-
-              <button onClick={() => setWindyOverlay('satellite')} className={`w-full flex items-center gap-2 md:gap-3 p-2 md:p-3 rounded-xl border transition-colors ${windyOverlay === 'satellite' ? 'bg-indigo-50 border-indigo-200 dark:bg-indigo-900/20 dark:border-indigo-800' : 'bg-slate-50 border-transparent hover:bg-slate-100 dark:bg-slate-800/50 dark:hover:bg-slate-800'}`}>
-                <Satellite className={`h-4 w-4 md:h-5 md:w-5 ${windyOverlay === 'satellite' ? 'text-indigo-600 dark:text-indigo-400' : 'text-slate-400'}`} />
-                <span className={`text-xs md:text-sm font-medium ${windyOverlay === 'satellite' ? 'text-indigo-700 dark:text-indigo-300' : 'text-slate-600 dark:text-slate-400'}`}>Satelit Cuaca</span>
-              </button>
-            </div>
-            
-            <div className="hidden md:block p-4 border-t border-slate-100 dark:border-slate-800">
-              <button 
-                onClick={() => setShowWindyModal(false)}
-                className="w-full flex items-center justify-center gap-2 py-3.5 rounded-xl bg-slate-900 hover:bg-slate-800 text-white dark:bg-white dark:text-slate-900 dark:hover:bg-slate-100 transition-colors font-bold text-sm shadow-lg"
-              >
-                <MapIcon className="h-4 w-4" />
-                Kembali ke Street Map
-              </button>
-            </div>
+            )}
+            <button
+              type="button"
+              onClick={() => setShowWindyModal(false)}
+              aria-label="Keluar dari Layar Penuh"
+              className="flex items-center gap-2 rounded-xl bg-white/95 dark:bg-slate-900/95 px-3 py-2.5 text-xs font-bold text-slate-700 dark:text-slate-200 shadow-lg border border-slate-200 dark:border-slate-700 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors"
+            >
+              <X className="h-4 w-4" />
+              Keluar Layar Penuh
+            </button>
           </div>
         </div>
       )}

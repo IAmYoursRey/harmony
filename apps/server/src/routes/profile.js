@@ -155,13 +155,21 @@ router.get("/gss", verifyToken, async (req, res) => {
 
   const overall = Math.round((knowledge + decisionAccuracy + responseTime) / 3);
 
-  const history = [
-    Math.max(0, overall - 20),
-    Math.max(0, overall - 15),
-    Math.max(0, overall - 10),
-    Math.max(0, overall - 5),
-    overall,
-  ];
+  // Real historical progression from actual simulation attempts and points history
+  let history = [];
+  if (dtResults.length > 1) {
+    history = dtResults.map((_, idx) => {
+      const slice = dtResults.slice(0, idx + 1);
+      const avgHp = Math.round(slice.reduce((sum, x) => sum + (x.hpRemaining || 0), 0) / slice.length);
+      return Math.min(100, Math.max(0, avgHp));
+    });
+  } else if (targetProfiles[0]?.pointsHistory?.length > 1) {
+    history = targetProfiles[0].pointsHistory.map((ph) => Math.min(100, Math.round(ph.points / 50)));
+  } else if (overall > 0) {
+    history = [overall];
+  } else {
+    history = [0];
+  }
 
   const metrics = [
     { label: "Knowledge", value: knowledge },
@@ -192,6 +200,12 @@ router.get("/gss", verifyToken, async (req, res) => {
   res.json({
     success: true,
     data: {
+      overall,
+      history,
+      metrics,
+      milestones,
+    },
+    gss: {
       overall,
       history,
       metrics,

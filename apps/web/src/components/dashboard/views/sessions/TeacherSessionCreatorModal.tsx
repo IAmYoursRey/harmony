@@ -138,7 +138,7 @@ export function TeacherSessionCreatorModal({
                 </label>
                 <div className="relative">
                   <MapIcon className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
-                  <select
+                  <select name="selectedMap"
                     id="map-select"
                     value={selectedMap}
                     onChange={(e) => setSelectedMap(e.target.value)}
@@ -161,7 +161,7 @@ export function TeacherSessionCreatorModal({
                   </label>
                   <div className="relative">
                     <ShieldAlert className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
-                    <select
+                    <select name="selectedScenario"
                       id="scenario-select"
                       value={selectedScenario}
                       onChange={(e) => setSelectedScenario(e.target.value)}

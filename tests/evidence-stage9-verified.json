@@ -1,0 +1,856 @@
+{
+  "checkedAt": "2026-10-03T22:30:43.603Z",
+  "scope": "Independent actual-source Stage 9 verification; synthetic responses are test fixtures, not earth observations",
+  "cases": [
+    {
+      "id": "radar-old100-good-new20-all-fail",
+      "actual": {
+        "counts": {
+          "requested": 120,
+          "loaded": 100,
+          "error": 20,
+          "activeRequested": 20,
+          "activeLoaded": 0,
+          "activeError": 20
+        },
+        "status": "UNAVAILABLE"
+      },
+      "expected": "UNAVAILABLE for current viewport; historical successes cannot make it PARTIAL",
+      "pass": true
+    },
+    {
+      "id": "radar-active1-good2-failed",
+      "actual": {
+        "counts": {
+          "requested": 3,
+          "loaded": 1,
+          "error": 2
+        },
+        "status": "PARSIAL"
+      },
+      "expected": "PARTIAL, since one active tile is usable",
+      "pass": true
+    },
+    {
+      "id": "radar-old20-fail-new3-all-good",
+      "actual": {
+        "counts": {
+          "requested": 23,
+          "loaded": 3,
+          "error": 20,
+          "activeRequested": 3,
+          "activeLoaded": 3,
+          "activeError": 0
+        },
+        "status": "LIVE RADAR"
+      },
+      "expected": "LIVE for three usable active tiles; historical errors cannot make current viewport unavailable",
+      "pass": true
+    },
+    {
+      "id": "MET-missing-geometry",
+      "actual": {
+        "success": false,
+        "updatedAt": null,
+        "current": null,
+        "error": "Respons MET Norway tidak memuat geometri lokasi yang valid (Point coordinates)."
+      },
+      "expected": "Reject missing location / invalid provenance / incompatible units; do not silently relabel them",
+      "pass": true
+    },
+    {
+      "id": "MET-incompatible-units",
+      "actual": {
+        "success": false,
+        "updatedAt": null,
+        "current": null,
+        "error": "Satuan suhu MET Norway (fahrenheit) tidak kompatibel (wajib celsius)."
+      },
+      "expected": "Reject missing location / invalid provenance / incompatible units; do not silently relabel them",
+      "pass": true
+    },
+    {
+      "id": "MET-malformed-updatedAt",
+      "actual": {
+        "success": false,
+        "updatedAt": null,
+        "current": null,
+        "error": "Metadata updated_at dari MET Norway tidak valid."
+      },
+      "expected": "Reject missing location / invalid provenance / incompatible units; do not silently relabel them",
+      "pass": true
+    },
+    {
+      "id": "fallback-no-current",
+      "actual": {
+        "dataStatus": "PARTIAL",
+        "dataTime": "2026-10-04T22:30:43.603Z",
+        "elevation": 0,
+        "current": null,
+        "hourly": [
+          {
+            "time": "2026-10-04T22:30:43.603Z",
+            "hour": 22,
+            "label": "22:30",
+            "temperature": 17,
+            "apparentTemp": null,
+            "humidity": 81,
+            "precipitation": null,
+            "precipitationProb": null,
+            "cloudCover": 93,
+            "pressure": 1005,
+            "windSpeed": 14.4,
+            "windDirection": 140,
+            "windGusts": null,
+            "conditionCode": 1,
+            "conditionText": "Tidak Diketahui",
+            "pm25": null,
+            "ozone": null,
+            "uvIndex": null
+          }
+        ],
+        "sources": [
+          {
+            "id": "met_norway",
+            "name": "MET Norway (Fallback)",
+            "origin": "Norwegia",
+            "type": "Prakiraan MEPS / HRES",
+            "status": "online"
+          }
+        ],
+        "attempts": [
+          {
+            "id": "open_meteo_weather",
+            "url": "https://api.open-meteo.com/v1/forecast?latitude=-7.121&longitude=112.75&timezone=auto&timeformat=unixtime&current=temperature_2m,relative_humidity_2m,apparent_temperature,precipitation,weather_code,cloud_cover,surface_pressure,wind_speed_10m,wind_direction_10m,wind_gusts_10m&hourly=temperature_2m,relative_humidity_2m,apparent_temperature,precipitation_probability,precipitation,weather_code,cloud_cover,surface_pressure,wind_speed_10m,wind_direction_10m,wind_gusts_10m,uv_index&daily=weather_code,temperature_2m_max,temperature_2m_min,apparent_temperature_max,precipitation_sum,precipitation_probability_max,wind_speed_10m_max,wind_gusts_10m_max,uv_index_max&forecast_days=14",
+            "status": "FAILED",
+            "httpStatus": null,
+            "checkedAt": "2026-10-03T22:30:43.615Z",
+            "latencyMs": 0,
+            "payloadBytes": 0,
+            "error": "Independent primary outage fixture"
+          },
+          {
+            "id": "open_meteo_models",
+            "url": "https://api.open-meteo.com/v1/forecast?latitude=-7.121&longitude=112.75&timezone=auto&timeformat=unixtime&hourly=temperature_2m&forecast_days=14&models=ecmwf_ifs025,gfs_seamless,icon_seamless,jma_seamless,bom_access_global,cma_grapes_global,meteofrance_seamless,ukmo_seamless,gem_seamless",
+            "status": "FAILED",
+            "httpStatus": null,
+            "checkedAt": "2026-10-03T22:30:43.615Z",
+            "latencyMs": 0,
+            "payloadBytes": 0,
+            "error": "Independent primary outage fixture"
+          },
+          {
+            "id": "open_meteo_air",
+            "url": "https://air-quality-api.open-meteo.com/v1/air-quality?latitude=-7.121&longitude=112.75&timezone=auto&timeformat=unixtime&current=pm10,pm2_5,ozone&hourly=pm10,pm2_5,ozone&past_days=1&forecast_days=7",
+            "status": "FAILED",
+            "httpStatus": null,
+            "checkedAt": "2026-10-03T22:30:43.615Z",
+            "latencyMs": 0,
+            "payloadBytes": 0,
+            "error": "Independent primary outage fixture"
+          },
+          {
+            "id": "open_meteo_models_split",
+            "url": "https://api.open-meteo.com/v1/forecast?latitude=-7.121&longitude=112.75&timezone=auto&timeformat=unixtime&hourly=temperature_2m&forecast_days=14&models=ecmwf_ifs025,gfs_seamless,icon_seamless,jma_seamless,cma_grapes_global,meteofrance_seamless,ukmo_seamless,gem_seamless",
+            "status": "FAILED",
+            "httpStatus": null,
+            "checkedAt": "2026-10-03T22:30:43.615Z",
+            "latencyMs": 0,
+            "payloadBytes": 0,
+            "error": "Independent primary outage fixture"
+          },
+          {
+            "id": "met_norway_fallback",
+            "url": "https://api.met.no/weatherapi/locationforecast/2.0/compact?lat=-7.121&lon=112.75",
+            "status": "PARTIAL",
+            "httpStatus": 200,
+            "latencyMs": 0,
+            "payloadBytes": 525,
+            "checkedAt": "2026-10-03T22:30:43.615Z"
+          }
+        ]
+      },
+      "expected": "No manufactured current, feels-like/min/max, clear sky, precipitation, gusts, pressure substitution or fixed latency/bytes/status",
+      "pass": true
+    },
+    {
+      "id": "fallback-valid-current-missing-precipitation",
+      "actual": {
+        "dataStatus": "PARTIAL",
+        "dataTime": "2026-10-03T22:30:43.603Z",
+        "elevation": 0,
+        "current": {
+          "consensusTemperature": 17,
+          "apparentTemperature": null,
+          "tempMin": null,
+          "tempMax": null,
+          "confidenceScore": null,
+          "humidity": 81,
+          "precipitation": null,
+          "precipitationProb": null,
+          "cloudCover": 93,
+          "pressure": null,
+          "windSpeed": 14.4,
+          "windDirection": 140,
+          "windGusts": null,
+          "conditionCode": null,
+          "conditionText": "Data Simbol Tidak Tersedia",
+          "pm25": null,
+          "pm10": null,
+          "ozone": null,
+          "uvIndex": null,
+          "aqiLevel": "Tidak Tersedia",
+          "aqiColor": "#94a3b8"
+        },
+        "hourly": [
+          {
+            "time": "2026-10-03T22:30:43.603Z",
+            "hour": 22,
+            "label": "22:30",
+            "temperature": 17,
+            "apparentTemp": null,
+            "humidity": 81,
+            "precipitation": null,
+            "precipitationProb": null,
+            "cloudCover": 93,
+            "pressure": 1005,
+            "windSpeed": 14.4,
+            "windDirection": 140,
+            "windGusts": null,
+            "conditionCode": 1,
+            "conditionText": "Tidak Diketahui",
+            "pm25": null,
+            "ozone": null,
+            "uvIndex": null
+          }
+        ],
+        "sources": [
+          {
+            "id": "met_norway",
+            "name": "MET Norway (Fallback)",
+            "origin": "Norwegia",
+            "type": "Prakiraan MEPS / HRES",
+            "status": "online"
+          }
+        ],
+        "attempts": [
+          {
+            "id": "open_meteo_weather",
+            "url": "https://api.open-meteo.com/v1/forecast?latitude=-7.122&longitude=112.75&timezone=auto&timeformat=unixtime&current=temperature_2m,relative_humidity_2m,apparent_temperature,precipitation,weather_code,cloud_cover,surface_pressure,wind_speed_10m,wind_direction_10m,wind_gusts_10m&hourly=temperature_2m,relative_humidity_2m,apparent_temperature,precipitation_probability,precipitation,weather_code,cloud_cover,surface_pressure,wind_speed_10m,wind_direction_10m,wind_gusts_10m,uv_index&daily=weather_code,temperature_2m_max,temperature_2m_min,apparent_temperature_max,precipitation_sum,precipitation_probability_max,wind_speed_10m_max,wind_gusts_10m_max,uv_index_max&forecast_days=14",
+            "status": "FAILED",
+            "httpStatus": null,
+            "checkedAt": "2026-10-03T22:30:43.617Z",
+            "latencyMs": 0,
+            "payloadBytes": 0,
+            "error": "Independent primary outage fixture"
+          },
+          {
+            "id": "open_meteo_models",
+            "url": "https://api.open-meteo.com/v1/forecast?latitude=-7.122&longitude=112.75&timezone=auto&timeformat=unixtime&hourly=temperature_2m&forecast_days=14&models=ecmwf_ifs025,gfs_seamless,icon_seamless,jma_seamless,bom_access_global,cma_grapes_global,meteofrance_seamless,ukmo_seamless,gem_seamless",
+            "status": "FAILED",
+            "httpStatus": null,
+            "checkedAt": "2026-10-03T22:30:43.617Z",
+            "latencyMs": 0,
+            "payloadBytes": 0,
+            "error": "Independent primary outage fixture"
+          },
+          {
+            "id": "open_meteo_air",
+            "url": "https://air-quality-api.open-meteo.com/v1/air-quality?latitude=-7.122&longitude=112.75&timezone=auto&timeformat=unixtime&current=pm10,pm2_5,ozone&hourly=pm10,pm2_5,ozone&past_days=1&forecast_days=7",
+            "status": "FAILED",
+            "httpStatus": null,
+            "checkedAt": "2026-10-03T22:30:43.617Z",
+            "latencyMs": 0,
+            "payloadBytes": 0,
+            "error": "Independent primary outage fixture"
+          },
+          {
+            "id": "open_meteo_models_split",
+            "url": "https://api.open-meteo.com/v1/forecast?latitude=-7.122&longitude=112.75&timezone=auto&timeformat=unixtime&hourly=temperature_2m&forecast_days=14&models=ecmwf_ifs025,gfs_seamless,icon_seamless,jma_seamless,cma_grapes_global,meteofrance_seamless,ukmo_seamless,gem_seamless",
+            "status": "FAILED",
+            "httpStatus": null,
+            "checkedAt": "2026-10-03T22:30:43.617Z",
+            "latencyMs": 0,
+            "payloadBytes": 0,
+            "error": "Independent primary outage fixture"
+          },
+          {
+            "id": "met_norway_fallback",
+            "url": "https://api.met.no/weatherapi/locationforecast/2.0/compact?lat=-7.122&lon=112.75",
+            "status": "SUCCESS",
+            "httpStatus": 200,
+            "latencyMs": 0,
+            "payloadBytes": 525,
+            "checkedAt": "2026-10-03T22:30:43.617Z"
+          }
+        ]
+      },
+      "expected": "No manufactured current, feels-like/min/max, clear sky, precipitation, gusts, pressure substitution or fixed latency/bytes/status",
+      "pass": true
+    },
+    {
+      "id": "fallback-preserve-other-successful-sources",
+      "actual": {
+        "modelCount": 9,
+        "pm25": 15,
+        "attempts": [
+          {
+            "id": "open_meteo_weather",
+            "url": "https://api.open-meteo.com/v1/forecast?latitude=-7.123&longitude=112.75&timezone=auto&timeformat=unixtime&current=temperature_2m,relative_humidity_2m,apparent_temperature,precipitation,weather_code,cloud_cover,surface_pressure,wind_speed_10m,wind_direction_10m,wind_gusts_10m&hourly=temperature_2m,relative_humidity_2m,apparent_temperature,precipitation_probability,precipitation,weather_code,cloud_cover,surface_pressure,wind_speed_10m,wind_direction_10m,wind_gusts_10m,uv_index&daily=weather_code,temperature_2m_max,temperature_2m_min,apparent_temperature_max,precipitation_sum,precipitation_probability_max,wind_speed_10m_max,wind_gusts_10m_max,uv_index_max&forecast_days=14",
+            "status": "FAILED",
+            "httpStatus": null,
+            "checkedAt": "2026-10-03T22:30:43.617Z",
+            "latencyMs": 1,
+            "payloadBytes": 0,
+            "error": "Only primary weather unavailable in independent fixture"
+          },
+          {
+            "id": "open_meteo_models",
+            "url": "https://api.open-meteo.com/v1/forecast?latitude=-7.123&longitude=112.75&timezone=auto&timeformat=unixtime&hourly=temperature_2m&forecast_days=14&models=ecmwf_ifs025,gfs_seamless,icon_seamless,jma_seamless,bom_access_global,cma_grapes_global,meteofrance_seamless,ukmo_seamless,gem_seamless",
+            "status": "SUCCESS",
+            "httpStatus": 200,
+            "checkedAt": "2026-10-03T22:30:43.617Z",
+            "latencyMs": 1,
+            "payloadBytes": 404
+          },
+          {
+            "id": "open_meteo_air",
+            "url": "https://air-quality-api.open-meteo.com/v1/air-quality?latitude=-7.123&longitude=112.75&timezone=auto&timeformat=unixtime&current=pm10,pm2_5,ozone&hourly=pm10,pm2_5,ozone&past_days=1&forecast_days=7",
+            "status": "SUCCESS",
+            "httpStatus": 200,
+            "checkedAt": "2026-10-03T22:30:43.618Z",
+            "latencyMs": 0,
+            "payloadBytes": 100
+          },
+          {
+            "id": "met_norway_fallback",
+            "url": "https://api.met.no/weatherapi/locationforecast/2.0/compact?lat=-7.123&lon=112.75",
+            "status": "SUCCESS",
+            "httpStatus": 200,
+            "latencyMs": 0,
+            "payloadBytes": 525,
+            "checkedAt": "2026-10-03T22:30:43.618Z"
+          }
+        ],
+        "sources": [
+          {
+            "id": "met_norway",
+            "name": "MET Norway (Fallback)",
+            "origin": "Norwegia",
+            "type": "Prakiraan MEPS / HRES",
+            "status": "online"
+          },
+          {
+            "id": "ecmwf_ifs025",
+            "name": "ECMWF IFS 0.25°",
+            "origin": "Uni Eropa",
+            "type": "Model melalui Open-Meteo",
+            "status": "online"
+          },
+          {
+            "id": "gfs_seamless",
+            "name": "NOAA GFS",
+            "origin": "Amerika Serikat",
+            "type": "Model melalui Open-Meteo",
+            "status": "online"
+          },
+          {
+            "id": "icon_seamless",
+            "name": "DWD ICON",
+            "origin": "Jerman",
+            "type": "Model melalui Open-Meteo",
+            "status": "online"
+          },
+          {
+            "id": "jma_seamless",
+            "name": "JMA",
+            "origin": "Jepang",
+            "type": "Model melalui Open-Meteo",
+            "status": "online"
+          },
+          {
+            "id": "bom_access_global",
+            "name": "BoM ACCESS-G",
+            "origin": "Australia",
+            "type": "Model melalui Open-Meteo",
+            "status": "online"
+          },
+          {
+            "id": "cma_grapes_global",
+            "name": "CMA GRAPES",
+            "origin": "Tiongkok",
+            "type": "Model melalui Open-Meteo",
+            "status": "online"
+          },
+          {
+            "id": "meteofrance_seamless",
+            "name": "Météo-France",
+            "origin": "Prancis",
+            "type": "Model melalui Open-Meteo",
+            "status": "online"
+          },
+          {
+            "id": "ukmo_seamless",
+            "name": "UK Met Office",
+            "origin": "Britania Raya",
+            "type": "Model melalui Open-Meteo",
+            "status": "online"
+          },
+          {
+            "id": "gem_seamless",
+            "name": "CMC GEM",
+            "origin": "Kanada",
+            "type": "Model melalui Open-Meteo",
+            "status": "online"
+          },
+          {
+            "id": "cams",
+            "name": "Copernicus CAMS melalui Open-Meteo",
+            "origin": "Koordinat pilihan",
+            "type": "Prakiraan kualitas udara",
+            "status": "online"
+          }
+        ]
+      },
+      "expected": "Retain successful, aligned model and CAMS inputs when only primary weather fails",
+      "pass": true
+    },
+    {
+      "id": "BMKG-invalid-coordinates-magnitude-depth",
+      "actual": {
+        "status": "OFFLINE",
+        "error": "Respons BMKG tidak memuat koordinat gempa yang valid dalam rentang geografis."
+      },
+      "expected": "Reject invalid product without ONLINE",
+      "pass": true
+    },
+    {
+      "id": "BMKG-valid-nonzero-offset",
+      "actual": {
+        "status": "ONLINE"
+      },
+      "expected": "Accept legitimate local date +07:00 after strict calendar validation",
+      "pass": true
+    },
+    {
+      "id": "FIRMS-garbage-acquisition",
+      "actual": {
+        "status": "OFFLINE",
+        "error": "Semua record FIRMS (1) tidak memiliki parameter geografis atau waktu akuisisi yang valid."
+      },
+      "expected": "Reject invalid product without ONLINE",
+      "pass": true
+    },
+    {
+      "id": "FIRMS-date-only-no-time",
+      "actual": {
+        "status": "OFFLINE",
+        "error": "Semua record FIRMS (1) tidak memiliki parameter geografis atau waktu akuisisi yang valid."
+      },
+      "expected": "Reject invalid product without ONLINE",
+      "pass": true
+    },
+    {
+      "id": "FIRMS-mixed-valid-invalid",
+      "actual": {
+        "status": "DEGRADED",
+        "error": "Record FIRMS memuat 1 record tidak valid yang ditolak; 1 record valid dipertahankan."
+      },
+      "expected": "Preserve valid records and show PARTIAL with rejected count",
+      "pass": true
+    },
+    {
+      "id": "model-breaker-is-CMA",
+      "actual": {
+        "modelCount": 8,
+        "requests": [
+          "ecmwf_ifs025,gfs_seamless,icon_seamless,jma_seamless,bom_access_global,cma_grapes_global,meteofrance_seamless,ukmo_seamless,gem_seamless",
+          "ecmwf_ifs025,gfs_seamless,icon_seamless,jma_seamless,bom_access_global,meteofrance_seamless,ukmo_seamless,gem_seamless"
+        ],
+        "attempts": [
+          {
+            "id": "open_meteo_weather",
+            "url": "https://api.open-meteo.com/v1/forecast?latitude=-7.131&longitude=112.75&timezone=auto&timeformat=unixtime&current=temperature_2m,relative_humidity_2m,apparent_temperature,precipitation,weather_code,cloud_cover,surface_pressure,wind_speed_10m,wind_direction_10m,wind_gusts_10m&hourly=temperature_2m,relative_humidity_2m,apparent_temperature,precipitation_probability,precipitation,weather_code,cloud_cover,surface_pressure,wind_speed_10m,wind_direction_10m,wind_gusts_10m,uv_index&daily=weather_code,temperature_2m_max,temperature_2m_min,apparent_temperature_max,precipitation_sum,precipitation_probability_max,wind_speed_10m_max,wind_gusts_10m_max,uv_index_max&forecast_days=14",
+            "status": "PARTIAL",
+            "httpStatus": 200,
+            "checkedAt": "2026-10-03T22:30:43.620Z",
+            "latencyMs": 1,
+            "payloadBytes": 363,
+            "error": "Sebagian deret prakiraan tidak tersedia; titik kosong tidak dibuatkan angka pengganti."
+          },
+          {
+            "id": "open_meteo_models",
+            "url": "https://api.open-meteo.com/v1/forecast?latitude=-7.131&longitude=112.75&timezone=auto&timeformat=unixtime&hourly=temperature_2m&forecast_days=14&models=ecmwf_ifs025,gfs_seamless,icon_seamless,jma_seamless,bom_access_global,cma_grapes_global,meteofrance_seamless,ukmo_seamless,gem_seamless",
+            "status": "FAILED",
+            "httpStatus": 400,
+            "checkedAt": "2026-10-03T22:30:43.620Z",
+            "latencyMs": 1,
+            "payloadBytes": 64,
+            "error": "HTTP 400: Fixture: cma_grapes_global unavailable"
+          },
+          {
+            "id": "open_meteo_air",
+            "url": "https://air-quality-api.open-meteo.com/v1/air-quality?latitude=-7.131&longitude=112.75&timezone=auto&timeformat=unixtime&current=pm10,pm2_5,ozone&hourly=pm10,pm2_5,ozone&past_days=1&forecast_days=7",
+            "status": "SUCCESS",
+            "httpStatus": 200,
+            "checkedAt": "2026-10-03T22:30:43.620Z",
+            "latencyMs": 1,
+            "payloadBytes": 100
+          },
+          {
+            "id": "open_meteo_models_split",
+            "url": "https://api.open-meteo.com/v1/forecast?latitude=-7.131&longitude=112.75&timezone=auto&timeformat=unixtime&hourly=temperature_2m&forecast_days=14&models=ecmwf_ifs025,gfs_seamless,icon_seamless,jma_seamless,bom_access_global,meteofrance_seamless,ukmo_seamless,gem_seamless",
+            "status": "PARTIAL",
+            "httpStatus": 200,
+            "checkedAt": "2026-10-03T22:30:43.621Z",
+            "latencyMs": 0,
+            "payloadBytes": 364,
+            "error": "Tersedia 8 dari 9 model pada waktu yang sama. Tidak tersedia: CMA GRAPES."
+          }
+        ]
+      },
+      "expected": "Recover other valid models when ANY model fails; do not always drop BoM",
+      "pass": true
+    },
+    {
+      "id": "model-split-wrong-location",
+      "actual": {
+        "modelCount": 0,
+        "requests": [
+          "ecmwf_ifs025,gfs_seamless,icon_seamless,jma_seamless,bom_access_global,cma_grapes_global,meteofrance_seamless,ukmo_seamless,gem_seamless",
+          "ecmwf_ifs025,gfs_seamless,icon_seamless,jma_seamless,cma_grapes_global,meteofrance_seamless,ukmo_seamless,gem_seamless"
+        ],
+        "attempts": [
+          {
+            "id": "open_meteo_weather",
+            "url": "https://api.open-meteo.com/v1/forecast?latitude=-7.132&longitude=112.75&timezone=auto&timeformat=unixtime&current=temperature_2m,relative_humidity_2m,apparent_temperature,precipitation,weather_code,cloud_cover,surface_pressure,wind_speed_10m,wind_direction_10m,wind_gusts_10m&hourly=temperature_2m,relative_humidity_2m,apparent_temperature,precipitation_probability,precipitation,weather_code,cloud_cover,surface_pressure,wind_speed_10m,wind_direction_10m,wind_gusts_10m,uv_index&daily=weather_code,temperature_2m_max,temperature_2m_min,apparent_temperature_max,precipitation_sum,precipitation_probability_max,wind_speed_10m_max,wind_gusts_10m_max,uv_index_max&forecast_days=14",
+            "status": "PARTIAL",
+            "httpStatus": 200,
+            "checkedAt": "2026-10-03T22:30:43.622Z",
+            "latencyMs": 0,
+            "payloadBytes": 363,
+            "error": "Sebagian deret prakiraan tidak tersedia; titik kosong tidak dibuatkan angka pengganti."
+          },
+          {
+            "id": "open_meteo_models",
+            "url": "https://api.open-meteo.com/v1/forecast?latitude=-7.132&longitude=112.75&timezone=auto&timeformat=unixtime&hourly=temperature_2m&forecast_days=14&models=ecmwf_ifs025,gfs_seamless,icon_seamless,jma_seamless,bom_access_global,cma_grapes_global,meteofrance_seamless,ukmo_seamless,gem_seamless",
+            "status": "FAILED",
+            "httpStatus": 400,
+            "checkedAt": "2026-10-03T22:30:43.622Z",
+            "latencyMs": 0,
+            "payloadBytes": 64,
+            "error": "HTTP 400: Fixture: bom_access_global unavailable"
+          },
+          {
+            "id": "open_meteo_air",
+            "url": "https://air-quality-api.open-meteo.com/v1/air-quality?latitude=-7.132&longitude=112.75&timezone=auto&timeformat=unixtime&current=pm10,pm2_5,ozone&hourly=pm10,pm2_5,ozone&past_days=1&forecast_days=7",
+            "status": "SUCCESS",
+            "httpStatus": 200,
+            "checkedAt": "2026-10-03T22:30:43.622Z",
+            "latencyMs": 0,
+            "payloadBytes": 100
+          },
+          {
+            "id": "open_meteo_models_split",
+            "url": "https://api.open-meteo.com/v1/forecast?latitude=-7.132&longitude=112.75&timezone=auto&timeformat=unixtime&hourly=temperature_2m&forecast_days=14&models=ecmwf_ifs025,gfs_seamless,icon_seamless,jma_seamless,cma_grapes_global,meteofrance_seamless,ukmo_seamless,gem_seamless",
+            "status": "FAILED",
+            "httpStatus": 200,
+            "checkedAt": "2026-10-03T22:30:43.622Z",
+            "latencyMs": 0,
+            "payloadBytes": 360,
+            "error": "Koordinat model terpisah tidak sesuai lokasi pilihan."
+          }
+        ]
+      },
+      "expected": "Reject London model grid for Indonesian query",
+      "pass": true
+    },
+    {
+      "id": "modal-initial-state",
+      "actual": {
+        "verifiedOnlineCount": 0,
+        "liveConnectedCount": 0,
+        "mapped": [
+          {
+            "id": "bmkg-gempa-tews",
+            "endpoint": "bmkg_tews",
+            "status": "UNCHECKED",
+            "credentialDescriptor": "PUBLIC_FREE"
+          },
+          {
+            "id": "pvmbg-magma-vona",
+            "credentialDescriptor": "PUBLIC_FREE"
+          },
+          {
+            "id": "big-demnas-inageoportal",
+            "credentialDescriptor": "PUBLIC_FREE"
+          },
+          {
+            "id": "bnpb-inarisk-irbi",
+            "credentialDescriptor": "PUBLIC_FREE"
+          },
+          {
+            "id": "kemendikbud-dapodik",
+            "credentialDescriptor": "PUBLIC_FREE"
+          },
+          {
+            "id": "bmkg-weather-radar-sat",
+            "credentialDescriptor": "PUBLIC_FREE"
+          },
+          {
+            "id": "esa-copernicus-sentinel",
+            "credentialDescriptor": "PUBLIC_FREE"
+          },
+          {
+            "id": "usgs-earthquake-hazards",
+            "endpoint": "usgs_earthquake",
+            "status": "UNCHECKED",
+            "credentialDescriptor": "PUBLIC_FREE"
+          },
+          {
+            "id": "open-meteo-ecmwf",
+            "endpoint": "open_meteo_weather",
+            "status": "UNCHECKED",
+            "credentialDescriptor": "PUBLIC_FREE"
+          },
+          {
+            "id": "nasa-firms-noaa",
+            "endpoint": "nasa_firms",
+            "status": "UNCHECKED",
+            "credentialDescriptor": "CONFIGURED"
+          },
+          {
+            "id": "openstreetmap-odbl",
+            "credentialDescriptor": "PUBLIC_FREE"
+          },
+          {
+            "id": "google-gemini-ai",
+            "endpoint": "ai_nwp",
+            "status": "UNCHECKED",
+            "credentialDescriptor": "CONFIGURED"
+          },
+          {
+            "id": "bom-access-maritime",
+            "endpoint": "open_meteo_model_bom",
+            "status": "UNCHECKED",
+            "credentialDescriptor": "PUBLIC_FREE"
+          },
+          {
+            "id": "cma-grapes-asia",
+            "endpoint": "open_meteo_model_cma",
+            "status": "UNCHECKED",
+            "credentialDescriptor": "PUBLIC_FREE"
+          },
+          {
+            "id": "jma-seamless-japan",
+            "endpoint": "open_meteo_model_jma",
+            "status": "UNCHECKED",
+            "credentialDescriptor": "PUBLIC_FREE"
+          },
+          {
+            "id": "copernicus-cams-eu",
+            "endpoint": "open_meteo_air",
+            "status": "UNCHECKED",
+            "credentialDescriptor": "PUBLIC_FREE"
+          }
+        ]
+      },
+      "expected": "Zero verified streams when no endpoint has been checked; credentials UNKNOWN until backend reports",
+      "pass": true
+    },
+    {
+      "id": "modal-all-endpoints-offline",
+      "actual": {
+        "verifiedOnlineCount": 0,
+        "liveConnectedCount": 0,
+        "mapped": [
+          {
+            "id": "bmkg-gempa-tews",
+            "endpoint": "bmkg_tews",
+            "status": "OFFLINE",
+            "credentialDescriptor": "PUBLIC_FREE"
+          },
+          {
+            "id": "pvmbg-magma-vona",
+            "credentialDescriptor": "PUBLIC_FREE"
+          },
+          {
+            "id": "big-demnas-inageoportal",
+            "credentialDescriptor": "PUBLIC_FREE"
+          },
+          {
+            "id": "bnpb-inarisk-irbi",
+            "credentialDescriptor": "PUBLIC_FREE"
+          },
+          {
+            "id": "kemendikbud-dapodik",
+            "credentialDescriptor": "PUBLIC_FREE"
+          },
+          {
+            "id": "bmkg-weather-radar-sat",
+            "credentialDescriptor": "PUBLIC_FREE"
+          },
+          {
+            "id": "esa-copernicus-sentinel",
+            "credentialDescriptor": "PUBLIC_FREE"
+          },
+          {
+            "id": "usgs-earthquake-hazards",
+            "endpoint": "usgs_earthquake",
+            "status": "OFFLINE",
+            "credentialDescriptor": "PUBLIC_FREE"
+          },
+          {
+            "id": "open-meteo-ecmwf",
+            "endpoint": "open_meteo_weather",
+            "status": "OFFLINE",
+            "credentialDescriptor": "PUBLIC_FREE"
+          },
+          {
+            "id": "nasa-firms-noaa",
+            "endpoint": "nasa_firms",
+            "status": "OFFLINE",
+            "credentialDescriptor": "CONFIGURED"
+          },
+          {
+            "id": "openstreetmap-odbl",
+            "credentialDescriptor": "PUBLIC_FREE"
+          },
+          {
+            "id": "google-gemini-ai",
+            "endpoint": "ai_nwp",
+            "status": "OFFLINE",
+            "credentialDescriptor": "CONFIGURED"
+          },
+          {
+            "id": "bom-access-maritime",
+            "endpoint": "open_meteo_model_bom",
+            "status": "OFFLINE",
+            "credentialDescriptor": "PUBLIC_FREE"
+          },
+          {
+            "id": "cma-grapes-asia",
+            "endpoint": "open_meteo_model_cma",
+            "status": "OFFLINE",
+            "credentialDescriptor": "PUBLIC_FREE"
+          },
+          {
+            "id": "jma-seamless-japan",
+            "endpoint": "open_meteo_model_jma",
+            "status": "OFFLINE",
+            "credentialDescriptor": "PUBLIC_FREE"
+          },
+          {
+            "id": "copernicus-cams-eu",
+            "endpoint": "open_meteo_air",
+            "status": "OFFLINE",
+            "credentialDescriptor": "PUBLIC_FREE"
+          }
+        ]
+      },
+      "expected": "Zero verified streams when every endpoint is offline",
+      "pass": true
+    },
+    {
+      "id": "modal-shared-model-success",
+      "actual": {
+        "verifiedOnlineCount": 1,
+        "liveConnectedCount": 1,
+        "mapped": [
+          {
+            "id": "bmkg-gempa-tews",
+            "endpoint": "bmkg_tews",
+            "status": "UNCHECKED",
+            "credentialDescriptor": "PUBLIC_FREE"
+          },
+          {
+            "id": "pvmbg-magma-vona",
+            "credentialDescriptor": "PUBLIC_FREE"
+          },
+          {
+            "id": "big-demnas-inageoportal",
+            "credentialDescriptor": "PUBLIC_FREE"
+          },
+          {
+            "id": "bnpb-inarisk-irbi",
+            "credentialDescriptor": "PUBLIC_FREE"
+          },
+          {
+            "id": "kemendikbud-dapodik",
+            "credentialDescriptor": "PUBLIC_FREE"
+          },
+          {
+            "id": "bmkg-weather-radar-sat",
+            "credentialDescriptor": "PUBLIC_FREE"
+          },
+          {
+            "id": "esa-copernicus-sentinel",
+            "credentialDescriptor": "PUBLIC_FREE"
+          },
+          {
+            "id": "usgs-earthquake-hazards",
+            "endpoint": "usgs_earthquake",
+            "status": "UNCHECKED",
+            "credentialDescriptor": "PUBLIC_FREE"
+          },
+          {
+            "id": "open-meteo-ecmwf",
+            "endpoint": "open_meteo_weather",
+            "status": "UNCHECKED",
+            "credentialDescriptor": "PUBLIC_FREE"
+          },
+          {
+            "id": "nasa-firms-noaa",
+            "endpoint": "nasa_firms",
+            "status": "UNCHECKED",
+            "credentialDescriptor": "CONFIGURED"
+          },
+          {
+            "id": "openstreetmap-odbl",
+            "credentialDescriptor": "PUBLIC_FREE"
+          },
+          {
+            "id": "google-gemini-ai",
+            "endpoint": "ai_nwp",
+            "status": "UNCHECKED",
+            "credentialDescriptor": "CONFIGURED"
+          },
+          {
+            "id": "bom-access-maritime",
+            "endpoint": "open_meteo_model_bom",
+            "status": "UNCHECKED",
+            "credentialDescriptor": "PUBLIC_FREE"
+          },
+          {
+            "id": "cma-grapes-asia",
+            "endpoint": "open_meteo_model_cma",
+            "status": "UNCHECKED",
+            "credentialDescriptor": "PUBLIC_FREE"
+          },
+          {
+            "id": "jma-seamless-japan",
+            "endpoint": "open_meteo_model_jma",
+            "status": "UNCHECKED",
+            "credentialDescriptor": "PUBLIC_FREE"
+          },
+          {
+            "id": "copernicus-cams-eu",
+            "endpoint": "open_meteo_air",
+            "status": "UNCHECKED",
+            "credentialDescriptor": "PUBLIC_FREE"
+          }
+        ]
+      },
+      "expected": "A combined request success must not assert individual BoM/CMA/JMA online without each product validation",
+      "pass": true
+    },
+    {
+      "id": "resolver-wrong-scene",
+      "actual": {
+        "error": "ASSET_RESOLUTION_FAILED: ASSET_RESOLUTION_FAILED: ID item yang diterima (DIFFERENT_SCENE) tidak sesuai dengan scene yang diminta (EXPECTED_SCENE)."
+      },
+      "expected": "Reject returned item ID/time mismatch",
+      "pass": true
+    }
+  ]
+}

@@ -1,0 +1,219 @@
+{
+  "checkedAt": "2026-10-03T23:57:22.196Z",
+  "scope": "Stage 11 independent verification suite reproducing 21 scenarios on updated Harmony source code",
+  "cases": [
+    {
+      "id": "r1-met-invalid-iso-time",
+      "actual": {
+        "valid": false,
+        "status": "OFFLINE",
+        "error": "Tidak ada titik data prakiraan numerik dengan nilai fisik valid dari MET Norway.",
+        "acceptedCount": 0,
+        "rejectedCount": 1
+      },
+      "expected": "status: OFFLINE, valid: false",
+      "passed": true
+    },
+    {
+      "id": "r1-met-humidity-physical-range",
+      "actual": {
+        "valid": false,
+        "status": "OFFLINE",
+        "error": "Tidak ada titik data prakiraan numerik dengan nilai fisik valid dari MET Norway.",
+        "acceptedCount": 0,
+        "rejectedCount": 1
+      },
+      "expected": "status: OFFLINE, valid: false",
+      "passed": true
+    },
+    {
+      "id": "r1-met-all-points-historical",
+      "actual": {
+        "valid": false,
+        "status": "OFFLINE",
+        "error": "Seluruh titik prakiraan MET Norway sudah usang (>48 jam lalu).",
+        "acceptedCount": 1,
+        "rejectedCount": 0
+      },
+      "expected": "status: OFFLINE, valid: false",
+      "passed": true
+    },
+    {
+      "id": "r1-met-humidity-unit-fraction",
+      "actual": {
+        "valid": false,
+        "status": "OFFLINE",
+        "error": "Satuan kelembapan MET Norway tidak kompatibel (wajib %).",
+        "acceptedCount": 0,
+        "rejectedCount": 0
+      },
+      "expected": "status: OFFLINE, valid: false",
+      "passed": true
+    },
+    {
+      "id": "r1-met-valid-positive-control",
+      "actual": {
+        "valid": true,
+        "status": "ONLINE",
+        "acceptedCount": 2,
+        "rejectedCount": 0
+      },
+      "expected": "status: ONLINE, valid: true, acceptedCount: 2",
+      "passed": true
+    },
+    {
+      "id": "r2-met-audit-lon-binding",
+      "actual": {
+        "url": "https://api.met.no/weatherapi/locationforecast/2.0/compact?lat=-7.34&lon=110.35",
+        "lat": "-7.34",
+        "lon": "110.35"
+      },
+      "expected": "lat=-7.34, lon=110.35",
+      "passed": true
+    },
+    {
+      "id": "r2-negative-coordinates-binding",
+      "actual": {
+        "url": "https://api.met.no/weatherapi/locationforecast/2.0/compact?lat=-12.55&lon=-77.04",
+        "lat": "-12.55",
+        "lon": "-77.04"
+      },
+      "expected": "lat=-12.55, lon=-77.04",
+      "passed": true
+    },
+    {
+      "id": "r2-open-meteo-audit-url-binding",
+      "actual": {
+        "url": "https://api.open-meteo.com/v1/forecast?latitude=-7.34&longitude=110.35&current=temperature_2m",
+        "lat": "-7.34",
+        "lng": "110.35"
+      },
+      "expected": "latitude=-7.34, longitude=110.35",
+      "passed": true
+    },
+    {
+      "id": "r3-model-array-length-mismatch",
+      "actual": {
+        "valid": false,
+        "status": "OFFLINE",
+        "error": "Panjang array suhu dan array waktu tidak selaras."
+      },
+      "expected": "status: OFFLINE, valid: false",
+      "passed": true
+    },
+    {
+      "id": "r3-model-unsupported-unit-fahrenheit",
+      "actual": {
+        "valid": false,
+        "status": "OFFLINE",
+        "error": "Satuan suhu model tidak sesuai kontrak query (diharapkan °C, diterima °F)."
+      },
+      "expected": "status: OFFLINE, valid: false",
+      "passed": true
+    },
+    {
+      "id": "r3-model-invalid-calendar-date-feb31",
+      "actual": {
+        "calValid": false,
+        "isoValid": false,
+        "resFeb31": {
+          "valid": false,
+          "status": "OFFLINE",
+          "error": "Waktu model memuat tanggal kalender yang tidak valid."
+        }
+      },
+      "expected": "calValid: false, isoValid: false, valid: false",
+      "passed": true
+    },
+    {
+      "id": "r3-model-historical-only-rejected",
+      "actual": {
+        "valid": false,
+        "status": "OFFLINE",
+        "error": "Data model adalah data historis masa lalu (bukan prakiraan saat ini)."
+      },
+      "expected": "status: OFFLINE, valid: false",
+      "passed": true
+    },
+    {
+      "id": "r3-model-single-and-multi-positive",
+      "actual": {
+        "valid": true,
+        "status": "ONLINE"
+      },
+      "expected": "status: ONLINE, valid: true",
+      "passed": true
+    },
+    {
+      "id": "r4-met-partial-retains-degraded-with-current",
+      "actual": {
+        "epStatus": "DEGRADED",
+        "acceptedCount": 1,
+        "rejectedCount": 1
+      },
+      "expected": "status: DEGRADED, accepted: 1, rejected: 1",
+      "passed": true
+    },
+    {
+      "id": "r5-weather-all-null-rain",
+      "actual": {
+        "text": "Data hujan belum tersedia untuk interval ini"
+      },
+      "expected": "Data hujan belum tersedia untuk interval ini",
+      "passed": true
+    },
+    {
+      "id": "r5-weather-low-coverage-rain",
+      "actual": {
+        "text": "Pada sampel yang tersedia tidak tercatat hujan; data periode lainnya belum lengkap"
+      },
+      "expected": "Must not claim Cenderung kering",
+      "passed": true
+    },
+    {
+      "id": "r5-weather-prob-only-no-intensity-fabrication",
+      "actual": {
+        "text": "Peluang hujan (70%) sekitar pukul 14:00 Asia/Jakarta (intensitas akumulasi belum tersedia)"
+      },
+      "expected": "Must state probability without drizzle claim",
+      "passed": true
+    },
+    {
+      "id": "r5-weather-disconnected-rain-windows",
+      "actual": {
+        "text": "Hujan sedang sekitar pukul 01:00, 04:00 Asia/Jakarta"
+      },
+      "expected": "Distinct windows separated",
+      "passed": true
+    },
+    {
+      "id": "r6-next-day-point-selection-distinct-key",
+      "actual": {
+        "k1": "2026-10-04T14:00:00Z",
+        "k2": "2026-10-05T14:00:00Z",
+        "resolvedTemp": 30
+      },
+      "expected": "k1 != k2, resolvedTemp: 30",
+      "passed": true
+    },
+    {
+      "id": "r7-radar-status-active-tile-coverage",
+      "actual": {
+        "sLoading": "MEMUAT",
+        "sLive": "LIVE RADAR",
+        "sPartial": "PARSIAL"
+      },
+      "expected": "MEMUAT, LIVE RADAR, PARSIAL",
+      "passed": true
+    },
+    {
+      "id": "r8-gibs-frame-age-stale-citra",
+      "actual": {
+        "sStaleCitra": "STALE CITRA",
+        "sLiveCitra": "NASA GIBS IR"
+      },
+      "expected": "STALE CITRA and NASA GIBS IR",
+      "passed": true
+    }
+  ]
+}

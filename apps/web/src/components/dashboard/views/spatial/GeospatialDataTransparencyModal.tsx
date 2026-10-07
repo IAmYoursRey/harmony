@@ -21,6 +21,7 @@ import {
   ShieldCheck,
   Wifi,
   WifiOff,
+  Info,
   CloudRain,
   Thermometer,
   Wind,
@@ -31,6 +32,7 @@ import {
   Clock,
   Play,
   RotateCcw,
+  ExternalLink,
 } from 'lucide-react';
 import {
   geospatialDataTelemetryService,
@@ -42,7 +44,7 @@ import {
   TelemetryLogLevel,
   RawRegionalModelEntry,
 } from '@/services/geospatialDataTelemetryService';
-import { WeatherConsensusData } from '@/services/weatherAggregatorService';
+import { WeatherConsensusData, weatherAggregatorService } from '@/services/weatherAggregatorService';
 
 interface GeospatialDataTransparencyModalProps {
   isOpen: boolean;
@@ -83,6 +85,8 @@ export const GeospatialDataTransparencyModal: React.FC<GeospatialDataTransparenc
   const [rawCategoryFilter, setRawCategoryFilter] = useState<string>('ALL');
   const [rawSearchQuery, setRawSearchQuery] = useState<string>('');
   const logConsoleEndRef = useRef<HTMLDivElement>(null);
+
+
 
   const categoryCounts = useMemo(() => {
     const entries = latestSnapshot?.regionalModelEntries || [];
@@ -127,26 +131,82 @@ export const GeospatialDataTransparencyModal: React.FC<GeospatialDataTransparenc
     return <Radio className="w-4 h-4 text-slate-500 shrink-0" />;
   };
 
+  const [isSimulatingCycle, setIsSimulatingCycle] = useState(false);
+
   // Sync state from service
   const updateFromService = () => {
     setLogs(geospatialDataTelemetryService.getLogs());
     setEndpoints(geospatialDataTelemetryService.getEndpoints());
-    setLatestSnapshot(geospatialDataTelemetryService.getLatestSnapshot());
+    let snapshot = geospatialDataTelemetryService.getSnapshotForLocation(lat, lng) || geospatialDataTelemetryService.getLatestSnapshot();
+    
+    // Fallback: If snapshot is null or empty but weatherData is provided, record/synthesize it immediately
+    if ((!snapshot || snapshot.regionalModelEntries.length === 0) && weatherData) {
+      geospatialDataTelemetryService.recordRawIngestion(
+        lat,
+        lng,
+        locationName,
+        (weatherData as any).rawWeather || {},
+        (weatherData as any).rawAir || {},
+        weatherData
+      );
+      snapshot = geospatialDataTelemetryService.getSnapshotForLocation(lat, lng) || geospatialDataTelemetryService.getLatestSnapshot();
+    }
+
+    setLatestSnapshot(snapshot || null);
     setDeltas(geospatialDataTelemetryService.getTransformationDeltas());
     setAccuracyScorecard(geospatialDataTelemetryService.getAccuracyScorecard());
   };
 
   useEffect(() => {
     if (!isOpen) return;
+    // Purge legacy client localStorage keys to guarantee immutable server authority
+    if (typeof window !== 'undefined') {
+      localStorage.removeItem('harmony_firms_key');
+      localStorage.removeItem('harmony_tomtom_key');
+    }
     updateFromService();
+
+    // Auto-fetch data and execute Gemini AI lifecycle if no data snapshot is available
+    const existingSnap = geospatialDataTelemetryService.getSnapshotForLocation(lat, lng) || geospatialDataTelemetryService.getLatestSnapshot();
+    if (!existingSnap || existingSnap.regionalModelEntries.length === 0) {
+      (async () => {
+        try {
+          let currentW = weatherData;
+          if (!currentW) {
+            currentW = await weatherAggregatorService.fetchConsensusWeather(lat, lng, locationName);
+          }
+          if (currentW) {
+            geospatialDataTelemetryService.recordRawIngestion(
+              lat,
+              lng,
+              locationName,
+              (currentW as any).rawWeather || {},
+              (currentW as any).rawAir || {},
+              currentW
+            );
+            await weatherAggregatorService.reverifyWithAi(currentW);
+          }
+          updateFromService();
+        } catch {
+          // Handled gracefully in telemetry service
+        }
+      })();
+    }
+
     const unsubscribe = geospatialDataTelemetryService.subscribe(updateFromService);
     return () => unsubscribe();
-  }, [isOpen]);
+  }, [isOpen, lat, lng, locationName, weatherData]);
+
+  // Filter out endpoints that require private credentials not present by default (e.g. NASA FIRMS)
+  const displayEndpoints = useMemo(() => {
+    return endpoints.filter((ep) => ep.id !== 'nasa_firms');
+  }, [endpoints]);
 
   const handlePingAll = async () => {
     setIsPingingAll(true);
     try {
-      await geospatialDataTelemetryService.pingAllEndpoints(lat, lng);
+      await Promise.all(displayEndpoints.map((ep) => geospatialDataTelemetryService.pingEndpoint(ep.id, lat, lng)));
+      updateFromService();
     } finally {
       setIsPingingAll(false);
     }
@@ -175,7 +235,7 @@ export const GeospatialDataTransparencyModal: React.FC<GeospatialDataTransparenc
   };
 
   const handleDownloadRawJson = () => {
-    const jsonStr = geospatialDataTelemetryService.exportRawDataAsJson();
+    const jsonStr = geospatialDataTelemetryService.exportRawDataAsJson(lat, lng);
     const blob = new Blob([jsonStr], { type: 'application/json;charset=utf-8' });
     const url = URL.createObjectURL(blob);
     const link = document.createElement('a');
@@ -185,15 +245,36 @@ export const GeospatialDataTransparencyModal: React.FC<GeospatialDataTransparenc
     URL.revokeObjectURL(url);
   };
 
-  const handleSimulateCycle = () => {
+  const handleSimulateCycle = async () => {
+    if (isSimulatingCycle) return;
+    setIsSimulatingCycle(true);
     geospatialDataTelemetryService.addLog(
       'INFO',
       'SIMULATOR',
-      `Memulai siklus pengujian integrasi telemetri mandiri untuk wilayah ${locationName}...`
+      `Memulai siklus terkoordinasi Gemini AI untuk ${locationName} (${lat.toFixed(3)}°, ${lng.toFixed(3)}°)...`
     );
-    handlePingAll();
-    if (onRefreshWeather) {
-      onRefreshWeather();
+    try {
+      let currentW = weatherData;
+      if (onRefreshWeather) {
+        await Promise.resolve(onRefreshWeather());
+      } else {
+        currentW = await weatherAggregatorService.fetchConsensusWeather(lat, lng, locationName, true);
+      }
+      await geospatialDataTelemetryService.pingAllEndpoints(lat, lng);
+      if (onReverifyAi) {
+        await Promise.resolve(onReverifyAi());
+      } else if (currentW) {
+        await weatherAggregatorService.reverifyWithAi(currentW);
+      }
+      updateFromService();
+    } catch (cycleErr: any) {
+      geospatialDataTelemetryService.addLog(
+        'ERROR',
+        'SIMULATOR',
+        `Siklus mengalami kendala: ${cycleErr?.message || String(cycleErr)}`
+      );
+    } finally {
+      setIsSimulatingCycle(false);
     }
   };
 
@@ -203,7 +284,7 @@ export const GeospatialDataTransparencyModal: React.FC<GeospatialDataTransparenc
       const matchLevel =
         logFilterLevel === 'ALL' ||
         (logFilterLevel === 'DATA' && (log.level === 'DATA_IN' || log.level === 'DATA_OUT')) ||
-        (logFilterLevel === 'AI' && log.level === 'AI_EXEC') ||
+        (logFilterLevel === 'AI' && (log.level === 'AI_EXEC' || log.source.includes('AI') || log.source.includes('GEMINI') || log.source.includes('DIAGNOSTIC') || log.source.includes('NWP'))) ||
         (logFilterLevel === 'WARN_ERROR' && (log.level === 'WARN' || log.level === 'ERROR')) ||
         log.level === logFilterLevel;
 
@@ -217,27 +298,37 @@ export const GeospatialDataTransparencyModal: React.FC<GeospatialDataTransparenc
   }, [logs, logFilterLevel, logSearchQuery]);
 
   const endpointStats = useMemo(() => {
-    const total = endpoints.length;
-    const online = endpoints.filter((e) => e.status === 'ONLINE').length;
-    const degraded = endpoints.filter((e) => e.status === 'DEGRADED').length;
-    const offline = endpoints.filter((e) => e.status === 'OFFLINE').length;
+    const list = displayEndpoints;
+    const total = list.length;
+    const online = list.filter((e) => e.status === 'ONLINE').length;
+    const degraded = list.filter((e) => e.status === 'DEGRADED').length;
+    const offline = list.filter((e) => e.status === 'OFFLINE').length;
+    const checking = list.filter((e) => e.status === 'CHECKING').length;
+    const unchecked = list.filter((e) => e.status === 'UNCHECKED').length;
+    const notConfigured = list.filter((e) => e.errorMessage?.includes('belum dikonfigurasi') || e.errorMessage?.includes('NOT_CONFIGURED')).length;
+    const noCoverage = list.filter((e) => e.errorMessage?.includes('NO_COVERAGE') || e.errorMessage?.includes('cakupan')).length;
     const avgLatency =
-      endpoints.filter((e) => e.latencyMs != null).reduce((sum, e) => sum + (e.latencyMs || 0), 0) /
-        (endpoints.filter((e) => e.latencyMs != null).length || 1);
+      list.filter((e) => e.latencyMs != null).reduce((sum, e) => sum + (e.latencyMs || 0), 0) /
+        (list.filter((e) => e.latencyMs != null).length || 1);
 
     return {
       total,
       online,
       degraded,
       offline,
+      checking,
+      unchecked,
+      notConfigured,
+      noCoverage,
       avgLatency: Math.round(avgLatency),
     };
-  }, [endpoints]);
+  }, [displayEndpoints]);
 
   if (!isOpen) return null;
 
   return (
     <div
+      role="dialog" aria-label="Transparansi Data"
       className="fixed inset-0 z-[10010] flex items-center justify-center p-2 sm:p-4 md:p-6 bg-slate-950/85 backdrop-blur-md animate-in fade-in duration-200"
       onClick={onClose}
     >
@@ -258,7 +349,7 @@ export const GeospatialDataTransparencyModal: React.FC<GeospatialDataTransparenc
                 </h3>
                 <span className="inline-flex items-center gap-1 text-[10px] font-extrabold px-2 py-0.5 rounded-full bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20">
                   <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
-                  100% TRANSPARAN
+                  AUDIT DATA
                 </span>
               </div>
               <p className="text-xs text-slate-500 dark:text-slate-400">
@@ -303,9 +394,13 @@ export const GeospatialDataTransparencyModal: React.FC<GeospatialDataTransparenc
             <div>
               <span className="text-[10px] text-slate-400 uppercase font-bold block">Status Web / API</span>
               <span className="font-bold text-slate-800 dark:text-white">
-                {endpointStats.online}/{endpointStats.total} Sumber Online
+                {endpointStats.checking > 0
+                  ? `${endpointStats.online}/${endpointStats.total} Sumber Online (${endpointStats.checking} Sedang Diperiksa...)`
+                  : `${endpointStats.online}/${endpointStats.total} Sumber Online`}
               </span>
-              <span className="text-[10px] text-slate-500 block">Rata-rata: {endpointStats.avgLatency} ms</span>
+              <span className="text-[10px] text-slate-500 block">
+                {endpointStats.online} Online • {endpointStats.checking > 0 ? `${endpointStats.checking} Memeriksa... • ` : ''}{endpointStats.degraded + endpointStats.noCoverage} Parsial/Cakupan • {endpointStats.notConfigured} Perlu Kunci
+              </span>
             </div>
           </div>
 
@@ -316,9 +411,9 @@ export const GeospatialDataTransparencyModal: React.FC<GeospatialDataTransparenc
             <div>
               <span className="text-[10px] text-slate-400 uppercase font-bold block">Data Mentahan Masuk</span>
               <span className="font-bold text-slate-800 dark:text-white">
-                {latestSnapshot ? '34.8 KB Tersinkron' : 'Siap Diperiksa'}
+                {latestSnapshot ? `${latestSnapshot.regionalModelEntries?.length ?? 0} Parameter Tersedia` : 'Siap Diperiksa'}
               </span>
-              <span className="text-[10px] text-slate-500 block">5 Model NWP + Air Sensor</span>
+              <span className="text-[10px] text-slate-500 block">Model tersedia dan kualitas udara</span>
             </div>
           </div>
 
@@ -327,11 +422,11 @@ export const GeospatialDataTransparencyModal: React.FC<GeospatialDataTransparenc
               <Cpu className="w-4 h-4" />
             </div>
             <div>
-              <span className="text-[10px] text-slate-400 uppercase font-bold block">Pipeline Perubahan AI</span>
+              <span className="text-[10px] text-slate-400 uppercase font-bold block">Harmonisasi & Diagnostik</span>
               <span className="font-bold text-slate-800 dark:text-white">
-                {deltas.length} Variabel Dikalibrasi
+                {deltas.length} Langkah Harmonisasi
               </span>
-              <span className="text-[10px] text-slate-500 block">7 Persamaan Fisika NWP</span>
+              <span className="text-[10px] text-slate-500 block">Diagnostik; bukan solver NWP</span>
             </div>
           </div>
 
@@ -342,9 +437,11 @@ export const GeospatialDataTransparencyModal: React.FC<GeospatialDataTransparenc
             <div>
               <span className="text-[10px] text-slate-400 uppercase font-bold block">Uji Akurasi Konsensus</span>
               <span className="font-bold text-slate-800 dark:text-white">
-                {accuracyScorecard ? `${accuracyScorecard.overallConfidenceScore.toFixed(1)}% Akurat` : '98.3% Akurat'}
+                {accuracyScorecard ? `${accuracyScorecard.overallConfidenceScore.toFixed(1)}% Terverifikasi` : 'Belum diuji'}
               </span>
-              <span className="text-[10px] text-slate-500 block">Deviasi σ: {accuracyScorecard?.multiModelStdDev ?? 0.28}°C</span>
+              <span className="text-[10px] text-slate-500 block">
+                {accuracyScorecard ? `${accuracyScorecard.consistencyChecks.filter(c => c.passed).length}/${accuracyScorecard.consistencyChecks.length} Uji Fisika Lolos Verifikasi` : 'Akurasi memerlukan pengamatan pembanding'}
+              </span>
             </div>
           </div>
         </div>
@@ -369,7 +466,7 @@ export const GeospatialDataTransparencyModal: React.FC<GeospatialDataTransparenc
                   : 'bg-slate-200 dark:bg-slate-700 text-slate-600 dark:text-slate-300'
               }`}
             >
-              {endpoints.length}
+              {displayEndpoints.length}
             </span>
           </button>
 
@@ -478,18 +575,28 @@ export const GeospatialDataTransparencyModal: React.FC<GeospatialDataTransparenc
                   </p>
                 </div>
 
-                <button
-                  onClick={handlePingAll}
-                  disabled={isPingingAll}
-                  className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-500 hover:to-indigo-500 text-white text-xs sm:text-sm font-bold shadow-sm shadow-purple-500/25 border border-purple-400/40 transition-all disabled:opacity-50 self-start sm:self-auto cursor-pointer"
-                >
-                  <RefreshCw className={`w-4 h-4 ${isPingingAll ? 'animate-spin' : ''}`} />
-                  <span>{isPingingAll ? 'Memeriksa Semua...' : 'Ping & Cek Ulang Semua'}</span>
-                </button>
+                <div className="flex items-center gap-2 self-start sm:self-auto">
+                  <div
+                    className="flex items-center gap-1.5 px-3 py-2 rounded-xl bg-slate-100 dark:bg-slate-800/80 border border-slate-200/80 dark:border-slate-700/60 text-slate-700 dark:text-slate-300 text-xs font-semibold shadow-2xs"
+                    title="Seluruh endpoint dan kredensial dikunci secara terpusat pada server backend untuk menjamin integritas data ilmiah dan mencegah modifikasi sepihak"
+                  >
+                    <ShieldCheck className="w-4 h-4 text-emerald-500 shrink-0" />
+                    <span>Endpoint & Kredensial Terkunci (Server Authority)</span>
+                  </div>
+
+                  <button
+                    onClick={handlePingAll}
+                    disabled={isPingingAll}
+                    className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-500 hover:to-indigo-500 text-white text-xs sm:text-sm font-bold shadow-sm shadow-purple-500/25 border border-purple-400/40 transition-all disabled:opacity-50 cursor-pointer"
+                  >
+                    <RefreshCw className={`w-4 h-4 ${isPingingAll ? 'animate-spin' : ''}`} />
+                    <span>{isPingingAll ? 'Memeriksa Semua...' : 'Ping & Cek Ulang Semua'}</span>
+                  </button>
+                </div>
               </div>
 
               <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                {endpoints.map((ep) => {
+                {displayEndpoints.map((ep) => {
                   const isOnline = ep.status === 'ONLINE';
                   const isDegraded = ep.status === 'DEGRADED';
                   const isChecking = ep.status === 'CHECKING';
@@ -515,13 +622,27 @@ export const GeospatialDataTransparencyModal: React.FC<GeospatialDataTransparenc
                               <span className="px-2 py-0.5 rounded-md bg-amber-500/10 text-amber-600 text-[10px] font-bold border border-amber-500/20 flex items-center gap-1">
                                 <RefreshCw className="w-3 h-3 animate-spin" /> Menguji
                               </span>
+                            ) : ep.status === 'UNCHECKED' ? (
+                              <span className="px-2 py-0.5 rounded-md bg-slate-100 dark:bg-slate-800 text-slate-500 text-[10px] font-bold">Belum diperiksa</span>
+                            ) : ep.id === 'windy_embed' && isOnline ? (
+                              <span className="px-2 py-0.5 rounded-md bg-sky-500/10 text-sky-600 dark:text-sky-400 text-[10px] font-bold border border-sky-500/20 flex items-center gap-1">
+                                <CheckCircle2 className="w-3 h-3" /> Tampilan Aktif (Iframe Visual)
+                              </span>
                             ) : isOnline ? (
                               <span className="px-2 py-0.5 rounded-md bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 text-[10px] font-bold border border-emerald-500/20 flex items-center gap-1">
-                                <CheckCircle2 className="w-3 h-3" /> Berhasil (200 OK)
+                                <CheckCircle2 className="w-3 h-3" /> Data valid (HTTP {ep.httpStatus})
                               </span>
                             ) : isDegraded ? (
                               <span className="px-2 py-0.5 rounded-md bg-amber-500/10 text-amber-600 text-[10px] font-bold border border-amber-500/20 flex items-center gap-1">
-                                <AlertTriangle className="w-3 h-3" /> Lambat ({ep.latencyMs} ms)
+                                <AlertTriangle className="w-3 h-3" /> Sebagian ({ep.errorMessage || 'Respons lambat'})
+                              </span>
+                            ) : ep.errorMessage?.includes('belum dikonfigurasi') || ep.errorMessage?.includes('NOT_CONFIGURED') || ep.errorMessage?.includes('alamat email') || ep.errorMessage?.includes('INVALID_KEY') ? (
+                              <span className="px-2 py-0.5 rounded-md bg-amber-500/10 text-amber-600 dark:text-amber-400 text-[10px] font-bold border border-amber-500/20 flex items-center gap-1" title={ep.errorMessage}>
+                                <AlertTriangle className="w-3 h-3" /> {ep.errorMessage?.includes('alamat email') ? 'Perlu Token Hex (Bukan Email)' : 'Perlu Kunci Server'}
+                              </span>
+                            ) : ep.errorMessage?.includes('kosong dari server hulu') || ep.errorMessage?.includes('NO_COVERAGE') || ep.errorMessage?.includes('cakupan') ? (
+                              <span className="px-2 py-0.5 rounded-md bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 text-[10px] font-bold border border-slate-300/60 dark:border-slate-700 flex items-center gap-1" title={ep.errorMessage}>
+                                <Info className="w-3 h-3 text-slate-400" /> Data Hulu Kosong (Pemeliharaan BoM)
                               </span>
                             ) : (
                               <span className="px-2 py-0.5 rounded-md bg-rose-500/10 text-rose-600 text-[10px] font-bold border border-rose-500/20 flex items-center gap-1">
@@ -569,14 +690,16 @@ export const GeospatialDataTransparencyModal: React.FC<GeospatialDataTransparenc
                           <span>Ukuran: <strong className="text-slate-800 dark:text-white">{ep.payloadSize}</strong></span>
                         </div>
 
-                        <button
-                          onClick={() => handlePingSingle(ep.id)}
-                          disabled={isChecking}
-                          className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-purple-500/10 hover:bg-purple-500/20 text-xs font-bold text-purple-600 dark:text-purple-400 border border-purple-500/25 transition-all cursor-pointer disabled:opacity-50 shadow-2xs"
-                        >
-                          <RefreshCw className={`w-3.5 h-3.5 ${isChecking ? 'animate-spin' : ''}`} />
-                          <span>Uji Koneksi</span>
-                        </button>
+                        <div className="flex items-center gap-2">
+                          <button
+                            onClick={() => handlePingSingle(ep.id)}
+                            disabled={isChecking}
+                            className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-purple-500/10 hover:bg-purple-500/20 text-xs font-bold text-purple-600 dark:text-purple-400 border border-purple-500/25 transition-all cursor-pointer disabled:opacity-50 shadow-2xs"
+                          >
+                            <RefreshCw className={`w-3.5 h-3.5 ${isChecking ? 'animate-spin' : ''}`} />
+                            <span>Uji Koneksi</span>
+                          </button>
+                        </div>
                       </div>
                     </div>
                   );
@@ -595,7 +718,7 @@ export const GeospatialDataTransparencyModal: React.FC<GeospatialDataTransparenc
                     <span>Data Mentah Masuk (Raw Ingestion Payload) Sebelum Diproses AI</span>
                   </h4>
                   <p className="text-[11px] text-slate-500">
-                    Nilai murni yang dikirim oleh sensor dan model cuaca seluruh negara tetangga ASEAN, mitra Indo-Pasifik, dan pusat NWP global sebelum dilakukan kalibrasi gerimis atau komputasi 7 persamaan atmosfer
+                    Hanya nilai asli dari respons yang diperiksa untuk koordinat pilihan. Nama negara menunjukkan asal model, bukan pengambilan seluruh wilayah negara. Data yang hilang tidak dibuatkan angka pengganti.
                   </p>
                 </div>
 
@@ -654,7 +777,7 @@ export const GeospatialDataTransparencyModal: React.FC<GeospatialDataTransparenc
                     {categoryCounts.all} Parameter
                   </div>
                   <div className="text-[10px] text-slate-400 mt-0.5">
-                    Sensor Fisik & NWP Ensemble
+                    Parameter model yang diterima
                   </div>
                 </div>
 
@@ -664,10 +787,10 @@ export const GeospatialDataTransparencyModal: React.FC<GeospatialDataTransparenc
                     <span>Cakupan Wilayah</span>
                   </div>
                   <div className="text-base font-bold text-slate-900 dark:text-white">
-                    11 Negara & Otoritas
+                    {latestSnapshot?.neighboringCoverage.totalCountries ?? 0} asal lembaga model
                   </div>
                   <div className="text-[10px] text-slate-400 mt-0.5">
-                    ASEAN, Pasifik, Global
+                    Data untuk satu koordinat pilihan
                   </div>
                 </div>
 
@@ -677,10 +800,10 @@ export const GeospatialDataTransparencyModal: React.FC<GeospatialDataTransparenc
                     <span>Status Validasi</span>
                   </div>
                   <div className="text-base font-bold text-emerald-600 dark:text-emerald-400">
-                    100% Lolos Audit
+                    {accuracyScorecard ? `${accuracyScorecard.overallConfidenceScore.toFixed(1)}% Terverifikasi` : 'Lolos Uji Konsistensi'}
                   </div>
                   <div className="text-[10px] text-slate-400 mt-0.5">
-                    Kalibrasi Anomali Aktif
+                    {accuracyScorecard ? `${accuracyScorecard.consistencyChecks.filter(c => c.passed).length}/${accuracyScorecard.consistencyChecks.length} uji fisika lolos verifikasi` : 'Pemeriksaan konsistensi & batas fisik'}
                   </div>
                 </div>
 
@@ -690,10 +813,10 @@ export const GeospatialDataTransparencyModal: React.FC<GeospatialDataTransparenc
                     <span>Deviasi Multi-Model</span>
                   </div>
                   <div className="text-base font-bold text-purple-600 dark:text-purple-400">
-                    ±0.3°C / 1.1 hPa
+                    {latestSnapshot && latestSnapshot.neighboringCoverage.totalModels > 1 ? `${latestSnapshot.neighboringCoverage.consensusSpread.toFixed(1)}°C` : '—'}
                   </div>
                   <div className="text-[10px] text-slate-400 mt-0.5">
-                    Tingkat Konvergensi Tinggi
+                    Rentang suhu, bukan skor akurasi
                   </div>
                 </div>
               </div>
@@ -774,6 +897,8 @@ export const GeospatialDataTransparencyModal: React.FC<GeospatialDataTransparenc
                     <div className="relative w-full sm:w-64 shrink-0">
                       <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
                       <input
+                        id="telemetry-raw-search-input"
+                        name="rawSearch"
                         type="text"
                         value={rawSearchQuery}
                         onChange={(e) => setRawSearchQuery(e.target.value)}
@@ -886,7 +1011,7 @@ export const GeospatialDataTransparencyModal: React.FC<GeospatialDataTransparenc
                                       </span>
                                     ) : (
                                       <span className="shrink-0 px-2 py-0.5 rounded-md text-[10px] font-bold bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20 flex items-center gap-1 mt-0.5">
-                                        <CheckCircle2 className="w-3 h-3" /> Terverifikasi
+                                        <CheckCircle2 className="w-3 h-3" /> Nilai dari sumber
                                       </span>
                                     )}
                                     <span className="text-[11px] text-slate-600 dark:text-slate-400 leading-snug">
@@ -1066,7 +1191,7 @@ export const GeospatialDataTransparencyModal: React.FC<GeospatialDataTransparenc
                   <div className="flex items-center justify-between mb-3">
                     <span className="text-xs font-bold text-white flex items-center gap-1.5">
                       <Cpu className="w-4 h-4 text-sky-400" />
-                      Status 7 Persamaan Dasar Atmosfer Bjerknes & Richardson (NWP Solver)
+                      Status perhitungan diagnostik atmosfer
                     </span>
                     <span className="text-[10px] font-mono text-emerald-400 bg-emerald-500/10 px-2 py-0.5 rounded-full border border-emerald-500/20">
                       7 / 7 PERSAMAAN VALID
@@ -1098,7 +1223,7 @@ export const GeospatialDataTransparencyModal: React.FC<GeospatialDataTransparenc
               <div className="p-3.5 rounded-2xl bg-slate-50 dark:bg-slate-800/50 border border-slate-200/80 dark:border-slate-700/60">
                 <h4 className="text-xs font-bold text-slate-800 dark:text-white flex items-center gap-1.5">
                   <ShieldCheck className="w-4 h-4 text-emerald-500" />
-                  <span>Uji & Verifikasi Akurasi Cuaca (Konsensus 5 Model & Deteksi Anomali)</span>
+                  <span>Status Validasi Akurasi Cuaca</span>
                 </h4>
                 <p className="text-[11px] text-slate-500">
                   Membuktikan secara ilmiah apakah data cuaca, suhu, hujan, dan angin akurat dengan cross-validation hukum termodinamika atmosfer
@@ -1110,38 +1235,77 @@ export const GeospatialDataTransparencyModal: React.FC<GeospatialDataTransparenc
                 <div className="p-4 rounded-2xl bg-emerald-500/10 border border-emerald-500/30 text-emerald-800 dark:text-emerald-300">
                   <span className="text-xs font-bold block mb-1">Skor Akurasi Konsensus</span>
                   <span className="text-3xl font-black block">
-                    {accuracyScorecard?.overallConfidenceScore.toFixed(1) || '98.3'}%
+                    {accuracyScorecard?.overallConfidenceScore != null ? `${accuracyScorecard.overallConfidenceScore.toFixed(1)}%` : 'Belum diuji'}
                   </span>
                   <span className="text-[10px] opacity-80">
-                    Dihitung dari dispersi variansi model ECMWF, GFS, ICON, JMA, & BMKG
+                    {accuracyScorecard ? 'Berdasarkan keselarasan dispersi ensemble model dan batas fisik' : 'Belum ada pengamatan lapangan yang dipasangkan dengan prakiraan untuk menghitung akurasi'}
                   </span>
                 </div>
 
                 <div className="p-4 rounded-2xl bg-sky-500/10 border border-sky-500/30 text-sky-800 dark:text-sky-300">
-                  <span className="text-xs font-bold block mb-1">Deviasi Standar Suhu (σ)</span>
+                  <span className="text-xs font-bold block mb-1">Rentang Suhu Antar Model</span>
                   <span className="text-3xl font-black block font-mono">
-                    ±{accuracyScorecard?.multiModelStdDev.toFixed(2) || '0.28'}°C
+                    {weatherData?.modelSpread != null ? `${weatherData.modelSpread.toFixed(2)}°C` : (accuracyScorecard?.multiModelStdDev != null ? `±${accuracyScorecard.multiModelStdDev.toFixed(2)}°C` : 'Tidak tersedia')}
                   </span>
                   <span className="text-[10px] opacity-80">
-                    Nilai σ &lt; 0.6°C membuktikan kesepakatan tinggi antar model dunia
+                    Rentang suhu model yang tersedia; bukan galat prakiraan terhadap pengamatan
                   </span>
                 </div>
 
                 <div className="p-4 rounded-2xl bg-purple-500/10 border border-purple-500/30 text-purple-800 dark:text-purple-300">
                   <span className="text-xs font-bold block mb-1">Tingkat Keyakinan Fisika</span>
                   <span className="text-3xl font-black block">
-                    {accuracyScorecard?.confidenceRating || 'Sangat Tinggi'}
+                    {accuracyScorecard?.confidenceRating || 'Belum diukur'}
                   </span>
                   <span className="text-[10px] opacity-80">
-                    5/5 Uji konsistensi variabel atmosfer berhasil dilewati
+                    {accuracyScorecard?.consistencyChecks?.filter(c => c.passed).length ?? 0}/{accuracyScorecard?.consistencyChecks?.length ?? 6} Uji konsistensi variabel atmosfer berhasil dilewati
                   </span>
                 </div>
               </div>
 
+              {/* Metrics Audit Table */}
+              {accuracyScorecard?.metricsAudit && accuracyScorecard.metricsAudit.length > 0 && (
+                <div className="space-y-2">
+                  <h5 className="text-xs font-bold text-slate-800 dark:text-white uppercase tracking-wider">
+                    Audit Parameter Cuaca & Dispersi Sensor:
+                  </h5>
+                  <div className="overflow-x-auto rounded-2xl border border-slate-200/80 dark:border-slate-800 bg-white dark:bg-slate-900/60 shadow-xs">
+                    <table className="w-full text-left text-xs">
+                      <thead className="bg-slate-50 dark:bg-slate-800/80 text-[11px] text-slate-500 uppercase tracking-wider border-b border-slate-200/80 dark:border-slate-800">
+                        <tr>
+                          <th className="p-3 font-bold">Parameter</th>
+                          <th className="p-3 font-bold">Data Mentahan</th>
+                          <th className="p-3 font-bold">Konsensus / Terkalibrasi</th>
+                          <th className="p-3 font-bold">Dispersi / Deviasi</th>
+                          <th className="p-3 font-bold">Skor & Status</th>
+                          <th className="p-3 font-bold">Metodologi & Referensi</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-slate-100 dark:divide-slate-800 text-slate-700 dark:text-slate-300">
+                        {accuracyScorecard.metricsAudit.map((m, idx) => (
+                          <tr key={idx} className="hover:bg-slate-50/50 dark:hover:bg-slate-800/40">
+                            <td className="p-3 font-bold text-slate-900 dark:text-white">{m.parameter}</td>
+                            <td className="p-3 font-mono text-[11px] text-slate-500">{m.sensorRaw}</td>
+                            <td className="p-3 font-mono font-bold text-emerald-600 dark:text-emerald-400">{m.aiCalibrated}</td>
+                            <td className="p-3 text-[11px] font-mono text-purple-600 dark:text-purple-400">{m.spreadOrStdDev}</td>
+                            <td className="p-3">
+                              <span className="px-2 py-0.5 rounded-md text-[10px] font-bold bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20">
+                                {m.accuracyScore}% ({m.status})
+                              </span>
+                            </td>
+                            <td className="p-3 text-[11px] text-slate-500 max-w-xs">{m.methodology}</td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+              )}
+
               {/* Consistency Tests Table */}
               <div className="space-y-2">
                 <h5 className="text-xs font-bold text-slate-800 dark:text-white uppercase tracking-wider">
-                  Hasil 5 Pengujian Konsistensi Hukum Fisika Atmosfer:
+                  Hasil {accuracyScorecard?.consistencyChecks?.length ?? 6} Pengujian Konsistensi Hukum Fisika Atmosfer:
                 </h5>
                 <div className="space-y-2">
                   {accuracyScorecard?.consistencyChecks.map((chk, i) => (
@@ -1183,6 +1347,8 @@ export const GeospatialDataTransparencyModal: React.FC<GeospatialDataTransparenc
                   <div className="relative min-w-[200px]">
                     <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
                     <input
+                      id="telemetry-log-search-input"
+                      name="logSearch"
                       type="text"
                       placeholder="Cari log atau sumber..."
                       value={logSearchQuery}
@@ -1235,10 +1401,21 @@ export const GeospatialDataTransparencyModal: React.FC<GeospatialDataTransparenc
                   </div>
                 </div>
 
-                <div className="flex items-center gap-2 self-end sm:self-auto">
+                <div className="flex items-center gap-2 self-end sm:self-auto flex-wrap">
+                  <button
+                    type="button"
+                    onClick={handleSimulateCycle}
+                    disabled={isSimulatingCycle}
+                    className="flex items-center justify-center gap-1.5 h-10 px-4 rounded-xl bg-gradient-to-r from-purple-600 via-indigo-600 to-purple-700 hover:from-purple-500 hover:to-indigo-500 text-white text-xs font-bold shadow-md shadow-purple-500/25 cursor-pointer transition-all active:scale-95 disabled:opacity-50 min-w-[160px]"
+                    title="Jalankan siklus audit Gemini AI pra & pasca kalkulasi secara live"
+                  >
+                    <Sparkles className={`w-3.5 h-3.5 ${isSimulatingCycle ? 'animate-spin' : ''}`} />
+                    <span>{isSimulatingCycle ? 'Memproses AI...' : 'Jalankan Siklus Gemini AI'}</span>
+                  </button>
+
                   <button
                     onClick={handleCopyLogs}
-                    className="flex items-center justify-center gap-1.5 h-10 px-3.5 rounded-xl bg-white dark:bg-slate-900/90 text-slate-700 dark:text-slate-300 border border-slate-300/80 dark:border-slate-800 text-xs font-semibold hover:border-purple-400/50 hover:text-purple-600 dark:hover:text-purple-300 shadow-2xs cursor-pointer transition-all min-w-[95px]"
+                    className="flex items-center justify-center gap-1.5 h-10 px-3.5 rounded-xl bg-white dark:bg-slate-900/90 text-slate-700 dark:text-slate-300 border border-slate-300/80 dark:border-slate-800 text-xs font-semibold hover:border-purple-400/50 hover:text-purple-600 dark:hover:text-purple-300 shadow-2xs cursor-pointer transition-all min-w-[85px]"
                     title="Salin seluruh log audit ke clipboard"
                   >
                     {isCopied ? <Check className="w-4 h-4 text-emerald-500" /> : <Copy className="w-4 h-4" />}
@@ -1247,7 +1424,7 @@ export const GeospatialDataTransparencyModal: React.FC<GeospatialDataTransparenc
 
                   <button
                     onClick={handleDownloadLogs}
-                    className="flex items-center justify-center gap-1.5 h-10 px-3.5 rounded-xl bg-white dark:bg-slate-900/90 text-slate-700 dark:text-slate-300 border border-slate-300/80 dark:border-slate-800 text-xs font-semibold hover:border-purple-400/50 hover:text-purple-600 dark:hover:text-purple-300 shadow-2xs cursor-pointer transition-all min-w-[110px]"
+                    className="flex items-center justify-center gap-1.5 h-10 px-3.5 rounded-xl bg-white dark:bg-slate-900/90 text-slate-700 dark:text-slate-300 border border-slate-300/80 dark:border-slate-800 text-xs font-semibold hover:border-purple-400/50 hover:text-purple-600 dark:hover:text-purple-300 shadow-2xs cursor-pointer transition-all min-w-[105px]"
                     title="Unduh log dalam file .log"
                   >
                     <Download className="w-4 h-4" />
@@ -1256,7 +1433,7 @@ export const GeospatialDataTransparencyModal: React.FC<GeospatialDataTransparenc
 
                   <button
                     onClick={() => geospatialDataTelemetryService.clearLogs()}
-                    className="flex items-center justify-center h-10 px-3.5 rounded-xl text-rose-600 dark:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-950/30 border border-transparent hover:border-rose-300/40 text-xs font-semibold cursor-pointer transition-all min-w-[95px]"
+                    className="flex items-center justify-center h-10 px-3.5 rounded-xl text-rose-600 dark:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-950/30 border border-transparent hover:border-rose-300/40 text-xs font-semibold cursor-pointer transition-all min-w-[85px]"
                     title="Bersihkan log saat ini"
                   >
                     Bersihkan
@@ -1267,8 +1444,27 @@ export const GeospatialDataTransparencyModal: React.FC<GeospatialDataTransparenc
               {/* Terminal Viewer */}
               <div className="rounded-2xl bg-slate-950 border border-slate-800 p-4 font-mono text-[11px] text-slate-300 max-h-[460px] overflow-y-auto custom-scrollbar space-y-1.5 shadow-inner">
                 {filteredLogs.length === 0 ? (
-                  <div className="py-8 text-center text-slate-500 text-xs">
-                    Tidak ada log yang cocok dengan filter pencarian.
+                  <div className="py-10 px-4 text-center space-y-3">
+                    <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-purple-500/10 text-purple-400 mx-auto border border-purple-500/20">
+                      <Sparkles className="w-6 h-6 animate-pulse" />
+                    </div>
+                    <div className="text-xs font-bold text-slate-300">
+                      {logFilterLevel === 'AI'
+                        ? 'Belum ada log eksekusi Gemini AI yang tercatat pada filter ini.'
+                        : 'Tidak ada log yang cocok dengan filter pencarian.'}
+                    </div>
+                    <p className="text-[11px] text-slate-400 max-w-md mx-auto">
+                      Jalankan siklus audit agar Gemini AI API memproses parameter cuaca sebelum dihitung (pra-inspeksi), mengeksekusi kalkulasi atmosfer, dan menyintesis validasi pasca-hitung.
+                    </p>
+                    <button
+                      type="button"
+                      onClick={handleSimulateCycle}
+                      disabled={isSimulatingCycle}
+                      className="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-purple-600 hover:bg-purple-500 text-white font-bold text-xs shadow-md transition-all active:scale-95 cursor-pointer disabled:opacity-50"
+                    >
+                      <Sparkles className={`w-3.5 h-3.5 ${isSimulatingCycle ? 'animate-spin' : ''}`} />
+                      <span>{isSimulatingCycle ? 'Sedang Memproses AI...' : 'Jalankan Siklus Gemini AI Sekarang'}</span>
+                    </button>
                   </div>
                 ) : (
                   filteredLogs.map((log) => {

@@ -445597,8 +445597,8 @@ export const INITIAL_TRAFFIC_CORRIDORS: TrafficCorridor[] = [
   }
 ];
 
-// Simulasi Telemetri Kecepatan Realtime
-export function simulateRealtimeTraffic(corridors: TrafficCorridor[]): {
+// Sinkronisasi Telemetri Kecepatan Berbasis Data Riil (Bebas Random/Gimmick)
+export function simulateRealtimeTraffic(corridors: TrafficCorridor[], liveUpdates?: Map<string, Partial<TrafficCorridor>>): {
   updatedCorridors: TrafficCorridor[];
   syncTime: string;
   congestedCount: number;
@@ -445609,33 +445609,35 @@ export function simulateRealtimeTraffic(corridors: TrafficCorridor[]): {
   let congested = 0;
 
   const updatedCorridors = corridors.map((corridor) => {
+    const live = liveUpdates?.get(corridor.id);
+    const effectiveCorridorSpeed = live?.speedKmh ?? corridor.speedKmh;
+
     const updatedSegments = (corridor.segments || []).map((seg) => {
-      const delta = Math.floor(Math.random() * 7) - 3; // -3 s/d +3 km/jam
-      const newSpeed = Math.max(12, Math.min(115, seg.speedKmh + delta));
+      const segSpeed = live?.speedKmh ?? seg.speedKmh;
 
       let newStatus: 'Lancar' | 'Ramai Lancar' | 'Padat Merayap' | 'Macet Total' = 'Lancar';
-      if (newSpeed >= 70) newStatus = 'Lancar';
-      else if (newSpeed >= 40) newStatus = 'Ramai Lancar';
-      else if (newSpeed >= 20) newStatus = 'Padat Merayap';
+      if (segSpeed >= 70) newStatus = 'Lancar';
+      else if (segSpeed >= 40) newStatus = 'Ramai Lancar';
+      else if (segSpeed >= 20) newStatus = 'Padat Merayap';
       else newStatus = 'Macet Total';
 
       if (newStatus === 'Padat Merayap' || newStatus === 'Macet Total') {
         congested++;
       }
 
-      totalSpeed += newSpeed;
+      totalSpeed += segSpeed;
       segmentCount++;
 
       return {
         ...seg,
-        speedKmh: newSpeed,
+        speedKmh: segSpeed,
         status: newStatus,
       };
     });
 
     const avgSpeed = updatedSegments.length > 0
       ? Math.round(updatedSegments.reduce((acc, s) => acc + s.speedKmh, 0) / updatedSegments.length)
-      : Math.max(15, corridor.speedKmh + (Math.floor(Math.random() * 5) - 2));
+      : effectiveCorridorSpeed;
 
     let corridorStatus: 'Lancar' | 'Ramai Lancar' | 'Padat Merayap' | 'Macet Total' = 'Lancar';
     if (avgSpeed >= 70) corridorStatus = 'Lancar';
@@ -445646,7 +445648,8 @@ export function simulateRealtimeTraffic(corridors: TrafficCorridor[]): {
     return {
       ...corridor,
       speedKmh: avgSpeed,
-      status: corridorStatus,
+      status: live?.status ?? corridorStatus,
+      condition: live?.condition ?? corridor.condition,
       segments: updatedSegments,
     };
   });

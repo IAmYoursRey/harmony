@@ -207,8 +207,8 @@ export async function recordSmartSimulationAnswers(
 export async function getGSS(schoolId?: string): Promise<any> {
   try {
     const url = schoolId ? `/api/profile/gss?schoolId=${encodeURIComponent(schoolId)}` : '/api/profile/gss';
-    const data = await apiClient.get(url);
-    return data.gss;
+    const res: any = await apiClient.get(url);
+    return res?.data?.data || res?.data?.gss || res?.data || res?.gss || null;
   } catch {
     return null;
   }

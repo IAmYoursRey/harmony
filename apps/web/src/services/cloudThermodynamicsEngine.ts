@@ -17,11 +17,13 @@ export interface CloudThermodynamicsResult {
     | 'KONDENSASI_MENEBAL_MENDUNG' 
     | 'KONVEKSI_AKTIF_HUJAN';
   cloudEvolutionDescription: string;
-  liquidWaterContentGm3: number; // Estimasi kandungan air cairan awan (g/m³)
+  liquidWaterContentGm3: number | null; // Estimasi kandungan air cairan awan (g/m³)
   windAdvectionZonalU: number; // Kecepatan angin timur-barat (km/h)
   windAdvectionMeridionalV: number; // Kecepatan angin utara-selatan (km/h)
   advectionMoistureSource: string; // Deskripsi asal massa udara berdasar vektor angin
-  confidenceIndex: number; // Indeks validasi fisik (0-100%)
+  methodology: 'LOCAL_HEURISTIC';
+  validated: false;
+  confidenceIndex: number | null; // Indeks validasi fisik (0-100%)
 }
 
 export interface CloudThermodynamicsInput {
@@ -78,15 +80,7 @@ class CloudThermodynamicsEngine {
     const u = parseFloat((-windSpeed * Math.sin(rad)).toFixed(1)); // Dari mana angin berhembus
     const v = parseFloat((-windSpeed * Math.cos(rad)).toFixed(1));
 
-    // Analisis sumber kelembapan berdasar arah angin Indonesia
-    let moistureSource = 'Sirkulasi Daratan Lokal';
-    if ((windDir >= 225 && windDir <= 315) || (windDir >= 45 && windDir <= 135)) {
-      moistureSource = 'Adveksi Maritim Basah (Samudra Hindia / Laut Jawa)';
-    } else if (windDir >= 135 && windDir <= 225) {
-      moistureSource = 'Monsun Australia / Laut Selatan (Udara Cenderung Kering-Stabil)';
-    } else {
-      moistureSource = 'Monsun Asia / Laut Natuna (Massa Udara Lembap Khatulistiwa)';
-    }
+    const moistureSource = 'Asal geografis massa udara belum dihitung. Arah angin satu titik tidak cukup untuk menentukan lintasan dan sumber kelembapan.';
 
     // 6. Prediksi Penguapan vs Pengembunan Awan
     let evapPotential: 'SANGAT_TINGGI' | 'SEDANG' | 'RENDAH' | 'KONDENSASI_AKTIF' = 'SEDANG';
@@ -117,9 +111,7 @@ class CloudThermodynamicsEngine {
       description = `Keseimbangan dinamis antara evaporasi permukaan dan kondensasi LCL (${liftingCondensationLevelM} m). Awan berawan terpecah (cerah berawan) dengan sirkulasi angin seimbang (${windSpeed} km/h).`;
     }
 
-    const confidence = parseFloat(
-      Math.min(99.4, Math.max(92, 100 - (vpdHpa > 25 ? 5 : 0) - Math.abs(p - 1012) * 0.15)).toFixed(1)
-    );
+    const confidence = null;
 
     return {
       liftingCondensationLevelM,
@@ -128,11 +120,13 @@ class CloudThermodynamicsEngine {
       vaporPressureDeficitHpa: vpdHpa,
       evaporationPotential: evapPotential,
       cloudEvolutionPrediction: prediction,
-      cloudEvolutionDescription: description,
-      liquidWaterContentGm3: lwc,
+      cloudEvolutionDescription: 'Indikator lokal berbasis suhu dan kelembapan; bukan prakiraan evolusi awan yang tervalidasi. Profil vertikal, citra awan berurutan, serta lintasan angin belum dianalisis.',
+      liquidWaterContentGm3: null,
       windAdvectionZonalU: u,
       windAdvectionMeridionalV: v,
       advectionMoistureSource: moistureSource,
+      methodology: 'LOCAL_HEURISTIC',
+      validated: false,
       confidenceIndex: confidence,
     };
   }

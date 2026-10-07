@@ -241,7 +241,7 @@ export default function SchoolSelectionPage() {
                       <label htmlFor="search-province" className="sr-only">
                         Search
                       </label>
-                      <input
+                      <input name="search"
                         id="search-province"
                         type="text"
                         placeholder={t("school.search")}
@@ -299,7 +299,7 @@ export default function SchoolSelectionPage() {
                       <label htmlFor="search-regency" className="sr-only">
                         Search
                       </label>
-                      <input
+                      <input name="search"
                         id="search-regency"
                         type="text"
                         placeholder={t("school.search")}
@@ -368,7 +368,7 @@ export default function SchoolSelectionPage() {
                       <label htmlFor="search-school" className="sr-only">
                         Search
                       </label>
-                      <input
+                      <input name="search"
                         id="search-school"
                         type="text"
                         placeholder={t("school.search")}

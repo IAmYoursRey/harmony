@@ -10,7 +10,8 @@
     "dev": "concurrently --kill-others --kill-others-on-fail -n \"SERVER,WEB\" -c \"cyan,green\" \"npm run dev -w apps/server\" \"npm run dev -w apps/web\"",
     "build": "npm run build -w apps/web",
     "typecheck": "npm run typecheck -w apps/web",
-    "test": "node tests/spatialCore.test.mjs && node tests/mapFreshnessEngine.test.mjs && node tests/gisInteractionManager.test.mjs"
+    "test:data-integrity": "node --test tests/directDataIntegrity.test.mjs tests/stage10IntegrityVerification.test.mjs tests/stage11IntegrityVerification.test.mjs tests/stage12IntegrityVerification.test.mjs && node tests/weatherDataIntegrity.test.mjs && node tests/mapFreshnessEngine.test.mjs",
+    "test": "node tests/spatialCore.test.mjs && node tests/mapFreshnessEngine.test.mjs && node tests/gisInteractionManager.test.mjs && node tests/geospatialCompletion.test.mjs && node tests/weatherDataIntegrity.test.mjs && node tests/monitoringSnapshot.test.mjs && node tests/recoveryFollowup.test.mjs && node tests/geminiReviewIntegrity.test.mjs && node tests/auditRemediationReproductions.test.mjs && node tests/evidence14Reproductions.test.mjs && node --test tests/evidenceCurrent14.test.mjs && node --test tests/evidenceStage3.test.mjs && node --test tests/evidenceStage4.test.mjs && node --test tests/evidenceStage5.test.mjs && node --test tests/evidenceStage6.test.mjs && node --test tests/stage9IntegrityVerification.test.mjs && node --test tests/stage10IntegrityVerification.test.mjs && node --test tests/stage11IntegrityVerification.test.mjs && node --test tests/stage12IntegrityVerification.test.mjs tests/directDataIntegrity.test.mjs"
   },
   "dependencies": {
     "concurrently": "^8.2.2"

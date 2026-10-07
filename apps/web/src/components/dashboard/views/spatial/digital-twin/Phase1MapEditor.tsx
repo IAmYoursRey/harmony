@@ -595,7 +595,7 @@ export function Phase1MapEditor({
                         key={key}
                         className="flex items-center gap-2 cursor-pointer hover:bg-slate-50 dark:hover:bg-slate-800 p-1 rounded-md transition-colors"
                       >
-                        <input
+                        <input name="input_7lgnl" id="phase1mapeditor-input_7lgnl"
                           type="checkbox"
                           checked={val}
                           onChange={(e) =>

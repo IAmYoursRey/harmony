@@ -227,7 +227,7 @@ export function EventsView() {
 
   const handleParticipate = async (evt: EventItem) => {
     setActiveChallengeEvent(evt);
-    setChallengeScore(Math.floor(Math.random() * 20) + 80); // 80 - 100 random default
+    setChallengeScore(100);
   };
 
   const handleSubmitParticipation = async () => {
@@ -335,7 +335,7 @@ export function EventsView() {
         {/* Search */}
         <div className="relative w-full sm:w-80">
           <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 h-4 w-4 text-ink-400 dark:text-slate-500" />
-          <input
+          <input name="searchQuery" id="eventsview-searchquery"
             type="text"
             placeholder="Search events, topics, scenarios..."
             value={searchQuery}
@@ -783,7 +783,7 @@ export function EventsView() {
                   <label className="block text-xs font-semibold text-ink-700 dark:text-slate-300">
                     Challenge Performance Score: {challengeScore}%
                   </label>
-                  <input
+                  <input name="challengeScore" id="eventsview-challengescore"
                     type="range"
                     min={50}
                     max={100}
@@ -852,7 +852,7 @@ export function EventsView() {
                 <label className="block font-bold text-ink-700 dark:text-slate-300 mb-1">
                   Event Title *
                 </label>
-                <input
+                <input name="eGNational" id="eventsview-egnational"
                   type="text"
                   required
                   placeholder="e.g. National School Evacuation Sprint 2026"
@@ -866,7 +866,7 @@ export function EventsView() {
                 <label className="block font-bold text-ink-700 dark:text-slate-300 mb-1">
                   Description
                 </label>
-                <textarea
+                <textarea name="describeTheChallenge" id="eventsview-describethechallenge"
                   rows={3}
                   placeholder="Describe the challenge goals, instructions, or rules for students..."
                   value={formData.description}
@@ -880,7 +880,7 @@ export function EventsView() {
                   <label className="block font-bold text-ink-700 dark:text-slate-300 mb-1">
                     Event Type
                   </label>
-                  <select
+                  <select name="select_x9e9u" id="eventsview-select_x9e9u"
                     value={formData.type}
                     onChange={(e) =>
                       setFormData({ ...formData, type: e.target.value as "game" | "quiz" })
@@ -896,7 +896,7 @@ export function EventsView() {
                   <label className="block font-bold text-ink-700 dark:text-slate-300 mb-1">
                     Points Reward
                   </label>
-                  <input
+                  <input name="input_4jy4b" id="eventsview-input_4jy4b"
                     type="number"
                     min={50}
                     max={1000}
@@ -913,7 +913,7 @@ export function EventsView() {
                 <label className="block font-bold text-ink-700 dark:text-slate-300 mb-1">
                   Scenario or Topic Name
                 </label>
-                <input
+                <input name="eGEarthquake" id="eventsview-egearthquake"
                   type="text"
                   placeholder="e.g. Earthquake Evacuation Simulator or Tsunami IQ"
                   value={formData.scenarioOrTopic}
@@ -929,7 +929,7 @@ export function EventsView() {
                   <label className="block font-bold text-ink-700 dark:text-slate-300 mb-1">
                     Start Date
                   </label>
-                  <input
+                  <input name="input_wquux" id="eventsview-input_wquux"
                     type="date"
                     value={formData.startDate}
                     onChange={(e) => setFormData({ ...formData, startDate: e.target.value })}
@@ -941,7 +941,7 @@ export function EventsView() {
                   <label className="block font-bold text-ink-700 dark:text-slate-300 mb-1">
                     End Date
                   </label>
-                  <input
+                  <input name="input_je6w7" id="eventsview-input_je6w7"
                     type="date"
                     value={formData.endDate}
                     onChange={(e) => setFormData({ ...formData, endDate: e.target.value })}

@@ -11,7 +11,9 @@ export type SupportedSpectralIndex =
   | 'NBR'
   | 'SAR_VV'
   | 'SAR_VH'
-  | 'SAR_RATIO';
+  | 'SAR_RATIO'
+  | 'LST';
+
 
 export interface SpectralIndexDefinition {
   id: SupportedSpectralIndex;
@@ -236,6 +238,25 @@ export const SPECTRAL_INDEX_DEFINITIONS: Record<SupportedSpectralIndex, Spectral
       return { label: `Rasio Polarisasi: ${val.toFixed(2)}`, severity: 'optimal' };
     },
   },
+  LST: {
+    id: 'LST',
+    name: 'LST (Suhu Permukaan Daratan)',
+    fullName: 'Land Surface Temperature',
+    satellite: 'Landsat 8/9',
+    formula: 'ST_B10 * 0.00341802 + 149.0 - 273.15 (°C)',
+    requiredBands: ['ST_B10 (Thermal)', 'QA_PIXEL'],
+    wavelengths: 'TIR 10.60 - 11.19 µm',
+    physicalInterpretation: 'Mengukur suhu kinetik radiometrik permukaan daratan (vegetasi, tanah, atap/bangunan) bebas hamburan atmosfer.',
+    citation: 'USGS Landsat Collection 2 Level-2 Surface Temperature (Cook et al., 2014)',
+    validRange: [-10, 60],
+    badgeColor: '#f43f5e',
+    classify: (val) => {
+      if (val >= 38.0) return { label: 'Suhu Sangat Tinggi / Urban Heat Island (> 38°C)', severity: 'critical' };
+      if (val >= 32.0) return { label: 'Suhu Tinggi Terpapar (32 - 38°C)', severity: 'warning' };
+      if (val >= 24.0) return { label: 'Suhu Permukaan Moderat (24 - 32°C)', severity: 'optimal' };
+      return { label: 'Suhu Sejuk / Dataran Tinggi (< 24°C)', severity: 'optimal' };
+    },
+  },
 };
 
 /**
@@ -305,7 +326,46 @@ export function calculateMathematicalIndex(
       if (nir === undefined || swir2 === undefined || nir + swir2 === 0) return null;
       return (nir - swir2) / (nir + swir2);
     }
+    case 'SAR_VV': {
+      if (bands.VV !== undefined) return bands.VV;
+      if (bands.vv !== undefined) return bands.vv;
+      if (bands.vv_lin !== undefined && bands.vv_lin > 0) return 10 * Math.log10(bands.vv_lin);
+      return null;
+    }
+    case 'SAR_VH': {
+      if (bands.VH !== undefined) return bands.VH;
+      if (bands.vh !== undefined) return bands.vh;
+      if (bands.vh_lin !== undefined && bands.vh_lin > 0) return 10 * Math.log10(bands.vh_lin);
+      return null;
+    }
+    case 'SAR_RATIO': {
+      // Linear power ratio: P_VV / P_VH
+      if (bands.vv_lin !== undefined && bands.vh_lin !== undefined && bands.vh_lin > 0) {
+        return bands.vv_lin / bands.vh_lin;
+      }
+      // If decibels are provided: VV_dB - VH_dB represents 10 * log10(P_VV / P_VH)
+      const vv_db = bands.VV ?? bands.vv;
+      const vh_db = bands.VH ?? bands.vh;
+      if (vv_db !== undefined && vh_db !== undefined) {
+        return vv_db - vh_db;
+      }
+      return null;
+    }
+    case 'LST': {
+      // USGS Landsat Collection 2 Level-2 Surface Temperature (ST_B10)
+      // Kelvin = DN * 0.00341802 + 149.0
+      // Celsius = Kelvin - 273.15
+      const rawDN = bands.ST_B10 ?? bands.st_b10 ?? bands.thermal;
+      if (rawDN !== undefined && rawDN > 0) {
+        const kelvin = rawDN * 0.00341802 + 149.0;
+        return kelvin - 273.15;
+      }
+      if (bands.celsius !== undefined) return bands.celsius;
+      if (bands.kelvin !== undefined) return bands.kelvin - 273.15;
+      return null;
+    }
     default:
       return null;
   }
 }
+

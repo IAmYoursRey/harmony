@@ -28,6 +28,7 @@ dist-ssr/
 # AI Agent & one-time utility scripts
 .agents/
 scratch/
+.backup-recovery-*/
 
 # Secrets — never commit real keys
 .env

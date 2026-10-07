@@ -39,8 +39,9 @@ app.use(
       ];
       if (
         allowed.includes(origin) ||
+        origin.endsWith('.vercel.app') ||
         origin.match(
-          /^http:\/\/(192\.168\.|10\.|172\.(1[6-9]|2[0-9]|3[0-1])\.)/,
+          /^https?:\/\/(192\.168\.|10\.|172\.(1[6-9]|2[0-9]|3[0-1])\.|localhost|127\.0\.0\.1)/,
         )
       ) {
         return callback(null, true);
@@ -101,6 +102,10 @@ app.get("/api/debug", async (req, res) => {
     dbResult,
     hasPostgresUrl: !!process.env.POSTGRES_URL,
   });
+});
+
+app.all("/api/*", (req, res) => {
+  res.status(404).json({ error: `Rute API '${req.originalUrl}' tidak ditemukan.` });
 });
 
 app.use((err, req, res, next) => {

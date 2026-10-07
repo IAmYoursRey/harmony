@@ -307,3 +307,49 @@ html {
 .custom-scrollbar::-webkit-scrollbar-thumb:hover {
   background: rgba(168, 85, 247, 0.45);
 }
+
+/* Optimization for low-spec devices and low battery: disables GPU-heavy multi-pass backdrop-filter blur */
+html.harmony-perf-lite [class*="backdrop-blur"],
+html.harmony-perf-lite .backdrop-blur-none,
+html.harmony-perf-lite .backdrop-blur-xs,
+html.harmony-perf-lite .backdrop-blur-sm,
+html.harmony-perf-lite .backdrop-blur-md,
+html.harmony-perf-lite .backdrop-blur-lg,
+html.harmony-perf-lite .backdrop-blur-xl,
+html.harmony-perf-lite .backdrop-blur-2xl,
+html.harmony-perf-lite .backdrop-blur-3xl {
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
+}
+
+html.harmony-perf-lite * {
+  text-rendering: optimizeSpeed;
+}
+
+/* TV Android & Remote D-Pad Navigation */
+:focus-visible {
+  outline: 2px solid #8b5cf6;
+  outline-offset: 2px;
+}
+
+/* Touch device optimizations (Android, iOS tablets & phones) */
+@media (hover: none) and (pointer: coarse) {
+  * {
+    -webkit-tap-highlight-color: transparent;
+  }
+  button, a, input, select, textarea {
+    touch-action: manipulation;
+  }
+}
+
+/* TV, Smart TV & 4K Ultra-wide display scaling */
+@media (min-width: 2560px) {
+  html {
+    font-size: 18px;
+  }
+}
+@media (min-width: 3840px) {
+  html {
+    font-size: 22px;
+  }
+}

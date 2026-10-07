@@ -1,3 +1,4 @@
+import { fetchCheckedJson, validateCurrentWeather } from './weatherDataIntegrity';
 /**
  * Seasonal Intelligence & Global Climate Zones Service
  * Deteksi cerdas musim global, perhitungan astronomis matahari, batas garis khatulistiwa,
@@ -549,29 +550,21 @@ class SeasonalIntelligenceService {
    * Dilengkapi timeout 6 detik dan fallback graceful bila koneksi offline / lambat
    */
   public async fetchGlobalWeather(lat: number, lng: number): Promise<any> {
-    const url = `https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lng}&current=temperature_2m,relative_humidity_2m,apparent_temperature,precipitation,rain,weather_code,surface_pressure,wind_speed_10m,wind_direction_10m&hourly=temperature_2m,precipitation_probability,precipitation&daily=weather_code,temperature_2m_max,temperature_2m_min,precipitation_sum,precipitation_probability_max&timezone=auto`;
-    try {
-      const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), 6000);
-      const res = await fetch(url, { signal: controller.signal });
-      clearTimeout(timeoutId);
-      if (!res.ok) throw new Error(`Open-Meteo HTTP status ${res.status}`);
-      return await res.json();
-    } catch {
-      // Graceful offline / timeout fallback
-      return null;
-    }
+    const url = `https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lng}&current=temperature_2m,relative_humidity_2m,apparent_temperature,precipitation,rain,weather_code,cloud_cover,surface_pressure,wind_speed_10m,wind_direction_10m,wind_gusts_10m&timeformat=unixtime&hourly=temperature_2m,precipitation_probability,precipitation&daily=weather_code,temperature_2m_max,temperature_2m_min,precipitation_sum,precipitation_probability_max&timezone=auto`;
+    const {data} = await fetchCheckedJson('seasonal_weather', url, d => validateCurrentWeather(d, lat, lng), {}, 6000);
+    return data;
   }
 
   /**
    * Menggabungkan fetch cuaca global Open-Meteo dengan kalkulasi intelijensi musim
    */
   public async fetchGlobalWeatherAndSeason(lat: number, lng: number): Promise<{
-    currentTemp: number;
+    currentTemp: number | null;
     weatherDesc: string;
-    weatherCode: number;
+    weatherCode: number | null;
     seasonalInfo: SeasonalInfo;
     raw: any;
+    dataStatus: 'AVAILABLE' | 'UNAVAILABLE';
   }> {
     const seasonalInfo = this.calculateSeason(lat, lng);
     let raw: any = null;
@@ -582,8 +575,8 @@ class SeasonalIntelligenceService {
     }
     const current = raw?.current || {};
     const isDrySeason = seasonalInfo.seasonKey === 'kemarau' || seasonalInfo.seasonKey === 'summer';
-    const weatherCode = current.weather_code ?? (isDrySeason ? 1 : 61);
-    const currentTemp = current.temperature_2m ?? (isDrySeason ? 31 : 27.5);
+    const weatherCode = current.weather_code ?? null;
+    const currentTemp = current.temperature_2m ?? null;
 
     const weatherCodeDescriptions: Record<number, string> = {
       0: 'Cerah Berawan Tipis',
@@ -605,26 +598,15 @@ class SeasonalIntelligenceService {
       96: 'Badai Petir Disertai Butiran Es',
     };
 
-    const weatherDesc = weatherCodeDescriptions[weatherCode] || 'Kondisi Atmosfer Dinamis';
+    const weatherDesc = weatherCode === null ? 'Data cuaca tidak tersedia' : weatherCodeDescriptions[weatherCode] || 'Kondisi belum dikenali';
 
     return {
       currentTemp,
       weatherDesc,
       weatherCode,
       seasonalInfo,
-      raw: raw || {
-        current: {
-          temperature_2m: currentTemp,
-          relative_humidity_2m: isDrySeason ? 68 : 82,
-          apparent_temperature: currentTemp + 2,
-          precipitation: isDrySeason ? 0 : 2.5,
-          rain: isDrySeason ? 0 : 2.5,
-          weather_code: weatherCode,
-          surface_pressure: 1011.5,
-          wind_speed_10m: 12.4,
-          wind_direction_10m: 145,
-        },
-      },
+      raw,
+      dataStatus: raw ? 'AVAILABLE' : 'UNAVAILABLE',
     };
   }
 }

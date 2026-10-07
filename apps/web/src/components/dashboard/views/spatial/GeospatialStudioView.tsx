@@ -3,16 +3,39 @@ import { useNavigate } from 'react-router-dom';
 import { GeospatialWeatherModal } from './GeospatialWeatherModal';
 import { bmkgService } from '@/services/bmkgService';
 import { fetchSchools } from '@/services/schoolService';
+import { useAuth } from '@/hooks/useAuth';
+import { useSchool } from '@/hooks/useSchool';
+import { preciseGeocodingService, PreciseLocationInfo } from '@/services/preciseGeocodingService';
 
 export const GeospatialStudioView: React.FC = () => {
   const navigate = useNavigate();
+  const { currentProfile, currentUser } = useAuth();
+  const { selection } = useSchool();
   const [schools, setSchools] = useState<any[]>([]);
-  const [earthquakes, setEarthquakes] = useState<any[]>([
-    { place: 'Selatan Jawa Timur (Samudra Hindia)', lat: -8.82, lng: 112.54, mag: 4.8, depth: 24 },
-    { place: 'Selat Sunda (Banten)', lat: -6.42, lng: 105.18, mag: 5.1, depth: 10 },
-    { place: 'Palu - Sigi Sulawesi Tengah', lat: -1.02, lng: 119.88, mag: 4.4, depth: 15 },
-    { place: 'Barat Daya Malang Jawa Timur', lat: -8.95, lng: 112.48, mag: 4.2, depth: 32 },
-  ]);
+  const [mountains, setMountains] = useState<any[]>([]);
+  const [earthquakes, setEarthquakes] = useState<any[]>([]);
+  const [deviceCoords, setDeviceCoords] = useState<{ lat: number; lng: number } | null>(null);
+  const [userPreciseLocation, setUserPreciseLocation] = useState<PreciseLocationInfo | null>(null);
+
+  useEffect(() => {
+    if ('geolocation' in navigator) {
+      navigator.geolocation.getCurrentPosition(
+        async (pos) => {
+          const lat = pos.coords.latitude;
+          const lng = pos.coords.longitude;
+          setDeviceCoords({ lat, lng });
+          try {
+            const info = await preciseGeocodingService.reverseGeocode(lat, lng, pos.coords.accuracy);
+            setUserPreciseLocation(info);
+          } catch {
+            // non-fatal
+          }
+        },
+        () => {},
+        { enableHighAccuracy: true, timeout: 8000, maximumAge: 300000 }
+      );
+    }
+  }, []);
 
   useEffect(() => {
     let isMounted = true;
@@ -24,39 +47,56 @@ export const GeospatialStudioView: React.FC = () => {
         ]);
         if (!isMounted) return;
         const list: any[] = [];
-        if (autoGempa && autoGempa.lat && autoGempa.lng) {
+        const aLat = autoGempa?.lat;
+        const aLng = autoGempa?.lng;
+        if (autoGempa && typeof aLat === 'number' && Number.isFinite(aLat) && typeof aLng === 'number' && Number.isFinite(aLng)) {
           list.push({
-            place: `[BMKG InaTEWS Terkini] ${autoGempa.location}`,
-            lat: autoGempa.lat,
-            lng: autoGempa.lng,
-            mag: autoGempa.magnitude,
-            depth: autoGempa.depthKm,
+            place: `[BMKG InaTEWS Terkini] ${autoGempa.location || 'Indonesia'}`,
+            lat: aLat,
+            lng: aLng,
+            mag: typeof autoGempa.magnitude === 'number' && Number.isFinite(autoGempa.magnitude) ? autoGempa.magnitude : null,
+            depth: typeof autoGempa.depthKm === 'number' && Number.isFinite(autoGempa.depthKm) ? autoGempa.depthKm : null,
             felt: autoGempa.felt,
             shakemapUrl: autoGempa.shakemapUrl,
-            time: `${autoGempa.date} ${autoGempa.time}`,
+            time: `${autoGempa.date || ''} ${autoGempa.time || ''}`.trim(),
           });
         }
         if (Array.isArray(terkini)) {
           terkini.forEach((g: any) => {
-            if (g.lat && g.lng) {
+            const gLat = g.lat ?? g.latitude;
+            const gLng = g.lng ?? g.longitude;
+            if (typeof gLat === 'number' && Number.isFinite(gLat) && typeof gLng === 'number' && Number.isFinite(gLng)) {
               list.push({
-                place: g.location,
-                lat: g.lat,
-                lng: g.lng,
-                mag: g.magnitude,
-                depth: g.depthKm,
-                time: `${g.date} ${g.time}`,
+                place: g.location || 'Gempa Regional',
+                lat: gLat,
+                lng: gLng,
+                mag: typeof g.magnitude === 'number' && Number.isFinite(g.magnitude) ? g.magnitude : (typeof g.mag === 'number' && Number.isFinite(g.mag) ? g.mag : null),
+                depth: typeof g.depthKm === 'number' && Number.isFinite(g.depthKm) ? g.depthKm : (typeof g.depth === 'number' && Number.isFinite(g.depth) ? g.depth : null),
+                time: `${g.date || ''} ${g.time || ''}`.trim(),
               });
             }
           });
         }
-        if (list.length > 0) {
-          setEarthquakes(list);
-        }
+        setEarthquakes(list);
       } catch (err) {
         console.warn('Could not fetch live quakes for GeospatialStudioView:', err);
+        if (isMounted) setEarthquakes([]);
       }
 
+      // Fetch verified mountains catalog for spatial buffer analysis
+      try {
+        const mtnRes = await fetch('/data/mountains.json');
+        if (mtnRes.ok) {
+          const mtnData = await mtnRes.json();
+          if (isMounted && Array.isArray(mtnData)) {
+            setMountains(mtnData);
+          }
+        }
+      } catch (err) {
+        console.warn('Could not fetch mountains for GeospatialStudioView:', err);
+      }
+
+      // Fetch schools only if authenticated or for general spatial context
       try {
         const schoolList = await fetchSchools();
         if (isMounted && Array.isArray(schoolList)) {
@@ -73,15 +113,23 @@ export const GeospatialStudioView: React.FC = () => {
     };
   }, []);
 
+  const activeLat = deviceCoords?.lat ?? (currentUser ? (selection?.school?.lat ?? (currentProfile as any)?.schoolLat) : null) ?? -6.2088;
+  const activeLng = deviceCoords?.lng ?? (currentUser ? (selection?.school?.lng ?? (currentProfile as any)?.schoolLng) : null) ?? 106.8456;
+  const activeLocationName = userPreciseLocation?.shortDisplay 
+    || (currentUser ? (selection?.school?.name || (currentProfile as any)?.schoolName) : null)
+    || (deviceCoords ? `Koordinat (${deviceCoords.lat.toFixed(3)}°, ${deviceCoords.lng.toFixed(3)}°)` : 'DKI Jakarta (Pusat)');
+
   return (
     <div className="w-full h-full min-h-[calc(100vh-3.5rem)] flex flex-col p-2 sm:p-4 bg-slate-100/70 dark:bg-slate-950">
       <GeospatialWeatherModal
         isOpen={true}
         asPage={true}
         onClose={() => navigate('/app/maps')}
-        lat={-7.2575}
-        lng={112.7521}
-        locationName="Surabaya (Pusat Geospasial)"
+        lat={activeLat}
+        lng={activeLng}
+        locationName={activeLocationName}
+        userPreciseLocation={userPreciseLocation}
+        mountains={mountains}
         schools={schools}
         earthquakes={earthquakes}
       />

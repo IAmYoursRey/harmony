@@ -51,6 +51,7 @@ import {
   ChartCategory,
   ChartDefinition,
 } from './chartTaxonomy';
+import { buildWindRose, summarizeTemperature } from '@/services/geospatial/chartStatistics';
 import { WeatherConsensusData } from '@/services/weatherAggregatorService';
 
 interface HarmonyChartEngineProps {
@@ -111,27 +112,28 @@ export const HarmonyChartEngine: React.FC<HarmonyChartEngineProps> = ({
     if (timeframe === 'hourly') {
       return weatherData.hourly.map((h) => {
         const e = (h.humidity / 100) * 6.105 * Math.exp((17.27 * h.temperature) / (237.7 + h.temperature));
-        const apparentTemp = Math.round((h.temperature + 0.33 * e - 0.7 * (h.windSpeed / 3.6) - 4.0) * 10) / 10;
+        const apparentTemp = h.apparentTemp ?? null;
         return {
           label: h.label,
           hour: h.hour,
           temperature: h.temperature,
           apparentTemp,
-          tempLowerBand: Math.round((h.temperature - 1.8) * 10) / 10,
-          tempUpperBand: Math.round((h.temperature + 2.2) * 10) / 10,
+
+
           precipitation: h.precipitation,
           precipitationProb: h.precipitationProb,
           windSpeed: h.windSpeed,
-          windGust: Math.round(h.windSpeed * 1.45),
+          windGust: h.windGusts ?? null,
+          windDirection: Number.isFinite(h.windDirection) ? h.windDirection : null,
           pressure: h.pressure,
           humidity: h.humidity,
           pm25: h.pm25,
           ozone: h.ozone,
           uvIndex: h.uvIndex,
-          ecmwf: h.ecmwfTemp ?? h.temperature + 0.3,
-          gfs: h.gfsTemp ?? h.temperature - 0.4,
-          icon: h.iconTemp ?? h.temperature + 0.1,
-          jma: h.jmaTemp ?? h.temperature - 0.2,
+          ecmwf: h.ecmwfTemp ?? null,
+          gfs: h.gfsTemp ?? null,
+          icon: h.iconTemp ?? null,
+          jma: h.jmaTemp ?? null,
         };
       });
     } else {
@@ -139,111 +141,49 @@ export const HarmonyChartEngine: React.FC<HarmonyChartEngineProps> = ({
         label: d.dayName,
         temperature: d.tempMax,
         tempMin: d.tempMin,
-        apparentTemp: Math.round((d.tempMax + 2.1) * 10) / 10,
-        tempLowerBand: Math.round((d.tempMin - 1.5) * 10) / 10,
-        tempUpperBand: Math.round((d.tempMax + 2.5) * 10) / 10,
+        apparentTemp: d.apparentTempMax ?? null,
+
+
         precipitation: d.precipitationSum,
         precipitationProb: d.precipitationProbMax,
         windSpeed: d.windSpeedMax,
-        windGust: Math.round(d.windSpeedMax * 1.4),
+        windGust: d.windGustMax ?? null,
+        windDirection: null,
         uvIndex: d.uvIndexMax,
-        ecmwf: d.ecmwfTempMax ?? d.tempMax + 0.4,
-        gfs: d.gfsTempMax ?? d.tempMax - 0.3,
-        icon: d.iconTempMax ?? d.tempMax + 0.2,
-        jma: d.tempMax - 0.1,
+        ecmwf: d.ecmwfTempMax ?? null,
+        gfs: d.gfsTempMax ?? null,
+        icon: d.iconTempMax ?? null,
+        jma: null,
       }));
     }
   }, [weatherData, timeframe]);
 
-  const compositionData = useMemo(() => {
-    return [
-      { name: 'Awan Rendah (Stratus/Cu)', value: 42, color: '#38bdf8' },
-      { name: 'Awan Menengah (Alto)', value: 26, color: '#6366f1' },
-      { name: 'Awan Tinggi (Cirrus)', value: 18, color: '#a855f7' },
-      { name: 'Konvektif Cb Potensial', value: 14, color: '#f43f5e' },
-    ];
-  }, []);
+  const seismicScatterData = useMemo(() => earthquakes.flatMap((event, index) => {
+    const magnitude = event.mag ?? event.magnitude;
+    const depth = event.depthKm ?? event.depth;
+    if (!Number.isFinite(magnitude) || !Number.isFinite(depth)) return [];
+    return [{ id: index, place: event.place || event.location || 'Pusat Gempa', magnitude, depth,
+      zone: depth < 70 ? 'Dangkal (<70 km)' : 'Menengah/dalam (≥70 km)' }];
+  }), [earthquakes]);
 
-  const radarProfileData = useMemo(() => {
-    return [
-      { subject: 'Termal (°C)', value: 82, fullMark: 100 },
-      { subject: 'Kelembapan (%)', value: 74, fullMark: 100 },
-      { subject: 'Presipitasi (mm)', value: 45, fullMark: 100 },
-      { subject: 'Stabilitas CAPE', value: 68, fullMark: 100 },
-      { subject: 'Kerapatan Udara', value: 88, fullMark: 100 },
-      { subject: 'Hembusan Angin', value: 54, fullMark: 100 },
-    ];
-  }, []);
+  const windRose = useMemo(() => buildWindRose(timeSeriesData), [timeSeriesData]);
+  const windRoseData = windRose.bins;
+  const statDistributionData = useMemo(() => summarizeTemperature(timeSeriesData.map(d => d.temperature)), [timeSeriesData]);
+  const sampleUnit = timeframe === 'hourly' ? 'jam' : 'hari';
 
-  const windRoseData = useMemo(() => {
-    const directions = [
-      'U (Utara)',
-      'UTL',
-      'TL (Timur Laut)',
-      'TTL',
-      'T (Timur)',
-      'TMG',
-      'Tenggara',
-      'STG',
-      'S (Selatan)',
-      'SBD',
-      'Barat Daya',
-      'BBD',
-      'B (Barat)',
-      'BBL',
-      'Barat Laut',
-      'UBL',
-    ];
-    return directions.map((dir, idx) => {
-      const angle = (idx / 16) * 360;
-      const isDominant = idx === 6 || idx === 7 || idx === 10;
-      const freq = isDominant ? 18.5 : Math.max(3, Math.round((Math.sin(idx) + 1.2) * 5));
-      return {
-        direction: dir,
-        angle,
-        speed0_5: Math.round(freq * 0.35),
-        speed5_15: Math.round(freq * 0.45),
-        speed15_25: Math.round(freq * 0.15),
-        speed25plus: Math.round(freq * 0.05),
-        totalFreq: freq,
-      };
-    });
-  }, []);
-
-  const seismicScatterData = useMemo(() => {
-    if (earthquakes && earthquakes.length > 0) {
-      return earthquakes.map((e, idx) => ({
-        id: idx,
-        place: e.place || 'Pusat Gempa',
-        magnitude: e.mag ?? e.magnitude ?? 4.5,
-        depth: e.depthKm ?? e.depth ?? 25,
-        zone: (e.depthKm ?? e.depth ?? 25) < 70 ? 'Dangkal (<70 km)' : 'Menengah (70-300 km)',
-      }));
-    }
-    return [
-      { id: 1, place: 'Selatan Jatim', magnitude: 4.8, depth: 24, zone: 'Dangkal (<70 km)' },
-      { id: 2, place: 'Selat Sunda', magnitude: 5.1, depth: 10, zone: 'Dangkal (<70 km)' },
-      { id: 3, place: 'Palu Sulawesi', magnitude: 4.4, depth: 15, zone: 'Dangkal (<70 km)' },
-      { id: 4, place: 'Laut Banda', magnitude: 6.2, depth: 145, zone: 'Menengah (70-300 km)' },
-      { id: 5, place: 'Halmahera', magnitude: 5.4, depth: 45, zone: 'Dangkal (<70 km)' },
-      { id: 6, place: 'Laut Flores', magnitude: 4.9, depth: 210, zone: 'Menengah (70-300 km)' },
-      { id: 7, place: 'Bengkulu', magnitude: 5.0, depth: 22, zone: 'Dangkal (<70 km)' },
-    ];
-  }, [earthquakes]);
-
-  const gutenbergData = useMemo(() => {
-    const mags = [3.0, 3.5, 4.0, 4.5, 5.0, 5.5, 6.0, 6.5, 7.0];
-    return mags.map((m) => {
-      const logN = 5.2 - 0.95 * m;
-      const count = Math.max(1, Math.round(Math.pow(10, logN)));
-      return {
-        magnitude: m,
-        count,
-        logN: parseFloat(logN.toFixed(2)),
-        theoreticalLogN: parseFloat((5.2 - 0.95 * m).toFixed(2)),
-      };
-    });
-  }, []);
+  // Only charts backed by supplied provider data can be rendered. Catalogue entries
+  // requiring radar profiles, waves, sensors, or calibrated ensembles remain unavailable.
+  const supportedCharts = new Set([
+    'bar', 'horizontal_bar', 'grouped_bar', 'lollipop',
+    'bullet', 'line', 'multi_line', 'step_line', 'area', 'forecast', 'scatter',
+    'meteogram', 'aqi_gauge', 'depth_mag_scatter', 'wind_rose', 'histogram', 'boxplot'
+  ]);
+  const chartUnavailable = !supportedCharts.has(activeChart.id) ||
+    (activeChart.id === 'depth_mag_scatter' ? !seismicScatterData.length :
+      activeChart.id === 'aqi_gauge' ? weatherData?.current?.pm25 == null :
+      activeChart.id === 'wind_rose' ? !windRoseData.length :
+      (activeChart.id === 'boxplot' || activeChart.id === 'histogram') ? statDistributionData.validCount < 4 :
+      !timeSeriesData.length);
 
   const renderChartCanvas = () => {
     switch (activeChart.id) {
@@ -253,10 +193,10 @@ export const HarmonyChartEngine: React.FC<HarmonyChartEngineProps> = ({
           <BarChart data={timeSeriesData}>
             <CartesianGrid strokeDasharray="3 3" opacity={0.15} />
             <XAxis dataKey="label" stroke="#94a3b8" tick={{ fontSize: 11 }} />
-            <YAxis stroke="#94a3b8" tick={{ fontSize: 11 }} />
+            <YAxis stroke="#94a3b8" tick={{ fontSize: 11 }} unit=" mm" />
             <Tooltip contentStyle={{ backgroundColor: '#0f172a', borderColor: '#334155', borderRadius: '12px' }} />
             <Legend verticalAlign="top" height={36} />
-            <Bar dataKey="temperature" name="Suhu (°C)" fill="#6366f1" radius={[6, 6, 0, 0]} />
+            <Bar dataKey="precipitation" name="Presipitasi / Curah Hujan (mm)" fill="#0284c7" radius={[6, 6, 0, 0]} />
           </BarChart>
         );
 
@@ -283,22 +223,7 @@ export const HarmonyChartEngine: React.FC<HarmonyChartEngineProps> = ({
             <Bar dataKey="ecmwf" name="ECMWF IFS" fill="#3b82f6" radius={[4, 4, 0, 0]} />
             <Bar dataKey="gfs" name="GFS NOAA" fill="#10b981" radius={[4, 4, 0, 0]} />
             <Bar dataKey="icon" name="ICON DWD" fill="#f59e0b" radius={[4, 4, 0, 0]} />
-            <Bar dataKey="temperature" name="Konsensus BMKG" fill="#8b5cf6" radius={[4, 4, 0, 0]} />
-          </BarChart>
-        );
-
-      case 'stacked_bar':
-      case 'percent_stacked':
-        return (
-          <BarChart data={timeSeriesData.slice(0, 10)}>
-            <CartesianGrid strokeDasharray="3 3" opacity={0.15} />
-            <XAxis dataKey="label" stroke="#94a3b8" tick={{ fontSize: 11 }} />
-            <YAxis stroke="#94a3b8" tick={{ fontSize: 11 }} />
-            <Tooltip contentStyle={{ backgroundColor: '#0f172a', borderColor: '#334155', borderRadius: '12px' }} />
-            <Legend verticalAlign="top" height={36} />
-            <Bar dataKey="pm25" stackId="pollutant" name="PM2.5" fill="#ec4899" />
-            <Bar dataKey="ozone" stackId="pollutant" name="Ozon O₃" fill="#8b5cf6" />
-            <Bar dataKey="windSpeed" stackId="pollutant" name="Dispersi Angin" fill="#38bdf8" radius={[6, 6, 0, 0]} />
+            <Bar dataKey="temperature" name="Open-Meteo Best Match" fill="#8b5cf6" radius={[4, 4, 0, 0]} />
           </BarChart>
         );
 
@@ -323,24 +248,11 @@ export const HarmonyChartEngine: React.FC<HarmonyChartEngineProps> = ({
             <YAxis type="category" dataKey="label" stroke="#94a3b8" tick={{ fontSize: 11 }} width={55} />
             <Tooltip contentStyle={{ backgroundColor: '#0f172a', borderColor: '#334155', borderRadius: '12px' }} />
             <Legend verticalAlign="top" height={36} />
-            <Bar dataKey="precipitation" name="Realisasi Curah Hujan (mm)" fill="#0284c7" barSize={12} radius={[0, 4, 4, 0]} />
-            <ReferenceLine x={20} stroke="#ef4444" strokeDasharray="3 3" label="Ambang Bahaya BMKG (20mm)" />
+            <Bar dataKey="precipitation" name="Prakiraan Curah Hujan (mm)" fill="#0284c7" barSize={12} radius={[0, 4, 4, 0]} />
+
           </BarChart>
         );
 
-      case 'radar':
-        return (
-          <RadarChart outerRadius={90} data={radarProfileData}>
-            <PolarGrid stroke="#475569" strokeDasharray="3 3" />
-            <PolarAngleAxis dataKey="subject" tick={{ fill: '#94a3b8', fontSize: 11 }} />
-            <PolarRadiusAxis angle={30} domain={[0, 100]} stroke="#475569" />
-            <Radar name="Profil Atmosfer (%)" dataKey="value" stroke="#6366f1" fill="#6366f1" fillOpacity={0.4} />
-            <Legend verticalAlign="top" height={36} />
-            <Tooltip contentStyle={{ backgroundColor: '#0f172a', borderColor: '#334155', borderRadius: '12px' }} />
-          </RadarChart>
-        );
-
-      // 2. TREND & TIME SERIES
       case 'line':
         return (
           <LineChart data={timeSeriesData}>
@@ -349,7 +261,7 @@ export const HarmonyChartEngine: React.FC<HarmonyChartEngineProps> = ({
             <YAxis stroke="#94a3b8" tick={{ fontSize: 11 }} domain={['auto', 'auto']} unit="°C" />
             <Tooltip contentStyle={{ backgroundColor: '#0f172a', borderColor: '#334155', borderRadius: '12px' }} />
             <Legend verticalAlign="top" height={36} />
-            <Line type="monotone" dataKey="temperature" name="Suhu Konsensus (°C)" stroke="#6366f1" strokeWidth={2.5} dot={{ r: 3 }} />
+            <Line type="monotone" dataKey="temperature" name="Suhu Prakiraan (°C)" stroke="#6366f1" strokeWidth={2.5} dot={{ r: 3 }} />
           </LineChart>
         );
 
@@ -364,7 +276,7 @@ export const HarmonyChartEngine: React.FC<HarmonyChartEngineProps> = ({
             <Line type="monotone" dataKey="ecmwf" name="ECMWF" stroke="#3b82f6" strokeWidth={2} dot={false} />
             <Line type="monotone" dataKey="gfs" name="GFS" stroke="#10b981" strokeWidth={2} dot={false} />
             <Line type="monotone" dataKey="icon" name="ICON" stroke="#f59e0b" strokeWidth={2} dot={false} />
-            <Line type="monotone" dataKey="temperature" name="Konsensus Terkalibrasi" stroke="#6366f1" strokeWidth={3} dot={{ r: 3 }} />
+            <Line type="monotone" dataKey="temperature" name="Open-Meteo Best Match" stroke="#6366f1" strokeWidth={3} dot={{ r: 3 }} />
           </LineChart>
         );
 
@@ -381,47 +293,15 @@ export const HarmonyChartEngine: React.FC<HarmonyChartEngineProps> = ({
         );
 
       case 'area':
-      case 'stacked_area':
-      case 'streamgraph':
         return (
           <AreaChart data={timeSeriesData}>
-            <defs>
-              <linearGradient id="areaGrad1" x1="0" y1="0" x2="0" y2="1">
-                <stop offset="5%" stopColor="#6366f1" stopOpacity={0.6} />
-                <stop offset="95%" stopColor="#6366f1" stopOpacity={0} />
-              </linearGradient>
-              <linearGradient id="areaGrad2" x1="0" y1="0" x2="0" y2="1">
-                <stop offset="5%" stopColor="#38bdf8" stopOpacity={0.5} />
-                <stop offset="95%" stopColor="#38bdf8" stopOpacity={0} />
-              </linearGradient>
-            </defs>
-            <CartesianGrid strokeDasharray="3 3" opacity={0.15} />
-            <XAxis dataKey="label" stroke="#94a3b8" tick={{ fontSize: 11 }} />
-            <YAxis stroke="#94a3b8" tick={{ fontSize: 11 }} />
-            <Tooltip contentStyle={{ backgroundColor: '#0f172a', borderColor: '#334155', borderRadius: '12px' }} />
-            <Legend verticalAlign="top" height={36} />
-            <Area type="monotone" dataKey="temperature" name="Suhu (°C)" stroke="#6366f1" fillOpacity={1} fill="url(#areaGrad1)" />
-            <Area type="monotone" dataKey="precipitation" name="Curah Hujan (mm)" stroke="#38bdf8" fillOpacity={1} fill="url(#areaGrad2)" />
-          </AreaChart>
-        );
-
-      case 'fan_chart':
-        return (
-          <AreaChart data={timeSeriesData}>
-            <defs>
-              <linearGradient id="fanGrad" x1="0" y1="0" x2="0" y2="1">
-                <stop offset="5%" stopColor="#38bdf8" stopOpacity={0.35} />
-                <stop offset="95%" stopColor="#38bdf8" stopOpacity={0.05} />
-              </linearGradient>
-            </defs>
             <CartesianGrid strokeDasharray="3 3" opacity={0.15} />
             <XAxis dataKey="label" stroke="#94a3b8" tick={{ fontSize: 11 }} />
             <YAxis stroke="#94a3b8" tick={{ fontSize: 11 }} domain={['auto', 'auto']} unit="°C" />
             <Tooltip contentStyle={{ backgroundColor: '#0f172a', borderColor: '#334155', borderRadius: '12px' }} />
             <Legend verticalAlign="top" height={36} />
-            <Area type="monotone" dataKey="tempUpperBand" name="Pita Atas (Confidence 95%)" stroke="#38bdf8" strokeDasharray="3 3" fill="url(#fanGrad)" />
-            <Area type="monotone" dataKey="tempLowerBand" name="Pita Bawah (Confidence 50%)" stroke="#38bdf8" strokeDasharray="3 3" fill="transparent" />
-            <Line type="monotone" dataKey="temperature" name="Jalur Proyeksi Utama" stroke="#6366f1" strokeWidth={3} />
+            <Area type="monotone" dataKey="temperature" name="Suhu Prakiraan (°C)" stroke="#10b981" fill="#10b981" fillOpacity={0.25} strokeWidth={2.5} />
+            <Area type="monotone" dataKey="apparentTemp" name="Suhu Terasa (°C)" stroke="#f43f5e" fill="#f43f5e" fillOpacity={0.12} strokeWidth={1.5} strokeDasharray="4 4" />
           </AreaChart>
         );
 
@@ -433,243 +313,85 @@ export const HarmonyChartEngine: React.FC<HarmonyChartEngineProps> = ({
             <YAxis stroke="#94a3b8" tick={{ fontSize: 11 }} domain={['auto', 'auto']} unit="°C" />
             <Tooltip contentStyle={{ backgroundColor: '#0f172a', borderColor: '#334155', borderRadius: '12px' }} />
             <Legend verticalAlign="top" height={36} />
-            <Line type="monotone" dataKey="temperature" name="Observasi Aktual" stroke="#10b981" strokeWidth={2.5} />
-            <Line type="monotone" dataKey="apparentTemp" name="Proyeksi Horizon NWP" stroke="#f43f5e" strokeWidth={2} strokeDasharray="5 5" />
+            <Line type="monotone" dataKey="temperature" name="Suhu Prakiraan Penyedia" stroke="#10b981" strokeWidth={2.5} />
+            <Line type="monotone" dataKey="apparentTemp" name="Suhu Terasa dari Penyedia" stroke="#f43f5e" strokeWidth={2} strokeDasharray="5 5" />
           </LineChart>
         );
 
-      // 3. COMPOSITION
-      case 'pie':
-      case 'donut':
-      case 'polar_rose':
+      case 'wind_rose':
         return (
-          <PieChart>
+          <RadarChart data={windRoseData} outerRadius="75%">
+            <PolarGrid stroke="#334155" />
+            <PolarAngleAxis dataKey="direction" stroke="#94a3b8" tick={{ fontSize: 11, fontWeight: 'bold' }} />
+            <PolarRadiusAxis stroke="#64748b" tick={{ fontSize: 9 }} unit="%" />
             <Tooltip contentStyle={{ backgroundColor: '#0f172a', borderColor: '#334155', borderRadius: '12px' }} />
             <Legend verticalAlign="top" height={36} />
-            <Pie
-              data={compositionData}
-              cx="50%"
-              cy="50%"
-              innerRadius={activeChart.id === 'donut' ? 60 : 0}
-              outerRadius={90}
-              paddingAngle={activeChart.id === 'donut' ? 4 : 0}
-              dataKey="value"
-              nameKey="name"
-              label={({ percent }: any) => `${(((percent ?? 0) * 100)).toFixed(0)}%`}
-            >
-              {compositionData.map((entry, index) => (
-                <Cell key={`cell-${index}`} fill={entry.color} />
-              ))}
-            </Pie>
-          </PieChart>
+            <Radar name="Arah angin dari sampel prakiraan (%)" dataKey="frequency" stroke="#38bdf8" fill="#38bdf8" fillOpacity={0.4} />
+            <Radar name="Kecepatan >15 km/h (%)" dataKey="strongPct" stroke="#f59e0b" fill="#f59e0b" fillOpacity={0.3} />
+          </RadarChart>
         );
 
-      case 'treemap':
-        return (
-          <div className="w-full h-full p-2 flex flex-col justify-center">
-            <div className="grid grid-cols-6 grid-rows-3 gap-2 h-56 w-full">
-              <div className="col-span-3 row-span-3 p-3 rounded-2xl bg-gradient-to-br from-indigo-600 to-indigo-700 text-white flex flex-col justify-between shadow-md">
-                <div className="flex items-center justify-between">
-                  <span className="text-xs font-black">Jawa & Madura</span>
-                  <span className="text-[10px] px-2 py-0.5 rounded-full bg-white/20 font-bold">42%</span>
-                </div>
-                <div>
-                  <div className="text-2xl font-black">1,420</div>
-                  <div className="text-[10px] text-indigo-200">Sensor & Stasiun Pengamatan</div>
-                </div>
-              </div>
-
-              <div className="col-span-3 row-span-2 p-2.5 rounded-2xl bg-gradient-to-br from-sky-500 to-sky-600 text-white flex flex-col justify-between shadow-md">
-                <div className="flex items-center justify-between">
-                  <span className="text-xs font-black">Sumatera</span>
-                  <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-white/20 font-bold">29%</span>
-                </div>
-                <div className="text-base font-black">980 <span className="text-[10px] font-normal opacity-80">Stasiun</span></div>
-              </div>
-
-              <div className="col-span-1 row-span-1 p-2 rounded-xl bg-teal-600 text-white flex flex-col justify-between">
-                <span className="text-[10px] font-bold truncate">Sulawesi</span>
-                <span className="text-xs font-black">620</span>
-              </div>
-
-              <div className="col-span-1 row-span-1 p-2 rounded-xl bg-amber-600 text-white flex flex-col justify-between">
-                <span className="text-[10px] font-bold truncate">Kalimantan</span>
-                <span className="text-xs font-black">540</span>
-              </div>
-
-              <div className="col-span-1 row-span-1 p-2 rounded-xl bg-rose-600 text-white flex flex-col justify-between">
-                <span className="text-[10px] font-bold truncate">Papua</span>
-                <span className="text-xs font-black">380</span>
-              </div>
-            </div>
-            <div className="text-[10px] text-slate-400 text-center mt-2">
-              Proporsi luas ubin berbanding lurus dengan kepadatan jaringan stasiun pengamatan BMKG per pulau
-            </div>
-          </div>
-        );
-
-      case 'waterfall':
-        return (
-          <BarChart
-            data={[
-              { name: 'Inflow Presipitasi', value: 85, fill: '#10b981' },
-              { name: 'Evapotranspirasi', value: -28, fill: '#ef4444' },
-              { name: 'Infiltrasi Akuifer', value: -22, fill: '#f59e0b' },
-              { name: 'Limpasan Permukaan', value: -15, fill: '#f97316' },
-              { name: 'Simpanan Air Net', value: 20, fill: '#3b82f6' },
-            ]}
-          >
-            <CartesianGrid strokeDasharray="3 3" opacity={0.15} />
-            <XAxis dataKey="name" stroke="#94a3b8" tick={{ fontSize: 11 }} />
-            <YAxis stroke="#94a3b8" tick={{ fontSize: 11 }} unit=" mm" />
-            <Tooltip contentStyle={{ backgroundColor: '#0f172a', borderColor: '#334155', borderRadius: '12px' }} />
-            <ReferenceLine y={0} stroke="#94a3b8" />
-            <Bar dataKey="value" name="Neraca Air (mm)">
-              {PALETTE.map((col, idx) => (
-                <Cell key={idx} fill={col} />
-              ))}
-            </Bar>
-          </BarChart>
-        );
-
-      case 'funnel':
-        return (
-          <div className="flex flex-col items-center justify-center h-full p-2 space-y-2">
-            <div className="w-full max-w-md space-y-2">
-              {[
-                { label: 'Deteksi Sensor Radar & Satelit', val: '1,200 data', pct: '100%', col: 'bg-indigo-600', textCol: 'text-indigo-600 dark:text-indigo-400' },
-                { label: 'Lolos Filter Ambang Batas Spasial', val: '740 anomali', pct: '62%', col: 'bg-sky-500', textCol: 'text-sky-600 dark:text-sky-400' },
-                { label: 'Verifikasi Model NWP & AI Solver', val: '380 terverifikasi', pct: '32%', col: 'bg-emerald-500', textCol: 'text-emerald-600 dark:text-emerald-400' },
-                { label: 'Peringatan Dini Cuaca Dirilis', val: '95 dirilis', pct: '8%', col: 'bg-amber-500', textCol: 'text-amber-600 dark:text-amber-400' },
-                { label: 'Aktivasi Sirine & Broadcast Warga', val: '32 disiarkan', pct: '3%', col: 'bg-rose-500', textCol: 'text-rose-600 dark:text-rose-400' },
-              ].map((f) => (
-                <div key={f.label} className="p-2.5 rounded-xl bg-slate-50 dark:bg-slate-900/60 border border-slate-100 dark:border-slate-800">
-                  <div className="flex items-center justify-between text-xs font-bold mb-1">
-                    <span className="text-slate-700 dark:text-slate-300">{f.label}</span>
-                    <span className={f.textCol}>{f.val} ({f.pct})</span>
-                  </div>
-                  <div className="w-full h-2 rounded-full bg-slate-200 dark:bg-slate-800 overflow-hidden">
-                    <div className={`h-full ${f.col} rounded-full transition-all duration-500`} style={{ width: f.pct }} />
-                  </div>
-                </div>
-              ))}
-            </div>
-          </div>
-        );
-
-      // 4. DISTRIBUTION & STATISTICS
       case 'histogram':
         return (
-          <BarChart
-            data={[
-              { bin: 'M 2.0-2.9 (Mikro)', count: 42 },
-              { bin: 'M 3.0-3.9 (Kecil)', count: 68 },
-              { bin: 'M 4.0-4.9 (Ringan)', count: 35 },
-              { bin: 'M 5.0-5.9 (Sedang)', count: 14 },
-              { bin: 'M 6.0-6.9 (Kuat)', count: 4 },
-              { bin: 'M 7.0+ (Mayor)', count: 1 },
-            ]}
-          >
+          <BarChart data={statDistributionData.histogram}>
             <CartesianGrid strokeDasharray="3 3" opacity={0.15} />
-            <XAxis dataKey="bin" stroke="#94a3b8" tick={{ fontSize: 11 }} />
-            <YAxis stroke="#94a3b8" tick={{ fontSize: 11 }} />
+            <XAxis dataKey="binRange" stroke="#94a3b8" tick={{ fontSize: 10 }} />
+            <YAxis stroke="#94a3b8" tick={{ fontSize: 11 }} unit={` ${sampleUnit}`} />
             <Tooltip contentStyle={{ backgroundColor: '#0f172a', borderColor: '#334155', borderRadius: '12px' }} />
-            <Bar dataKey="count" name="Jumlah Kejadian" fill="#f43f5e" radius={[6, 6, 0, 0]} />
+            <Legend verticalAlign="top" height={36} />
+            <Bar dataKey="frekuensi" name={`Frekuensi sampel prakiraan (${sampleUnit})`} fill="#6366f1" radius={[4, 4, 0, 0]} />
           </BarChart>
         );
 
       case 'boxplot':
         return (
-          <div className="flex flex-col items-center justify-center h-full text-center space-y-3 p-4">
-            <span className="text-xs font-bold text-slate-700 dark:text-slate-300">
-              Distribusi Statistik Kuartil Suhu & Curah Hujan
-            </span>
-            <div className="grid grid-cols-5 gap-2 w-full max-w-lg">
-              {[
-                { label: 'Minimum', val: '23.1°C', color: '#38bdf8' },
-                { label: 'Kuartil 1 (25%)', val: '25.4°C', color: '#6366f1' },
-                { label: 'Median (50%)', val: '28.2°C', color: '#10b981' },
-                { label: 'Kuartil 3 (75%)', val: '31.8°C', color: '#f59e0b' },
-                { label: 'Maksimum', val: '34.5°C', color: '#ef4444' },
-              ].map((b) => (
-                <div key={b.label} className="p-3 rounded-2xl bg-slate-100 dark:bg-slate-800/80 border border-slate-200 dark:border-slate-700">
-                  <span className="text-[10px] text-slate-400 block">{b.label}</span>
-                  <span className="text-sm font-black mt-1 block" style={{ color: b.color }}>
-                    {b.val}
-                  </span>
-                </div>
-              ))}
+          <div className="flex flex-col justify-center h-full space-y-4 p-4 text-xs">
+            <div className="flex items-center justify-between border-b border-slate-700/60 pb-2">
+              <span className="font-bold text-slate-200">Statistik kuartil prakiraan suhu ({statDistributionData.validCount} sampel {sampleUnit})</span>
+              <span className="text-[10px] text-slate-400">Kuartil dengan interpolasi linear</span>
             </div>
-            <p className="text-[11px] text-slate-500 max-w-md leading-relaxed">
-              Rentang Antarkuartil (IQR) = 6.4°C. Tidak ditemukan pencilan termal (*outliers*) ekstrem pada asimilasi 24 jam terakhir.
-            </p>
+            <svg viewBox="0 0 500 70" role="img" aria-label="Box plot prakiraan suhu; garis ujung menunjukkan minimum dan maksimum" className="w-full h-20">
+              {(() => {
+                const low = statDistributionData.min ?? 0, high = statDistributionData.max ?? low;
+                const x = (value: number | null) => high === low ? 250 : 40 + ((value ?? low) - low) / (high - low) * 420;
+                return <g stroke="#38bdf8" strokeWidth="2">
+                  <line x1={x(low)} x2={x(high)} y1="35" y2="35" />
+                  <line x1={x(low)} x2={x(low)} y1="20" y2="50" /><line x1={x(high)} x2={x(high)} y1="20" y2="50" />
+                  <rect x={x(statDistributionData.q1)} y="15" width={Math.max(1, x(statDistributionData.q3)-x(statDistributionData.q1))} height="40" fill="#6366f133" />
+                  <line x1={x(statDistributionData.median)} x2={x(statDistributionData.median)} y1="15" y2="55" stroke="#34d399" />
+                </g>;
+              })()}
+            </svg>
+            <p className="text-slate-400 text-center">Kotak Q1–Q3, garis median; ujung garis menunjukkan minimum dan maksimum sampel.</p>
+            <div className="grid grid-cols-5 gap-2 text-center">
+              <div className="p-2.5 rounded-xl bg-slate-900/60 border border-slate-700">
+                <span className="text-[10px] text-slate-400 block">Min</span>
+                <span className="text-sm font-bold text-sky-400">{statDistributionData.min?.toFixed(1)}°C</span>
+              </div>
+              <div className="p-2.5 rounded-xl bg-slate-900/60 border border-slate-700">
+                <span className="text-[10px] text-slate-400 block">Kuartil 1 (Q1)</span>
+                <span className="text-sm font-bold text-indigo-400">{statDistributionData.q1?.toFixed(1)}°C</span>
+              </div>
+              <div className="p-2.5 rounded-xl bg-slate-900/60 border border-indigo-500/40 bg-indigo-950/20">
+                <span className="text-[10px] text-indigo-300 block font-semibold">Median (Q2)</span>
+                <span className="text-base font-extrabold text-emerald-400">{statDistributionData.median?.toFixed(1)}°C</span>
+              </div>
+              <div className="p-2.5 rounded-xl bg-slate-900/60 border border-slate-700">
+                <span className="text-[10px] text-slate-400 block">Kuartil 3 (Q3)</span>
+                <span className="text-sm font-bold text-amber-400">{statDistributionData.q3?.toFixed(1)}°C</span>
+              </div>
+              <div className="p-2.5 rounded-xl bg-slate-900/60 border border-slate-700">
+                <span className="text-[10px] text-slate-400 block">Max</span>
+                <span className="text-sm font-bold text-rose-400">{statDistributionData.max?.toFixed(1)}°C</span>
+              </div>
+            </div>
+            <div className="text-[11px] text-slate-400 text-center">
+              Rentang Antarkuartil (IQR): <strong>{((statDistributionData.q3 ?? 0) - (statDistributionData.q1 ?? 0)).toFixed(1)}°C</strong> • Dihitung dari sampel prakiraan valid; bukan pengamatan stasiun.
+            </div>
           </div>
         );
 
-      case 'violin_density':
-        return (
-          <div className="flex flex-col items-center justify-center h-full p-2 space-y-2">
-            <div className="w-full max-w-md bg-slate-50 dark:bg-slate-900/60 rounded-2xl p-4 border border-slate-200/80 dark:border-slate-800">
-              <div className="flex items-center justify-between text-xs mb-2">
-                <span className="font-bold text-slate-800 dark:text-slate-200">Estimasi Kepadatan Kernel (KDE) & Sebaran Suhu</span>
-                <span className="text-[10px] font-mono text-indigo-500 font-bold">Bandwidth h = 1.2°C</span>
-              </div>
-              <div className="h-32 relative flex items-center justify-center">
-                <svg viewBox="0 0 400 120" className="w-full h-full">
-                  <path
-                    d="M 40,60 C 80,45 120,20 180,15 C 240,10 280,25 320,48 C 350,55 370,60 380,60 C 370,60 350,65 320,72 C 280,95 240,110 180,105 C 120,100 80,75 40,60 Z"
-                    fill="url(#violinGrad)"
-                    stroke="#6366f1"
-                    strokeWidth="2"
-                  />
-                  <defs>
-                    <linearGradient id="violinGrad" x1="0" y1="0" x2="1" y2="0">
-                      <stop offset="0%" stopColor="#38bdf8" stopOpacity="0.6" />
-                      <stop offset="50%" stopColor="#6366f1" stopOpacity="0.7" />
-                      <stop offset="100%" stopColor="#ec4899" stopOpacity="0.6" />
-                    </linearGradient>
-                  </defs>
-                  <line x1="60" y1="60" x2="360" y2="60" stroke="#94a3b8" strokeWidth="2" strokeDasharray="3 3" />
-                  <rect x="150" y="52" width="120" height="16" rx="4" fill="#0f172a" stroke="#ffffff" strokeWidth="1.5" />
-                  <circle cx="210" cy="60" r="4.5" fill="#ffffff" stroke="#6366f1" strokeWidth="2" />
-                </svg>
-              </div>
-              <div className="flex items-center justify-between text-[10px] text-slate-500 font-mono px-2 pt-1 border-t border-slate-200/50 dark:border-slate-800">
-                <span>Min: 22.4°C</span>
-                <span>Q1: 25.8°C</span>
-                <span className="font-bold text-indigo-500">Median: 28.5°C</span>
-                <span>Q3: 31.2°C</span>
-                <span>Maks: 34.8°C</span>
-              </div>
-            </div>
-            <span className="text-[10px] text-slate-400">Kurva simetris memperlihatkan kepadatan multimodal: konsentrasi frekuensi tertinggi berada di 28.5°C</span>
-          </div>
-        );
-
-      case 'ogive':
-      case 'pareto':
-        return (
-          <ComposedChart
-            data={[
-              { wilayah: 'Jawa Barat', kasus: 142, kumulatif: 35 },
-              { wilayah: 'Jawa Timur', kasus: 118, kumulatif: 64 },
-              { wilayah: 'Jawa Tengah', kasus: 76, kumulatif: 82 },
-              { wilayah: 'Sumatera Utara', kasus: 45, kumulatif: 93 },
-              { wilayah: 'Sulawesi Selatan', kasus: 28, kumulatif: 100 },
-            ]}
-          >
-            <CartesianGrid strokeDasharray="3 3" opacity={0.15} />
-            <XAxis dataKey="wilayah" stroke="#94a3b8" tick={{ fontSize: 11 }} />
-            <YAxis yAxisId="left" stroke="#94a3b8" tick={{ fontSize: 11 }} />
-            <YAxis yAxisId="right" orientation="right" stroke="#f59e0b" domain={[0, 100]} unit="%" />
-            <Tooltip contentStyle={{ backgroundColor: '#0f172a', borderColor: '#334155', borderRadius: '12px' }} />
-            <Legend verticalAlign="top" height={36} />
-            <Bar yAxisId="left" dataKey="kasus" name="Jumlah Bencana" fill="#6366f1" radius={[4, 4, 0, 0]} />
-            <Line yAxisId="right" type="monotone" dataKey="kumulatif" name="Persentase Kumulatif (%)" stroke="#f59e0b" strokeWidth={2.5} />
-          </ComposedChart>
-        );
-
-      // 5. RELATIONSHIP & CORRELATION
+      // 3. COMPOSITION
       case 'scatter':
         return (
           <ScatterChart>
@@ -680,112 +402,6 @@ export const HarmonyChartEngine: React.FC<HarmonyChartEngineProps> = ({
             <Legend verticalAlign="top" height={36} />
             <Scatter name="Korelasi Suhu vs Kelembapan" data={timeSeriesData} fill="#6366f1" />
           </ScatterChart>
-        );
-
-      case 'bubble':
-        return (
-          <ScatterChart>
-            <CartesianGrid strokeDasharray="3 3" opacity={0.15} />
-            <XAxis type="number" dataKey="windSpeed" name="Kecepatan Angin (km/h)" stroke="#94a3b8" unit=" km/h" />
-            <YAxis type="number" dataKey="precipitation" name="Curah Hujan (mm)" stroke="#94a3b8" unit=" mm" />
-            <Tooltip cursor={{ strokeDasharray: '3 3' }} contentStyle={{ backgroundColor: '#0f172a', borderColor: '#334155', borderRadius: '12px' }} />
-            <Legend verticalAlign="top" height={36} />
-            <Scatter name="Aktivitas Badai (Bubble 3D)" data={timeSeriesData} fill="#38bdf8" />
-          </ScatterChart>
-        );
-
-      case 'correlation_matrix':
-      case 'hexbin':
-        return (
-          <div className="flex flex-col items-center justify-center h-full p-3 space-y-2 text-center">
-            <span className="text-xs font-bold text-slate-700 dark:text-slate-300">
-              Matriks Koefisien Korelasi Pearson Lintas Parameter
-            </span>
-            <div className="grid grid-cols-4 gap-1 text-[10px] font-mono w-full max-w-sm">
-              <div className="bg-slate-200 dark:bg-slate-700 p-2 font-bold">Var</div>
-              <div className="bg-slate-200 dark:bg-slate-700 p-2 font-bold">Suhu</div>
-              <div className="bg-slate-200 dark:bg-slate-700 p-2 font-bold">Lembap</div>
-              <div className="bg-slate-200 dark:bg-slate-700 p-2 font-bold">Hujan</div>
-
-              <div className="bg-slate-200 dark:bg-slate-700 p-2 font-bold">Suhu</div>
-              <div className="bg-indigo-600 text-white p-2">1.00</div>
-              <div className="bg-rose-500/80 text-white p-2">-0.82</div>
-              <div className="bg-rose-500/50 text-white p-2">-0.48</div>
-
-              <div className="bg-slate-200 dark:bg-slate-700 p-2 font-bold">Lembap</div>
-              <div className="bg-rose-500/80 text-white p-2">-0.82</div>
-              <div className="bg-indigo-600 text-white p-2">1.00</div>
-              <div className="bg-emerald-600/80 text-white p-2">+0.76</div>
-
-              <div className="bg-slate-200 dark:bg-slate-700 p-2 font-bold">Hujan</div>
-              <div className="bg-rose-500/50 text-white p-2">-0.48</div>
-              <div className="bg-emerald-600/80 text-white p-2">+0.76</div>
-              <div className="bg-indigo-600 text-white p-2">1.00</div>
-            </div>
-            <p className="text-[10px] text-slate-400">
-              Korelasi negatif kuat antara suhu dan kelembapan (-0.82). Korelasi positif tinggi antara kelembapan dan hujan (+0.76).
-            </p>
-          </div>
-        );
-
-      // 6. WEATHER & SCIENTIFIC
-      case 'wind_rose':
-        return (
-          <div className="flex flex-col sm:flex-row items-center justify-center gap-4 h-full p-2">
-            <div className="relative w-52 h-52 flex items-center justify-center">
-              <svg viewBox="0 0 200 200" className="w-full h-full transform -rotate-90">
-                <circle cx="100" cy="100" r="80" fill="none" stroke="#475569" strokeDasharray="3 3" opacity="0.3" />
-                <circle cx="100" cy="100" r="60" fill="none" stroke="#475569" strokeDasharray="3 3" opacity="0.3" />
-                <circle cx="100" cy="100" r="40" fill="none" stroke="#475569" strokeDasharray="3 3" opacity="0.3" />
-                <circle cx="100" cy="100" r="20" fill="none" stroke="#475569" strokeDasharray="3 3" opacity="0.3" />
-
-                {windRoseData.map((d) => {
-                  const rad = (d.angle * Math.PI) / 180;
-                  const length = (d.totalFreq / 20) * 80;
-                  const x = 100 + length * Math.cos(rad);
-                  const y = 100 + length * Math.sin(rad);
-                  return (
-                    <line
-                      key={d.direction}
-                      x1="100"
-                      y1="100"
-                      x2={x}
-                      y2={y}
-                      stroke={d.totalFreq > 15 ? '#f43f5e' : d.totalFreq > 10 ? '#f59e0b' : '#38bdf8'}
-                      strokeWidth={d.totalFreq > 15 ? 5 : 3.5}
-                      strokeLinecap="round"
-                    />
-                  );
-                })}
-              </svg>
-              <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
-                <span className="text-[10px] font-bold text-slate-500 bg-white/80 dark:bg-slate-900/80 px-1.5 py-0.5 rounded-full">
-                  16-Arah
-                </span>
-              </div>
-            </div>
-
-            <div className="space-y-2 text-xs">
-              <div className="font-bold text-slate-800 dark:text-slate-200">Distribusi Kecepatan Angin:</div>
-              <div className="space-y-1 text-[11px] text-slate-500">
-                <div className="flex items-center gap-2">
-                  <span className="w-3 h-3 rounded-full bg-[#f43f5e]" />
-                  <span>&gt; 20 km/h (Hembusan Kencang / Tenggara)</span>
-                </div>
-                <div className="flex items-center gap-2">
-                  <span className="w-3 h-3 rounded-full bg-[#f59e0b]" />
-                  <span>10 - 20 km/h (Angin Sedang)</span>
-                </div>
-                <div className="flex items-center gap-2">
-                  <span className="w-3 h-3 rounded-full bg-[#38bdf8]" />
-                  <span>0 - 10 km/h (Angin Sepoi)</span>
-                </div>
-              </div>
-              <div className="text-[10px] text-slate-400 pt-1">
-                Arah dominan: <strong>Tenggara & Timur (Monsun Australia)</strong>
-              </div>
-            </div>
-          </div>
         );
 
       case 'meteogram':
@@ -799,120 +415,8 @@ export const HarmonyChartEngine: React.FC<HarmonyChartEngineProps> = ({
             <Legend verticalAlign="top" height={36} />
             <Area yAxisId="rain" type="monotone" dataKey="precipitation" name="Presipitasi (mm)" fill="#38bdf8" stroke="#0284c7" fillOpacity={0.3} />
             <Line yAxisId="temp" type="monotone" dataKey="temperature" name="Suhu (°C)" stroke="#6366f1" strokeWidth={2.5} />
-            <Line yAxisId="temp" type="monotone" dataKey="apparentTemp" name="Titik Embun / Terasa" stroke="#f43f5e" strokeWidth={1.5} strokeDasharray="4 4" />
+            <Line yAxisId="temp" type="monotone" dataKey="apparentTemp" name="Suhu Terasa (°C)" stroke="#f43f5e" strokeWidth={1.5} strokeDasharray="4 4" />
           </ComposedChart>
-        );
-
-      case 'sounding':
-        return (
-          <div className="flex flex-col items-center justify-center h-full p-2 space-y-2">
-            <div className="w-full max-w-lg bg-slate-950 rounded-2xl p-3 border border-slate-800 relative">
-              <div className="flex items-center justify-between text-xs mb-1.5 px-1">
-                <span className="font-bold text-sky-400">Atmospheric Sounding Skew-T Profile (0 - 12 km)</span>
-                <span className="text-[10px] font-mono px-2 py-0.5 rounded bg-emerald-500/20 text-emerald-400 font-bold border border-emerald-500/30">
-                  CAPE: 1850 J/kg (Potensi Cb)
-                </span>
-              </div>
-              <div className="h-36 relative flex items-center justify-center">
-                <svg viewBox="0 0 500 160" className="w-full h-full">
-                  {[
-                    { p: '200 hPa', y: 20 },
-                    { p: '500 hPa', y: 60 },
-                    { p: '700 hPa', y: 100 },
-                    { p: '850 hPa', y: 130 },
-                    { p: '1000 hPa', y: 150 },
-                  ].map((iso) => (
-                    <g key={iso.p}>
-                      <line x1="60" y1={iso.y} x2="480" y2={iso.y} stroke="#334155" strokeDasharray="3 3" />
-                      <text x="6" y={iso.y + 3} fill="#64748b" fontSize="8" fontFamily="monospace">{iso.p}</text>
-                    </g>
-                  ))}
-                  <polygon
-                    points="140,150 180,130 240,100 310,60 380,20 340,20 280,60 210,100 160,130 140,150"
-                    fill="#f59e0b"
-                    fillOpacity="0.25"
-                  />
-                  <path d="M 120,150 L 140,130 L 170,100 L 210,60 L 260,20" fill="none" stroke="#10b981" strokeWidth="2.5" />
-                  <path d="M 150,150 L 190,130 L 250,100 L 320,60 L 390,20" fill="none" stroke="#f43f5e" strokeWidth="2.5" />
-                  <path d="M 140,150 L 180,130 L 240,100 L 310,60 L 380,20" fill="none" stroke="#f59e0b" strokeWidth="2" strokeDasharray="4 4" />
-                </svg>
-              </div>
-              <div className="flex items-center justify-between text-[9px] font-mono text-slate-400 px-2 pt-1 border-t border-slate-800">
-                <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-[#f43f5e]" /> Suhu Lingkungan T</span>
-                <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-[#10b981]" /> Titik Embun Td</span>
-                <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-[#f59e0b]" /> Parsel Udara (Lifted)</span>
-                <span className="text-indigo-400">Lifted Index: -4.2 | K-Index: 34</span>
-              </div>
-            </div>
-          </div>
-        );
-
-      case 'wave_rose':
-        return (
-          <div className="flex flex-col sm:flex-row items-center justify-center gap-4 h-full p-2">
-            <div className="relative w-52 h-52 flex items-center justify-center">
-              <svg viewBox="0 0 200 200" className="w-full h-full transform -rotate-90">
-                <circle cx="100" cy="100" r="80" fill="none" stroke="#475569" strokeDasharray="3 3" opacity="0.3" />
-                <circle cx="100" cy="100" r="60" fill="none" stroke="#475569" strokeDasharray="3 3" opacity="0.3" />
-                <circle cx="100" cy="100" r="40" fill="none" stroke="#475569" strokeDasharray="3 3" opacity="0.3" />
-                <circle cx="100" cy="100" r="20" fill="none" stroke="#475569" strokeDasharray="3 3" opacity="0.3" />
-
-                {[
-                  { dir: 'U', angle: 0, val: 4, col: '#38bdf8' },
-                  { dir: 'TL', angle: 45, val: 6, col: '#38bdf8' },
-                  { dir: 'T', angle: 90, val: 8, col: '#38bdf8' },
-                  { dir: 'TG', angle: 135, val: 12, col: '#0ea5e9' },
-                  { dir: 'S', angle: 180, val: 18, col: '#f59e0b' },
-                  { dir: 'BD', angle: 225, val: 24, col: '#f43f5e' },
-                  { dir: 'B', angle: 270, val: 14, col: '#0ea5e9' },
-                  { dir: 'BL', angle: 315, val: 7, col: '#38bdf8' },
-                ].map((w) => {
-                  const rad = (w.angle * Math.PI) / 180;
-                  const length = (w.val / 25) * 80;
-                  const x = 100 + length * Math.cos(rad);
-                  const y = 100 + length * Math.sin(rad);
-                  return (
-                    <line
-                      key={w.dir}
-                      x1="100"
-                      y1="100"
-                      x2={x}
-                      y2={y}
-                      stroke={w.col}
-                      strokeWidth={w.val > 20 ? 6 : w.val > 10 ? 4.5 : 3}
-                      strokeLinecap="round"
-                    />
-                  );
-                })}
-              </svg>
-              <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
-                <span className="text-[10px] font-bold text-sky-600 bg-white/80 dark:bg-slate-900/80 px-2 py-0.5 rounded-full border border-sky-500/20">
-                  Swell Rose
-                </span>
-              </div>
-            </div>
-
-            <div className="space-y-2 text-xs">
-              <div className="font-bold text-slate-800 dark:text-slate-200">Ketinggian Gelombang Signifikan (Hs):</div>
-              <div className="space-y-1 text-[11px] text-slate-500">
-                <div className="flex items-center gap-2">
-                  <span className="w-3 h-3 rounded-full bg-[#f43f5e]" />
-                  <span>&gt; 2.5 m (Tinggi / Peringatan BMKG - Samudra Hindia)</span>
-                </div>
-                <div className="flex items-center gap-2">
-                  <span className="w-3 h-3 rounded-full bg-[#f59e0b]" />
-                  <span>1.25 - 2.5 m (Sedang / Selat Sunda & Bali)</span>
-                </div>
-                <div className="flex items-center gap-2">
-                  <span className="w-3 h-3 rounded-full bg-[#38bdf8]" />
-                  <span>0.5 - 1.25 m (Rendah / Laut Jawa)</span>
-                </div>
-              </div>
-              <div className="text-[10px] text-slate-400 pt-1">
-                Periode gelombang: <strong>8 - 12 detik</strong> • Arah dominan swell: <strong>Barat Daya (225°)</strong>
-              </div>
-            </div>
-          </div>
         );
 
       case 'aqi_gauge':
@@ -922,46 +426,26 @@ export const HarmonyChartEngine: React.FC<HarmonyChartEngineProps> = ({
               <div className="w-44 h-44 rounded-full border-[14px] border-emerald-500 border-t-amber-500 border-r-rose-500 transform rotate-45" />
               <div className="absolute inset-x-0 bottom-0 flex flex-col items-center">
                 <span className="text-2xl font-black text-slate-900 dark:text-white">
-                  {weatherData?.current.pm25 ?? 24.5}
+                  {weatherData?.current?.pm25 != null ? weatherData.current.pm25 : '—'}
                 </span>
-                <span className="text-[10px] uppercase font-bold text-emerald-500">
-                  {weatherData?.current.aqiLevel ?? 'Baik'}
+                <span className={`text-[10px] uppercase font-bold ${
+                  weatherData?.current?.aqiLevel === 'Baik' ? 'text-emerald-500' :
+                  weatherData?.current?.aqiLevel === 'Sedang' ? 'text-sky-500' :
+                  weatherData?.current?.aqiLevel === 'Tidak Sehat' ? 'text-amber-500' :
+                  weatherData?.current?.aqiLevel === 'Berbahaya' ? 'text-rose-500' :
+                  'text-slate-400'
+                }`}>
+                  {weatherData?.current?.aqiLevel ?? 'ISPU Tersedia'}
                 </span>
               </div>
             </div>
             <div className="text-[10px] text-slate-400">
-              Konsentrasi Partikulat PM2.5 (µg/m³) • Standar Baku Mutu Udara BMKG & WHO
+              Konsentrasi Partikulat PM2.5 (µg/m³) • Prakiraan CAMS; bukan AQI atau pengukuran stasiun
             </div>
           </div>
         );
 
       // 7. SEISMIC & EARTHQUAKE
-      case 'seismograph':
-        return (
-          <div className="flex flex-col items-center justify-center h-full p-2 space-y-2">
-            <div className="w-full h-40 bg-slate-950 rounded-2xl p-3 border border-slate-800 relative overflow-hidden flex items-center">
-              <svg viewBox="0 0 500 100" className="w-full h-full text-emerald-400" preserveAspectRatio="none">
-                <path
-                  d="M 0,50 L 80,50 L 90,48 L 100,52 L 120,50 L 130,46 L 140,54 L 150,50 L 160,35 L 170,65 L 180,20 L 190,80 L 200,10 L 210,90 L 220,25 L 230,75 L 240,30 L 250,70 L 270,40 L 290,60 L 320,45 L 350,55 L 400,49 L 450,51 L 500,50"
-                  fill="none"
-                  stroke="currentColor"
-                  strokeWidth="2"
-                />
-              </svg>
-              <div className="absolute top-2 left-4 text-[9px] font-mono text-emerald-500">
-                P-Arrival (120ms)
-              </div>
-              <div className="absolute top-2 left-36 text-[9px] font-mono text-rose-400">
-                S-Arrival (180ms) - PGA 0.35g
-              </div>
-            </div>
-            <div className="text-[11px] text-slate-500 flex justify-between w-full px-2">
-              <span>Sensor Akselerometer 3-Komponen InaTEWS</span>
-              <span className="font-mono text-emerald-500 font-bold">Sampling: 100 Hz</span>
-            </div>
-          </div>
-        );
-
       case 'depth_mag_scatter':
         return (
           <ScatterChart>
@@ -974,168 +458,6 @@ export const HarmonyChartEngine: React.FC<HarmonyChartEngineProps> = ({
           </ScatterChart>
         );
 
-      case 'gutenberg_richter':
-        return (
-          <LineChart data={gutenbergData}>
-            <CartesianGrid strokeDasharray="3 3" opacity={0.15} />
-            <XAxis dataKey="magnitude" stroke="#94a3b8" unit=" M" tick={{ fontSize: 11 }} />
-            <YAxis stroke="#94a3b8" unit=" log N" tick={{ fontSize: 11 }} />
-            <Tooltip contentStyle={{ backgroundColor: '#0f172a', borderColor: '#334155', borderRadius: '12px' }} />
-            <Legend verticalAlign="top" height={36} />
-            <Line type="monotone" dataKey="logN" name="Empirical log N" stroke="#f43f5e" strokeWidth={0} dot={{ r: 5, fill: '#f43f5e' }} />
-            <Line type="monotone" dataKey="theoreticalLogN" name="Gutenberg-Richter Fit (b = 0.95)" stroke="#6366f1" strokeWidth={2.5} />
-          </LineChart>
-        );
-
-      case 'isoseismal_curve':
-        return (
-          <ComposedChart
-            data={[
-              { distance: 0, mmi: 7.2, damage: 'Kerusakan Sedang-Berat' },
-              { distance: 20, mmi: 6.4, damage: 'Plester Dinding Rontok' },
-              { distance: 50, mmi: 5.5, damage: 'Benda Tergoyang Nyata' },
-              { distance: 100, mmi: 4.4, damage: 'Dirasakan Orang Banyak' },
-              { distance: 160, mmi: 3.5, damage: 'Dirasakan di Rumah' },
-              { distance: 240, mmi: 2.6, damage: 'Getaran Sangat Lemah' },
-              { distance: 320, mmi: 1.8, damage: 'Hanya Sensor Seismik' },
-            ]}
-          >
-            <CartesianGrid strokeDasharray="3 3" opacity={0.15} />
-            <XAxis dataKey="distance" stroke="#94a3b8" unit=" km" tick={{ fontSize: 11 }} />
-            <YAxis stroke="#94a3b8" domain={[1, 9]} unit=" MMI" tick={{ fontSize: 11 }} />
-            <Tooltip contentStyle={{ backgroundColor: '#0f172a', borderColor: '#334155', borderRadius: '12px' }} />
-            <Legend verticalAlign="top" height={36} />
-            <ReferenceLine y={6} stroke="#f59e0b" strokeDasharray="3 3" label="MMI VI (Ambang Retak)" />
-            <ReferenceLine y={7} stroke="#ef4444" strokeDasharray="3 3" label="MMI VII (Kerusakan)" />
-            <Line type="monotone" dataKey="mmi" name="Intensitas Guncangan Tanah (MMI)" stroke="#f43f5e" strokeWidth={3} dot={{ r: 4, fill: '#f43f5e' }} />
-          </ComposedChart>
-        );
-
-      // 8. FLOW & HIERARCHY
-      case 'calendar_heatmap':
-        return (
-          <div className="flex flex-col items-center justify-center h-full p-2 space-y-2">
-            <div className="w-full max-w-lg bg-slate-50 dark:bg-slate-900/60 rounded-2xl p-3 border border-slate-200/80 dark:border-slate-800">
-              <div className="flex items-center justify-between text-xs mb-2">
-                <span className="font-bold text-slate-800 dark:text-slate-200">Matriks Kalender Presipitasi & Hari Tanpa Hujan (HTH)</span>
-                <span className="text-[10px] text-slate-400 font-mono">52 Minggu (1 Tahun)</span>
-              </div>
-              <div className="grid grid-cols-12 gap-1 h-28 p-1">
-                {Array.from({ length: 48 }).map((_, i) => {
-                  const val = ((i * 7 + (i % 5) * 11) % 100);
-                  const color =
-                    val > 80 ? 'bg-purple-600' :
-                    val > 55 ? 'bg-blue-500' :
-                    val > 30 ? 'bg-emerald-500' :
-                    val > 15 ? 'bg-amber-400' : 'bg-slate-200 dark:bg-slate-800';
-                  return (
-                    <div
-                      key={i}
-                      className={`rounded-sm ${color} transition-all hover:scale-125 cursor-pointer`}
-                      title={`Minggu ke-${i + 1}: Indeks Presipitasi ${val} mm`}
-                    />
-                  );
-                })}
-              </div>
-              <div className="flex items-center justify-between text-[10px] text-slate-500 pt-2 border-t border-slate-200/50 dark:border-slate-800">
-                <span className="flex items-center gap-1"><span className="w-2 h-2 rounded bg-slate-300 dark:bg-slate-700" /> Kering (HTH)</span>
-                <span className="flex items-center gap-1"><span className="w-2 h-2 rounded bg-amber-400" /> Hujan Ringan</span>
-                <span className="flex items-center gap-1"><span className="w-2 h-2 rounded bg-emerald-500" /> Sedang</span>
-                <span className="flex items-center gap-1"><span className="w-2 h-2 rounded bg-blue-500" /> Lebat</span>
-                <span className="flex items-center gap-1"><span className="w-2 h-2 rounded bg-purple-600" /> Ekstrem (&gt;100mm)</span>
-              </div>
-            </div>
-          </div>
-        );
-
-      case 'sankey_flow':
-        return (
-          <div className="flex flex-col items-center justify-center h-full p-2 space-y-2">
-            <div className="w-full max-w-lg bg-slate-50 dark:bg-slate-900/60 rounded-2xl p-4 border border-slate-200/80 dark:border-slate-800">
-              <div className="flex items-center justify-between text-xs mb-3">
-                <span className="font-bold text-slate-800 dark:text-slate-200">Aliran Sistem Peringatan Dini & Distribusi Evakuasi (Sankey Flux)</span>
-                <span className="text-[10px] font-mono text-indigo-500 font-bold">100% Sinyal Input</span>
-              </div>
-              <div className="h-28 relative flex items-center justify-center">
-                <svg viewBox="0 0 500 120" className="w-full h-full">
-                  <rect x="20" y="10" width="16" height="100" rx="3" fill="#6366f1" />
-                  <text x="42" y="65" fill="#6366f1" fontSize="10" fontWeight="bold">Sensor Radar/Satelit (1200)</text>
-
-                  <path d="M 36,25 C 100,25 100,35 180,35 L 180,75 C 100,75 100,85 36,85 Z" fill="#6366f1" fillOpacity="0.3" />
-
-                  <rect x="180" y="30" width="16" height="60" rx="3" fill="#38bdf8" />
-                  <text x="202" y="65" fill="#38bdf8" fontSize="10" fontWeight="bold">Validasi AI NWP (650)</text>
-
-                  <path d="M 196,35 C 260,35 260,25 340,25 L 340,55 C 260,55 260,65 196,65 Z" fill="#0ea5e9" fillOpacity="0.3" />
-                  <path d="M 196,65 C 260,65 260,80 340,80 L 340,105 C 260,105 260,90 196,90 Z" fill="#f59e0b" fillOpacity="0.3" />
-
-                  <rect x="340" y="20" width="16" height="35" rx="3" fill="#10b981" />
-                  <text x="362" y="38" fill="#10b981" fontSize="9" fontWeight="bold">Zona Aman & Pengungsian (380)</text>
-
-                  <rect x="340" y="75" width="16" height="30" rx="3" fill="#ef4444" />
-                  <text x="362" y="93" fill="#ef4444" fontSize="9" fontWeight="bold">Fasilitas Medis & RS (270)</text>
-                </svg>
-              </div>
-              <div className="text-[10px] text-slate-400 text-center pt-1">
-                Visualisasi lebar pita menunjukkan kuantitas throughput aliran dari sensor hingga fasilitas evakuasi.
-              </div>
-            </div>
-          </div>
-        );
-
-      case 'parallel_coords':
-        return (
-          <div className="flex flex-col items-center justify-center h-full p-2 space-y-2">
-            <div className="w-full max-w-lg bg-slate-50 dark:bg-slate-900/60 rounded-2xl p-3 border border-slate-200/80 dark:border-slate-800">
-              <div className="flex items-center justify-between text-xs mb-1.5">
-                <span className="font-bold text-slate-800 dark:text-slate-200">Parallel Coordinates Multi-Variabel Atmosfer</span>
-                <span className="text-[10px] font-mono text-emerald-500 font-bold">5 Sumbu Paralel</span>
-              </div>
-              <div className="h-36 relative flex items-center justify-center">
-                <svg viewBox="0 0 500 140" className="w-full h-full">
-                  {[
-                    { name: 'Suhu (°C)', x: 40, min: '20°', max: '38°' },
-                    { name: 'Lembap (%)', x: 140, min: '40%', max: '100%' },
-                    { name: 'Tekanan (hPa)', x: 240, min: '1004', max: '1016' },
-                    { name: 'Angin (km/h)', x: 340, min: '0', max: '45' },
-                    { name: 'PM2.5 (µg)', x: 440, min: '0', max: '120' },
-                  ].map((ax) => (
-                    <g key={ax.name}>
-                      <line x1={ax.x} y1="20" x2={ax.x} y2="120" stroke="#475569" strokeWidth="2" />
-                      <text x={ax.x} y="14" textAnchor="middle" fill="#94a3b8" fontSize="9" fontWeight="bold">{ax.name}</text>
-                      <text x={ax.x} y="132" textAnchor="middle" fill="#64748b" fontSize="8">{ax.min}</text>
-                      <text x={ax.x} y="28" textAnchor="middle" fill="#64748b" fontSize="8">{ax.max}</text>
-                    </g>
-                  ))}
-
-                  <polyline points="40,95 140,50 240,40 340,105 440,110" fill="none" stroke="#10b981" strokeWidth="2.5" opacity="0.85" />
-                  <polyline points="40,110 140,25 240,115 340,30 440,90" fill="none" stroke="#f43f5e" strokeWidth="3" opacity="0.9" />
-                  <polyline points="40,30 140,110 240,35 340,80 440,40" fill="none" stroke="#f59e0b" strokeWidth="2.5" opacity="0.85" />
-                  <polyline points="40,70 140,65 240,60 340,75 440,85" fill="none" stroke="#6366f1" strokeWidth="2.5" opacity="0.85" />
-                </svg>
-              </div>
-              <div className="flex items-center justify-between text-[10px] text-slate-400 px-1 pt-1 border-t border-slate-200/50 dark:border-slate-800">
-                <span className="flex items-center gap-1"><span className="w-2.5 h-2.5 rounded-full bg-[#f43f5e]" /> Badai</span>
-                <span className="flex items-center gap-1"><span className="w-2.5 h-2.5 rounded-full bg-[#f59e0b]" /> Panas Kering</span>
-                <span className="flex items-center gap-1"><span className="w-2.5 h-2.5 rounded-full bg-[#10b981]" /> Sejuk Lembap</span>
-                <span className="flex items-center gap-1"><span className="w-2.5 h-2.5 rounded-full bg-[#6366f1]" /> Konsensus Saat Ini</span>
-              </div>
-            </div>
-          </div>
-        );
-
-      // Default fallback
-      default:
-        return (
-          <LineChart data={timeSeriesData}>
-            <CartesianGrid strokeDasharray="3 3" opacity={0.15} />
-            <XAxis dataKey="label" stroke="#94a3b8" tick={{ fontSize: 11 }} />
-            <YAxis stroke="#94a3b8" tick={{ fontSize: 11 }} />
-            <Tooltip contentStyle={{ backgroundColor: '#0f172a', borderColor: '#334155', borderRadius: '12px' }} />
-            <Legend verticalAlign="top" height={36} />
-            <Line type="monotone" dataKey="temperature" name="Suhu (°C)" stroke="#6366f1" strokeWidth={2.5} />
-          </LineChart>
-        );
     }
   };
 
@@ -1149,6 +471,7 @@ export const HarmonyChartEngine: React.FC<HarmonyChartEngineProps> = ({
       'lollipop',
       'bullet',
       'radar',
+      'wind_rose',
       'line',
       'multi_line',
       'step_line',
@@ -1275,9 +598,16 @@ export const HarmonyChartEngine: React.FC<HarmonyChartEngineProps> = ({
         ))}
       </div>
 
+      {activeChart.id === 'wind_rose' && windRose.sampleCount > 0 && <p className="text-xs text-slate-500 dark:text-slate-300">{windRose.sampleCount} sampel prakiraan; angin tenang (&lt;{windRose.calmThresholdKmh} km/h): {windRose.calmPct.toFixed(1)}%. Arah menunjukkan asal angin; sampel kosong tidak dihitung.</p>}
       {/* Main Responsive Canvas Viewport */}
       <div className={`w-full transition-all duration-300 ${isExpanded ? 'h-[500px]' : 'h-64 sm:h-72'}`}>
-        {isRechartsComponent ? (
+        {chartUnavailable ? (
+          <div role="status" className="h-full flex flex-col items-center justify-center text-center p-5 gap-2 text-slate-500 dark:text-slate-300">
+            <Info className="w-6 h-6" />
+            <strong>Data untuk grafik ini belum tersedia</strong>
+            <p className="text-xs max-w-lg">Sumber dan perhitungan yang diperlukan belum terhubung atau belum menghasilkan data valid. Grafik tidak diisi dengan angka contoh.</p>
+          </div>
+        ) : isRechartsComponent ? (
           <ResponsiveContainer width="100%" height="100%">
             {renderChartCanvas()}
           </ResponsiveContainer>
@@ -1347,7 +677,7 @@ export const HarmonyChartEngine: React.FC<HarmonyChartEngineProps> = ({
             <div className="p-4 border-b border-slate-100 dark:border-slate-800 space-y-3">
               <div className="relative">
                 <Search className="w-4 h-4 text-slate-400 absolute left-3.5 top-1/2 -translate-y-1/2 pointer-events-none" />
-                <input
+                <input name="searchQuery" id="harmonychartengine-searchquery"
                   type="text"
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}

@@ -46,7 +46,10 @@ export function StudentSessionJoin() {
         <form onSubmit={handleJoin} className="space-y-6">
           <div>
             <input
+              id="session-code-input"
+              name="sessionCode"
               type="text"
+              autoComplete="one-time-code"
               value={code}
               onChange={(e) => setCode(e.target.value)}
               placeholder="e.g. 482731"

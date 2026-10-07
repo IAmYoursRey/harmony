@@ -15,6 +15,8 @@ import {
   HydrologyLandCoverData,
 } from '../../../../../services/geospatialAnalysisService';
 
+import { aoiService, useActiveAOI } from '../../../../../services/geospatial/aoiService';
+
 interface GeospatialHydrologyTabProps {
   lat: number;
   lng: number;
@@ -28,14 +30,26 @@ export const GeospatialHydrologyTab: React.FC<GeospatialHydrologyTabProps> = ({
   elevationM,
   regionName,
 }) => {
+  const activeAOI = useActiveAOI();
   const hydro: HydrologyLandCoverData = geospatialAnalysisService.calculateHydrologyAndLandCover(
     lat,
     lng,
-    elevationM
+    elevationM,
+    [],
+    activeAOI
   );
+
+  const totalAreaKm2 = parseFloat(
+    hydro.landCoverClasses.reduce((acc, c) => acc + c.areaKm2, 0).toFixed(1)
+  );
+
+  const builtUpClass = hydro.landCoverClasses.find((c) => !c.permeable);
+  const builtUpPct = builtUpClass ? builtUpClass.percentage : 0;
 
   const getRiskColor = (level: HydrologyLandCoverData['floodRiskLevel']) => {
     switch (level) {
+      case 'Tidak Tersedia':
+        return 'text-slate-500 bg-slate-500/10 border-slate-500/20';
       case 'Ekstrem':
         return 'text-red-500 bg-red-500/15 border-red-500/30';
       case 'Tinggi':
@@ -85,7 +99,7 @@ export const GeospatialHydrologyTab: React.FC<GeospatialHydrologyTabProps> = ({
             <Waves className="w-4 h-4 text-sky-500" />
           </div>
           <div className="flex items-baseline gap-1">
-            <span className="text-2xl font-black text-slate-900 dark:text-white">{hydro.nearestRiverDistanceM}</span>
+            <span className="text-2xl font-black text-slate-900 dark:text-white">{hydro.nearestRiverDistanceM ?? '—'}</span>
             <span className="text-xs text-slate-500 font-bold">meter</span>
           </div>
           <p className="text-[11px] text-slate-500 mt-1 truncate">{hydro.watershedName.split(' ')[1] || 'Sempadan Alami'}</p>
@@ -98,8 +112,12 @@ export const GeospatialHydrologyTab: React.FC<GeospatialHydrologyTabProps> = ({
             <TrendingDown className="w-4 h-4 text-teal-500" />
           </div>
           <div className="flex items-baseline gap-1">
-            <span className="text-2xl font-black text-slate-900 dark:text-white">{hydro.relativeRiverElevationM}</span>
-            <span className="text-xs text-slate-500 font-bold">meter</span>
+            <span className="text-2xl font-black text-slate-900 dark:text-white">
+              {hydro.relativeRiverElevationM !== null ? `+${hydro.relativeRiverElevationM}` : '—'}
+            </span>
+            <span className="text-xs text-slate-500 font-bold">
+              {hydro.relativeRiverElevationM !== null ? 'meter' : '(Perlu DEM Sungai)'}
+            </span>
           </div>
           <p className="text-[11px] text-slate-500 mt-1">Freeboard Sempadan</p>
         </div>
@@ -127,10 +145,10 @@ export const GeospatialHydrologyTab: React.FC<GeospatialHydrologyTabProps> = ({
               {hydro.floodRiskLevel}
             </span>
             <span className="text-xs font-mono font-bold text-slate-700 dark:text-slate-300">
-              {hydro.floodExposureScore}/100
+              {hydro.floodExposureScore !== null ? `${hydro.floodExposureScore}/100` : '—'}
             </span>
           </div>
-          <p className="text-[11px] text-slate-500 mt-1">Model Multi-Kriteria Spasial</p>
+          <p className="text-[11px] text-slate-500 mt-1">Memerlukan data dan model risiko yang sesuai</p>
         </div>
       </div>
 
@@ -139,17 +157,20 @@ export const GeospatialHydrologyTab: React.FC<GeospatialHydrologyTabProps> = ({
         <div className="flex items-center justify-between pb-3 border-b border-slate-100 dark:border-slate-700/60">
           <div>
             <h4 className="text-sm font-bold text-slate-900 dark:text-white flex items-center gap-2">
-              <TreePine className="w-4 h-4 text-emerald-500" /> Komposisi Tutupan Lahan (Land Use / Land Cover)
+              <TreePine className="w-4 h-4 text-emerald-500" /> Komposisi Tutupan Lahan (ESA WorldCover 2021 v200)
             </h4>
             <p className="text-xs text-slate-500 dark:text-slate-400">
               Klasifikasi kawasan kedap air (impervious) vs lahan serapan air alami
             </p>
           </div>
-          <span className="text-xs font-mono text-slate-500">Total: 128.0 km²</span>
+          <span className="text-xs font-mono text-slate-500">
+            Total: {hydro.landCoverClasses.length ? `${totalAreaKm2} km²` : '—'}
+          </span>
         </div>
 
         {/* Breakdown List */}
         <div className="space-y-3">
+          {hydro.landCoverClasses.length === 0 && <p className="text-xs leading-relaxed text-slate-500">Raster tutupan lahan pada wilayah ini belum terhubung. Luas dan persentase kelas belum tersedia.</p>}
           {hydro.landCoverClasses.map((item, idx) => (
             <div key={idx} className="space-y-1">
               <div className="flex items-center justify-between text-xs">
@@ -182,7 +203,7 @@ export const GeospatialHydrologyTab: React.FC<GeospatialHydrologyTabProps> = ({
         </div>
 
         <div className="p-3.5 rounded-2xl bg-slate-50 dark:bg-slate-900/60 border border-slate-200/60 dark:border-slate-700/60 text-xs text-slate-600 dark:text-slate-400 leading-relaxed">
-          <strong>Analisis Limpasan Permukaan:</strong> Kawasan terbangun dan industri membentuk 40% area kedap air, meningkatkan debit puncak banjir saat hujan berdurasi lebih dari 2 jam. Disarankan pemeliharaan polder retensi dan normalisasi saluran primer DAS.
+          <strong>Analisis Limpasan Permukaan:</strong> {hydro.landCoverClasses.length ? `Proporsi kawasan terbangun pada data masukan: ${builtUpPct}%. Perhitungan limpasan juga membutuhkan data tanah, hujan, dan drainase.` : 'Belum dapat disimpulkan karena data tutupan lahan, tanah, hujan, dan drainase yang diperlukan belum lengkap.'}
         </div>
       </div>
     </div>

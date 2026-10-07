@@ -37,7 +37,7 @@ export function DisasterSimulationPanel({
       </div>
 
       <div className="flex items-center gap-3 w-full sm:w-auto">
-        <select
+        <select name="selectedSim" id="disastersimulationpanel-selectedsim"
           value={selectedSim || ""}
           onChange={(e) => onSelectSim(e.target.value as DisasterType)}
           disabled={simRunning || !hasMap || !hasNodes}

@@ -29,6 +29,8 @@ import {
   KeyRound,
   Terminal,
   Radio,
+  Copy,
+  Check,
 } from "lucide-react";
 import {
   DATA_SOURCES_REGISTRY,
@@ -39,6 +41,8 @@ import {
   DataSourceItem,
 } from "@/data/dataSourceRegistry";
 import { GeospatialDataTransparencyModal } from "@/components/dashboard/views/spatial/GeospatialDataTransparencyModal";
+import { geospatialDataTelemetryService } from "@/services/geospatialDataTelemetryService";
+import { weatherAggregatorService } from "@/services/weatherAggregatorService";
 
 interface DataSourceProvenanceModalProps {
   isOpen: boolean;
@@ -74,6 +78,75 @@ export function DataSourceProvenanceModal({
   const [searchQuery, setSearchQuery] = useState("");
   const [isTelemetryModalOpen, setIsTelemetryModalOpen] = useState(false);
   const [keyFilter, setKeyFilter] = useState<"ALL" | "PUBLIC_FREE" | "KEY_REQUIRED">("ALL");
+
+  const [isPingingAll, setIsPingingAll] = useState(false);
+  const [checkingEndpointIds, setCheckingEndpointIds] = useState<Set<string>>(new Set());
+  const [copiedId, setCopiedId] = useState<string | null>(null);
+
+  const [endpoints, setEndpoints] = useState(() => geospatialDataTelemetryService.getEndpoints());
+
+  useEffect(() => {
+    return geospatialDataTelemetryService.subscribe(() => {
+      setEndpoints(geospatialDataTelemetryService.getEndpoints());
+    });
+  }, []);
+
+  const getEndpointForItem = (sourceId: string) => {
+    const idMap: Record<string, string> = {
+      'bmkg-gempa-tews': 'bmkg_tews',
+      'usgs-earthquake-hazards': 'usgs_earthquake',
+      'open-meteo-ecmwf': 'open_meteo_weather',
+      'nasa-firms-noaa': 'nasa_firms',
+      'copernicus-cams-eu': 'open_meteo_air',
+      'google-gemini-ai': 'ai_nwp',
+      'bom-access-maritime': 'open_meteo_model_bom',
+      'cma-grapes-asia': 'open_meteo_model_cma',
+      'jma-seamless-japan': 'open_meteo_model_jma',
+      'openstreetmap-odbl': 'osm_tile_basemap',
+      'esri-world-imagery': 'esri_world_imagery',
+      'esri-world-topo': 'esri_world_topo',
+      'tomtom-traffic-flow': 'tomtom_traffic',
+      'pusgen-sesar-aktif': 'pusgen_active_faults',
+      'open-elevation-copernicus': 'elevation_dem',
+      'met-norway-weather': 'met_norway_fallback',
+    };
+    const epId = idMap[sourceId];
+    return epId ? endpoints.find(e => e.id === epId) : undefined;
+  };
+
+  const handlePingSingle = async (endpointId: string) => {
+    setCheckingEndpointIds(prev => new Set(prev).add(endpointId));
+    try {
+      await geospatialDataTelemetryService.pingEndpoint(endpointId);
+    } catch (err) {
+      console.error(err);
+    } finally {
+      setCheckingEndpointIds(prev => {
+        const next = new Set(prev);
+        next.delete(endpointId);
+        return next;
+      });
+      setEndpoints(geospatialDataTelemetryService.getEndpoints());
+    }
+  };
+
+  const handlePingAll = async () => {
+    setIsPingingAll(true);
+    try {
+      await geospatialDataTelemetryService.pingAllEndpoints();
+    } catch (err) {
+      console.error(err);
+    } finally {
+      setIsPingingAll(false);
+      setEndpoints(geospatialDataTelemetryService.getEndpoints());
+    }
+  };
+
+  const copyToClipboard = (text: string, id: string) => {
+    navigator.clipboard.writeText(text);
+    setCopiedId(id);
+    setTimeout(() => setCopiedId(null), 2000);
+  };
 
   // Close on Escape key & lock body scroll
   useEffect(() => {
@@ -123,9 +196,10 @@ export function DataSourceProvenanceModal({
   }, []);
 
   const totalSources = DATA_SOURCES_REGISTRY.length;
-  const liveConnectedCount = DATA_SOURCES_REGISTRY.filter((s) => s.isLiveConnected).length;
+  const verifiedOnlineCount = endpoints.filter((e) => e.status === 'ONLINE').length;
+  const liveConnectedCount = verifiedOnlineCount;
   const publicFreeCount = DATA_SOURCES_REGISTRY.filter((s) => !s.apiKeyRequired || s.apiKeyStatus === 'PUBLIC_FREE').length;
-  const keyProtectedCount = DATA_SOURCES_REGISTRY.filter((s) => s.apiKeyStatus === 'ACTIVE').length;
+  const keyProtectedCount = DATA_SOURCES_REGISTRY.filter((s) => s.apiKeyStatus === 'CONFIGURED' || s.apiKeyStatus === 'ACTIVE').length;
 
   return (
     <>
@@ -148,55 +222,57 @@ export function DataSourceProvenanceModal({
             {/* Modal Container */}
             <motion.div
               key="provenance-modal-container"
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
-          exit={{ opacity: 0 }}
-          onClick={onClose}
-          className="fixed inset-0 bg-slate-950/70 backdrop-blur-md transition-opacity"
-        />
-
-        {/* Modal Container */}
-        <motion.div
-          initial={{ opacity: 0, scale: 0.96, y: 14 }}
-          animate={{ opacity: 1, scale: 1, y: 0 }}
-          exit={{ opacity: 0, scale: 0.96, y: 14 }}
-          transition={{ duration: 0.2, ease: "easeOut" }}
-          className="relative flex flex-col w-full max-w-5xl h-[92vh] max-h-[860px] rounded-3xl bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800 shadow-2xl overflow-hidden z-10"
-        >
-          {/* Header */}
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 px-6 py-4 border-b border-slate-100 dark:border-slate-800 bg-slate-50/70 dark:bg-slate-900/60 backdrop-blur-sm shrink-0">
-            <div className="flex items-center gap-3">
-              <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-gradient-to-tr from-brand-600 via-indigo-600 to-sky-500 text-white shadow-md shadow-brand-500/20">
-                <Database className="h-5 w-5" />
-              </div>
-              <div>
-                <div className="flex items-center gap-2 flex-wrap">
-                  <h2 className="text-base sm:text-lg font-bold text-slate-900 dark:text-white tracking-tight">
-                    Basis Data & Transparansi Sumber Resmi
-                  </h2>
-                  <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20">
-                    <ShieldCheck className="w-3 h-3" />
-                    Lembaga Otoritatif Terverifikasi
-                  </span>
+              initial={{ opacity: 0, scale: 0.96, y: 14 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.96, y: 14 }}
+              transition={{ duration: 0.2, ease: "easeOut" }}
+              className="relative flex flex-col w-full max-w-5xl h-[92vh] max-h-[860px] rounded-3xl bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800 shadow-2xl overflow-hidden z-10"
+            >
+              {/* Header */}
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 px-6 py-4 border-b border-slate-100 dark:border-slate-800 bg-slate-50/70 dark:bg-slate-900/60 backdrop-blur-sm shrink-0">
+                <div className="flex items-center gap-3">
+                  <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-gradient-to-tr from-brand-600 via-indigo-600 to-sky-500 text-white shadow-md shadow-brand-500/20">
+                    <Database className="h-5 w-5" />
+                  </div>
+                  <div>
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <h2 className="text-base sm:text-lg font-bold text-slate-900 dark:text-white tracking-tight">
+                        Basis Data & Transparansi Sumber Resmi
+                      </h2>
+                      <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20">
+                        <ShieldCheck className="w-3 h-3" />
+                        Lembaga Otoritatif Terverifikasi
+                      </span>
+                    </div>
+                    <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
+                      Katalog dinamis {totalSources} sumber resmi BMKG, PVMBG, BIG, Dapodik, JMA, BOM, Copernicus, ESRI, TomTom & PuSGeN
+                    </p>
+                  </div>
                 </div>
-                <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
-                  Katalog dinamis {totalSources} sumber data resmi BMKG, PVMBG, BIG, Dapodik, JMA, BOM Australia, CMA Tiongkok, & Copernicus
-                </p>
-              </div>
-            </div>
 
-            {/* Actions: Telemetry Bridge + Navigation Tabs + Close */}
-            <div className="flex items-center gap-2 flex-wrap self-end sm:self-center">
-              <button
-                type="button"
-                onClick={() => setIsTelemetryModalOpen(true)}
-                className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-gradient-to-r from-indigo-600 via-sky-600 to-brand-600 hover:from-indigo-700 hover:to-brand-700 text-white text-xs font-bold shadow-md shadow-indigo-500/20 transition-all cursor-pointer active:scale-95"
-                title="Buka status web/API, riwayat paket data keluar-masuk, dan uji akurasi"
-              >
-                <Terminal className="h-3.5 w-3.5" />
-                <span className="hidden sm:inline">Inspeksi Data Keluar-Masuk & Log</span>
-                <span className="sm:hidden">Inspeksi Realtime</span>
-              </button>
+                {/* Actions: Telemetry Bridge + Navigation Tabs + Close */}
+                <div className="flex items-center gap-2 flex-wrap self-end sm:self-center">
+                  <button
+                    type="button"
+                    onClick={handlePingAll}
+                    disabled={isPingingAll}
+                    className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 text-xs font-bold border border-slate-300/80 dark:border-slate-700 transition-all cursor-pointer active:scale-95 disabled:opacity-60"
+                    title="Uji konektivitas semua endpoint sumber data secara simultan"
+                  >
+                    <RefreshCw className={`h-3.5 w-3.5 text-brand-500 ${isPingingAll ? 'animate-spin' : ''}`} />
+                    <span>{isPingingAll ? 'Memeriksa...' : 'Uji Semua Sambungan'}</span>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => setIsTelemetryModalOpen(true)}
+                    className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-gradient-to-r from-indigo-600 via-sky-600 to-brand-600 hover:from-indigo-700 hover:to-brand-700 text-white text-xs font-bold shadow-md shadow-indigo-500/20 transition-all cursor-pointer active:scale-95"
+                    title="Buka status web/API, riwayat paket data keluar-masuk, dan uji akurasi"
+                  >
+                    <Terminal className="h-3.5 w-3.5" />
+                    <span className="hidden sm:inline">Inspeksi Data Keluar-Masuk & Log</span>
+                    <span className="sm:hidden">Inspeksi Realtime</span>
+                  </button>
 
               <div className="flex items-center p-1 rounded-xl bg-slate-200/60 dark:bg-slate-800 border border-slate-200 dark:border-slate-700/60 text-xs">
                 <button
@@ -258,10 +334,10 @@ export function DataSourceProvenanceModal({
               </span>
               <div>
                 <p className="font-bold text-slate-800 dark:text-white text-[11px]">
-                  {liveConnectedCount} Stream Aktif
+                  {liveConnectedCount} Stream Operasional
                 </p>
                 <p className="text-[10px] text-slate-500 dark:text-slate-400">
-                  100% Terkoneksi Real-Time
+                  {totalSources - liveConnectedCount} Katalog & Referensi
                 </p>
               </div>
             </div>
@@ -286,10 +362,10 @@ export function DataSourceProvenanceModal({
               </span>
               <div>
                 <p className="font-bold text-slate-800 dark:text-white text-[11px]">
-                  {keyProtectedCount} API Key Aktif
+                  {keyProtectedCount} Konfigurasi Kredensial
                 </p>
                 <p className="text-[10px] text-slate-500 dark:text-slate-400">
-                  Gemini AI Multimodal Terproteksi
+                  FIRMS MAP_KEY & Gemini
                 </p>
               </div>
             </div>
@@ -304,6 +380,8 @@ export function DataSourceProvenanceModal({
                 <div className="relative">
                   <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
                   <input
+                    id="data-provenance-search-input"
+                    name="provenanceSearch"
                     type="text"
                     value={searchQuery}
                     onChange={(e) => setSearchQuery(e.target.value)}
@@ -428,34 +506,104 @@ export function DataSourceProvenanceModal({
                               </span>
 
                               {/* API Key Status Chip */}
-                              {item.apiKeyRequired ? (
-                                <span
-                                  className={`inline-flex items-center gap-1 px-2.5 py-0.5 rounded-lg text-[10px] font-bold ${
-                                    item.apiKeyStatus === 'ACTIVE'
-                                      ? 'bg-purple-500/10 text-purple-600 dark:text-purple-400 border border-purple-500/20'
-                                      : 'bg-amber-500/10 text-amber-600 dark:text-amber-400 border border-amber-500/20'
-                                  }`}
-                                >
-                                  <KeyRound className="w-3 h-3" />
-                                  {item.apiKeyStatus === 'ACTIVE' ? 'API Key Aktif & Terlindungi' : 'Perlu API Key'}
-                                </span>
-                              ) : (
-                                <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-lg text-[10px] font-bold bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20">
-                                  <Globe className="w-3 h-3" />
-                                  Bebas API Key (Open Data Aktif)
-                                </span>
-                              )}
-
-                              {/* Live Stream Chip */}
-                              {item.isLiveConnected && (
-                                <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-lg text-[10px] font-semibold bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20">
-                                  <span className="relative flex h-2 w-2">
-                                    <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
-                                    <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
+                              {(() => {
+                                const ep = getEndpointForItem(item.id);
+                                if (item.apiKeyRequired) {
+                                  let label = item.apiKeyStatus === 'CONFIGURED' || item.apiKeyStatus === 'ACTIVE'
+                                    ? 'Kredensial Terdaftar (Belum Diverifikasi Runtime)'
+                                    : 'Perlu Kredensial (Belum Dikonfigurasi)';
+                                  let chipClass = 'bg-purple-500/10 text-purple-600 dark:text-purple-400 border-purple-500/20';
+                                  if (ep?.status === 'ONLINE') {
+                                    label = 'Kredensial Terverifikasi Aktif';
+                                    chipClass = 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-500/20';
+                                  } else if (ep?.status === 'OFFLINE') {
+                                    label = 'Kredensial Belum Tervalidasi / Akses Gagal';
+                                    chipClass = 'bg-amber-500/10 text-amber-600 dark:text-amber-400 border-amber-500/20';
+                                  }
+                                  return (
+                                    <span className={`inline-flex items-center gap-1 px-2.5 py-0.5 rounded-lg text-[10px] font-bold border ${chipClass}`}>
+                                      <KeyRound className="w-3 h-3" />
+                                      {label}
+                                    </span>
+                                  );
+                                }
+                                return (
+                                  <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-lg text-[10px] font-bold bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20">
+                                    <Globe className="w-3 h-3" />
+                                    Bebas API Key (Open Data)
                                   </span>
-                                  Stream Aktif
-                                </span>
-                              )}
+                                );
+                              })()}
+
+                              {/* Stream / Catalog / Runtime Status Chip */}
+                              {(() => {
+                                const ep = getEndpointForItem(item.id);
+                                const isChecking = ep ? checkingEndpointIds.has(ep.id) || ep.status === 'CHECKING' : false;
+
+                                if (isChecking) {
+                                  return (
+                                    <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-lg text-[10px] font-semibold bg-blue-500/10 text-blue-600 dark:text-blue-400 border border-blue-500/20">
+                                      <RefreshCw className="w-3 h-3 animate-spin text-blue-500" />
+                                      <span>Sedang Memeriksa...</span>
+                                    </span>
+                                  );
+                                }
+                                if (ep) {
+                                  if (ep.status === 'ONLINE') {
+                                    return (
+                                      <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-lg text-[10px] font-bold bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20">
+                                        <span className="relative flex h-2 w-2">
+                                          <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+                                          <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
+                                        </span>
+                                        <span>Stream Terverifikasi Online</span>
+                                        {ep.latencyMs != null && (
+                                          <span className="text-[9px] opacity-80 font-mono">({ep.latencyMs}ms)</span>
+                                        )}
+                                      </span>
+                                    );
+                                  }
+                                  if (ep.status === 'DEGRADED') {
+                                    return (
+                                      <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-lg text-[10px] font-semibold bg-amber-500/10 text-amber-600 dark:text-amber-400 border border-amber-500/20">
+                                        <span>Stream Parsial / Terdegradasi</span>
+                                      </span>
+                                    );
+                                  }
+                                  if (ep.status === 'OFFLINE') {
+                                    return (
+                                      <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-lg text-[10px] font-semibold bg-rose-500/10 text-rose-600 dark:text-rose-400 border border-rose-500/20">
+                                        <span>Gagal Mengambil Data</span>
+                                      </span>
+                                    );
+                                  }
+                                  return (
+                                    <button
+                                      type="button"
+                                      onClick={() => handlePingSingle(ep.id)}
+                                      className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-lg text-[10px] font-bold bg-indigo-50 dark:bg-indigo-950/60 hover:bg-indigo-100 dark:hover:bg-indigo-900/60 text-indigo-600 dark:text-indigo-400 border border-indigo-200/80 dark:border-indigo-800/80 cursor-pointer active:scale-95 transition-all shadow-2xs"
+                                      title="Klik untuk menguji konektivitas & respon stream secara langsung"
+                                    >
+                                      <Radio className="w-3 h-3 text-indigo-500 animate-pulse" />
+                                      <span>Uji Sambungan Live</span>
+                                    </button>
+                                  );
+                                }
+                                if (item.isLiveConnected) {
+                                  return (
+                                    <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-lg text-[10px] font-semibold bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20">
+                                      <Globe className="w-3 h-3" />
+                                      <span>Koneksi Siap Pakai</span>
+                                    </span>
+                                  );
+                                }
+                                return (
+                                  <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-lg text-[10px] font-semibold bg-slate-500/10 text-slate-600 dark:text-slate-400 border border-slate-500/20">
+                                    <BookOpen className="w-3 h-3 text-slate-400" />
+                                    <span>Katalog & Referensi</span>
+                                  </span>
+                                );
+                              })()}
                             </div>
 
                             <h3 className="text-base font-bold text-slate-900 dark:text-white group-hover:text-brand-600 dark:group-hover:text-brand-400 transition-colors">
@@ -465,13 +613,22 @@ export function DataSourceProvenanceModal({
                             <p className="text-xs font-semibold text-indigo-600 dark:text-indigo-400">
                               🏛️ {item.agencyName} ({item.agencyShort})
                             </p>
+                            {item.institutionStatusLabel && (
+                              <p className="text-[11px] text-slate-500 dark:text-slate-400 font-medium">
+                                Mandat: <span className="text-slate-700 dark:text-slate-300 font-semibold">{item.institutionStatusLabel}</span>
+                              </p>
+                            )}
                           </div>
 
                           {/* Action Buttons: Telemetry Inspector Bridge & Official Portal Link */}
                           <div className="flex items-center gap-2 shrink-0 self-start flex-wrap">
                             <button
                               type="button"
-                              onClick={() => setIsTelemetryModalOpen(true)}
+                              onClick={() => {
+                                const ep = getEndpointForItem(item.id);
+                                if (ep) handlePingSingle(ep.id);
+                                setIsTelemetryModalOpen(true);
+                              }}
                               className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-indigo-50 dark:bg-indigo-950/60 hover:bg-indigo-100 dark:hover:bg-indigo-900/60 text-indigo-600 dark:text-indigo-400 border border-indigo-200/80 dark:border-indigo-800/80 text-xs font-bold transition-all shadow-xs cursor-pointer active:scale-95"
                               title="Inspeksi paket data mentah masuk dan log audit realtime"
                             >
@@ -506,6 +663,53 @@ export function DataSourceProvenanceModal({
                             "{item.officialLegalityBasis}"
                           </p>
                         </div>
+
+                        {/* Direct Endpoint Banner */}
+                        {item.directApiEndpoint && (
+                          <div className="mt-3 p-2.5 rounded-xl bg-slate-50 dark:bg-slate-900/60 border border-slate-200/70 dark:border-slate-800 flex flex-col sm:flex-row sm:items-center justify-between gap-2 text-xs">
+                            <div className="flex items-center gap-2 min-w-0 flex-1">
+                              <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-md bg-brand-500/10 text-brand-600 dark:text-brand-400 text-[10px] font-bold uppercase tracking-wider shrink-0 font-sans">
+                                <Terminal className="w-3 h-3" />
+                                Endpoint Langsung
+                              </span>
+                              <span className="text-[11px] font-mono text-slate-700 dark:text-slate-300 truncate select-all" title={item.directApiEndpoint}>
+                                {item.directApiEndpoint}
+                              </span>
+                            </div>
+                            <div className="flex items-center gap-1.5 shrink-0 self-end sm:self-center">
+                              <button
+                                type="button"
+                                onClick={() => copyToClipboard(item.directApiEndpoint!, item.id)}
+                                className="inline-flex items-center gap-1 px-2 py-1 rounded-lg text-[10px] font-semibold bg-white dark:bg-slate-800 hover:bg-slate-100 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 border border-slate-200 dark:border-slate-700 transition-all cursor-pointer active:scale-95 shadow-2xs"
+                                title="Salin URL endpoint ke clipboard"
+                              >
+                                {copiedId === item.id ? (
+                                  <>
+                                    <Check className="w-3 h-3 text-emerald-500" />
+                                    <span className="text-emerald-600 dark:text-emerald-400 font-bold">Tersalin!</span>
+                                  </>
+                                ) : (
+                                  <>
+                                    <Copy className="w-3 h-3 text-slate-500" />
+                                    <span>Salin</span>
+                                  </>
+                                )}
+                              </button>
+                              {item.directApiEndpoint.startsWith('http') && (
+                                <a
+                                  href={item.directApiEndpoint}
+                                  target="_blank"
+                                  rel="noopener noreferrer"
+                                  className="inline-flex items-center gap-1 px-2 py-1 rounded-lg text-[10px] font-semibold bg-white dark:bg-slate-800 hover:bg-slate-100 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 border border-slate-200 dark:border-slate-700 transition-all active:scale-95 shadow-2xs"
+                                  title="Buka endpoint langsung di tab baru"
+                                >
+                                  <ExternalLink className="w-3 h-3" />
+                                  <span>Akses</span>
+                                </a>
+                              )}
+                            </div>
+                          </div>
+                        )}
 
                         {/* Data Points Included */}
                         <div className="mt-3 space-y-1.5">
@@ -663,7 +867,12 @@ export function DataSourceProvenanceModal({
         weatherData={null}
         lat={-7.25}
         lng={112.75}
-        locationName="Pusat Monitoring Geospasial Indonesia"
+        locationName="Pusat Monitoring Geospasial Indonesia (Jawa Timur)"
+        onRefreshWeather={() => weatherAggregatorService.fetchConsensusWeather(-7.25, 112.75, "Pusat Monitoring Geospasial Indonesia (Jawa Timur)", true)}
+        onReverifyAi={async () => {
+          const consensus = await weatherAggregatorService.fetchConsensusWeather(-7.25, 112.75, "Pusat Monitoring Geospasial Indonesia (Jawa Timur)");
+          await weatherAggregatorService.reverifyWithAi(consensus);
+        }}
       />
     </>
   );

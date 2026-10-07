@@ -1,0 +1,52 @@
+{
+  "checkedAt": "2026-10-03T09:17:09.466Z",
+  "scope": "Post-remediation browser validation in Microsoft Edge. Verified that optical presets reject thermal execution, unavailable assets return UNAVAILABLE, and drawer parameter switches to Windy.",
+  "checks": [
+    {
+      "id": "empty_scene_correctly_unavailable",
+      "status": "UNAVAILABLE",
+      "reason": "NO_SCENE_SELECTED",
+      "resolved": true
+    },
+    {
+      "id": "optical_demo_generates_operational_LST",
+      "status": "UNAVAILABLE",
+      "meanCelsius": null,
+      "sceneId": null,
+      "provider": "Belum Ada Scene Terpilih",
+      "reasonCode": "NO_THERMAL_SCENE",
+      "resolved": true
+    },
+    {
+      "id": "selected_Landsat_unavailable_assets_still_DERIVED",
+      "status": "UNAVAILABLE",
+      "meanCelsius": null,
+      "pixelCount": 0,
+      "sceneId": "LC09_L2SP_REVIEW_FIXTURE",
+      "provider": "USGS / NASA Landsat Mission",
+      "assetRequests": [
+        "/review-thermal.tif",
+        "/review-qa.tif"
+      ],
+      "resolved": true
+    },
+    {
+      "id": "mobile_width",
+      "viewport": 390,
+      "documentWidth": 390,
+      "resolved": true
+    },
+    {
+      "id": "primary_parameter_auto_switch_works",
+      "iframeCount": 1,
+      "activeText": "Aktif: Aliran Angin",
+      "resolved": true
+    },
+    {
+      "id": "drawer_parameter_bypasses_auto_switch",
+      "iframeCount": 1,
+      "activeText": "Aktif: Suhu Permukaan",
+      "resolved": true
+    }
+  ]
+}

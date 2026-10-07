@@ -55,6 +55,9 @@ export function Topbar({ onOpenMobile, title }: TopbarProps) {
         <div className="relative">
           <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-ink-400 dark:text-slate-500" />
           <input
+            id="topbar-navigation-search-input"
+            name="navigationSearch"
+            type="search"
             value={search}
             onChange={(e) => setSearch(e.target.value)}
             onKeyDown={(e) => {

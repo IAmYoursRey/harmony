@@ -277,8 +277,8 @@ export function evaluateFreshness(params: FreshnessEvaluationParams): FreshnessR
   let statusLabelId = 'UNKNOWN';
 
   if (!params.dataTime) {
-    status = params.isFromCache ? 'CACHED' : 'UNKNOWN_FRESHNESS';
-    statusLabelId = params.isFromCache ? 'CACHED' : 'TIDAK DIKETAHUI';
+    status = params.isFromCache ? 'CACHED' : providerHealth === 'OFFLINE' ? 'UNAVAILABLE' : 'UNKNOWN_FRESHNESS';
+    statusLabelId = params.isFromCache ? 'CACHED' : providerHealth === 'OFFLINE' ? 'TIDAK TERSEDIA' : 'TIDAK DIKETAHUI';
   } else if (dateRecency === 'KEMARIN' || dateRecency === 'DATA_LAMA') {
     status = 'STALE';
     statusLabelId = 'KEDALUWARSA';

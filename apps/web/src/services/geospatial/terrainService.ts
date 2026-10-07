@@ -12,7 +12,7 @@ export interface TerrainIntelligenceResult {
   landslideRiskLevel: 'Rendah' | 'Sedang' | 'Tinggi' | 'Ekstrem';
   contributingFactors: { factor: string; impact: string; weight: number }[];
   provenance: DataProvenance;
-  status: 'LIVE' | 'UNAVAILABLE';
+  status: 'LIVE' | 'AVAILABLE' | 'UNAVAILABLE';
 }
 
 export interface ElevationProfilePoint {
@@ -31,7 +31,7 @@ export interface ElevationProfileResult {
   totalAscentM: number;
   totalDescentM: number;
   provenance: DataProvenance;
-  status: 'LIVE' | 'UNAVAILABLE';
+  status: 'LIVE' | 'AVAILABLE' | 'UNAVAILABLE';
 }
 
 class TerrainService {
@@ -45,6 +45,10 @@ class TerrainService {
     lat: number,
     lng: number
   ): Promise<TerrainIntelligenceResult> {
+    if (!Number.isFinite(lat) || !Number.isFinite(lng) || Math.abs(lat) > 89.9 || Math.abs(lng) > 180) {
+      throw new Error('Koordinat di luar batas fisik terdefinisi (-89.9..89.9 lat, -180..180 lng).');
+    }
+
     const cacheKey = `${lat.toFixed(4)}_${lng.toFixed(4)}`;
     const cached = this.cache.get(cacheKey);
     if (cached && cached.expiresAt > Date.now()) {
@@ -52,29 +56,34 @@ class TerrainService {
     }
 
     const deltaDeg = 0.001; // ~111m spatial step
+    const latN = Math.min(89.99, lat + deltaDeg);
+    const latS = Math.max(-89.99, lat - deltaDeg);
+    const normLng = (val: number) => ((((val + 180) % 360) + 360) % 360) - 180;
+    const lngW = normLng(lng - deltaDeg);
+    const lngE = normLng(lng + deltaDeg);
+
     // 3x3 Grid:
     // [0] NW, [1] N, [2] NE
     // [3] W,  [4] C, [5] E
     // [6] SW, [7] S, [8] SE
     const lats = [
-      lat + deltaDeg, lat + deltaDeg, lat + deltaDeg,
-      lat,            lat,            lat,
-      lat - deltaDeg, lat - deltaDeg, lat - deltaDeg,
+      latN, latN, latN,
+      lat,  lat,  lat,
+      latS, latS, latS,
     ];
     const lngs = [
-      lng - deltaDeg, lng,            lng + deltaDeg,
-      lng - deltaDeg, lng,            lng + deltaDeg,
-      lng - deltaDeg, lng,            lng + deltaDeg,
+      lngW, lng,  lngE,
+      lngW, lng,  lngE,
+      lngW, lng,  lngE,
     ];
 
+    let timeoutId: ReturnType<typeof setTimeout> | null = null;
     try {
       const url = `https://api.open-meteo.com/v1/elevation?latitude=${lats.join(',')}&longitude=${lngs.join(',')}`;
       const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), 6000);
+      timeoutId = setTimeout(() => controller.abort(), 6000);
 
       const res = await fetch(url, { signal: controller.signal });
-      clearTimeout(timeoutId);
-
       if (!res.ok) {
         throw new Error(`Elevation API returned HTTP ${res.status}`);
       }
@@ -82,7 +91,7 @@ class TerrainService {
       const data = await res.json();
       const z: number[] = data.elevation;
 
-      if (!Array.isArray(z) || z.length < 9 || z.some((val) => typeof val !== 'number' || isNaN(val))) {
+      if (!Array.isArray(z) || z.length < 9 || z.some((val) => typeof val !== 'number' || !Number.isFinite(val))) {
         throw new Error('Incomplete elevation grid received');
       }
 
@@ -92,7 +101,8 @@ class TerrainService {
       // 1 deg lat ~ 111,320m
       // 1 deg lng ~ 111,320m * cos(lat)
       const latDist = deltaDeg * 111320;
-      const lngDist = deltaDeg * 111320 * Math.cos((lat * Math.PI) / 180);
+      const cosLat = Math.max(0.001, Math.cos((lat * Math.PI) / 180));
+      const lngDist = deltaDeg * 111320 * cosLat;
 
       // Horn's method (1981) for weighted finite difference:
       // dz/dx = ((z[2] + 2*z[5] + z[8]) - (z[0] + 2*z[3] + z[6])) / (8 * lngDist)
@@ -148,7 +158,7 @@ class TerrainService {
       else if (slopeDeg <= 30) morphologyClass = 'Curam (15-30°)';
       else morphologyClass = 'Sangat Terjal (>30°)';
 
-      // Landslide exposure model (SNI 8460 multi-criteria)
+      // Landslide exposure model (Heuristic multi-criteria estimate based on slope & elevation)
       const slopeFactor = Math.min(100, (slopeDeg / 35) * 100);
       const elevFactor = Math.min(100, (centerElev / 1500) * 100);
       const exposureScore = Math.round(slopeFactor * 0.55 + elevFactor * 0.45);
@@ -162,16 +172,16 @@ class TerrainService {
         sourceType: 'DEM_ELEVATION',
         provider: 'Open-Meteo Elevation API',
         agency: 'Open-Meteo & ESA Copernicus',
-        dataset: 'Copernicus DEM (GLO-90) & SRTM 90m Global Mosaic',
+        dataset: 'Copernicus DEM 2021 (GLO-90)',
         endpointOrAsset: 'https://api.open-meteo.com/v1/elevation',
-        acquisitionTime: 'Global DEM Mosaic',
+        acquisitionTime: 'Copernicus DEM 2021 GLO-90 Global Release',
         processingTime: new Date().toISOString(),
-        dataStatus: 'LIVE',
+        dataStatus: 'STATIC',
         license: 'Open Access / Copernicus Open Data',
         crs: 'EPSG:4326',
         spatialResolution: '90 meter Ground Sampling Distance',
-        uncertainty: 'Akurasi Vertikal Relatif LE90 < 2.0m',
-        attribution: 'Data elevasi diakses via Open-Meteo Elevation API bersumber dari Copernicus DEM GLO-90 & SRTM.',
+        uncertainty: 'Akurasi Vertikal Relatif LE90 < 2.0m (turunan DEM statis, bukan observasi langsung)',
+        attribution: 'Data elevasi bersumber dari Copernicus DEM 2021 GLO-90 via Open-Meteo Elevation API. Slope dan aspect dihitung dengan metode Horn 3x3; estimasi kerentanan lereng adalah model heuristik.',
       };
 
       const result: TerrainIntelligenceResult = {
@@ -189,7 +199,7 @@ class TerrainService {
           { factor: 'Elevasi Absolut (Relief)', impact: `${centerElev} mdpl`, weight: 45 },
         ],
         provenance,
-        status: 'LIVE',
+        status: 'AVAILABLE',
       };
 
       this.cache.set(cacheKey, { data: result, expiresAt: Date.now() + 10 * 60 * 1000 });
@@ -199,7 +209,7 @@ class TerrainService {
       const unavailableProvenance: DataProvenance = {
         sourceType: 'DEM_ELEVATION',
         provider: 'Open-Meteo Elevation API',
-        dataset: 'Copernicus DEM GLO-90 / SRTM',
+        dataset: 'Copernicus DEM 2021 (GLO-90)',
         dataStatus: 'UNAVAILABLE',
         crs: 'EPSG:4326',
         attribution: 'Layanan Open-Meteo DEM API tidak dapat dijangkau saat ini.',
@@ -219,6 +229,8 @@ class TerrainService {
         provenance: unavailableProvenance,
         status: 'UNAVAILABLE',
       };
+    } finally {
+      if (timeoutId) clearTimeout(timeoutId);
     }
   }
 
@@ -240,7 +252,7 @@ class TerrainService {
         provenance: {
           sourceType: 'DEM_ELEVATION',
           provider: 'Open-Meteo Elevation API',
-          dataset: 'Copernicus DEM (GLO-90) & SRTM 90m Global Mosaic',
+          dataset: 'Copernicus DEM 2021 (GLO-90)',
           dataStatus: 'UNAVAILABLE',
           crs: 'EPSG:4326',
           attribution: 'Tidak ada koordinat profil yang diberikan.',
@@ -256,13 +268,18 @@ class TerrainService {
     const lats = sampled.map((c) => c[1].toFixed(5)).join(',');
     const lngs = sampled.map((c) => c[0].toFixed(5)).join(',');
 
+    let profileTimeoutId: ReturnType<typeof setTimeout> | null = null;
     try {
-      const res = await fetch(`https://api.open-meteo.com/v1/elevation?latitude=${lats}&longitude=${lngs}`);
+      const controller = new AbortController();
+      profileTimeoutId = setTimeout(() => controller.abort(), 6000);
+      const res = await fetch(`https://api.open-meteo.com/v1/elevation?latitude=${lats}&longitude=${lngs}`, {
+        signal: controller.signal,
+      });
       if (!res.ok) throw new Error('Failed to query elevation profile');
 
       const data = await res.json();
       const elevations: number[] = data.elevation;
-      if (!Array.isArray(elevations) || elevations.length === 0 || elevations.some((e) => typeof e !== 'number' || isNaN(e))) {
+      if (!Array.isArray(elevations) || elevations.length !== sampled.length || elevations.some((e) => typeof e !== 'number' || !Number.isFinite(e))) {
         throw new Error('Invalid elevation profile data received');
       }
 
@@ -316,12 +333,12 @@ class TerrainService {
         provenance: {
           sourceType: 'DEM_ELEVATION',
           provider: 'Open-Meteo Elevation API',
-          dataset: 'Copernicus DEM (GLO-90) & SRTM 90m Global Mosaic',
-          dataStatus: 'LIVE',
+          dataset: 'Copernicus DEM 2021 (GLO-90)',
+          dataStatus: 'STATIC',
           crs: 'EPSG:4326',
-          attribution: 'Profil elevasi diakses via Open-Meteo Elevation API (Copernicus DEM GLO-90 & SRTM).',
+          attribution: 'Profil elevasi bersumber dari Copernicus DEM 2021 GLO-90 via Open-Meteo Elevation API.',
         },
-        status: 'LIVE',
+        status: 'AVAILABLE',
       };
     } catch {
       return {
@@ -335,13 +352,15 @@ class TerrainService {
         provenance: {
           sourceType: 'DEM_ELEVATION',
           provider: 'Open-Meteo Elevation API',
-          dataset: 'Copernicus DEM (GLO-90) & SRTM 90m Global Mosaic',
+          dataset: 'Copernicus DEM 2021 (GLO-90)',
           dataStatus: 'UNAVAILABLE',
           crs: 'EPSG:4326',
           attribution: 'Layanan profil DEM Open-Meteo tidak tersedia saat ini.',
         },
         status: 'UNAVAILABLE',
       };
+    } finally {
+      if (profileTimeoutId) clearTimeout(profileTimeoutId);
     }
   }
 }

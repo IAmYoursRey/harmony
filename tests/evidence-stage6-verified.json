@@ -1,0 +1,205 @@
+{
+  "verifiedAt": "2026-10-03T11:11:17.916Z",
+  "runner": "scripts/verify-stage6-remediation.mjs",
+  "description": "Stage 6 Post-Remediation Verification Output",
+  "checks": [
+    {
+      "id": "FIXED_thermal-little.tif",
+      "dn": 45000,
+      "status": "DERIVED",
+      "meanCelsius": 29.66,
+      "passed": true
+    },
+    {
+      "id": "FIXED_thermal-big.tif",
+      "dn": 45000,
+      "status": "DERIVED",
+      "meanCelsius": 29.66,
+      "passed": true
+    },
+    {
+      "id": "FIXED_thermal-deflate.tif",
+      "dn": 45000,
+      "status": "DERIVED",
+      "meanCelsius": 29.66,
+      "passed": true
+    },
+    {
+      "id": "RASTER_thermal-deflate-predictor2.tif",
+      "referenceDN": 45100,
+      "actualDN": 45100,
+      "actualCRS": "EPSG:4326",
+      "outcome": {
+        "status": "DERIVED",
+        "meanCelsius": 31.83,
+        "validPixels": 36
+      },
+      "passed": true
+    },
+    {
+      "id": "RASTER_thermal-tiled.tif",
+      "referenceDN": 45000,
+      "actualDN": 45000,
+      "actualCRS": "EPSG:4326",
+      "outcome": {
+        "status": "DERIVED",
+        "meanCelsius": 29.66,
+        "validPixels": 36
+      },
+      "passed": true
+    },
+    {
+      "id": "RASTER_thermal-geographic-4269.tif",
+      "referenceDN": 45000,
+      "actualDN": 45000,
+      "actualCRS": "EPSG:4269",
+      "outcome": {
+        "status": "DERIVED",
+        "meanCelsius": 29.66,
+        "validPixels": 36
+      },
+      "passed": true
+    },
+    {
+      "id": "RASTER_thermal-georef-no-crs.tif",
+      "referenceDN": 45000,
+      "actualDN": 45000,
+      "actualCRS": null,
+      "outcome": {
+        "status": "DERIVED",
+        "meanCelsius": 29.66,
+        "validPixels": 36
+      },
+      "passed": true
+    },
+    {
+      "id": "PIXEL_IS_AREA_ROUNDING_SELECTS_NEIGHBOUR",
+      "actualRow": 0,
+      "actualCol": 0,
+      "expectedRow": 0,
+      "expectedCol": 0,
+      "passed": true
+    },
+    {
+      "id": "DUPLICATE_SAMPLES_COVERAGE_DENOMINATOR",
+      "validUniquePixels": 1,
+      "totalPixelCount": 1,
+      "coverageFraction": 1,
+      "validAreaKm2": 0.0009,
+      "passed": true
+    },
+    {
+      "id": "NON_ST_ASSET_STILL_ACCEPTED",
+      "rawB10": null,
+      "onlyStQa": null,
+      "genericQa": null,
+      "passed": true
+    },
+    {
+      "id": "ACTUAL_LOCATION_AOI_RESET_EFFECT_ALLOWS_OLD_RESULT",
+      "abortedAfterReset": [
+        true,
+        true
+      ],
+      "stateAfterReset": null,
+      "finalStatus": null,
+      "passed": true
+    },
+    {
+      "id": "UNMOUNT_CLEANUP_DOES_NOT_CANCEL_LST",
+      "abortedAfterUnmount": [
+        true,
+        true
+      ],
+      "finalStatus": "UNAVAILABLE",
+      "passed": true
+    },
+    {
+      "id": "DEMO_DOES_NOT_INVALIDATE_OPERATIONAL_REQUEST",
+      "demoStateBeforeOldCompletes": "DEMO",
+      "finalStatus": "DEMO",
+      "passed": true
+    },
+    {
+      "id": "SIGNING_ERROR_SWALLOWED_THEN_UNSIGNED_ACCESS",
+      "calls": [
+        "signer",
+        "signer"
+      ],
+      "finalStatus": "UNAVAILABLE",
+      "reason": "SIGNING_FAILED",
+      "passed": true
+    },
+    {
+      "id": "LEVEL1_B10_CALIBRATED_AS_LEVEL2_ST",
+      "status": "UNAVAILABLE",
+      "meanCelsius": null,
+      "reasonCode": "LEVEL1_NOT_SUPPORTED_AS_L2ST",
+      "passed": true
+    },
+    {
+      "id": "TRAFFIC_GEOMETRY_missing",
+      "status": "UNAVAILABLE",
+      "roadClosure": false,
+      "passed": true
+    },
+    {
+      "id": "TRAFFIC_GEOMETRY_outside-range",
+      "status": "UNAVAILABLE",
+      "roadClosure": false,
+      "passed": true
+    },
+    {
+      "id": "RADAR_pending",
+      "actualStatus": "MEMUAT",
+      "expectedStatus": "MEMUAT",
+      "passed": true
+    },
+    {
+      "id": "RADAR_all-failed",
+      "actualStatus": "UNAVAILABLE",
+      "expectedStatus": "UNAVAILABLE",
+      "passed": true
+    },
+    {
+      "id": "RADAR_partial",
+      "actualStatus": "PARSIAL",
+      "expectedStatus": "PARSIAL",
+      "passed": true
+    },
+    {
+      "id": "RADAR_no-data-stale",
+      "actualStatus": "UNAVAILABLE",
+      "expectedStatus": "UNAVAILABLE",
+      "passed": true
+    },
+    {
+      "id": "RADAR_new-view-all-failed-after-old-view-success",
+      "actualStatus": "PARSIAL",
+      "expectedStatus": "PARSIAL",
+      "passed": true
+    },
+    {
+      "id": "STANDALONE_QUAKE_FAILURE_RETAINS_SEEDED_EVENTS",
+      "seedCount": 0,
+      "eventsAfterFailedRefresh": 0,
+      "nearestEarthquake": null,
+      "passed": true
+    },
+    {
+      "id": "BUFFER_INVENTS_MISSING_MAGNITUDE_DEPTH",
+      "actual": {
+        "place": "fixture with missing magnitude and depth",
+        "distanceKm": 0.2,
+        "mag": null,
+        "depthKm": null
+      },
+      "passed": true
+    },
+    {
+      "id": "BUFFER_IGNORES_VALID_ZERO_COORDINATES",
+      "actualCount": 1,
+      "passed": true
+    }
+  ]
+}

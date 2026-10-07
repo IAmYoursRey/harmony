@@ -211,7 +211,7 @@ export function Phase1Workspace() {
                 <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">
                   Nama Scenario
                 </label>
-                <input
+                <input name="newScenarioName" id="phase1workspace-newscenarioname"
                   type="text"
                   required
                   value={newScenarioName}
@@ -224,7 +224,7 @@ export function Phase1Workspace() {
                 <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">
                   Jenis Bencana
                 </label>
-                <select
+                <select name="newScenarioType" id="phase1workspace-newscenariotype"
                   value={newScenarioType}
                   onChange={(e) => setNewScenarioType(e.target.value)}
                   className="w-full bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl px-4 py-2"
@@ -360,7 +360,7 @@ export function Phase1Workspace() {
               <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">
                 Nama Map
               </label>
-              <input
+              <input name="newMapName" id="phase1workspace-newmapname"
                 type="text"
                 required
                 value={newMapName}
@@ -373,7 +373,7 @@ export function Phase1Workspace() {
               <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">
                 Deskripsi
               </label>
-              <textarea
+              <textarea name="newMapDesc" id="phase1workspace-newmapdesc"
                 value={newMapDesc}
                 onChange={(e) => setNewMapDesc(e.target.value)}
                 className="w-full bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl px-4 py-2"

@@ -619,7 +619,7 @@ export function Phase3Runtime({
               <label className="block text-xs font-bold text-slate-400 mb-1">
                 Name
               </label>
-              <input
+              <input name="avatarName" id="phase3runtime-avatarname"
                 type="text"
                 value={avatarName}
                 onChange={(e) => setAvatarName(e.target.value)}

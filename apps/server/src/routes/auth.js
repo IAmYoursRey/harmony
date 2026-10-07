@@ -18,10 +18,33 @@ if (!process.env.JWT_SECRET) {
 }
 router.post("/login", async (req, res) => {
   try {
-    const { token, role } = req.body || {};
+    const { token, role, email: credEmail, password } = req.body || {};
+
+    if (credEmail && password) {
+      const db = await readDB();
+      const account = db.accounts.find((a) => a.email.toLowerCase() === credEmail.toLowerCase());
+      if (!account) {
+        return res.status(401).json({ error: "Akun tidak ditemukan atau password salah" });
+      }
+
+      if (account.passwordHash) {
+        const matches = await bcrypt.compare(password, account.passwordHash);
+        if (!matches) {
+          return res.status(401).json({ error: "Akun tidak ditemukan atau password salah" });
+        }
+      }
+
+      const jwtToken = jwt.sign(
+        { id: account.id, role: account.role, name: account.name },
+        SECRET,
+        { expiresIn: "24h" }
+      );
+      const { passwordHash: _, ...safeAccount } = account;
+      return res.json({ status: "registered", token: jwtToken, account: safeAccount });
+    }
 
     if (!token) {
-      return res.status(400).json({ error: "Google token is required" });
+      return res.status(400).json({ error: "Kredensial email/password atau Google token diperlukan" });
     }
 
     // Verify Google token
@@ -33,7 +56,6 @@ router.post("/login", async (req, res) => {
       });
       payload = ticket.getPayload();
     } catch (err) {
-      console.error("[AUTH ERROR] Invalid Google token:", err);
       // Fallback for missing client ID or dev mode, skip verification if token is a JSON string (for testing)
       if (token.startsWith("{")) {
          try {
@@ -66,10 +88,71 @@ router.post("/login", async (req, res) => {
       SECRET,
       { expiresIn: "24h" }
     );
-    res.json({ status: "registered", token: jwtToken, account });
+    const { passwordHash: _, ...safeAccount } = account;
+    res.json({ status: "registered", token: jwtToken, account: safeAccount });
   } catch (err) {
     console.error("[AUTH ERROR]", err);
     res.status(500).json({ error: "Server error during login" });
+  }
+});
+
+router.post("/register", async (req, res) => {
+  try {
+    const { name, email, password, role, schoolId, grade, classSection } = req.body || {};
+    if (!email || !password || !name) {
+      return res.status(400).json({ error: "Nama, email, dan password wajib diisi" });
+    }
+
+    const db = await readDB();
+    const existing = db.accounts.find((a) => a.email.toLowerCase() === email.toLowerCase());
+    if (existing) {
+      return res.status(400).json({ error: "Email sudah terdaftar" });
+    }
+
+    const id = `usr-${Date.now()}`;
+    const passwordHash = await bcrypt.hash(password, 10);
+    const assignedRole = role || "student";
+
+    const account = {
+      id,
+      email,
+      name,
+      role: assignedRole,
+      passwordHash,
+      createdAt: new Date().toISOString(),
+    };
+    db.accounts.push(account);
+
+    const profile = {
+      userId: id,
+      name,
+      role: assignedRole,
+      gender: "other",
+      grade: grade || "X",
+      section: classSection || "1",
+      dob: null,
+      schoolId: schoolId || null,
+      xp: 0,
+      level: 1,
+      achievements: [],
+      joinedAt: new Date().toISOString(),
+      lastUpdated: new Date().toISOString(),
+    };
+    db.profiles.push(profile);
+
+    await saveAccount(account);
+    await saveProfile(profile);
+
+    const jwtToken = jwt.sign(
+      { id: account.id, role: account.role, name: account.name },
+      SECRET,
+      { expiresIn: "24h" }
+    );
+    const { passwordHash: _, ...safeAccount } = account;
+    return res.status(201).json({ success: true, token: jwtToken, account: safeAccount });
+  } catch (error) {
+    console.error("[AUTH ERROR] /register:", error);
+    res.status(500).json({ error: "Internal server error during registration" });
   }
 });
 

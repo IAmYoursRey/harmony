@@ -4,16 +4,31 @@
  */
 
 export type DataStatus =
+  | 'PARTIAL'
   | 'LIVE'
   | 'CACHED'
   | 'STATIC'
   | 'DERIVED'
   | 'ESTIMATED'
   | 'SIMULATED'
-  | 'UNAVAILABLE';
+  | 'DEMO'
+  | 'IMPORTED'
+  | 'ARCHIVED'
+  | 'UNAVAILABLE'
+  | 'NOT_AVAILABLE';
 
 export interface DataProvenance {
-  sourceType: 'SENSOR_OBSERVATION' | 'SATELLITE_RASTER' | 'DEM_ELEVATION' | 'VECTOR_MAP' | 'MODEL_ASSIMILATION' | 'DERIVED_COMPUTATION';
+  sourceType:
+    | 'SENSOR_OBSERVATION'
+    | 'SATELLITE_RASTER'
+    | 'SATELLITE_CATALOG'
+    | 'DEM_ELEVATION'
+    | 'VECTOR_MAP'
+    | 'MODEL_ASSIMILATION'
+    | 'DERIVED_COMPUTATION'
+    | 'DEMONSTRATION'
+    | 'USER_SUPPLIED'
+    | 'NONE';
   provider: string;
   agency?: string;
   dataset: string;
@@ -23,7 +38,7 @@ export interface DataProvenance {
   processingTime?: string;
   dataStatus: DataStatus;
   license?: string;
-  crs: string;
+  crs?: string | null;
   spatialResolution?: string;
   temporalResolution?: string;
   quality?: string;
@@ -31,6 +46,15 @@ export interface DataProvenance {
   confidenceScore?: number;
   attribution: string;
   lineageSteps?: string[];
+  productVersion?: string;
+  algorithmVersion?: string;
+  sourceItemIds?: string[];
+  validPixelCount?: number;
+  validAreaKm2?: number;
+  coverageFraction?: number;
+  fetchedAt?: string;
+  lastCheckedAt?: string;
+  assumptions?: string[];
 }
 
 export type ProviderHealthState =
@@ -68,3 +92,54 @@ export interface AreaOfInterest {
   createdAt: string;
   provenance: DataProvenance;
 }
+
+export type ProcessingState =
+  | 'idle'
+  | 'queued'
+  | 'running'
+  | 'reading'
+  | 'decoding'
+  | 'succeeded'
+  | 'failed'
+  | 'cancelled';
+
+export type FailureReasonCode =
+  | 'NO_SCENE'
+  | 'NO_VALID_PIXELS'
+  | 'NOT_CONFIGURED'
+  | 'RATE_LIMITED'
+  | 'UPSTREAM_UNAVAILABLE'
+  | 'NO_ROUTE'
+  | 'PARTIAL_COVERAGE'
+  | 'INVALID_AOI'
+  | 'TIMEOUT';
+
+export interface StructuredReason {
+  code: FailureReasonCode | string;
+  message: string;
+  retryable: boolean;
+}
+
+export interface AnalysisEnvelope<T> {
+  requestId: string;
+  analysisId?: string;
+  processingState: ProcessingState;
+  dataStatus: DataStatus;
+  data: T | null;
+  reason?: StructuredReason;
+  aoiId?: string;
+  aoiHash?: string;
+  parametersHash: string;
+  provenance: DataProvenance & {
+    productVersion?: string;
+    algorithmVersion: string;
+    sourceItemIds?: string[];
+    validPixelCount?: number;
+    validAreaKm2?: number;
+    coverageFraction?: number;
+    fetchedAt?: string;
+    lastCheckedAt?: string;
+    assumptions?: string[];
+  };
+}
+

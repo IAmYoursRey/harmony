@@ -424,7 +424,10 @@ export default function LoginPage() {
               <motion.div key="register_name" initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -20 }} className="flex flex-col gap-6">
                 <h3 className="text-lg font-bold text-ink-900 dark:text-white text-center">Nama Lengkap</h3>
                 <input
+                  id="register-fullname-input"
+                  name="fullname"
                   type="text"
+                  autoComplete="name"
                   value={regName}
                   onChange={(e) => setRegName(e.target.value)}
                   placeholder="Masukkan nama lengkap Anda"

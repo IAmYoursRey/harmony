@@ -145,7 +145,7 @@ function SearchableSelect({
       {isOpen && (
         <div className="absolute z-50 w-full mt-1 bg-white border border-brand-200 rounded-xl shadow-lg max-h-60 flex flex-col dark:bg-slate-800 dark:border-slate-700">
           <div className="p-2 border-b border-brand-100 dark:border-slate-700">
-            <input
+            <input name="search" id="devdashboardview-search"
               type="text"
               autoFocus
               value={search}
@@ -240,7 +240,7 @@ function SchoolFilterCombobox({
             className="absolute z-50 w-80 mt-2 bg-white dark:bg-slate-800 rounded-xl shadow-xl border border-slate-200 dark:border-slate-700 overflow-hidden right-0"
           >
             <div className="p-2 border-b border-slate-100 dark:border-slate-700">
-              <input
+              <input name="search" id="devdashboardview-search"
                 autoFocus
                 type="text"
                 placeholder="Cari sekolah..."
@@ -719,7 +719,7 @@ export function DevDashboardView() {
               />
               <div className="relative w-full sm:w-64 md:w-72">
                 <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-ink-400" />
-                <input
+                <input name="devUserSearchQuery" id="devdashboardview-devusersearchquery"
                   type="text"
                   placeholder="Cari nama atau email..."
                   value={devUserSearchQuery}
@@ -959,7 +959,7 @@ export function DevDashboardView() {
                       </label>
                       <div className="relative">
                         <User className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-ink-400" />
-                        <input
+                        <input name="regName"
                           id="regName"
                           value={regName}
                           onChange={(e) => setRegName(e.target.value)}
@@ -978,7 +978,7 @@ export function DevDashboardView() {
                       </label>
                       <div className="relative">
                         <Mail className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-ink-400" />
-                        <input
+                        <input name="regEmail"
                           id="regEmail"
                           type="email"
                           value={regEmail}
@@ -1000,7 +1000,7 @@ export function DevDashboardView() {
                       </label>
                       <div className="relative">
                         <Lock className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-ink-400" />
-                        <input
+                        <input name="regPassword"
                           id="regPassword"
                           type="text"
                           value={regPassword}
@@ -1019,7 +1019,7 @@ export function DevDashboardView() {
                       </label>
                       <div className="relative">
                         <Lock className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-ink-400" />
-                        <input
+                        <input name="regPasswordConfirm"
                           id="regPasswordConfirm"
                           type="text"
                           value={regPasswordConfirm}
@@ -1038,7 +1038,7 @@ export function DevDashboardView() {
                       >
                         Jenis Kelamin
                       </label>
-                      <select
+                      <select name="regGender"
                         id="regGender"
                         value={regGender}
                         onChange={(e) => setRegGender(e.target.value as Gender)}
@@ -1115,7 +1115,7 @@ export function DevDashboardView() {
                         >
                           Tingkat Kelas <span className="text-red-500">*</span>
                         </label>
-                        <select
+                        <select name="regGrade"
                           id="regGrade"
                           value={regGrade}
                           onChange={(e) =>
@@ -1139,7 +1139,7 @@ export function DevDashboardView() {
                           Ruang/No. Kelas{" "}
                           <span className="text-red-500">*</span>
                         </label>
-                        <input
+                        <input name="regSection"
                           id="regSection"
                           type="text"
                           value={regSection}
@@ -1214,7 +1214,7 @@ export function DevDashboardView() {
                     <label className="block text-xs font-bold text-ink-600 dark:text-slate-400 mb-1.5">
                       Ubah Nama
                     </label>
-                    <input
+                    <input name="editName" id="devdashboardview-editname"
                       value={editName}
                       onChange={(e) => setEditName(e.target.value)}
                       className="w-full px-3.5 py-2.5 rounded-xl border border-brand-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-ink-900 dark:text-white outline-none focus:ring-2 focus:ring-brand-100 focus:border-brand-300 transition-all"
@@ -1224,7 +1224,7 @@ export function DevDashboardView() {
                     <label className="block text-xs font-bold text-ink-600 dark:text-slate-400 mb-1.5">
                       Ganti Sandi (Opsional)
                     </label>
-                    <input
+                    <input name="editPassword" id="devdashboardview-editpassword"
                       value={editPassword}
                       onChange={(e) => setEditPassword(e.target.value)}
                       placeholder="Kata sandi baru..."
@@ -1238,7 +1238,7 @@ export function DevDashboardView() {
                     <label className="block text-xs font-bold text-ink-600 dark:text-slate-400 mb-1.5">
                       Provinsi
                     </label>
-                    <select
+                    <select name="editProvId" id="devdashboardview-editprovid"
                       value={editProvId}
                       onChange={(e) => {
                         setEditProvId(e.target.value);
@@ -1259,7 +1259,7 @@ export function DevDashboardView() {
                     <label className="block text-xs font-bold text-ink-600 dark:text-slate-400 mb-1.5">
                       Kab/Kota
                     </label>
-                    <select
+                    <select name="editRegId" id="devdashboardview-editregid"
                       className="w-full px-3.5 py-2.5 rounded-xl border border-brand-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-ink-900 dark:text-white outline-none focus:ring-2 focus:ring-brand-100 disabled:opacity-50"
                       value={editRegId}
                       onChange={(e) => {
@@ -1280,7 +1280,7 @@ export function DevDashboardView() {
                     <label className="block text-xs font-bold text-ink-600 dark:text-slate-400 mb-1.5">
                       Sekolah
                     </label>
-                    <select
+                    <select name="editSchoolId" id="devdashboardview-editschoolid"
                       value={editSchoolId}
                       onChange={(e) => setEditSchoolId(e.target.value)}
                       disabled={!editRegId}
@@ -1301,7 +1301,7 @@ export function DevDashboardView() {
                     <label className="block text-xs font-bold text-ink-600 dark:text-slate-400 mb-1.5">
                       Tingkat Kelas
                     </label>
-                    <select
+                    <select name="editGrade" id="devdashboardview-editgrade"
                       value={editGrade}
                       onChange={(e) =>
                         setEditGrade(e.target.value as "X" | "XI" | "XII")
@@ -1317,7 +1317,7 @@ export function DevDashboardView() {
                     <label className="block text-xs font-bold text-ink-600 dark:text-slate-400 mb-1.5">
                       No. Ruang
                     </label>
-                    <input
+                    <input name="editSection" id="devdashboardview-editsection"
                       type="text"
                       value={editSection}
                       onChange={(e) => setEditSection(e.target.value)}

@@ -27,6 +27,7 @@ const DEFAULT_DB = {
   spatialCache: {},
   events: [],
   weatherIntervals: [],
+  spatialJobs: {},
 };
 
 let inMemoryCache = null;
@@ -82,6 +83,7 @@ async function initPg() {
       CREATE TABLE IF NOT EXISTS spatial_cache ( id VARCHAR(255) PRIMARY KEY, data JSONB NOT NULL, created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP );
       CREATE TABLE IF NOT EXISTS events ( id VARCHAR(255) PRIMARY KEY, data JSONB NOT NULL );
       CREATE TABLE IF NOT EXISTS weather_training_intervals ( id VARCHAR(255) PRIMARY KEY, data JSONB NOT NULL, created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP );
+      CREATE TABLE IF NOT EXISTS spatial_jobs ( id VARCHAR(255) PRIMARY KEY, data JSONB NOT NULL, created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP );
       
       -- Safe migration for digital_twin_maps public sharing
       DO $$
@@ -362,6 +364,13 @@ async function initPg() {
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
       );
       CREATE INDEX IF NOT EXISTS idx_field_surveys_geom ON field_surveys USING GIST (geom);
+
+      CREATE TABLE IF NOT EXISTS spatial_jobs (
+        id VARCHAR(255) PRIMARY KEY,
+        data JSONB NOT NULL,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+      );
+      CREATE INDEX IF NOT EXISTS idx_spatial_jobs_created ON spatial_jobs(created_at);
     `),
     );
     pgInitialized = true;
@@ -584,18 +593,32 @@ export async function saveWeatherInterval(record) {
   return true;
 }
 
+function normalizeKeyVariants(key) {
+  if (!key || typeof key !== 'string') return [key];
+  const parts = key.split(',').map(s => parseFloat(s.trim()));
+  if (parts.length === 2 && Number.isFinite(parts[0]) && Number.isFinite(parts[1])) {
+    const [lat, lng] = parts;
+    const v3 = `${lat.toFixed(3)},${lng.toFixed(3)}`;
+    const v2 = `${lat.toFixed(2)},${lng.toFixed(2)}`;
+    return Array.from(new Set([key, v3, v2]));
+  }
+  return [key];
+}
+
 export async function getWeatherIntervals(locationKey, limit = 50) {
+  const variants = normalizeKeyVariants(locationKey);
   if (pool) {
     await initPg();
     try {
-      const res = await timeoutQuery(
-        pool.query(
-          `SELECT data FROM weather_training_intervals ORDER BY created_at DESC LIMIT $1`,
-          [limit],
-        ),
-      );
+      let queryText = `SELECT data FROM weather_training_intervals ORDER BY created_at DESC LIMIT $1`;
+      let queryParams = [limit];
+      if (locationKey) {
+        queryText = `SELECT data FROM weather_training_intervals WHERE (data->>'locationKey') = ANY($1) ORDER BY created_at DESC LIMIT $2`;
+        queryParams = [variants, limit];
+      }
+      const res = await timeoutQuery(pool.query(queryText, queryParams));
       if (res && res.rows) {
-        return res.rows.map((r) => r.data).filter((d) => !locationKey || d.locationKey === locationKey);
+        return res.rows.map((r) => r.data);
       }
     } catch (e) {
       console.warn("Could not query weather_training_intervals from pool:", e);
@@ -603,7 +626,11 @@ export async function getWeatherIntervals(locationKey, limit = 50) {
   }
   if (inMemoryCache && inMemoryCache.weatherIntervals) {
     return inMemoryCache.weatherIntervals
-      .filter((d) => !locationKey || d.locationKey === locationKey)
+      .filter((d) => {
+        if (!locationKey) return true;
+        if (variants.includes(d.locationKey)) return true;
+        return false;
+      })
       .slice(0, limit);
   }
   return [];
@@ -616,31 +643,6 @@ export async function writeDB(db, tablesToUpdate = null) {
   if (pool) {
     try {
       await initPg();
-
-      if (fullDb.digitalTwins) {
-        for (const [key, value] of Object.entries(fullDb.digitalTwins)) {
-          if (value.mapImage && value.mapImage.startsWith("data:image")) {
-            value.mapImage = await uploadBase64(
-              value.mapImage,
-              `digitaltwins/${key}_${Date.now()}`,
-            );
-          }
-        }
-      }
-      if (fullDb.gridMaps) {
-        for (const [key, value] of Object.entries(fullDb.gridMaps)) {
-          if (
-            value.floorplanImage &&
-            value.floorplanImage.startsWith("data:image")
-          ) {
-            value.floorplanImage = await uploadBase64(
-              value.floorplanImage,
-              `gridmaps/${key}_${Date.now()}`,
-            );
-          }
-        }
-      }
-
       const providedKeys = Object.keys(db);
       const isSelective = tablesToUpdate || (providedKeys.length > 0 && providedKeys.length <= 6);
 
@@ -655,6 +657,30 @@ export async function writeDB(db, tablesToUpdate = null) {
         if (tableName === "schools") return false;
         return true;
       };
+
+      if (fullDb.digitalTwins && shouldUpdate("digital_twins", "digitalTwins")) {
+        for (const [key, value] of Object.entries(fullDb.digitalTwins)) {
+          if (value.mapImage && value.mapImage.startsWith("data:image")) {
+            value.mapImage = await uploadBase64(
+              value.mapImage,
+              `digitaltwins/${key}_${Date.now()}`,
+            );
+          }
+        }
+      }
+      if (fullDb.gridMaps && shouldUpdate("grid_maps", "gridMaps")) {
+        for (const [key, value] of Object.entries(fullDb.gridMaps)) {
+          if (
+            value.floorplanImage &&
+            value.floorplanImage.startsWith("data:image")
+          ) {
+            value.floorplanImage = await uploadBase64(
+              value.floorplanImage,
+              `gridmaps/${key}_${Date.now()}`,
+            );
+          }
+        }
+      }
 
       const tasks = [];
 
@@ -916,4 +942,91 @@ export async function saveSpatialFeature(datasetId, properties, geojsonGeometry)
     console.error("saveSpatialFeature error:", err.message);
     return null;
   }
+}
+
+const memoryJobCache = new Map();
+
+export async function saveSpatialJob(job) {
+  memoryJobCache.set(job.id, job);
+  if (pool) {
+    try {
+      await timeoutQuery(
+        pool.query(
+          `CREATE TABLE IF NOT EXISTS spatial_jobs (
+             id VARCHAR(255) PRIMARY KEY,
+             data JSONB NOT NULL,
+             created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+           )`
+        )
+      );
+      await timeoutQuery(
+        pool.query(
+          `INSERT INTO spatial_jobs (id, data, created_at)
+           VALUES ($1, $2, NOW())
+           ON CONFLICT (id) DO UPDATE SET data = $2`,
+          [job.id, JSON.stringify(job)]
+        )
+      );
+    } catch (e) {
+      console.warn("Could not save spatial job to PostgreSQL:", e.message);
+    }
+  }
+  try {
+    const db = await readDB();
+    db.spatialJobs = db.spatialJobs || {};
+    db.spatialJobs[job.id] = job;
+    await writeDB(db, ["spatialJobs"]);
+  } catch (e) {
+    console.warn("Could not persist spatial job to local DB file:", e.message);
+  }
+  return job;
+}
+
+export async function getSpatialJobById(id) {
+  if (memoryJobCache.has(id)) {
+    return memoryJobCache.get(id);
+  }
+  if (pool) {
+    try {
+      await initPg();
+      const res = await timeoutQuery(
+        pool.query("SELECT data FROM spatial_jobs WHERE id = $1", [id])
+      );
+      if (res.rows.length > 0) {
+        memoryJobCache.set(id, res.rows[0].data);
+        return res.rows[0].data;
+      }
+    } catch {}
+  }
+  try {
+    const db = await readDB();
+    db.spatialJobs = db.spatialJobs || {};
+    const found = db.spatialJobs[id] || null;
+    if (found) memoryJobCache.set(id, found);
+    return found;
+  } catch {
+    return null;
+  }
+}
+
+export async function deleteSpatialJobById(id) {
+  memoryJobCache.delete(id);
+  if (pool) {
+    try {
+      await initPg();
+      await timeoutQuery(
+        pool.query("DELETE FROM spatial_jobs WHERE id = $1", [id])
+      );
+    } catch {}
+  }
+  try {
+    const db = await readDB();
+    db.spatialJobs = db.spatialJobs || {};
+    if (db.spatialJobs[id]) {
+      delete db.spatialJobs[id];
+      await writeDB(db);
+      return true;
+    }
+  } catch {}
+  return true;
 }

@@ -323,6 +323,8 @@ export const MapAttributeTable: React.FC<MapAttributeTableProps> = ({
         <div className="flex items-center gap-2">
           {/* Layer Selector */}
           <select
+            id="attribute-table-layer-select"
+            name="attributeTableLayer"
             value={selectedLayerId}
             onChange={(e) => handleLayerChange(e.target.value)}
             className="h-8 rounded-lg border border-slate-200 bg-white px-2.5 text-xs font-semibold text-slate-700 dark:border-slate-800 dark:bg-slate-900 dark:text-slate-200 focus:outline-none focus:ring-1 focus:ring-brand-500"
@@ -338,6 +340,8 @@ export const MapAttributeTable: React.FC<MapAttributeTableProps> = ({
           <div className="relative">
             <Search className="absolute left-2.5 top-2 h-3.5 w-3.5 text-slate-400" />
             <input
+              id="attribute-table-search-input"
+              name="attributeTableSearch"
               type="text"
               placeholder="Cari atribut..."
               value={searchQuery}
@@ -470,6 +474,8 @@ export const MapAttributeTable: React.FC<MapAttributeTableProps> = ({
         <div className="flex items-center gap-2">
           <span>Baris per halaman:</span>
           <select
+            id="attribute-table-pagesize-select"
+            name="attributeTablePageSize"
             value={pageSize}
             onChange={(e) => {
               setPageSize(Number(e.target.value));

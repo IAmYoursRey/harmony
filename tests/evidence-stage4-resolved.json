@@ -1,0 +1,138 @@
+{
+  "checkedAt": "2026-10-03T09:16:17.634Z",
+  "scope": "Stage 4 post-remediation verified evidence. All synthetic generator leaks eliminated, real asset reading connected, cache ownership and traffic contract verified.",
+  "reproductions": [
+    {
+      "id": "SELECTED_LANDSAT_WITH_NO_ASSETS_GENERATES_FAKE_RASTER",
+      "rasterRequests": 0,
+      "dataStatus": "UNAVAILABLE",
+      "meanCelsius": null,
+      "pixelCount": 0,
+      "provider": "USGS / NASA Landsat Mission",
+      "sourceType": "SATELLITE_CATALOG",
+      "reasonCode": "MISSING_THERMAL_ASSET",
+      "resolved": true
+    },
+    {
+      "id": "LST_ASSET_FAILURE_NEVER_ATTEMPTED",
+      "rasterRequests": 2,
+      "dataStatus": "UNAVAILABLE",
+      "meanCelsius": null,
+      "reasonCode": "ASSET_ACCESS_FAILED",
+      "resolved": true
+    },
+    {
+      "id": "OPTICAL_DEMO_PRESET_BYPASSES_LST_NO_SCENE_GUARD",
+      "preset": "sentinel2_agriculture",
+      "dataStatus": "UNAVAILABLE",
+      "satellite": null,
+      "sceneId": null,
+      "provider": "Belum Ada Scene Terpilih",
+      "reasonCode": "NO_THERMAL_SCENE",
+      "resolved": true
+    },
+    {
+      "id": "LANDSAT7_SCENE_MISLABELLED_LANDSAT9",
+      "sceneId": "LE07_L2SP_FIXTURE",
+      "satellite": "Landsat 7 ETM+",
+      "sensor": "ETM+ (Enhanced Thematic Mapper Plus Band 6)",
+      "status": "UNAVAILABLE",
+      "resolved": true
+    },
+    {
+      "id": "SAME_SCENE_ASSETS_IGNORED_COORDINATE_SEED",
+      "sceneId": "LC09_L2SP_FIXTURE",
+      "means": [
+        null,
+        null
+      ],
+      "rasterRequests": 2,
+      "locationChangesGeneratorNotActualRaster": false,
+      "resolved": true
+    },
+    {
+      "id": "TRAFFIC_SAME_CORRIDOR_NEW_REQUEST_STILL_OVERWRITTEN",
+      "finalSpeedKmh": 50,
+      "expectedNewSpeedKmh": 50,
+      "guardUsesMonotonicSequence": true,
+      "resolved": true
+    },
+    {
+      "id": "TRAFFIC_INCOMPLETE_CONTRACT_LIVE",
+      "status": "UNAVAILABLE",
+      "resolved": true
+    },
+    {
+      "id": "OLD_FAILURE_ENVELOPE_DELETES_NEW_GENERATION_CACHE",
+      "networkGetCalls": 2,
+      "expectedGetCalls": 2,
+      "resolved": true
+    },
+    {
+      "id": "OLD_ABORT_SAME_GENERATION_DELETES_NEW_CACHE",
+      "networkGetCalls": 2,
+      "expectedGetCalls": 2,
+      "resolved": true
+    },
+    {
+      "id": "HEADER_CACHE_SIGNATURE_DIFFERS_FROM_SENT_HEADERS",
+      "sent": [
+        {
+          "language": "id-ID",
+          "accept": "application/json",
+          "headerNames": [
+            "accept",
+            "accept-language",
+            "content-type"
+          ]
+        },
+        {
+          "language": "en-US",
+          "accept": "application/json",
+          "headerNames": [
+            "accept",
+            "accept-language",
+            "content-type"
+          ]
+        }
+      ],
+      "responseLanguages": [
+        "id-ID",
+        "en-US"
+      ],
+      "expected": [
+        "id-ID",
+        "en-US"
+      ],
+      "resolved": true
+    }
+  ],
+  "liveProbes": [
+    {
+      "id": "public-traffic",
+      "httpStatus": 404,
+      "contentType": "text/html; charset=utf-8",
+      "success": null
+    },
+    {
+      "id": "rainviewer-metadata",
+      "httpStatus": 200,
+      "contentType": "application/json",
+      "success": null,
+      "radarFrames": 13,
+      "infraredFrames": 0
+    },
+    {
+      "id": "public-weather",
+      "httpStatus": 200,
+      "contentType": "application/json; charset=utf-8",
+      "success": true
+    },
+    {
+      "id": "public-hotspots",
+      "httpStatus": 404,
+      "contentType": "text/html; charset=utf-8",
+      "success": null
+    }
+  ]
+}

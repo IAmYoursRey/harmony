@@ -1,6 +1,19 @@
+import { useState, useEffect } from 'react';
 import { AreaOfInterest, DataProvenance } from './types';
 
 export type { AreaOfInterest };
+
+export function useActiveAOI(): AreaOfInterest | null {
+  const [aoi, setAoi] = useState<AreaOfInterest | null>(() => aoiService.getActiveAOI());
+
+  useEffect(() => {
+    return aoiService.subscribe((newAoi) => {
+      setAoi(newAoi);
+    });
+  }, []);
+
+  return aoi;
+}
 
 class AOIService {
   private activeAOI: AreaOfInterest | null = null;
@@ -231,6 +244,101 @@ class AOIService {
     const [minLng, minLat, maxLng, maxLat] = extentLonLat;
     return this.createBboxAOI(minLng, minLat, maxLng, maxLat, name);
   }
+
+  /**
+   * Validates GeoJSON Polygon / MultiPolygon coordinates
+   */
+  public validateGeometry(coords: any): { isValid: boolean; error?: string } {
+    if (!coords || !Array.isArray(coords) || coords.length === 0) {
+      return { isValid: false, error: 'Koordinat AOI kosong atau bukan array.' };
+    }
+
+    const outerRing = Array.isArray(coords[0][0]) ? coords[0] : coords;
+    if (outerRing.length < 4) {
+      return { isValid: false, error: 'Ring poligon minimal harus memiliki 4 titik (3 unik + 1 penutup).' };
+    }
+
+    for (const pt of outerRing) {
+      if (!Array.isArray(pt) || pt.length < 2) {
+        return { isValid: false, error: 'Format koordinat harus berupa pasangan [lng, lat].' };
+      }
+      const [lng, lat] = pt;
+      if (typeof lng !== 'number' || typeof lat !== 'number' || isNaN(lng) || isNaN(lat)) {
+        return { isValid: false, error: 'Nilai koordinat harus berupa angka valid (bukan NaN).' };
+      }
+      if (lng < -180 || lng > 180 || lat < -90 || lat > 90) {
+        return { isValid: false, error: `Koordinat keluar dari jangkauan WGS84: lng=${lng}, lat=${lat}` };
+      }
+    }
+
+    const first = outerRing[0];
+    const last = outerRing[outerRing.length - 1];
+    if (Math.abs(first[0] - last[0]) > 1e-6 || Math.abs(first[1] - last[1]) > 1e-6) {
+      return { isValid: false, error: 'Ring poligon belum tertutup (titik awal !== titik akhir).' };
+    }
+
+    return { isValid: true };
+  }
+
+  /**
+   * Computes a deterministic canonical hash from AOI geometry and analysis parameters
+   */
+  public computeCanonicalHash(aoi: AreaOfInterest | null, extraParams: Record<string, any> = {}): string {
+    if (!aoi) return 'no_aoi';
+    const canonicalCoords = JSON.stringify(
+      (aoi.geometry.coordinates as any).map((ring: any) =>
+        Array.isArray(ring[0])
+          ? ring.map((pt: any) => [parseFloat(pt[0].toFixed(5)), parseFloat(pt[1].toFixed(5))])
+          : [parseFloat(ring[0].toFixed(5)), parseFloat(ring[1].toFixed(5))]
+      )
+    );
+    const sortedParams = JSON.stringify(extraParams, Object.keys(extraParams).sort());
+    let hash = 0;
+    const str = `${aoi.id}:${canonicalCoords}:${sortedParams}`;
+    for (let i = 0; i < str.length; i++) {
+      const char = str.charCodeAt(i);
+      hash = (hash << 5) - hash + char;
+      hash |= 0;
+    }
+    return `hash_${Math.abs(hash).toString(16)}`;
+  }
+
+  /**
+   * Authoritative Ray-Casting Point-in-Polygon check with interior holes support
+   */
+  public isPointInPolygonWithHoles(pt: [number, number], rings: [number, number][][]): boolean {
+    if (!rings || rings.length === 0) return false;
+
+    const inRing = (point: [number, number], ring: [number, number][]) => {
+      let inside = false;
+      const x = point[0];
+      const y = point[1];
+      for (let i = 0, j = ring.length - 1; i < ring.length; j = i++) {
+        const xi = ring[i][0];
+        const yi = ring[i][1];
+        const xj = ring[j][0];
+        const yj = ring[j][1];
+        const intersect = yi > y !== yj > y && x < ((xj - xi) * (y - yi)) / (yj - yi) + xi;
+        if (intersect) inside = !inside;
+      }
+      return inside;
+    };
+
+    // Must be inside outer ring (rings[0])
+    if (!inRing(pt, rings[0])) {
+      return false;
+    }
+
+    // Must NOT be inside any hole (rings[1..n])
+    for (let h = 1; h < rings.length; h++) {
+      if (inRing(pt, rings[h])) {
+        return false;
+      }
+    }
+
+    return true;
+  }
 }
 
 export const aoiService = new AOIService();
+

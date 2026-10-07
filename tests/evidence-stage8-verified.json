@@ -1,0 +1,178 @@
+{
+  "checkedAt": "2026-10-03T12:57:32.300Z",
+  "scope": "Independent actual-source fault injection verification for Stage 8",
+  "cases": [
+    {
+      "id": "air-without-location",
+      "actual": {
+        "status": "OFFLINE",
+        "error": "Respons kualitas udara tidak memuat koordinat lokasi geografis yang valid."
+      },
+      "required": "Reject unusable/missing product metadata; do not claim data ONLINE",
+      "passed": true
+    },
+    {
+      "id": "elevation-without-location",
+      "actual": {
+        "status": "OFFLINE",
+        "error": "Respons elevasi tidak memuat koordinat lokasi geografis yang valid."
+      },
+      "required": "Reject unusable/missing product metadata; do not claim data ONLINE",
+      "passed": true
+    },
+    {
+      "id": "BMKG-impossible-calendar",
+      "actual": {
+        "status": "OFFLINE",
+        "error": "Waktu gempa BMKG memuat tanggal kalender yang tidak sah (misalnya 30 Februari)."
+      },
+      "required": "Reject unusable/missing product metadata; do not claim data ONLINE",
+      "passed": true
+    },
+    {
+      "id": "BMKG-date-without-parameters",
+      "actual": {
+        "status": "OFFLINE",
+        "error": "Respons BMKG tidak memuat parameter gempa wajib (Koordinat, Magnitudo, Kedalaman)."
+      },
+      "required": "Reject unusable/missing product metadata; do not claim data ONLINE",
+      "passed": true
+    },
+    {
+      "id": "FIRMS-without-acquisition-time",
+      "actual": {
+        "status": "OFFLINE",
+        "error": "Record FIRMS tidak memuat waktu akuisisi (acq_date/acq_time)."
+      },
+      "required": "Reject unusable/missing product metadata; do not claim data ONLINE",
+      "passed": true
+    },
+    {
+      "id": "radar-old2-success-new3-all-fail",
+      "actual": "UNAVAILABLE",
+      "required": "UNAVAILABLE for active viewport with all three needed tiles failed",
+      "passed": true
+    },
+    {
+      "id": "radar-active10-good10-failed",
+      "actual": "PARSIAL",
+      "required": "PARSIAL when ten needed active tiles are usable and ten fail",
+      "passed": true
+    },
+    {
+      "id": "radar-active15-good15-failed",
+      "actual": "PARSIAL",
+      "required": "PARSIAL when fifteen needed active tiles are usable and fifteen fail",
+      "passed": true
+    },
+    {
+      "id": "actual-LST-handler-S3-path",
+      "actual": {
+        "resolverCalls": 2,
+        "fetchedSchemes": [
+          "https",
+          "https"
+        ],
+        "status": "UNAVAILABLE",
+        "reason": "ASSET_ACCESS_FAILED"
+      },
+      "required": "UI must call resolver and fetch resolved HTTP asset URLs; helper-only success is insufficient",
+      "passed": true
+    },
+    {
+      "id": "MET-only-obsolete-point",
+      "actual": {
+        "success": false,
+        "updatedAt": null,
+        "current": null,
+        "error": "Data prakiraan MET Norway sudah usang (data historis masa lalu, bukan prakiraan saat ini)."
+      },
+      "required": "Reject invalid/mismatched data, or classify historical data without using as current; do not invent updatedAt",
+      "passed": true
+    },
+    {
+      "id": "MET-physically-invalid",
+      "actual": {
+        "success": false,
+        "updatedAt": null,
+        "current": null,
+        "error": "Tidak ada titik data prakiraan numerik dengan nilai fisik valid dari MET Norway."
+      },
+      "required": "Reject invalid/mismatched data, or classify historical data without using as current; do not invent updatedAt",
+      "passed": true
+    },
+    {
+      "id": "MET-wrong-location-missing-updatedAt",
+      "actual": {
+        "success": false,
+        "updatedAt": null,
+        "current": null,
+        "error": "Koordinat respons MET Norway [0, 0] tidak sesuai dengan lokasi permintaan [-7.03, 112.75]."
+      },
+      "required": "Reject invalid/mismatched data, or classify historical data without using as current; do not invent updatedAt",
+      "passed": true
+    },
+    {
+      "id": "actual-weather-fallback",
+      "actual": {
+        "metCalls": 1,
+        "returned": true
+      },
+      "required": "Invoke configured suitable fallback when primary fails",
+      "passed": true
+    },
+    {
+      "id": "one-model-breaks-combined-request",
+      "actual": {
+        "modelCount": 8,
+        "modelRequests": [
+          {
+            "modelQuery": "ecmwf_ifs025,gfs_seamless,icon_seamless,jma_seamless,bom_access_global,cma_grapes_global,meteofrance_seamless,ukmo_seamless,gem_seamless",
+            "kind": "forecast"
+          },
+          {
+            "modelQuery": "ecmwf_ifs025,gfs_seamless,icon_seamless,jma_seamless,cma_grapes_global,meteofrance_seamless,ukmo_seamless,gem_seamless",
+            "kind": "forecast"
+          }
+        ],
+        "attempts": [
+          {
+            "id": "open_meteo_weather",
+            "status": "PARTIAL",
+            "error": "Sebagian deret prakiraan tidak tersedia; titik kosong tidak dibuatkan angka pengganti."
+          },
+          {
+            "id": "open_meteo_models",
+            "status": "FAILED",
+            "error": "HTTP 400"
+          },
+          {
+            "id": "open_meteo_air",
+            "status": "PARTIAL",
+            "error": "Sebagian deret kualitas udara tidak tersedia pada waktu prakiraan cuaca."
+          },
+          {
+            "id": "open_meteo_models_split",
+            "status": "PARTIAL",
+            "error": "Tersedia 8 dari 9 model pada waktu yang sama. Tidak tersedia: BoM ACCESS-G."
+          }
+        ]
+      },
+      "required": "Retain eight usable models by bounded retry/splitting; a combined request failing on BoM must not silently abandon all other models",
+      "passed": true
+    }
+  ],
+  "registry": {
+    "fixedOperationalCount": 7,
+    "markedConfigured": [
+      {
+        "id": "nasa-firms-noaa",
+        "apiKeyStatus": "CONFIGURED"
+      },
+      {
+        "id": "google-gemini-ai",
+        "apiKeyStatus": "CONFIGURED"
+      }
+    ]
+  }
+}

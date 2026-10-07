@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef, useMemo } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import {
   CloudSun,
   RefreshCw,
@@ -33,7 +33,6 @@ export const MapWeatherObservationCard: React.FC<MapWeatherObservationCardProps>
   );
   const [isExpanded, setIsExpanded] = useState<boolean>(false);
   const [remainingSeconds, setRemainingSeconds] = useState<number>(300);
-  const lastCoordsRef = useRef<{ lat: number; lng: number }>({ lat, lng });
 
   // 1. Subscribe to Live Weather Service
   useEffect(() => {
@@ -45,16 +44,10 @@ export const MapWeatherObservationCard: React.FC<MapWeatherObservationCardProps>
 
   // 2. Initial Fetch & Coordinate Tracking
   useEffect(() => {
-    const isInitial = !weatherState.data && !weatherState.isFetching;
-    const coordsChanged =
-      Math.abs(lastCoordsRef.current.lat - lat) > 0.05 ||
-      Math.abs(lastCoordsRef.current.lng - lng) > 0.05;
-
-    if (isInitial || coordsChanged) {
-      lastCoordsRef.current = { lat, lng };
-      mapWeatherLiveService.fetchWeather(lat, lng, false);
-    }
-  }, [lat, lng, weatherState.data, weatherState.isFetching]);
+    // A failed fetch changes state, not coordinates. Do not trigger a new
+    // request on every failure render; polling/manual refresh handles retries.
+    void mapWeatherLiveService.fetchWeather(lat, lng, false);
+  }, [lat, lng]);
 
   // 3. Automated 5-Minute Polling Lifecycle
   useEffect(() => {

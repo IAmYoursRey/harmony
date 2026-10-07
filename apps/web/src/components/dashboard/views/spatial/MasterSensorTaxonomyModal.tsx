@@ -165,6 +165,8 @@ export function MasterSensorTaxonomyModal({
               <div className="relative flex-1">
                 <Search className="pointer-events-none absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
                 <input
+                  id="sensor-taxonomy-search-input"
+                  name="sensorTaxonomySearch"
                   type="text"
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}

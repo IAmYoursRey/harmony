@@ -101,7 +101,7 @@ export function MapList({ maps, schoolId, onRefresh }: Props) {
               <label className="block text-xs font-semibold text-ink-600 mb-1">
                 Nama Peta *
               </label>
-              <input
+              <input name="newName" id="maplist-newname"
                 value={newName}
                 onChange={(e) => setNewName(e.target.value)}
                 className="w-full px-3 py-2 rounded-lg border text-sm dark:bg-slate-800 dark:border-slate-600"
@@ -112,7 +112,7 @@ export function MapList({ maps, schoolId, onRefresh }: Props) {
               <label className="block text-xs font-semibold text-ink-600 mb-1">
                 Lebar (kolom)
               </label>
-              <input
+              <input name="newW" id="maplist-neww"
                 type="number"
                 min={5}
                 max={60}
@@ -125,7 +125,7 @@ export function MapList({ maps, schoolId, onRefresh }: Props) {
               <label className="block text-xs font-semibold text-ink-600 mb-1">
                 Tinggi (baris)
               </label>
-              <input
+              <input name="newH" id="maplist-newh"
                 type="number"
                 min={5}
                 max={60}
@@ -138,7 +138,7 @@ export function MapList({ maps, schoolId, onRefresh }: Props) {
               <label className="block text-xs font-semibold text-ink-600 mb-1">
                 Skala (1 sel = ?)
               </label>
-              <input
+              <input name="newScale" id="maplist-newscale"
                 type="number"
                 min={0.5}
                 max={10}
@@ -152,7 +152,7 @@ export function MapList({ maps, schoolId, onRefresh }: Props) {
               <label className="block text-xs font-semibold text-ink-600 mb-1">
                 Unit
               </label>
-              <select
+              <select name="newScaleUnit" id="maplist-newscaleunit"
                 value={newScaleUnit}
                 onChange={(e) =>
                   setNewScaleUnit(e.target.value as "meter" | "feet")

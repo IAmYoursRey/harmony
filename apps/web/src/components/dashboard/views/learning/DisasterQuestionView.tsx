@@ -1325,7 +1325,7 @@ export function DisasterQuestionView() {
                       })}
                     </div>
                   ) : (
-                    <textarea
+                    <textarea name="textarea_ylhgi" id="disasterquestionview-textarea_ylhgi"
                       rows={3}
                       value={quizAnswers[q.id] ?? ""}
                       onChange={(e) =>

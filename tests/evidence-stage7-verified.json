@@ -1,0 +1,314 @@
+{
+  "checkedAt": "2026-10-03T12:54:27.256Z",
+  "stage": "Stage 7 Remediation Verification",
+  "scope": "Independent source-driven fault injection and domain validation",
+  "cases": [
+    {
+      "id": "traffic-no-geometry",
+      "actual": {
+        "status": "OFFLINE",
+        "error": "Geometri ruas jalan TomTom Traffic tidak tersedia (minimal 2 titik koordinat)."
+      },
+      "expected": "OFFLINE / not ONLINE",
+      "passed": true
+    },
+    {
+      "id": "firms-invalid-record",
+      "actual": {
+        "status": "OFFLINE",
+        "error": "Record FIRMS memiliki koordinat di luar rentang geografis valid (-90..90, -180..180)."
+      },
+      "expected": "OFFLINE / not ONLINE",
+      "passed": true
+    },
+    {
+      "id": "bmkg-invalid-date-only",
+      "actual": {
+        "status": "OFFLINE",
+        "error": "Waktu gempa BMKG tidak dapat diparse sebagai tanggal/waktu valid."
+      },
+      "expected": "OFFLINE / not ONLINE",
+      "passed": true
+    },
+    {
+      "id": "elevation-wrong-location",
+      "actual": {
+        "status": "OFFLINE",
+        "error": "Koordinat elevasi tidak sesuai dengan lokasi permintaan."
+      },
+      "expected": "OFFLINE / not ONLINE",
+      "passed": true
+    },
+    {
+      "id": "air-wrong-location",
+      "actual": {
+        "status": "OFFLINE",
+        "error": "Koordinat kualitas udara tidak sesuai dengan lokasi permintaan."
+      },
+      "expected": "OFFLINE / not ONLINE",
+      "passed": true
+    },
+    {
+      "id": "HTTP200-provider-failure",
+      "actual": {
+        "status": "OFFLINE",
+        "error": "Upstream failed"
+      },
+      "expected": "OFFLINE / not ONLINE",
+      "passed": true
+    },
+    {
+      "id": "HTTP200-HTML",
+      "actual": {
+        "status": "OFFLINE",
+        "error": "Unexpected token '<', \"<html>Logi\"... is not valid JSON"
+      },
+      "expected": "OFFLINE / not ONLINE",
+      "passed": true
+    },
+    {
+      "id": "valid-empty-firms",
+      "actual": {
+        "status": "ONLINE",
+        "error": null
+      },
+      "expected": "ONLINE (valid empty collection)",
+      "passed": true
+    },
+    {
+      "id": "radar-current-view-all-failed",
+      "actual": "PARSIAL",
+      "expected": "UNAVAILABLE",
+      "passed": false
+    },
+    {
+      "id": "predictor-positive",
+      "actual": 45100,
+      "expected": 45100,
+      "passed": true
+    },
+    {
+      "id": "missing-crs-sampling",
+      "actual": {
+        "error": "MISSING_CRS: Raster tidak memiliki informasi CRS yang valid."
+      },
+      "expected": "Throws MISSING_CRS",
+      "passed": true
+    },
+    {
+      "id": "QA-incomplete-block-padded-as-clear",
+      "actual": {
+        "error": "MALFORMED_TIFF_STRIP: Ukuran data strip/tile tidak mencukupi untuk seluruh piksel blok."
+      },
+      "expected": "Throws MALFORMED_TIFF_STRIP",
+      "passed": true
+    },
+    {
+      "id": "weather-wrong-units",
+      "actual": "Satuan suhu tidak didukung: °F (diharapkan °C).",
+      "expected": "Error message string rejecting incompatible units",
+      "passed": true
+    },
+    {
+      "id": "area-uses-fixed-latitude-minus7",
+      "actual": {
+        "actualAreaKm2": 0.0062,
+        "approxExpectedAt60Km2": 0.006154326200000002,
+        "difference": 0.000045673799999998085
+      },
+      "expected": "~0.00615 km² based on actual latitude 60°",
+      "passed": true
+    },
+    {
+      "id": "registry-not-all-live",
+      "actual": {
+        "total": 16,
+        "liveConnectedCount": 7,
+        "catalogCount": 9
+      },
+      "expected": "Live streams must not be uniformly true (16/16)",
+      "passed": true
+    },
+    {
+      "id": "registry-firms-key-configured",
+      "actual": {
+        "apiKeyRequired": true,
+        "apiKeyStatus": "CONFIGURED"
+      },
+      "expected": "apiKeyRequired: true, apiKeyStatus: CONFIGURED",
+      "passed": true
+    },
+    {
+      "id": "registry-gemini-key-configured",
+      "actual": {
+        "apiKeyRequired": true,
+        "apiKeyStatus": "CONFIGURED"
+      },
+      "expected": "apiKeyStatus: CONFIGURED",
+      "passed": true
+    },
+    {
+      "id": "stac-s3-asset-preservation",
+      "actual": {
+        "totalFound": 1,
+        "hasThermalAsset": true,
+        "hasQaAsset": true,
+        "thermalHref": "s3://usgs-landsat/collection02/level-2/standard/oli-tirs/2026/118/065/LC09_L2SP_118065_20260926_02_T1_SR_B10.TIF"
+      },
+      "expected": "S3 assets preserved in scene metadata",
+      "passed": true
+    },
+    {
+      "id": "stac-s3-asset-resolver-pc",
+      "actual": {
+        "sceneId": "LC09_L2SP_118065_20260926_02_T1",
+        "resolvedProvider": "Microsoft Planetary Computer (hydrated from Earth Search scene ID)",
+        "isSigned": true,
+        "resolvedUrlPrefix": "https://landsateuwest.blob.core.windows.net/landsa"
+      },
+      "expected": "Hydrates HTTPS signed URL from Planetary Computer for browser streaming",
+      "passed": true
+    },
+    {
+      "id": "met-norway-unit-conversion",
+      "actual": {
+        "tempC": 29.5,
+        "windSpeedKmh": 19.8,
+        "expectedWindKmh": 19.8,
+        "symbolCode": "partlycloudy_night"
+      },
+      "expected": "Converts m/s to km/h (5.5 m/s -> 19.8 km/h) and parses points",
+      "passed": true
+    }
+  ],
+  "registrySummary": {
+    "total": 16,
+    "liveConnected": 7,
+    "catalogs": 9,
+    "entries": [
+      {
+        "id": "bmkg-gempa-tews",
+        "name": "InaTEWS Realtime Earthquake & Shakemap Stream",
+        "isLiveConnected": true,
+        "apiKeyRequired": false,
+        "apiKeyStatus": "PUBLIC_FREE"
+      },
+      {
+        "id": "pvmbg-magma-vona",
+        "name": "MAGMA Indonesia & VONA Volcano Hazard Catalog",
+        "isLiveConnected": false,
+        "apiKeyRequired": false,
+        "apiKeyStatus": "PUBLIC_FREE"
+      },
+      {
+        "id": "big-demnas-inageoportal",
+        "name": "DEMNAS (Digital Elevation Model Nasional) & Peta RBI",
+        "isLiveConnected": false,
+        "apiKeyRequired": false,
+        "apiKeyStatus": "PUBLIC_FREE"
+      },
+      {
+        "id": "bnpb-inarisk-irbi",
+        "name": "InaRISK & Indeks Risiko Bencana Indonesia (IRBI)",
+        "isLiveConnected": false,
+        "apiKeyRequired": false,
+        "apiKeyStatus": "PUBLIC_FREE"
+      },
+      {
+        "id": "kemendikbud-dapodik",
+        "name": "Dapodik & Data Referensi Satuan Pendidikan Nasional",
+        "isLiveConnected": false,
+        "apiKeyRequired": false,
+        "apiKeyStatus": "PUBLIC_FREE"
+      },
+      {
+        "id": "bmkg-weather-radar-sat",
+        "name": "BMKG Doppler Weather Radar & Nowcasting Early Warning",
+        "isLiveConnected": false,
+        "apiKeyRequired": false,
+        "apiKeyStatus": "PUBLIC_FREE"
+      },
+      {
+        "id": "esa-copernicus-sentinel",
+        "name": "Copernicus Sentinel-2 & Sentinel-1 SAR Earth Observation",
+        "isLiveConnected": false,
+        "apiKeyRequired": false,
+        "apiKeyStatus": "PUBLIC_FREE"
+      },
+      {
+        "id": "usgs-earthquake-hazards",
+        "name": "USGS Real-time Worldwide Earthquake Catalog",
+        "isLiveConnected": true,
+        "apiKeyRequired": false,
+        "apiKeyStatus": "PUBLIC_FREE"
+      },
+      {
+        "id": "open-meteo-ecmwf",
+        "name": "Open-Meteo & ECMWF Atmospheric Numerical Weather Prediction",
+        "isLiveConnected": true,
+        "apiKeyRequired": false,
+        "apiKeyStatus": "PUBLIC_FREE"
+      },
+      {
+        "id": "nasa-firms-noaa",
+        "name": "NASA FIRMS & NOAA Thermal Anomaly Hotspot Detection",
+        "isLiveConnected": true,
+        "apiKeyRequired": true,
+        "apiKeyStatus": "CONFIGURED"
+      },
+      {
+        "id": "openstreetmap-odbl",
+        "name": "OpenStreetMap (OSM) & ODbL Open Geospatial Basemap",
+        "isLiveConnected": true,
+        "apiKeyRequired": false,
+        "apiKeyStatus": "PUBLIC_FREE"
+      },
+      {
+        "id": "google-gemini-ai",
+        "name": "Google DeepMind Gemini Multimodal Disaster Intelligence Engine",
+        "isLiveConnected": true,
+        "apiKeyRequired": true,
+        "apiKeyStatus": "CONFIGURED"
+      },
+      {
+        "id": "bom-access-maritime",
+        "name": "BOM ACCESS-G Maritime Continent & Southern Oceans",
+        "isLiveConnected": false,
+        "apiKeyRequired": false,
+        "apiKeyStatus": "PUBLIC_FREE"
+      },
+      {
+        "id": "cma-grapes-asia",
+        "name": "CMA GRAPES Global & Tropical Asia NWP Model",
+        "isLiveConnected": false,
+        "apiKeyRequired": false,
+        "apiKeyStatus": "PUBLIC_FREE"
+      },
+      {
+        "id": "jma-seamless-japan",
+        "name": "JMA Seamless & Himawari-9 Satellite Radar Model",
+        "isLiveConnected": false,
+        "apiKeyRequired": false,
+        "apiKeyStatus": "PUBLIC_FREE"
+      },
+      {
+        "id": "copernicus-cams-eu",
+        "name": "Copernicus CAMS Atmosphere & Ozone Monitoring",
+        "isLiveConnected": true,
+        "apiKeyRequired": false,
+        "apiKeyStatus": "PUBLIC_FREE"
+      }
+    ]
+  },
+  "hashes": {
+    "apps/web/src/services/geospatialDataTelemetryService.ts": "ef2a89a02995c3f90ea19800a8febcb732b277d4ab3f99f34223fbf785723e6c",
+    "apps/web/src/services/weatherDataIntegrity.ts": "84418001c9a754a38520f539209be76a89ff938095eef72e22df65edc764c0bb",
+    "apps/web/src/data/dataSourceRegistry.ts": "039068d5da4a5b146534b9b5ae309edf73c42e0cc7d09ce56b1a0dbd53829e69",
+    "apps/web/src/services/geospatial/rasterReaderService.ts": "c15b2983ec8ca619892f31df7d9a6677f48b0c78437d6e2f4a42f8212fadb6f3",
+    "apps/web/src/services/geospatial/lstService.ts": "bad8ab1c304eff43ec9d71b29713e30e766d586356f51579c19803b1d74a7a45",
+    "apps/web/src/components/dashboard/views/spatial/MapsView.tsx": "93cf1297f1ec964fe88055bb59ef8e9ec1bae855f67b1cfbcf98011eaf02b016",
+    "apps/web/src/services/geospatial/stacService.ts": "5c00766a75ccfc67e727be68aebfb5a576efd6dfe9aab64ef782b2a5e73a34f1",
+    "apps/web/src/services/metNorwayService.ts": "06aaca50cd91f9231d79f297c130e3da67785a04fa5185e504dff7f26f279c69",
+    "apps/web/src/services/weatherAggregatorService.ts": "7968846df7afafdf1c8f03446f16669c132788a8e107544f1e069670ed2253f5"
+  }
+}

@@ -393,7 +393,7 @@ export function Phase2ScenarioEditor({
                   Size (Width x Height)
                 </label>
                 <div className="flex gap-2">
-                  <input
+                  <input name="input_z2qha" id="phase2scenarioeditor-input_z2qha"
                     type="number"
                     min="1"
                     value={selectedItem.width || 1}
@@ -408,7 +408,7 @@ export function Phase2ScenarioEditor({
                     }}
                     className="w-full px-3 py-2 bg-slate-100 dark:bg-slate-800 border-none rounded-lg text-sm"
                   />
-                  <input
+                  <input name="input_eoorh" id="phase2scenarioeditor-input_eoorh"
                     type="number"
                     min="1"
                     value={selectedItem.height || 1}
@@ -453,7 +453,7 @@ export function Phase2ScenarioEditor({
                     <label className="block text-xs font-bold text-slate-500 mb-1">
                       {label}
                     </label>
-                    <input
+                    <input name="input_2pvty" id="phase2scenarioeditor-input_2pvty"
                       type={type}
                       min={min}
                       max={max}
@@ -474,7 +474,7 @@ export function Phase2ScenarioEditor({
                 const CheckboxField = ({ label, propKey, defaultVal }: any) => (
                   <div className="mb-3">
                     <label className="flex items-center gap-2 text-sm font-bold text-slate-700 dark:text-slate-300">
-                      <input
+                      <input name="input_nzzsi" id="phase2scenarioeditor-input_nzzsi"
                         type="checkbox"
                         checked={props[propKey] ?? defaultVal}
                         onChange={(e) => updateProp(propKey, e.target.checked)}

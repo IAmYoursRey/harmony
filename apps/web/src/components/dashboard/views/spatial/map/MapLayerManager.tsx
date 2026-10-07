@@ -41,7 +41,7 @@ export interface ManagedLayer {
   category: LayerCategoryId;
   visible: boolean;
   opacity: number;
-  sourceStatus: "LIVE" | "STATIC" | "CACHED" | "DERIVED" | "UNAVAILABLE";
+  sourceStatus: "LIVE" | "STATIC" | "CACHED" | "DERIVED" | "UNAVAILABLE" | "CATALOG" | "EXTERNAL" | "EMPTY" | "PARTIAL" | "STALE" | "SIMULATION" | "USER_DIGITIZED";
   color: string;
   badge?: string;
   description?: string;
@@ -58,7 +58,7 @@ interface MapLayerManagerProps {
   layers: ManagedLayer[];
 }
 
-type FilterTab = "all" | "active" | "user" | "disaster" | "admin";
+type FilterTab = "all" | "active" | "user" | "disaster" | "admin" | "school_resilience";
 
 const CATEGORIES: Array<{
   id: LayerCategoryId;
@@ -187,6 +187,13 @@ export const MapLayerManager: React.FC<MapLayerManagerProps> = ({
           l.category === "education_infrastructure" ||
           l.category === "environment"
       );
+    } else if (activeFilterTab === "school_resilience") {
+      const allowedIds = new Set([
+        'schools_sd', 'schools_smp', 'schools_sma',
+        'earthquakes', 'tectonic', 'volcanoes',
+        'landslide_zones', 'tsunami_zones', 'traffic'
+      ]);
+      list = list.filter((l) => allowedIds.has(l.id));
     }
 
     // Filter by Search Query
@@ -282,6 +289,8 @@ export const MapLayerManager: React.FC<MapLayerManagerProps> = ({
       <div className="mt-3 relative shrink-0">
         <Search className="absolute left-3 top-2.5 h-4 w-4 text-slate-400 pointer-events-none" />
         <input
+          id="map-layer-search-input"
+          name="layerSearch"
           type="text"
           placeholder="Cari lapisan (gempa, jalan, sekolah, buffer)..."
           value={searchQuery}
@@ -316,10 +325,39 @@ export const MapLayerManager: React.FC<MapLayerManagerProps> = ({
         </div>
       )}
 
+      {/* Preset Cepat: Sekolah Tangguh Bencana (Sederhana untuk Awam) */}
+      <div className="mt-2.5 shrink-0">
+        <button
+          type="button"
+          onClick={() => setActiveFilterTab(activeFilterTab === "school_resilience" ? "all" : "school_resilience")}
+          className={`w-full flex items-center justify-between p-2 rounded-2xl text-xs font-bold transition-all border ${
+            activeFilterTab === "school_resilience"
+              ? "bg-rose-50 dark:bg-rose-950/40 text-rose-700 dark:text-rose-300 border-rose-300 dark:border-rose-800 shadow-xs"
+              : "bg-indigo-50/70 hover:bg-indigo-50 dark:bg-indigo-950/30 text-indigo-700 dark:text-indigo-300 border-indigo-200/60 dark:border-indigo-800/50"
+          }`}
+        >
+          <div className="flex items-center gap-2 text-left">
+            <span className="text-base">🏫</span>
+            <div>
+              <span className="block leading-tight font-extrabold">Mode Sekolah Tangguh Bencana</span>
+              <span className="text-[10px] opacity-75 font-normal block">Tampilkan hanya 6 lapisan esensial (hindari visual berlebih)</span>
+            </div>
+          </div>
+          <span className={`text-[10px] font-black uppercase px-2 py-0.5 rounded-full border ${
+            activeFilterTab === "school_resilience"
+              ? "bg-rose-600 text-white border-rose-700"
+              : "bg-white dark:bg-slate-800 text-indigo-600 dark:text-indigo-300 border-indigo-200 dark:border-indigo-700"
+          }`}>
+            {activeFilterTab === "school_resilience" ? "Aktif" : "Ringkas"}
+          </span>
+        </button>
+      </div>
+
       {/* Quick Filter Tabs */}
-      <div className="mt-2.5 flex items-center gap-1.5 overflow-x-auto pb-1 no-scrollbar shrink-0">
+      <div className="mt-2 flex items-center gap-1.5 overflow-x-auto pb-1 no-scrollbar shrink-0">
         {[
           { id: "all", label: "Semua" },
+          { id: "school_resilience", label: "🏫 Sekolah Tangguh" },
           { id: "active", label: `Aktif (${activeLayersCount})` },
           { id: "user", label: "Alat GIS" },
           { id: "disaster", label: "Bencana" },
@@ -454,8 +492,22 @@ export const MapLayerManager: React.FC<MapLayerManagerProps> = ({
                                       className={`text-[9px] px-1.5 py-0.5 rounded font-mono font-black shrink-0 ${
                                         layer.sourceStatus === "LIVE"
                                           ? "bg-emerald-500/15 text-emerald-600 dark:text-emerald-400"
+                                          : layer.sourceStatus === "EMPTY"
+                                          ? "bg-sky-500/15 text-sky-600 dark:text-sky-400"
+                                          : layer.sourceStatus === "PARTIAL"
+                                          ? "bg-amber-500/15 text-amber-600 dark:text-amber-400"
+                                          : layer.sourceStatus === "STALE"
+                                          ? "bg-orange-500/15 text-orange-600 dark:text-orange-400"
                                           : layer.sourceStatus === "DERIVED"
                                           ? "bg-indigo-500/15 text-indigo-600 dark:text-indigo-400"
+                                          : layer.sourceStatus === "CATALOG"
+                                          ? "bg-purple-500/15 text-purple-600 dark:text-purple-400"
+                                          : layer.sourceStatus === "EXTERNAL"
+                                          ? "bg-blue-500/15 text-blue-600 dark:text-blue-400"
+                                          : layer.sourceStatus === "USER_DIGITIZED"
+                                          ? "bg-teal-500/15 text-teal-600 dark:text-teal-400"
+                                          : layer.sourceStatus === "SIMULATION"
+                                          ? "bg-violet-500/15 text-violet-600 dark:text-violet-400"
                                           : "bg-slate-200/70 text-slate-600 dark:bg-slate-700/70 dark:text-slate-300"
                                       }`}
                                     >
@@ -585,6 +637,8 @@ export const MapLayerManager: React.FC<MapLayerManagerProps> = ({
                                 Transparansi:
                               </span>
                               <input
+                                id={`layer-opacity-slider-${layer.id}`}
+                                name={`layerOpacity_${layer.id}`}
                                 type="range"
                                 min="0"
                                 max="1"
