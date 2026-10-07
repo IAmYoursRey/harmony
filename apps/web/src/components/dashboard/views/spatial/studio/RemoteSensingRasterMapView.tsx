@@ -152,12 +152,11 @@ export const RemoteSensingRasterMapView: React.FC<RemoteSensingRasterMapViewProp
   useEffect(() => {
     if (!mapContainerRef.current) return;
 
-    // 1. High Resolution True Satellite Base Tile Layer
+    // 1. High Resolution True Satellite Base Tile Layer (ESRI World Imagery with CORS enabled)
     const satSource = new XYZ({
       urls: [
         'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}',
-        'https://mt0.google.com/vt/lyrs=s&x={x}&y={y}&z={z}',
-        'https://mt1.google.com/vt/lyrs=s&x={x}&y={y}&z={z}',
+        'https://services.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}',
       ],
       maxZoom: 19,
       crossOrigin: 'anonymous',

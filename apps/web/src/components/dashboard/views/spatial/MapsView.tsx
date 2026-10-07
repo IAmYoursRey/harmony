@@ -319,7 +319,6 @@ export const getSourceForBasemap = (type: MapBasemapType) => {
           'https://mt3.google.com/vt/lyrs=m,traffic&x={x}&y={y}&z={z}',
         ],
         maxZoom: 20,
-        crossOrigin: 'anonymous',
       });
     case 'dark':
       return new XYZ({
@@ -3084,7 +3083,6 @@ export function MapsView() {
           'https://mt3.google.com/vt/lyrs=h,traffic&x={x}&y={y}&z={z}',
         ],
         maxZoom: 20,
-        crossOrigin: 'anonymous',
       }),
       zIndex: 15,
       opacity: 0.95,
