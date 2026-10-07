@@ -5,7 +5,6 @@ import TileLayer from 'ol/layer/Tile';
 import XYZ from 'ol/source/XYZ';
 import VectorLayer from 'ol/layer/Vector';
 import VectorSource from 'ol/source/Vector';
-import Heatmap from 'ol/layer/Heatmap';
 import Feature from 'ol/Feature';
 import Polygon from 'ol/geom/Polygon';
 import Point from 'ol/geom/Point';
@@ -23,9 +22,9 @@ import {
   ExternalLink,
   CheckCircle2,
   Grid,
-  Sparkles,
-  Info,
   Radio,
+  Eye,
+  EyeOff,
 } from 'lucide-react';
 import { HotspotRecord } from '../../../../../services/geospatial/firmsService';
 import { AreaOfInterest } from '../../../../../services/geospatial/aoiService';
@@ -48,16 +47,16 @@ interface GeospatialHotspotMapViewProps {
  * representing the real-world satellite ground sensor pixel footprint.
  * - VIIRS (Suomi-NPP, NOAA-20, NOAA-21): nominal 375m x 375m at nadir
  * - MODIS (Terra, Aqua): nominal 1000m x 1000m at nadir
- * Derived from NASA FIRMS scan and track telemetry parameters.
+ * Derived from NASA FIRMS scan and track telemetry parameters with latitude geodetic correction.
  */
 function createSatelliteFootprintGeometry(h: HotspotRecord): Polygon {
   const [cx, cy] = fromLonLat([h.longitude, h.latitude]);
   const scanKm = h.scanKm ?? (h.instrument === 'VIIRS' ? 0.375 : 1.0);
   const trackKm = h.trackKm ?? (h.instrument === 'VIIRS' ? 0.375 : 1.0);
-  const scanMeters = scanKm * 1000;
-  const trackMeters = trackKm * 1000;
-  const halfX = scanMeters / 2;
-  const halfY = trackMeters / 2;
+  const latRad = (h.latitude * Math.PI) / 180;
+  const cosLat = Math.max(0.15, Math.cos(latRad));
+  const halfX = ((scanKm * 1000) / 2) / cosLat;
+  const halfY = (trackKm * 1000) / 2;
 
   return new Polygon([[
     [cx - halfX, cy - halfY],
@@ -81,7 +80,7 @@ export const GeospatialHotspotMapView: React.FC<GeospatialHotspotMapViewProps> =
   appliedToMainMap,
 }) => {
   const [opacity, setOpacity] = useState<number>(0.92);
-  const [renderMode, setRenderMode] = useState<'footprint' | 'dual' | 'heatmap'>('footprint');
+  const [showLabels, setShowLabels] = useState<boolean>(true);
   const [hoveredHotspot, setHoveredHotspot] = useState<HotspotRecord | null>(null);
 
   const mapContainerRef = useRef<HTMLDivElement | null>(null);
@@ -89,8 +88,6 @@ export const GeospatialHotspotMapView: React.FC<GeospatialHotspotMapViewProps> =
   const satLayerRef = useRef<TileLayer | null>(null);
   const footprintVectorSourceRef = useRef<VectorSource | null>(null);
   const footprintVectorLayerRef = useRef<VectorLayer | null>(null);
-  const heatmapVectorSourceRef = useRef<VectorSource | null>(null);
-  const heatmapLayerRef = useRef<Heatmap | null>(null);
 
   const computedBBox: [number, number, number, number] = useMemo(() => {
     return (
@@ -124,42 +121,13 @@ export const GeospatialHotspotMapView: React.FC<GeospatialHotspotMapViewProps> =
     });
     satLayerRef.current = satLayer;
 
-    // 2. Heatmap Point Vector Source & Layer
-    const heatmapSource = new VectorSource();
-    heatmapVectorSourceRef.current = heatmapSource;
-
-    const heatmapLayer = new Heatmap({
-      source: heatmapSource,
-      blur: 24,
-      radius: 18,
-      opacity: renderMode === 'footprint' ? 0 : 0.75,
-      visible: renderMode !== 'footprint',
-      zIndex: 10,
-      gradient: [
-        'rgba(0, 0, 0, 0)',
-        'rgba(245, 158, 11, 0.25)',
-        'rgba(249, 115, 22, 0.60)',
-        'rgba(239, 68, 68, 0.85)',
-        'rgba(255, 255, 255, 0.98)',
-      ],
-      weight: (feature) => {
-        const rawH = feature.get('hotspotData') as HotspotRecord | undefined;
-        const frp = rawH?.frpMw || 5;
-        const conf = rawH?.confidenceLevel || 'nominal';
-        const confMult = conf === 'high' ? 1.0 : conf === 'nominal' ? 0.75 : 0.45;
-        return Math.min(1.0, Math.max(0.2, (Math.sqrt(frp) / 12) * confMult));
-      },
-    });
-    heatmapLayerRef.current = heatmapLayer;
-
-    // 3. Ground Footprint Polygon Vector Source & Layer (Real Ground Scale in Meters)
+    // 2. Real-World Ground Footprint Polygon Layer (Discrete Ground Scale in Meters)
     const footprintSource = new VectorSource();
     footprintVectorSourceRef.current = footprintSource;
 
     const footprintVectorLayer = new VectorLayer({
       source: footprintSource,
       zIndex: 15,
-      visible: renderMode !== 'heatmap',
       style: (feature, resolution) => {
         const rawH = feature.get('hotspotData') as HotspotRecord | undefined;
         if (!rawH) return undefined;
@@ -167,16 +135,17 @@ export const GeospatialHotspotMapView: React.FC<GeospatialHotspotMapViewProps> =
         const isHovered = hoveredHotspot && hoveredHotspot.id === rawH.id;
         const conf = rawH.confidenceLevel || 'nominal';
 
-        const scanMeters = ((rawH.scanKm ?? (rawH.instrument === 'VIIRS' ? 0.375 : 1.0)) * 1000);
+        const scanKm = rawH.scanKm ?? (rawH.instrument === 'VIIRS' ? 0.375 : 1.0);
+        const scanMeters = scanKm * 1000;
         const pixelWidth = scanMeters / resolution;
 
         const baseColor =
           conf === 'high' ? '#ef4444' : conf === 'nominal' ? '#f97316' : '#eab308';
 
-        // Semi-transparent infrared fill covering the exact anomaly ground pixel
+        // Semi-transparent infrared fill covering the exact ground anomaly block
         const fillColor =
           conf === 'high'
-            ? (isSelected ? 'rgba(239, 68, 68, 0.72)' : isHovered ? 'rgba(239, 68, 68, 0.58)' : 'rgba(239, 68, 68, 0.45)')
+            ? (isSelected ? 'rgba(239, 68, 68, 0.72)' : isHovered ? 'rgba(239, 68, 68, 0.58)' : 'rgba(239, 68, 68, 0.44)')
             : conf === 'nominal'
             ? (isSelected ? 'rgba(249, 115, 22, 0.65)' : isHovered ? 'rgba(249, 115, 22, 0.52)' : 'rgba(249, 115, 22, 0.40)')
             : (isSelected ? 'rgba(234, 179, 8, 0.60)' : isHovered ? 'rgba(234, 179, 8, 0.48)' : 'rgba(234, 179, 8, 0.35)');
@@ -187,12 +156,12 @@ export const GeospatialHotspotMapView: React.FC<GeospatialHotspotMapViewProps> =
           : isHovered
           ? '#ffffff'
           : conf === 'high'
-          ? 'rgba(255, 255, 255, 0.80)'
-          : 'rgba(255, 255, 255, 0.65)';
+          ? 'rgba(255, 255, 255, 0.85)'
+          : 'rgba(255, 255, 255, 0.70)';
         const strokeWidth = isSelected ? 2.5 : isHovered ? 2.0 : 1.2;
 
         let textStyle: Text | undefined = undefined;
-        if (pixelWidth >= 32 || isSelected) {
+        if (showLabels && (pixelWidth >= 28 || isSelected)) {
           const tempC = rawH.brightnessKelvin ? `${Math.round(rawH.brightnessKelvin - 273.15)}°C` : '';
           const frpText = rawH.frpMw ? `${Math.round(rawH.frpMw)}MW` : '';
           const label = [tempC, frpText].filter(Boolean).join(' • ');
@@ -219,15 +188,16 @@ export const GeospatialHotspotMapView: React.FC<GeospatialHotspotMapViewProps> =
           }),
         ];
 
-        // When zoomed very far out (subpixel ground block), show a small 3.5px center indicator
-        if (pixelWidth < 6) {
+        // Discrete pinpoint dot when zoomed far out (subpixel ground size)
+        // Ensures individual hotspots remain pinpoint accurate without blurring into neighboring points or swallowing islands
+        if (pixelWidth < 5) {
           styles.push(
             new Style({
               geometry: new Point(fromLonLat([rawH.longitude, rawH.latitude])),
               image: new CircleStyle({
-                radius: Math.max(3, Math.min(5, 7 - pixelWidth)),
+                radius: 2.5,
                 fill: new Fill({ color: baseColor }),
-                stroke: new Stroke({ color: '#ffffff', width: 1.2 }),
+                stroke: new Stroke({ color: '#ffffff', width: 1 }),
               }),
             })
           );
@@ -238,10 +208,10 @@ export const GeospatialHotspotMapView: React.FC<GeospatialHotspotMapViewProps> =
     });
     footprintVectorLayerRef.current = footprintVectorLayer;
 
-    // 4. Build OpenLayers Map Instance
+    // 3. Build OpenLayers Map Instance (Strictly Vector Footprints + Satellite Base)
     const map = new OLMap({
       target: mapContainerRef.current,
-      layers: [satLayer, heatmapLayer, footprintVectorLayer],
+      layers: [satLayer, footprintVectorLayer],
       view: new View({
         center: fromLonLat([centerLng, centerLat]),
         zoom: 9.5,
@@ -284,17 +254,14 @@ export const GeospatialHotspotMapView: React.FC<GeospatialHotspotMapViewProps> =
     };
   }, [centerLat, centerLng]);
 
-  // Sync hotspots into footprint vector source & heatmap source
+  // Sync hotspots into footprint vector source
   useEffect(() => {
     const footprintSource = footprintVectorSourceRef.current;
-    const heatmapSource = heatmapVectorSourceRef.current;
-    if (!footprintSource || !heatmapSource) return;
+    if (!footprintSource) return;
 
     footprintSource.clear();
-    heatmapSource.clear();
 
     hotspots.forEach((h) => {
-      // 1. Precise Real-World Ground Footprint Polygon
       const polygonGeom = createSatelliteFootprintGeometry(h);
       const polygonFeature = new Feature({
         geometry: polygonGeom,
@@ -302,13 +269,6 @@ export const GeospatialHotspotMapView: React.FC<GeospatialHotspotMapViewProps> =
         name: `Hotspot ${h.instrument} (${h.confidenceLevel.toUpperCase()})`,
       });
       footprintSource.addFeature(polygonFeature);
-
-      // 2. Centroid Point Feature for Heatmap
-      const pointFeature = new Feature({
-        geometry: new Point(fromLonLat([h.longitude, h.latitude])),
-        hotspotData: h,
-      });
-      heatmapSource.addFeature(pointFeature);
     });
 
     if (hotspots.length > 0 && mapInstanceRef.current) {
@@ -348,17 +308,10 @@ export const GeospatialHotspotMapView: React.FC<GeospatialHotspotMapViewProps> =
     }
   }, [opacity]);
 
-  // Sync render mode
+  // Sync labels
   useEffect(() => {
-    if (heatmapLayerRef.current) {
-      heatmapLayerRef.current.setVisible(renderMode !== 'footprint');
-      heatmapLayerRef.current.setOpacity(renderMode === 'footprint' ? 0 : 0.75);
-    }
-    if (footprintVectorLayerRef.current) {
-      footprintVectorLayerRef.current.setVisible(renderMode !== 'heatmap');
-      footprintVectorLayerRef.current.changed();
-    }
-  }, [renderMode]);
+    footprintVectorLayerRef.current?.changed();
+  }, [showLabels]);
 
   const handleZoomIn = () => {
     if (mapInstanceRef.current) {
@@ -418,60 +371,32 @@ export const GeospatialHotspotMapView: React.FC<GeospatialHotspotMapViewProps> =
               <h4 className="font-bold text-slate-100 flex items-center gap-1.5">
                 Peta Resolusi Footprint Anomali Satelit
                 <span className="text-[10px] font-mono px-2 py-0.5 rounded-full bg-emerald-500/10 text-emerald-400 border border-emerald-500/25 font-semibold">
-                  Skala Tanah Nyata Tetap
+                  100% Skala Tanah Nyata Tetap
                 </span>
               </h4>
             </div>
             <p className="text-[11px] text-slate-400">
-              {regionName} • {hotspots.length} Deteksi Piksel Sensor Aktif
+              {regionName} • {hotspots.length} Deteksi Piksel Sensor Aktif (Tanpa Distorsi Peta Panas)
             </p>
           </div>
         </div>
 
         {/* Tactical Toolbar Controls */}
         <div className="flex items-center gap-2 flex-wrap">
-          {/* Render Mode Switch */}
-          <div className="flex items-center bg-slate-900 border border-slate-800 p-0.5 rounded-xl text-[11px]">
-            <button
-              type="button"
-              onClick={() => setRenderMode('footprint')}
-              className={`px-2.5 py-1 rounded-lg transition-all flex items-center gap-1 cursor-pointer ${
-                renderMode === 'footprint'
-                  ? 'bg-rose-500/25 text-rose-300 font-bold border border-rose-500/40 shadow-sm'
-                  : 'text-slate-400 hover:text-white'
-              }`}
-              title="Blok tanah nyata sesuai ukuran sensor satelit (375m VIIRS / 1km MODIS)"
-            >
-              <Grid className="w-3 h-3" />
-              <span>Blok Sensor</span>
-            </button>
-            <button
-              type="button"
-              onClick={() => setRenderMode('dual')}
-              className={`px-2.5 py-1 rounded-lg transition-all flex items-center gap-1 cursor-pointer ${
-                renderMode === 'dual'
-                  ? 'bg-rose-500/25 text-rose-300 font-bold border border-rose-500/40 shadow-sm'
-                  : 'text-slate-400 hover:text-white'
-              }`}
-              title="Kombinasi blok sensor tanah nyata dan peta panas radiasi termal"
-            >
-              <Sparkles className="w-3 h-3" />
-              <span>Blok + Peta Panas</span>
-            </button>
-            <button
-              type="button"
-              onClick={() => setRenderMode('heatmap')}
-              className={`px-2.5 py-1 rounded-lg transition-all flex items-center gap-1 cursor-pointer ${
-                renderMode === 'heatmap'
-                  ? 'bg-rose-500/25 text-rose-300 font-bold border border-rose-500/40 shadow-sm'
-                  : 'text-slate-400 hover:text-white'
-              }`}
-              title="Peta panas termal kontinu"
-            >
-              <Flame className="w-3 h-3" />
-              <span>Peta Panas</span>
-            </button>
-          </div>
+          {/* Label Toggle */}
+          <button
+            type="button"
+            onClick={() => setShowLabels(!showLabels)}
+            className={`px-2.5 py-1.5 rounded-xl transition-all flex items-center gap-1.5 cursor-pointer text-xs font-semibold ${
+              showLabels
+                ? 'bg-slate-800 text-slate-200 border border-slate-700'
+                : 'bg-slate-900 text-slate-500 border border-slate-800 hover:text-slate-300'
+            }`}
+            title="Tampilkan label suhu (°C) dan daya radiasi api (MW) di atas blok"
+          >
+            {showLabels ? <Eye className="w-3.5 h-3.5 text-rose-400" /> : <EyeOff className="w-3.5 h-3.5" />}
+            <span>Label Suhu & FRP</span>
+          </button>
 
           <button
             type="button"
@@ -522,7 +447,7 @@ export const GeospatialHotspotMapView: React.FC<GeospatialHotspotMapViewProps> =
             </div>
           </div>
           <div className="text-[9px] text-slate-400 pt-0.5 border-t border-slate-800/80">
-            VIIRS I-band: 375m × 375m • MODIS: 1000m × 1000m
+            VIIRS I-band: 375m × 375m • MODIS: 1000m × 1000m (1.00 km)
           </div>
         </div>
 

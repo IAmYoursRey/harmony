@@ -9267,13 +9267,21 @@ export function MapsView() {
                   stroke: new Stroke({ color: props.color || '#3b82f6', width: 2.5 }),
                 }));
               } else if (props.layerType === 'hotspot') {
-                feat.setStyle(new Style({
-                  image: new CircleStyle({
-                    radius: 7,
-                    fill: new Fill({ color: props.color || '#ef4444' }),
-                    stroke: new Stroke({ color: '#ffffff', width: 2 }),
-                  }),
-                }));
+                const geomType = feat.getGeometry()?.getType();
+                if (geomType === 'Polygon') {
+                  feat.setStyle(new Style({
+                    fill: new Fill({ color: props.color ? `${props.color}55` : 'rgba(239, 68, 68, 0.45)' }),
+                    stroke: new Stroke({ color: props.color || '#ef4444', width: 1.5 }),
+                  }));
+                } else {
+                  feat.setStyle(new Style({
+                    image: new CircleStyle({
+                      radius: 3.5,
+                      fill: new Fill({ color: props.color || '#ef4444' }),
+                      stroke: new Stroke({ color: '#ffffff', width: 1 }),
+                    }),
+                  }));
+                }
               } else if (props.layerType === 'facility' || props.layerType === 'candidate_facility') {
                 feat.setStyle(new Style({
                   image: new CircleStyle({

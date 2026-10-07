@@ -239,31 +239,48 @@ export const GeospatialHotspotsTab: React.FC<GeospatialHotspotsTabProps> = ({
 
   const handleApplyToMap = () => {
     if (!onApplyFeaturesToMap || !displayedHotspots.length) return;
-    const features = displayedHotspots.map((h) => ({
-      type: 'Feature',
-      id: h.id,
-      properties: {
-        layerType: 'hotspot',
-        name: `${isDemoMode ? 'Demo — ' : ''}Hotspot ${h.instrument} (${h.confidenceLevel.toUpperCase()})`,
-        satellite: h.satellite,
-        instrument: h.instrument,
-        confidenceLevel: h.confidenceLevel,
-        confidenceRaw: h.confidenceRaw,
-        brightnessKelvin: h.brightnessKelvin,
-        frpMw: h.frpMw,
-        acqDate: h.acqDate,
-        acqTimeUtc: h.acqTimeUtc,
-        dayNight: h.dayNight,
-        source: h.systemSource,
-        isDemo: isDemoMode,
-        dataStatus: analysisEnvelope.dataStatus,
-        color: h.confidenceLevel === 'high' ? '#ef4444' : h.confidenceLevel === 'nominal' ? '#f97316' : '#eab308',
-      },
-      geometry: {
-        type: 'Point',
-        coordinates: [h.longitude, h.latitude],
-      },
-    }));
+    const features = displayedHotspots.map((h) => {
+      const scanKm = h.scanKm ?? (h.instrument === 'VIIRS' ? 0.375 : 1.0);
+      const trackKm = h.trackKm ?? (h.instrument === 'VIIRS' ? 0.375 : 1.0);
+      const latDeg = trackKm / 111.32;
+      const lonDeg = scanKm / (111.32 * Math.max(0.15, Math.cos((h.latitude * Math.PI) / 180)));
+      const halfLon = lonDeg / 2;
+      const halfLat = latDeg / 2;
+
+      return {
+        type: 'Feature',
+        id: h.id,
+        properties: {
+          layerType: 'hotspot',
+          name: `${isDemoMode ? 'Demo — ' : ''}Hotspot ${h.instrument} (${h.confidenceLevel.toUpperCase()})`,
+          satellite: h.satellite,
+          instrument: h.instrument,
+          confidenceLevel: h.confidenceLevel,
+          confidenceRaw: h.confidenceRaw,
+          brightnessKelvin: h.brightnessKelvin,
+          frpMw: h.frpMw,
+          scanKm,
+          trackKm,
+          acqDate: h.acqDate,
+          acqTimeUtc: h.acqTimeUtc,
+          dayNight: h.dayNight,
+          source: h.systemSource,
+          isDemo: isDemoMode,
+          dataStatus: analysisEnvelope.dataStatus,
+          color: h.confidenceLevel === 'high' ? '#ef4444' : h.confidenceLevel === 'nominal' ? '#f97316' : '#eab308',
+        },
+        geometry: {
+          type: 'Polygon',
+          coordinates: [[
+            [h.longitude - halfLon, h.latitude - halfLat],
+            [h.longitude + halfLon, h.latitude - halfLat],
+            [h.longitude + halfLon, h.latitude + halfLat],
+            [h.longitude - halfLon, h.latitude + halfLat],
+            [h.longitude - halfLon, h.latitude - halfLat],
+          ]],
+        },
+      };
+    });
 
     onApplyFeaturesToMap(features);
     setAppliedToMap(true);
