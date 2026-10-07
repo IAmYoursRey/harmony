@@ -901,6 +901,8 @@ export const getPublicHotspotsFeed = async (req, res) => {
           const latIdx = header.indexOf('latitude');
           const lngIdx = header.indexOf('longitude');
           const brightIdx = header.indexOf('bright_ti4') !== -1 ? header.indexOf('bright_ti4') : header.indexOf('brightness');
+          const scanIdx = header.indexOf('scan');
+          const trackIdx = header.indexOf('track');
           const confIdx = header.indexOf('confidence');
           const frpIdx = header.indexOf('frp');
           const dateIdx = header.indexOf('acq_date');
@@ -948,6 +950,10 @@ export const getPublicHotspotsFeed = async (req, res) => {
 
             const frp = frpIdx !== -1 && cols[frpIdx] ? parseFloat(cols[frpIdx]) : null;
             const bright = brightIdx !== -1 && cols[brightIdx] ? parseFloat(cols[brightIdx]) : null;
+            const rawScan = scanIdx !== -1 && cols[scanIdx] ? parseFloat(cols[scanIdx]) : NaN;
+            const scanKm = !isNaN(rawScan) && isFinite(rawScan) && rawScan > 0 ? rawScan : (feed.instrument === 'VIIRS' ? 0.375 : 1.0);
+            const rawTrack = trackIdx !== -1 && cols[trackIdx] ? parseFloat(cols[trackIdx]) : NaN;
+            const trackKm = !isNaN(rawTrack) && isFinite(rawTrack) && rawTrack > 0 ? rawTrack : (feed.instrument === 'VIIRS' ? 0.375 : 1.0);
             const dateStr = dateIdx !== -1 ? cols[dateIdx]?.trim() : '';
             const timeStr = timeIdx !== -1 ? cols[timeIdx]?.trim() : '';
             let acqTimeUtc = timeStr;
@@ -966,6 +972,8 @@ export const getPublicHotspotsFeed = async (req, res) => {
               confidenceRaw: rawConf,
               confidenceNumeric,
               brightnessKelvin: bright,
+              scanKm,
+              trackKm,
               frpMw: frp,
               acqDate: dateStr,
               acqTimeUtc,
@@ -980,9 +988,9 @@ export const getPublicHotspotsFeed = async (req, res) => {
     allRecords.sort((a, b) => (b.frpMw ?? 0) - (a.frpMw ?? 0));
     const returnedRecords = allRecords.slice(0, 1500);
 
-    const csvHeader = 'latitude,longitude,brightness,acq_date,acq_time,satellite,instrument,confidence,frp,daynight';
+    const csvHeader = 'latitude,longitude,brightness,scan,track,acq_date,acq_time,satellite,instrument,confidence,frp,daynight';
     const csvRows = returnedRecords.map(r =>
-      `${r.latitude},${r.longitude},${r.brightnessKelvin ?? ''},${r.acqDate},${(r.acqTimeUtc || '').replace(/[^0-9]/g, '').slice(0, 4)},${r.satellite},${r.instrument},${r.confidenceLevel},${r.frpMw ?? ''},${r.dayNight || 'D'}`
+      `${r.latitude},${r.longitude},${r.brightnessKelvin ?? ''},${r.scanKm ?? ''},${r.trackKm ?? ''},${r.acqDate},${(r.acqTimeUtc || '').replace(/[^0-9]/g, '').slice(0, 4)},${r.satellite},${r.instrument},${r.confidenceLevel},${r.frpMw ?? ''},${r.dayNight || 'D'}`
     );
     const rawCsv = [csvHeader, ...csvRows].join('\n');
 

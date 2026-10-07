@@ -51,7 +51,7 @@ export const GeospatialHotspotsTab: React.FC<GeospatialHotspotsTabProps> = ({
   const [daysRange, setDaysRange] = useState<number>(1);
   const [minConfidence, setMinConfidence] = useState<'all' | 'nominal_high' | 'high_only'>('all');
   const [selectedSensor, setSelectedSensor] = useState<'ALL' | 'VIIRS' | 'MODIS'>('ALL');
-  const [scope, setScope] = useState<'aoi' | 'java' | 'indonesia'>('aoi');
+  const [scope, setScope] = useState<'aoi' | 'java' | 'indonesia'>('indonesia');
   const [selectedHotspot, setSelectedHotspot] = useState<HotspotRecord | null>(null);
 
   // Default to empty for live mode (Zero-Fabrication principle). Demo mode requires explicit user activation.
@@ -464,15 +464,6 @@ export const GeospatialHotspotsTab: React.FC<GeospatialHotspotsTabProps> = ({
               </button>
             )}
 
-            {!isDemoMode && displayedHotspots.length === 0 && (
-              <button
-                onClick={handleLoadDemo}
-                className="px-3 py-1.5 rounded-xl bg-gradient-to-r from-amber-600 to-orange-600 hover:from-amber-500 hover:to-orange-500 text-xs font-semibold text-white flex items-center gap-1.5 shadow-sm transition-colors"
-              >
-                <Sparkles className="w-3.5 h-3.5" /> Muat Contoh Demo
-              </button>
-            )}
-
             <label className="px-3 py-1.5 rounded-xl bg-slate-100 dark:bg-slate-700 hover:bg-slate-200 text-xs font-semibold text-slate-700 dark:text-slate-200 flex items-center gap-1.5 cursor-pointer transition-colors">
               <span>Unggah CSV</span>
               <input name="input_9b82f" id="geospatialhotspotstab-input_9b82f" type="file" accept=".csv" onChange={handleFileUpload} className="hidden" />
@@ -498,7 +489,29 @@ export const GeospatialHotspotsTab: React.FC<GeospatialHotspotsTabProps> = ({
         </div>
 
         {firmsMessage && <p role="status" className="rounded-xl border border-sky-500/20 bg-sky-500/10 p-3 text-xs leading-relaxed text-sky-800 dark:text-sky-200">{firmsMessage}</p>}
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+          {/* Scope Filter */}
+          <div>
+            <label className="text-xs font-semibold text-slate-600 dark:text-slate-300 block mb-1">
+              Cakupan Wilayah Satelit
+            </label>
+            <select
+              name="satelliteScope"
+              id="geospatialhotspotstab-satellitescope"
+              value={scope}
+              onChange={(e) => {
+                const newScope = e.target.value as 'aoi' | 'java' | 'indonesia';
+                setScope(newScope);
+                handleLoadFirms(newScope);
+              }}
+              className="w-full text-xs p-2.5 rounded-xl bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 text-slate-800 dark:text-slate-200"
+            >
+              <option value="indonesia">Seluruh Indonesia (1.500+ Titik NRT)</option>
+              <option value="aoi">Fokus AOI Setempat</option>
+              <option value="java">Regional Pulau Jawa</option>
+            </select>
+          </div>
+
           {/* Confidence Filter */}
           <div>
             <label className="text-xs font-semibold text-slate-600 dark:text-slate-300 block mb-1">
