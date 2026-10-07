@@ -425,7 +425,7 @@ export const GeospatialWeatherModal: React.FC<GeospatialWeatherModalProps> = ({
   const [refreshCountdown, setRefreshCountdown] = useState<number>(300); // 300 seconds = 5 minutes
   const [refreshSignal, setRefreshSignal] = useState<number>(0);
   const [windyOverlay, setWindyOverlay] = useState<'radar' | 'satellite' | 'wind' | 'rain' | 'temp' | 'clouds'>('radar');
-  const [chartZoomLevel, setChartZoomLevel] = useState<'24h' | '6h' | '3h' | 'minute'>('24h');
+  const [chartZoomLevel, setChartZoomLevel] = useState<'24h' | '6h' | '3h' | 'minute' | '72h'>('24h');
   const [currentTime, setCurrentTime] = useState<Date>(() => new Date());
 
   useEffect(() => {
@@ -461,6 +461,7 @@ export const GeospatialWeatherModal: React.FC<GeospatialWeatherModalProps> = ({
       : null;
 
     const tz = data.timezone || 'UTC';
+    const tzAbbr = tz.includes('Jakarta') || tz.includes('Pontianak') ? 'WIB' : tz.includes('Makassar') ? 'WITA' : tz.includes('Jayapura') ? 'WIT' : tz;
     const firstDateStr = hourlyList[0]?.time
       ? new Date(hourlyList[0].time).toLocaleDateString('id-ID', { day: 'numeric', month: 'short', timeZone: tz })
       : '';
@@ -481,12 +482,9 @@ export const GeospatialWeatherModal: React.FC<GeospatialWeatherModalProps> = ({
       ? Math.max(1, Math.round((maxEpoch - minEpoch) / 3600) + 1)
       : hourlyList.length;
 
-    const formatPointLabel = (h: (typeof hourlyList)[0]) => {
-      if (isMultiDay && h.time) {
-        const dStr = new Date(h.time).toLocaleDateString('id-ID', { day: 'numeric', month: 'short', timeZone: tz });
-        return `${dStr} ${h.label}`;
-      }
-      return h.label;
+    const formatPointDate = (h: (typeof hourlyList)[0]) => {
+      if (!h.time) return '';
+      return new Date(h.time).toLocaleDateString('id-ID', { day: 'numeric', month: 'short', timeZone: tz });
     };
 
     const groupTimeWindows = (points: typeof hourlyList) => {
@@ -507,16 +505,32 @@ export const GeospatialWeatherModal: React.FC<GeospatialWeatherModalProps> = ({
         if (isConsecutive) {
           curEnd = curr;
         } else {
-          const startLabel = formatPointLabel(curStart);
-          const endLabel = formatPointLabel(curEnd);
-          windows.push(startLabel === endLabel ? startLabel : `${startLabel} - ${endLabel}`);
+          const sDate = isMultiDay ? formatPointDate(curStart) : '';
+          const eDate = isMultiDay ? formatPointDate(curEnd) : '';
+          if (curStart === curEnd) {
+            windows.push(sDate ? `${sDate} ${curStart.label}` : curStart.label);
+          } else if (sDate && eDate && sDate === eDate) {
+            windows.push(`${sDate} ${curStart.label}–${curEnd.label}`);
+          } else if (sDate && eDate) {
+            windows.push(`${sDate} ${curStart.label} – ${eDate} ${curEnd.label}`);
+          } else {
+            windows.push(`${curStart.label}–${curEnd.label}`);
+          }
           curStart = curr;
           curEnd = curr;
         }
       }
-      const startLabel = formatPointLabel(curStart);
-      const endLabel = formatPointLabel(curEnd);
-      windows.push(startLabel === endLabel ? startLabel : `${startLabel} - ${endLabel}`);
+      const sDate = isMultiDay ? formatPointDate(curStart) : '';
+      const eDate = isMultiDay ? formatPointDate(curEnd) : '';
+      if (curStart === curEnd) {
+        windows.push(sDate ? `${sDate} ${curStart.label}` : curStart.label);
+      } else if (sDate && eDate && sDate === eDate) {
+        windows.push(`${sDate} ${curStart.label}–${curEnd.label}`);
+      } else if (sDate && eDate) {
+        windows.push(`${sDate} ${curStart.label} – ${eDate} ${curEnd.label}`);
+      } else {
+        windows.push(`${curStart.label}–${curEnd.label}`);
+      }
       return windows;
     };
 
@@ -552,11 +566,17 @@ export const GeospatialWeatherModal: React.FC<GeospatialWeatherModalProps> = ({
       } else if (precipCoverage >= 0.75) {
         rainWindowText = `Cenderung kering pada ${recordedCount} interval yang tercatat (terdapat ${missingCount} interval belum lengkap)`;
       } else {
-      rainWindowText = `Pada sampel yang tersedia tidak tercatat hujan; ${missingCount} interval jam lainnya belum lengkap`;
+        rainWindowText = `Pada sampel yang tersedia tidak tercatat hujan; ${missingCount} interval jam lainnya belum lengkap`;
       }
     } else if (validProbList.length > 0) {
       rainWindowText = 'Peluang hujan tersedia; data akumulasi hujan belum tersedia';
     }
+
+    const rainWindowCompact = (positiveAmounts.length > 0 || probOnly.length > 0)
+      ? (positiveAmounts.length > 0
+          ? `${Math.max(...positiveAmounts.map(h => h.precipitation!)) >= 5 ? 'Hujan lebat' : 'Hujan ringan/sedang'} (~${Math.max(...positiveAmounts.map(h => h.precipitation!))} mm)`
+          : `Peluang hujan ${Math.max(...probOnly.map(h => h.precipitationProb!))}%`)
+      : 'Cenderung kering';
 
     const avgCloud = validCloudList.length > 0
       ? Math.round(validCloudList.reduce((acc, h) => acc + h.cloudCover!, 0) / validCloudList.length)
@@ -591,6 +611,7 @@ export const GeospatialWeatherModal: React.FC<GeospatialWeatherModalProps> = ({
       peakRainProb: peakRainProb?.precipitationProb ?? null,
       peakRainProbHour: peakRainProb?.label || null,
       rainWindowText,
+      rainWindowCompact,
       avgCloud,
       cloudStatus,
       diurnalRange,
@@ -669,12 +690,23 @@ export const GeospatialWeatherModal: React.FC<GeospatialWeatherModalProps> = ({
     if (timeframe !== 'hourly') {
       return chartData;
     }
-    if (chartZoomLevel === '24h') {
-      return hourlyChartData;
-    }
 
     const centerIdx = hourlyChartData.findIndex((h) => selectedPointKey ? (h.pointKey === selectedPointKey || h.time === selectedPointKey) : h.hour === selectedHour);
     const validIdx = centerIdx >= 0 ? centerIdx : 0;
+
+    if (chartZoomLevel === '72h') {
+      return hourlyChartData;
+    }
+
+    if (chartZoomLevel === '24h') {
+      if (hourlyChartData.length <= 24) return hourlyChartData;
+      let start = Math.max(0, validIdx - 6);
+      let end = Math.min(hourlyChartData.length, start + 24);
+      if (end - start < 24 && start > 0) {
+        start = Math.max(0, end - 24);
+      }
+      return hourlyChartData.slice(start, end);
+    }
 
     if (chartZoomLevel === '6h') {
       let start = Math.max(0, validIdx - 2);
@@ -838,11 +870,26 @@ export const GeospatialWeatherModal: React.FC<GeospatialWeatherModalProps> = ({
     setIsChartDragging(false);
   }, []);
 
+  const chartTrackStyle = useMemo(() => {
+    if (chartZoomLevel === '6h' || chartZoomLevel === '3h' || chartZoomLevel === 'minute') {
+      return { width: '100%', minWidth: '100%', height: '100%' };
+    }
+    if (chartZoomLevel === '24h') {
+      return { width: '100%', minWidth: '640px', height: '100%' };
+    }
+    return {
+      width: `${Math.max(900, chartDisplayData.length * 32)}px`,
+      minWidth: `${Math.max(900, chartDisplayData.length * 32)}px`,
+      height: '100%',
+    };
+  }, [chartZoomLevel, chartDisplayData.length]);
+
   const scrollToCurrentHour = useCallback((behavior: ScrollBehavior = 'smooth') => {
     if (!chartScrollRef.current || !chartDisplayData || chartDisplayData.length === 0) return;
     const container = chartScrollRef.current;
     const containerWidth = container.clientWidth;
-    if (containerWidth <= 0) return;
+    const scrollWidth = container.scrollWidth;
+    if (containerWidth <= 0 || scrollWidth <= containerWidth) return;
 
     const targetKey = activeChartPoint?.pointKey || liveNowChartPoint?.pointKey;
     let targetIdx = chartDisplayData.findIndex((p: any) => p.pointKey === targetKey);
@@ -852,11 +899,9 @@ export const GeospatialWeatherModal: React.FC<GeospatialWeatherModalProps> = ({
     if (targetIdx < 0) targetIdx = 0;
 
     const totalPoints = chartDisplayData.length;
-    const columnWidth = 64;
-    const chartTrackWidth = Math.max(containerWidth, totalPoints * columnWidth);
     const leftMargin = 65;
     const rightMargin = 40;
-    const usableWidth = chartTrackWidth - leftMargin - rightMargin;
+    const usableWidth = scrollWidth - leftMargin - rightMargin;
     const pointX = leftMargin + (totalPoints > 1 ? (targetIdx / (totalPoints - 1)) * usableWidth : usableWidth / 2);
 
     const targetScrollLeft = Math.max(0, pointX - containerWidth / 2);
@@ -2611,6 +2656,18 @@ export const GeospatialWeatherModal: React.FC<GeospatialWeatherModalProps> = ({
                               HD
                             </span>
                           </button>
+                          <button
+                            type="button"
+                            onClick={() => setChartZoomLevel('72h')}
+                            className={`px-2.5 py-1 rounded-lg text-xs font-semibold transition-all cursor-pointer ${
+                              chartZoomLevel === '72h'
+                                ? 'bg-indigo-600 text-white shadow-xs font-bold'
+                                : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
+                            }`}
+                            title="Tampilkan rentang penuh ramalan 3 hari (72 jam)"
+                          >
+                            3 Hari (72j)
+                          </button>
                         </div>
                       </div>
 
@@ -2752,7 +2809,7 @@ export const GeospatialWeatherModal: React.FC<GeospatialWeatherModalProps> = ({
                       onMouseLeave={handleMouseUpOrLeave}
                       className="h-72 w-full overflow-x-auto overflow-y-hidden select-none cursor-grab active:cursor-grabbing rounded-2xl border border-slate-100 dark:border-slate-800/60 bg-slate-50/20 dark:bg-slate-900/20 scrollbar-thin scrollbar-thumb-slate-300 dark:scrollbar-thumb-slate-700"
                     >
-                      <div style={{ minWidth: `${Math.max(880, chartDisplayData.length * 64)}px`, width: `${Math.max(880, chartDisplayData.length * 64)}px`, height: '100%' }}>
+                      <div style={chartTrackStyle}>
                         {mainVisualGraph === 'temp' && (
                           <ResponsiveContainer width="100%" height="100%">
                             <AreaChart data={chartDisplayData} onClick={handleChartClick}>
@@ -2767,6 +2824,7 @@ export const GeospatialWeatherModal: React.FC<GeospatialWeatherModalProps> = ({
                                 dataKey="pointKey"
                                 stroke="#94a3b8"
                                 tick={{ fontSize: 11 }}
+                                interval={chartZoomLevel === '24h' ? 1 : chartZoomLevel === '72h' ? 3 : 0}
                                 tickFormatter={(key: string) => {
                                   const pt = chartDisplayData.find((p: any) => p.pointKey === key || p.time === key);
                                   return pt?.label || key;
@@ -2778,8 +2836,9 @@ export const GeospatialWeatherModal: React.FC<GeospatialWeatherModalProps> = ({
                                 formatter={(value: any, name?: any) => [`${value}°C`, name === 'temperature' ? 'Suhu Udara' : 'Terasa Seperti']}
                                 labelFormatter={(key: any) => {
                                   const pt = chartDisplayData.find((p: any) => p.pointKey === key || p.time === key);
+                                  const dateStr = pt?.time ? new Date(pt.time).toLocaleDateString('id-ID', { day: 'numeric', month: 'short', timeZone: tz }) : '';
                                   const timeDesc = pt ? (pt.isLiveNow ? ' (Jam Ini 📍)' : pt.isPast ? ' (Riwayat Lampau)' : ' (Prakiraan)') : '';
-                                  return `Waktu: ${pt?.label || key} ${data?.timezone || ''}${timeDesc}`;
+                                  return `Waktu: ${dateStr ? `${dateStr} ` : ''}${pt?.label || key} ${tzAbbr}${timeDesc}`;
                                 }}
                               />
                               <Legend wrapperStyle={{ fontSize: '11px', paddingTop: '8px' }} />
@@ -2847,6 +2906,7 @@ export const GeospatialWeatherModal: React.FC<GeospatialWeatherModalProps> = ({
                                 dataKey="pointKey"
                                 stroke="#94a3b8"
                                 tick={{ fontSize: 11 }}
+                                interval={chartZoomLevel === '24h' ? 1 : chartZoomLevel === '72h' ? 3 : 0}
                                 tickFormatter={(key: string) => {
                                   const pt = chartDisplayData.find((p: any) => p.pointKey === key || p.time === key);
                                   return pt?.label || key;
@@ -2862,8 +2922,9 @@ export const GeospatialWeatherModal: React.FC<GeospatialWeatherModalProps> = ({
                                 ]}
                                 labelFormatter={(key: any) => {
                                   const pt = chartDisplayData.find((p: any) => p.pointKey === key || p.time === key);
+                                  const dateStr = pt?.time ? new Date(pt.time).toLocaleDateString('id-ID', { day: 'numeric', month: 'short', timeZone: tz }) : '';
                                   const timeDesc = pt ? (pt.isLiveNow ? ' (Jam Ini 📍)' : pt.isPast ? ' (Riwayat Lampau)' : ' (Prakiraan)') : '';
-                                  return `Waktu: ${pt?.label || key} ${data?.timezone || ''}${timeDesc}`;
+                                  return `Waktu: ${dateStr ? `${dateStr} ` : ''}${pt?.label || key} ${tzAbbr}${timeDesc}`;
                                 }}
                               />
                               <Legend wrapperStyle={{ fontSize: '11px', paddingTop: '8px' }} />
@@ -2939,6 +3000,7 @@ export const GeospatialWeatherModal: React.FC<GeospatialWeatherModalProps> = ({
                                 dataKey="pointKey"
                                 stroke="#94a3b8"
                                 tick={{ fontSize: 11 }}
+                                interval={chartZoomLevel === '24h' ? 1 : chartZoomLevel === '72h' ? 3 : 0}
                                 tickFormatter={(key: string) => {
                                   const pt = chartDisplayData.find((p: any) => p.pointKey === key || p.time === key);
                                   return pt?.label || key;
@@ -2950,8 +3012,9 @@ export const GeospatialWeatherModal: React.FC<GeospatialWeatherModalProps> = ({
                                 formatter={(value: any, name?: any) => [`${value}%`, name === 'cloudCover' ? 'Tutupan Awan' : 'Kelembapan Udara']}
                                 labelFormatter={(key: any) => {
                                   const pt = chartDisplayData.find((p: any) => p.pointKey === key || p.time === key);
+                                  const dateStr = pt?.time ? new Date(pt.time).toLocaleDateString('id-ID', { day: 'numeric', month: 'short', timeZone: tz }) : '';
                                   const timeDesc = pt ? (pt.isLiveNow ? ' (Jam Ini 📍)' : pt.isPast ? ' (Riwayat Lampau)' : ' (Prakiraan)') : '';
-                                  return `Waktu: ${pt?.label || key} ${data?.timezone || ''}${timeDesc}`;
+                                  return `Waktu: ${dateStr ? `${dateStr} ` : ''}${pt?.label || key} ${tzAbbr}${timeDesc}`;
                                 }}
                               />
                               <Legend wrapperStyle={{ fontSize: '11px', paddingTop: '8px' }} />
@@ -3019,6 +3082,7 @@ export const GeospatialWeatherModal: React.FC<GeospatialWeatherModalProps> = ({
                                 dataKey="pointKey"
                                 stroke="#94a3b8"
                                 tick={{ fontSize: 11 }}
+                                interval={chartZoomLevel === '24h' ? 1 : chartZoomLevel === '72h' ? 3 : 0}
                                 tickFormatter={(key: string) => {
                                   const pt = chartDisplayData.find((p: any) => p.pointKey === key || p.time === key);
                                   return pt?.label || key;
@@ -3030,8 +3094,9 @@ export const GeospatialWeatherModal: React.FC<GeospatialWeatherModalProps> = ({
                                 contentStyle={{ backgroundColor: '#0f172a', borderColor: '#334155', borderRadius: '12px', color: '#fff', fontSize: '12px' }}
                                 labelFormatter={(key: any) => {
                                   const pt = chartDisplayData.find((p: any) => p.pointKey === key || p.time === key);
+                                  const dateStr = pt?.time ? new Date(pt.time).toLocaleDateString('id-ID', { day: 'numeric', month: 'short', timeZone: tz }) : '';
                                   const timeDesc = pt ? (pt.isLiveNow ? ' (Jam Ini 📍)' : pt.isPast ? ' (Riwayat Lampau)' : ' (Prakiraan)') : '';
-                                  return `Waktu: ${pt?.label || key} ${data?.timezone || ''}${timeDesc}`;
+                                  return `Waktu: ${dateStr ? `${dateStr} ` : ''}${pt?.label || key} ${tzAbbr}${timeDesc}`;
                                 }}
                               />
                               <Legend wrapperStyle={{ fontSize: '11px', paddingTop: '8px' }} />
@@ -3111,7 +3176,7 @@ export const GeospatialWeatherModal: React.FC<GeospatialWeatherModalProps> = ({
                           <span>Panas Jam Berapa?</span>
                         </div>
                         <p className="text-xs text-slate-700 dark:text-slate-300 leading-relaxed">
-                          Suhu tertinggi mencapai <strong>{weatherInsights?.peakHeatTemp != null ? `${weatherInsights.peakHeatTemp}°C` : '--'}</strong> sekitar pukul <strong>{weatherInsights?.peakHeatHour || '--'} {data.timezone}</strong>.
+                          Suhu tertinggi mencapai <strong>{weatherInsights?.peakHeatTemp != null ? `${weatherInsights.peakHeatTemp}°C` : '--'}</strong> sekitar pukul <strong>{weatherInsights?.peakHeatHour || '--'} {tzAbbr}</strong>.
                           {weatherInsights?.diurnalRange ? ` Suhu pagi dan malam lebih sejuk (~${weatherInsights.minHeatTemp}°C).` : (weatherInsights?.minHeatTemp != null ? ` Suhu terendah tercatat ~${weatherInsights.minHeatTemp}°C pada ${weatherInsights.minHeatHour}.` : '')}
                         </p>
                       </div>
@@ -3124,7 +3189,7 @@ export const GeospatialWeatherModal: React.FC<GeospatialWeatherModalProps> = ({
                         <p className="text-xs text-slate-700 dark:text-slate-300 leading-relaxed">
                           {weatherInsights?.rainWindowText}.
                           {weatherInsights?.peakRainProb != null && weatherInsights.peakRainProbHour ? (
-                            <> Peluang hujan/gerimis tertinggi <strong>{weatherInsights.peakRainProb}%</strong> pada jam <strong>{weatherInsights.peakRainProbHour} {data.timezone}</strong>.</>
+                            <> Peluang hujan/gerimis tertinggi <strong>{weatherInsights.peakRainProb}%</strong> pada jam <strong>{weatherInsights.peakRainProbHour} {tzAbbr}</strong>.</>
                           ) : (
                             <> Peluang hujan numerik tidak tersedia.</>
                           )}
@@ -3156,8 +3221,9 @@ export const GeospatialWeatherModal: React.FC<GeospatialWeatherModalProps> = ({
                         <div>
                           <h4 className="text-sm font-bold text-white flex items-center gap-2 flex-wrap">
                             <span>Simpulan Cerdas AI Gemini (Siklus 5 Menit Terkini)</span>
-                            <span className="text-[10px] font-mono font-bold px-2.5 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300 border border-emerald-500/30">
-                              Pembaruan Serentak
+                            <span className="text-[10px] font-mono font-bold px-2.5 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 flex items-center gap-1.5">
+                              <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
+                              Auto-Sync: {formattedCountdown}
                             </span>
                           </h4>
                           <p className="text-[11px] text-slate-300">
@@ -3230,8 +3296,12 @@ export const GeospatialWeatherModal: React.FC<GeospatialWeatherModalProps> = ({
                               <CheckCircle2 className="w-3 h-3 text-emerald-500" />
                               16 Data Valid (HTTP 200)
                             </span>
-                            <span className="px-2 py-0.5 rounded-full bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 font-semibold text-[10px] border border-indigo-500/20">
-                              Diperbarui Serentak 5 Menit
+                            <span className="px-2 py-0.5 rounded-full bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 font-semibold text-[10px] border border-indigo-500/20 flex items-center gap-1.5">
+                              <span className="relative flex h-2 w-2">
+                                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-indigo-400 opacity-75"></span>
+                                <span className="relative inline-flex rounded-full h-2 w-2 bg-indigo-500"></span>
+                              </span>
+                              <span>Sync 5m: {formattedCountdown}</span>
                             </span>
                           </div>
                           <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">

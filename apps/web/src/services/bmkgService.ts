@@ -23,7 +23,7 @@ export interface BMKGWeatherWarning {
   issuedAt: string;
   validUntil: string;
   hazardType: string;
-  level: 'WASPADA' | 'SIAGA' | 'AWAS' | 'SANGAT MUDAH TERBAKAR';
+  level: 'AMAN' | 'WASPADA' | 'SIAGA' | 'AWAS' | 'SANGAT MUDAH TERBAKAR';
   color: string;
   affectedAreas: string[];
   expandToAreas: string[];
@@ -479,7 +479,7 @@ export class BMKGService {
         issuedAt: issuedTime,
         validUntil,
         hazardType: "Kondisi Atmosfer Terpantau Terkendali & Kondusif",
-        level: "WASPADA",
+        level: "AMAN",
         color: "#10b981",
         affectedAreas: [place],
         expandToAreas: ["Seluruh Wilayah Pengamatan"],
