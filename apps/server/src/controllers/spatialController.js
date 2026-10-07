@@ -883,10 +883,14 @@ export const getPublicHotspotsFeed = async (req, res) => {
       if (cached && (Date.now() - cached.timestamp < PUBLIC_FIRMS_CACHE_TTL_MS)) {
         text = cached.data;
       } else {
-        const resp = await fetch(feed.url, { signal: AbortSignal.timeout(18000) });
-        if (resp.ok) {
-          text = await resp.text();
-          publicFirmsCache.set(cacheKey, { timestamp: Date.now(), data: text });
+        try {
+          const resp = await fetch(feed.url, { signal: AbortSignal.timeout(15000) });
+          if (resp.ok) {
+            text = await resp.text();
+            publicFirmsCache.set(cacheKey, { timestamp: Date.now(), data: text });
+          }
+        } catch (fetchErr) {
+          console.warn(`NASA FIRMS feed failed (${feed.url}):`, fetchErr.message);
         }
       }
 
@@ -930,10 +934,10 @@ export const getPublicHotspotsFeed = async (req, res) => {
 
             const rawConf = confIdx !== -1 ? cols[confIdx]?.trim() : 'nominal';
             let confLevel = 'nominal';
-            let confNumeric = null;
+            let confidenceNumeric = null;
             if (/^\d+$/.test(rawConf)) {
-              confNumeric = parseInt(rawConf, 10);
-              confLevel = confNumeric >= 80 ? 'high' : confNumeric >= 30 ? 'nominal' : 'low';
+              confidenceNumeric = parseInt(rawConf, 10);
+              confLevel = confidenceNumeric >= 80 ? 'high' : confidenceNumeric >= 30 ? 'nominal' : 'low';
             } else {
               confLevel = rawConf.toLowerCase() === 'h' || rawConf.toLowerCase() === 'high' ? 'high' :
                           rawConf.toLowerCase() === 'l' || rawConf.toLowerCase() === 'low' ? 'low' : 'nominal';
