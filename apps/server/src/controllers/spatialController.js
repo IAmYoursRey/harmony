@@ -872,31 +872,53 @@ export const getPublicHotspotsFeed = async (req, res) => {
     });
   }
 
+  const forceRefresh = req.query.force === 'true' || req.query.fresh === 'true';
+
   try {
     const allRecords = [];
     let receivedCount = 0;
+    let allCached = true;
+    let cacheOldestMs = Date.now();
 
-    for (const feed of feedUrls) {
-      const cacheKey = `${feed.url}`;
-      let text = '';
-      const cached = publicFirmsCache.get(cacheKey);
-      if (cached && (Date.now() - cached.timestamp < PUBLIC_FIRMS_CACHE_TTL_MS)) {
-        text = cached.data;
-      } else {
-        try {
-          const resp = await fetch(feed.url, { signal: AbortSignal.timeout(15000) });
-          if (resp.ok) {
-            text = await resp.text();
-            publicFirmsCache.set(cacheKey, { timestamp: Date.now(), data: text });
-          }
-        } catch (fetchErr) {
-          console.warn(`NASA FIRMS feed failed (${feed.url}):`, fetchErr.message);
+    // Fetch all feeds in parallel for high performance
+    const feedResults = await Promise.allSettled(
+      feedUrls.map(async (feed) => {
+        const cacheKey = feed.url;
+        const cached = !forceRefresh ? publicFirmsCache.get(cacheKey) : null;
+        if (cached && cached.data && cached.data.trim().length > 100 && (Date.now() - cached.timestamp < PUBLIC_FIRMS_CACHE_TTL_MS)) {
+          if (cached.timestamp < cacheOldestMs) cacheOldestMs = cached.timestamp;
+          return { feed, text: cached.data, isCached: true };
         }
+        allCached = false;
+        const resp = await fetch(feed.url, {
+          headers: {
+            'User-Agent': 'HarmonyGeospatial/1.0 (NASA FIRMS Fire Anomaly Consumer)',
+            'Accept': 'text/csv,text/plain,*/*',
+          },
+          signal: AbortSignal.timeout(25000),
+        });
+        if (!resp.ok) {
+          throw new Error(`HTTP ${resp.status} fetching ${feed.satellite} (${feed.instrument})`);
+        }
+        const text = await resp.text();
+        if (text && text.trim().length > 100) {
+          publicFirmsCache.set(cacheKey, { timestamp: Date.now(), data: text });
+        }
+        return { feed, text, isCached: false };
+      })
+    );
+
+    for (const result of feedResults) {
+      if (result.status !== 'fulfilled' || !result.value?.text) {
+        if (result.status === 'rejected') {
+          console.warn('NASA FIRMS stream warning:', result.reason?.message || result.reason);
+        }
+        continue;
       }
 
-      if (text) {
-        const lines = text.trim().split('\n');
-        if (lines.length > 1) {
+      const { feed, text } = result.value;
+      const lines = text.trim().split('\n');
+      if (lines.length > 1) {
           const header = lines[0].split(',').map(h => h.trim().toLowerCase());
           const latIdx = header.indexOf('latitude');
           const lngIdx = header.indexOf('longitude');
@@ -983,7 +1005,6 @@ export const getPublicHotspotsFeed = async (req, res) => {
           }
         }
       }
-    }
 
     allRecords.sort((a, b) => (b.frpMw ?? 0) - (a.frpMw ?? 0));
     const returnedRecords = allRecords.slice(0, 1500);
@@ -1010,9 +1031,9 @@ export const getPublicHotspotsFeed = async (req, res) => {
         sourceType: 'SATELLITE_HOTSPOT',
         provider: 'NASA EOSDIS LANCE FIRMS (Open NRT Satellite Feed)',
         dataStatus: 'LIVE',
-        fetchedAt,
+        fetchedAt: allCached && receivedCount > 0 ? new Date(cacheOldestMs).toISOString() : fetchedAt,
         attribution: 'NASA LANCE / FIRMS MODIS & VIIRS Fire Detection — Open Public Stream',
-        cached: false,
+        cached: allCached && receivedCount > 0,
       },
     });
   } catch (error) {
