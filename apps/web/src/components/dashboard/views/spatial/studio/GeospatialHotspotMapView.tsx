@@ -9,7 +9,7 @@ import Feature from 'ol/Feature';
 import Polygon from 'ol/geom/Polygon';
 import Point from 'ol/geom/Point';
 import { fromLonLat } from 'ol/proj';
-import { Style, Text, Fill, Stroke, Circle as CircleStyle } from 'ol/style';
+import { Style, Text, Fill, Stroke, Icon } from 'ol/style';
 import 'ol/ol.css';
 import {
   Flame,
@@ -21,7 +21,7 @@ import {
   MapPin,
   ExternalLink,
   CheckCircle2,
-  Grid,
+  Paintbrush,
   Radio,
   Eye,
   EyeOff,
@@ -40,6 +40,120 @@ interface GeospatialHotspotMapViewProps {
   onSelectHotspot: (hotspot: HotspotRecord | null) => void;
   onApplyToMainMap?: () => void;
   appliedToMainMap?: boolean;
+}
+
+// Memory texture cache for feathered thermal brush anomaly block textures
+const thermalBrushTextureCache = new Map<string, HTMLCanvasElement>();
+
+/**
+ * Creates an organic, feathered thermal brush texture that "ngeblok" the anomaly area.
+ * Blends painterly brush strokes, soft translucent radial falloff, an incandescent core,
+ * and a softened rectangular block contour that hugs the affected land.
+ */
+function getThermalBrushTexture(
+  color: string,
+  isSelected: boolean
+): HTMLCanvasElement {
+  const cacheKey = `${color}_${isSelected}`;
+  const existing = thermalBrushTextureCache.get(cacheKey);
+  if (existing) return existing;
+
+  const size = 128;
+  const canvas = document.createElement('canvas');
+  canvas.width = size;
+  canvas.height = size;
+  const ctx = canvas.getContext('2d');
+  if (!ctx) return canvas;
+
+  const cx = size / 2;
+  const cy = size / 2;
+
+  // 1. Wide feathered airbrush falloff (soft atmospheric thermal plume)
+  const plumeGrad = ctx.createRadialGradient(cx, cy, 0, cx, cy, 62);
+  if (color === '#ef4444') {
+    plumeGrad.addColorStop(0, 'rgba(239, 68, 68, 0.42)');
+    plumeGrad.addColorStop(0.35, 'rgba(249, 115, 22, 0.26)');
+    plumeGrad.addColorStop(0.70, 'rgba(245, 158, 11, 0.10)');
+    plumeGrad.addColorStop(1.0, 'rgba(239, 68, 68, 0.0)');
+  } else if (color === '#f97316') {
+    plumeGrad.addColorStop(0, 'rgba(249, 115, 22, 0.40)');
+    plumeGrad.addColorStop(0.35, 'rgba(245, 158, 11, 0.22)');
+    plumeGrad.addColorStop(0.70, 'rgba(234, 179, 8, 0.08)');
+    plumeGrad.addColorStop(1.0, 'rgba(249, 115, 22, 0.0)');
+  } else {
+    plumeGrad.addColorStop(0, 'rgba(234, 179, 8, 0.36)');
+    plumeGrad.addColorStop(0.35, 'rgba(234, 179, 8, 0.18)');
+    plumeGrad.addColorStop(0.70, 'rgba(234, 179, 8, 0.06)');
+    plumeGrad.addColorStop(1.0, 'rgba(234, 179, 8, 0.0)');
+  }
+  ctx.fillStyle = plumeGrad;
+  ctx.beginPath();
+  ctx.arc(cx, cy, 62, 0, Math.PI * 2);
+  ctx.fill();
+
+  // 2. Feathered Brush Block (Organic rounded rectangle covering and smudging the anomaly footprint)
+  const blockW = 68;
+  const blockH = 68;
+  const r = 18;
+  const bx = cx - blockW / 2;
+  const by = cy - blockH / 2;
+
+  const blockGrad = ctx.createRadialGradient(cx, cy, 4, cx, cy, 46);
+  if (color === '#ef4444') {
+    blockGrad.addColorStop(0, 'rgba(255, 255, 255, 0.92)');
+    blockGrad.addColorStop(0.18, 'rgba(254, 202, 202, 0.82)');
+    blockGrad.addColorStop(0.48, 'rgba(239, 68, 68, 0.70)');
+    blockGrad.addColorStop(0.80, 'rgba(249, 115, 22, 0.36)');
+    blockGrad.addColorStop(1.0, 'rgba(239, 68, 68, 0.02)');
+  } else if (color === '#f97316') {
+    blockGrad.addColorStop(0, 'rgba(255, 255, 255, 0.90)');
+    blockGrad.addColorStop(0.18, 'rgba(254, 215, 170, 0.78)');
+    blockGrad.addColorStop(0.48, 'rgba(249, 115, 22, 0.65)');
+    blockGrad.addColorStop(0.80, 'rgba(245, 158, 11, 0.30)');
+    blockGrad.addColorStop(1.0, 'rgba(249, 115, 22, 0.02)');
+  } else {
+    blockGrad.addColorStop(0, 'rgba(255, 255, 255, 0.86)');
+    blockGrad.addColorStop(0.18, 'rgba(254, 240, 138, 0.72)');
+    blockGrad.addColorStop(0.48, 'rgba(234, 179, 8, 0.58)');
+    blockGrad.addColorStop(0.80, 'rgba(234, 179, 8, 0.24)');
+    blockGrad.addColorStop(1.0, 'rgba(234, 179, 8, 0.02)');
+  }
+
+  ctx.fillStyle = blockGrad;
+  ctx.beginPath();
+  ctx.roundRect(bx, by, blockW, blockH, r);
+  ctx.fill();
+
+  // 3. Painterly cross brush dabs (creates authentic texture of a brush smudge)
+  ctx.save();
+  ctx.fillStyle = color === '#ef4444' ? 'rgba(239, 68, 68, 0.34)' : 'rgba(249, 115, 22, 0.30)';
+  ctx.beginPath();
+  ctx.ellipse(cx, cy, 32, 16, 0.3, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.beginPath();
+  ctx.ellipse(cx, cy, 30, 14, -0.35, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.restore();
+
+  // 4. Epicenter incandescent white core
+  ctx.beginPath();
+  ctx.arc(cx, cy, isSelected ? 4.5 : 3.2, 0, Math.PI * 2);
+  ctx.fillStyle = '#ffffff';
+  ctx.shadowColor = color;
+  ctx.shadowBlur = isSelected ? 12 : 6;
+  ctx.fill();
+
+  // 5. Selected tactical boundary ring
+  if (isSelected) {
+    ctx.strokeStyle = '#ffffff';
+    ctx.lineWidth = 2.2;
+    ctx.beginPath();
+    ctx.roundRect(bx - 3, by - 3, blockW + 6, blockH + 6, r + 3);
+    ctx.stroke();
+  }
+
+  thermalBrushTextureCache.set(cacheKey, canvas);
+  return canvas;
 }
 
 /**
@@ -121,7 +235,7 @@ export const GeospatialHotspotMapView: React.FC<GeospatialHotspotMapViewProps> =
     });
     satLayerRef.current = satLayer;
 
-    // 2. Real-World Ground Footprint Polygon Layer (Discrete Ground Scale in Meters)
+    // 2. Real-World Ground Footprint Vector Layer with Dynamic Feathered Brush Smudge
     const footprintSource = new VectorSource();
     footprintVectorSourceRef.current = footprintSource;
 
@@ -136,69 +250,73 @@ export const GeospatialHotspotMapView: React.FC<GeospatialHotspotMapViewProps> =
         const conf = rawH.confidenceLevel || 'nominal';
 
         const scanKm = rawH.scanKm ?? (rawH.instrument === 'VIIRS' ? 0.375 : 1.0);
+        const trackKm = rawH.trackKm ?? (rawH.instrument === 'VIIRS' ? 0.375 : 1.0);
         const scanMeters = scanKm * 1000;
+        const trackMeters = trackKm * 1000;
+
         const pixelWidth = scanMeters / resolution;
+        const pixelHeight = trackMeters / resolution;
 
         const baseColor =
           conf === 'high' ? '#ef4444' : conf === 'nominal' ? '#f97316' : '#eab308';
 
-        // Semi-transparent infrared fill covering the exact ground anomaly block
-        const fillColor =
-          conf === 'high'
-            ? (isSelected ? 'rgba(239, 68, 68, 0.72)' : isHovered ? 'rgba(239, 68, 68, 0.58)' : 'rgba(239, 68, 68, 0.44)')
-            : conf === 'nominal'
-            ? (isSelected ? 'rgba(249, 115, 22, 0.65)' : isHovered ? 'rgba(249, 115, 22, 0.52)' : 'rgba(249, 115, 22, 0.40)')
-            : (isSelected ? 'rgba(234, 179, 8, 0.60)' : isHovered ? 'rgba(234, 179, 8, 0.48)' : 'rgba(234, 179, 8, 0.35)');
+        const brushCanvas = getThermalBrushTexture(baseColor, !!isSelected);
 
-        // Sharp sensor pixel grid border
-        const strokeColor = isSelected
-          ? '#ffffff'
-          : isHovered
-          ? '#ffffff'
-          : conf === 'high'
-          ? 'rgba(255, 255, 255, 0.85)'
-          : 'rgba(255, 255, 255, 0.70)';
-        const strokeWidth = isSelected ? 2.5 : isHovered ? 2.0 : 1.2;
+        // Ground-scale tied brush sizing:
+        // Texture core is 68px.
+        // At map resolution, target pixel width is pixelWidth.
+        // Clamp minimum size to 4px on national overview so it remains a discrete pinpoint and never covers an entire island!
+        const effPixelWidth = Math.max(4.0, pixelWidth);
+        const effPixelHeight = Math.max(4.0, pixelHeight);
 
-        let textStyle: Text | undefined = undefined;
-        if (showLabels && (pixelWidth >= 28 || isSelected)) {
-          const tempC = rawH.brightnessKelvin ? `${Math.round(rawH.brightnessKelvin - 273.15)}°C` : '';
-          const frpText = rawH.frpMw ? `${Math.round(rawH.frpMw)}MW` : '';
-          const label = [tempC, frpText].filter(Boolean).join(' • ');
-          if (label) {
-            textStyle = new Text({
-              text: label,
-              font: 'bold 10px monospace',
-              fill: new Fill({ color: '#ffffff' }),
-              stroke: new Stroke({ color: '#000000', width: 2.8 }),
-              overflow: true,
-            });
-          }
-        }
+        const scaleX = effPixelWidth / 68;
+        const scaleY = effPixelHeight / 68;
 
-        const styles: Style[] = [
+        const styles: Style[] = [];
+
+        // 1. Organic Feathered Thermal Brush Smudge (sapuan kuas yang ngeblok area anomali)
+        styles.push(
           new Style({
-            fill: new Fill({ color: fillColor }),
-            stroke: new Stroke({
-              color: strokeColor,
-              width: strokeWidth,
-              lineDash: isSelected ? [5, 3] : undefined,
+            geometry: new Point(fromLonLat([rawH.longitude, rawH.latitude])),
+            image: new Icon({
+              img: brushCanvas,
+              scale: [scaleX, scaleY],
+              anchor: [0.5, 0.5],
+              opacity: isSelected ? 1.0 : isHovered ? 0.95 : 0.88,
             }),
-            text: textStyle,
-          }),
-        ];
+          })
+        );
 
-        // Discrete pinpoint dot when zoomed far out (subpixel ground size)
-        // Ensures individual hotspots remain pinpoint accurate without blurring into neighboring points or swallowing islands
-        if (pixelWidth < 5) {
+        // 2. Tactical Anomaly Boundary & Text (only when zoomed in enough to see the parcel, e.g. pixelWidth >= 18)
+        if (pixelWidth >= 18) {
+          let textStyle: Text | undefined = undefined;
+          if (showLabels && (pixelWidth >= 28 || isSelected)) {
+            const tempC = rawH.brightnessKelvin ? `${Math.round(rawH.brightnessKelvin - 273.15)}°C` : '';
+            const frpText = rawH.frpMw ? `${Math.round(rawH.frpMw)}MW` : '';
+            const label = [tempC, frpText].filter(Boolean).join(' • ');
+            if (label) {
+              textStyle = new Text({
+                text: label,
+                font: 'bold 10px monospace',
+                fill: new Fill({ color: '#ffffff' }),
+                stroke: new Stroke({ color: '#000000', width: 2.8 }),
+                offsetY: -effPixelHeight / 2 - 8,
+              });
+            }
+          }
+
           styles.push(
             new Style({
-              geometry: new Point(fromLonLat([rawH.longitude, rawH.latitude])),
-              image: new CircleStyle({
-                radius: 2.5,
-                fill: new Fill({ color: baseColor }),
-                stroke: new Stroke({ color: '#ffffff', width: 1 }),
+              stroke: new Stroke({
+                color: isSelected
+                  ? '#ffffff'
+                  : isHovered
+                  ? 'rgba(255, 255, 255, 0.90)'
+                  : 'rgba(255, 255, 255, 0.45)',
+                width: isSelected ? 2.2 : 1.2,
+                lineDash: isSelected ? undefined : [4, 4],
               }),
+              text: textStyle,
             })
           );
         }
@@ -371,12 +489,12 @@ export const GeospatialHotspotMapView: React.FC<GeospatialHotspotMapViewProps> =
               <h4 className="font-bold text-slate-100 flex items-center gap-1.5">
                 Peta Resolusi Footprint Anomali Satelit
                 <span className="text-[10px] font-mono px-2 py-0.5 rounded-full bg-emerald-500/10 text-emerald-400 border border-emerald-500/25 font-semibold">
-                  100% Skala Tanah Nyata Tetap
+                  Sapuan Kuas Tanah Nyata Tetap
                 </span>
               </h4>
             </div>
             <p className="text-[11px] text-slate-400">
-              {regionName} • {hotspots.length} Deteksi Piksel Sensor Aktif (Tanpa Distorsi Peta Panas)
+              {regionName} • {hotspots.length} Deteksi Anomali Sensor Termal
             </p>
           </div>
         </div>
@@ -427,27 +545,36 @@ export const GeospatialHotspotMapView: React.FC<GeospatialHotspotMapViewProps> =
         <div className="absolute bottom-3 left-3 bg-slate-950/90 backdrop-blur-md border border-slate-800 px-3.5 py-2.5 rounded-2xl text-[10px] font-mono space-y-2 pointer-events-none z-20 shadow-xl">
           <div className="flex items-center justify-between gap-3">
             <span className="font-bold text-slate-200 tracking-wider flex items-center gap-1.5">
-              <Grid className="w-3 h-3 text-rose-400" />
-              Blok Sensor Satelit (Resolusi Tanah Nyata)
+              <Paintbrush className="w-3 h-3 text-rose-400" />
+              Sapuan Kuas Anomali (Footprint Tanah Nyata)
             </span>
             <span className="text-[9px] text-emerald-400 font-bold">NASA NRT</span>
           </div>
           <div className="flex items-center gap-3">
             <div className="flex items-center gap-1.5 text-rose-400">
-              <span className="h-3 w-3 rounded-xs bg-rose-500/50 border border-white/80 inline-block shadow-xs" />
+              <span className="relative flex h-3.5 w-3.5 items-center justify-center">
+                <span className="absolute inline-flex h-full w-full rounded-full bg-rose-500/50 blur-[1px]"></span>
+                <span className="relative inline-flex rounded-full h-1.5 w-1.5 bg-white"></span>
+              </span>
               <span>Tinggi (≥80%)</span>
             </div>
             <div className="flex items-center gap-1.5 text-amber-400">
-              <span className="h-3 w-3 rounded-xs bg-amber-500/50 border border-white/80 inline-block shadow-xs" />
+              <span className="relative flex h-3.5 w-3.5 items-center justify-center">
+                <span className="absolute inline-flex h-full w-full rounded-full bg-amber-500/50 blur-[1px]"></span>
+                <span className="relative inline-flex rounded-full h-1.5 w-1.5 bg-white"></span>
+              </span>
               <span>Nominal (30-79%)</span>
             </div>
             <div className="flex items-center gap-1.5 text-yellow-400">
-              <span className="h-3 w-3 rounded-xs bg-yellow-500/50 border border-white/80 inline-block shadow-xs" />
+              <span className="relative flex h-3.5 w-3.5 items-center justify-center">
+                <span className="absolute inline-flex h-full w-full rounded-full bg-yellow-500/50 blur-[1px]"></span>
+                <span className="relative inline-flex rounded-full h-1.5 w-1.5 bg-white"></span>
+              </span>
               <span>Rendah (&lt;30%)</span>
             </div>
           </div>
           <div className="text-[9px] text-slate-400 pt-0.5 border-t border-slate-800/80">
-            VIIRS I-band: 375m × 375m • MODIS: 1000m × 1000m (1.00 km)
+            VIIRS: 375m × 375m • MODIS: 1000m × 1000m (1.00 km)
           </div>
         </div>
 
@@ -566,7 +693,7 @@ export const GeospatialHotspotMapView: React.FC<GeospatialHotspotMapViewProps> =
 
           <div className="hidden sm:flex items-center gap-1.5 text-[11px] text-slate-400">
             <Radio className="w-3 h-3 text-emerald-400" />
-            <span>Live Stream Satelit NRT Aktif</span>
+            <span>Sapuan Kuas Presisi Terikat Skala Tanah Nyata</span>
           </div>
         </div>
 
