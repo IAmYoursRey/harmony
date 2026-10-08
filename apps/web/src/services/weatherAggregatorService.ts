@@ -280,8 +280,8 @@ class WeatherAggregatorService {
 
   private async fetchFromSources(lat: number, lng: number, placeName?: string, queryKey?: string): Promise<WeatherConsensusData> {
     const coordinates = `latitude=${lat}&longitude=${lng}&timezone=auto&timeformat=unixtime`;
-    const currentFields = 'temperature_2m,relative_humidity_2m,apparent_temperature,precipitation,weather_code,cloud_cover,surface_pressure,wind_speed_10m,wind_direction_10m,wind_gusts_10m';
-    const hourlyFields = 'temperature_2m,relative_humidity_2m,apparent_temperature,precipitation_probability,precipitation,weather_code,cloud_cover,surface_pressure,wind_speed_10m,wind_direction_10m,wind_gusts_10m,uv_index';
+    const currentFields = 'temperature_2m,relative_humidity_2m,apparent_temperature,precipitation,rain,showers,weather_code,cloud_cover,surface_pressure,wind_speed_10m,wind_direction_10m,wind_gusts_10m';
+    const hourlyFields = 'temperature_2m,relative_humidity_2m,apparent_temperature,precipitation_probability,precipitation,rain,showers,weather_code,cloud_cover,surface_pressure,wind_speed_10m,wind_direction_10m,wind_gusts_10m,uv_index';
     const dailyFields = 'weather_code,temperature_2m_max,temperature_2m_min,apparent_temperature_max,precipitation_sum,precipitation_probability_max,wind_speed_10m_max,wind_gusts_10m_max,uv_index_max';
     const weatherUrl = `https://api.open-meteo.com/v1/forecast?${coordinates}&current=${currentFields}&hourly=${hourlyFields}&daily=${dailyFields}&forecast_days=14`;
     const modelUrl = `https://api.open-meteo.com/v1/forecast?${coordinates}&hourly=temperature_2m&forecast_days=14&models=${WEATHER_MODELS.map(m => m.id).join(',')}`;
@@ -658,7 +658,11 @@ class WeatherAggregatorService {
         iconTemp: getModel('icon_seamless'),
         jmaTemp: getModel('jma_seamless'),
         humidity: h.relative_humidity_2m[index],
-        precipitation: h.precipitation[index],
+        precipitation: Math.max(
+          finiteNumber(h.precipitation?.[index]) ? h.precipitation[index] : 0,
+          finiteNumber(h.rain?.[index]) ? h.rain[index] : 0,
+          finiteNumber(h.showers?.[index]) ? h.showers[index] : 0
+        ),
         precipitationProb: nullableNumber(h.precipitation_probability?.[index]),
         cloudCover: h.cloud_cover[index],
         conditionCode: h.weather_code[index],
@@ -723,7 +727,7 @@ class WeatherAggregatorService {
       modelSpread, accuracyValidated: false, coverageScope: 'Koordinat pilihan; asal lembaga model tidak berarti semua wilayah negaranya diunduh.',
       historicalAirQuality,
       current: { consensusTemperature: c.temperature_2m, apparentTemperature: c.apparent_temperature, tempMin: temperatures.length ? Math.min(...temperatures) : c.temperature_2m, tempMax: temperatures.length ? Math.max(...temperatures) : c.temperature_2m, confidenceScore: null,
-        humidity: c.relative_humidity_2m, precipitation: c.precipitation, precipitationProb: nullableNumber(h.precipitation_probability?.[currentIdx]), cloudCover: c.cloud_cover, pressure: c.surface_pressure, windSpeed: c.wind_speed_10m, windDirection: c.wind_direction_10m, windGusts: c.wind_gusts_10m, conditionCode: c.weather_code, conditionText: getWeatherConditionText(c.weather_code), pm25, pm10, ozone, uvIndex: nullableNumber(h.uv_index?.[currentIdx]),
+        humidity: c.relative_humidity_2m, precipitation: Math.max(finiteNumber(c.precipitation) ? c.precipitation : 0, finiteNumber(c.rain) ? c.rain : 0, finiteNumber(c.showers) ? c.showers : 0), precipitationProb: nullableNumber(h.precipitation_probability?.[currentIdx]), cloudCover: c.cloud_cover, pressure: c.surface_pressure, windSpeed: c.wind_speed_10m, windDirection: c.wind_direction_10m, windGusts: c.wind_gusts_10m, conditionCode: c.weather_code, conditionText: getWeatherConditionText(c.weather_code), pm25, pm10, ozone, uvIndex: nullableNumber(h.uv_index?.[currentIdx]),
         aqiLevel: computeAqiLevel(pm25, pm10, ozone).level, aqiColor: computeAqiLevel(pm25, pm10, ozone).color },
       modelComparison, sources: [
         { id: 'open_meteo', name: 'Open-Meteo Best Match', origin: 'Koordinat pilihan', type: 'Prakiraan model', status: 'online' },

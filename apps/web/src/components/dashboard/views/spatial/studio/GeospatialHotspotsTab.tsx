@@ -16,12 +16,22 @@ import {
   Radio,
   Clock,
   ShieldCheck,
+  History,
+  ChevronLeft,
+  ChevronRight,
+  AlertTriangle,
+  CalendarDays,
 } from 'lucide-react';
 import { firmsService, HotspotRecord, HotspotAnalysisResult } from '../../../../../services/geospatial/firmsService';
 import { aoiService, useActiveAOI } from '../../../../../services/geospatial/aoiService';
 import { AnalysisEnvelope, DataStatus } from '../../../../../services/geospatial/types';
 import { apiClient } from '@/services/apiClient';
 import { GeospatialHotspotMapView } from './GeospatialHotspotMapView';
+import {
+  hotspotRepositoryClient,
+  TimelineSnapshotMeta,
+  FullHotspotSnapshot,
+} from '../../../../../services/geospatial/hotspotRepositoryClient';
 
 interface GeospatialHotspotsTabProps {
   lat: number;
@@ -57,6 +67,22 @@ export const GeospatialHotspotsTab: React.FC<GeospatialHotspotsTabProps> = ({
   const [countdownSeconds, setCountdownSeconds] = useState<number>(300);
   const requestRef = useRef<AbortController | null>(null);
   const liveSourceRef = useRef(false);
+
+  // Timeline & historical repository states
+  const [activeTabMode, setActiveTabMode] = useState<'live' | 'timeline'>('live');
+  const [timelineSnapshots, setTimelineSnapshots] = useState<TimelineSnapshotMeta[]>([]);
+  const [timelineYears, setTimelineYears] = useState<number[]>([]);
+  const [selectedYear, setSelectedYear] = useState<number | 'all'>('all');
+  const [selectedSnapshotId, setSelectedSnapshotId] = useState<string>('');
+  const [loadingTimeline, setLoadingTimeline] = useState<boolean>(false);
+  const [isFallbackSnapshot, setIsFallbackSnapshot] = useState<boolean>(false);
+  const [fetchFailed, setFetchFailed] = useState<boolean>(false);
+  const [snapshotInfo, setSnapshotInfo] = useState<{
+    date: string;
+    fetchedAt: string;
+    isFallback: boolean;
+    notes?: string;
+  } | null>(null);
 
   const cancelFirmsRequest = () => {
     requestRef.current?.abort();
@@ -145,6 +171,10 @@ export const GeospatialHotspotsTab: React.FC<GeospatialHotspotsTabProps> = ({
         cached?: boolean;
         count?: number;
         totalMatched?: number;
+        isFallback?: boolean;
+        snapshotId?: string;
+        snapshotDate?: string;
+        snapshotFetchedAt?: string;
         provenance?: { fetchedAt?: string; sensors?: string };
         sourceAttempts?: Array<{ source: string; status: string }>;
       }>(
@@ -152,18 +182,94 @@ export const GeospatialHotspotsTab: React.FC<GeospatialHotspotsTabProps> = ({
         { ttl: 0, signal: controller.signal }
       );
       if (controller.signal.aborted) return;
-      if (!response.success) {
+
+      // Handle server fallback or failure gracefully
+      if (!response.success || (response.rawCsv && response.isFallback)) {
+        if (response.rawCsv) {
+          setCustomCsv(response.rawCsv);
+          setIsFallbackSnapshot(true);
+          const snapDate = response.snapshotDate || (response.provenance?.fetchedAt ? response.provenance.fetchedAt.slice(0, 10) : new Date().toISOString().slice(0, 10));
+          const snapTime = response.snapshotFetchedAt || response.provenance?.fetchedAt || new Date().toISOString();
+          setSnapshotInfo({
+            date: snapDate,
+            fetchedAt: snapTime,
+            isFallback: true,
+            notes: response.reason?.message,
+          });
+          setLiveMetadata({
+            status: 'CACHED',
+            cached: true,
+            fetchedAt: snapTime,
+          });
+          setIsLiveSource(true);
+          liveSourceRef.current = true;
+          setFetchFailed(false);
+          setLastUpdated(new Date());
+          const scopeLabel = targetScope === 'indonesia' ? 'Seluruh Indonesia' : targetScope === 'java' ? 'Pulau Jawa' : regionName;
+          setFirmsMessage(
+            response.reason?.message ||
+            `⚠️ Satelit NASA LANCE belum merespons. Menampilkan data arsip tersimpan (${snapDate}, diambil ${new Date(snapTime).toLocaleString('id-ID')}) untuk ${scopeLabel}.`
+          );
+          hotspotRepositoryClient.saveToLocalStorage({
+            id: response.snapshotId || `fallback-${snapDate}`,
+            snapshotDate: snapDate,
+            fetchedAt: snapTime,
+            year: parseInt(snapDate.slice(0, 4), 10) || new Date().getFullYear(),
+            scope: targetScope,
+            recordCount: response.count || 0,
+            sensors: 'VIIRS & MODIS',
+            rawCsv: response.rawCsv,
+            source: 'FALLBACK_CACHED_SNAPSHOT',
+          });
+          return;
+        }
+
+        // Check local storage if server failed completely
+        const local = hotspotRepositoryClient.getLatestLocalSnapshot(targetScope);
+        if (local && local.rawCsv) {
+          setCustomCsv(local.rawCsv);
+          setIsFallbackSnapshot(true);
+          setSnapshotInfo({
+            date: local.snapshotDate,
+            fetchedAt: local.fetchedAt,
+            isFallback: true,
+            notes: 'Dipulihkan otomatis dari repositori penyimpanan browser lokal',
+          });
+          setLiveMetadata({
+            status: 'CACHED',
+            cached: true,
+            fetchedAt: local.fetchedAt,
+          });
+          setIsLiveSource(true);
+          liveSourceRef.current = true;
+          setFetchFailed(false);
+          setLastUpdated(new Date());
+          setFirmsMessage(`⚠️ Satelit NASA LANCE offline. Menampilkan data arsip tersimpan lokal (${local.snapshotDate}, diambil ${new Date(local.fetchedAt).toLocaleString('id-ID')}).`);
+          return;
+        }
+
+        setFetchFailed(true);
         setFirmsMessage(response.reason?.message || response.error || 'Data satelit FIRMS belum tersedia.');
         return;
       }
+
       if (typeof response.rawCsv !== 'string' || !/latitude/i.test(response.rawCsv.split(/\r?\n/)[0]) || !/longitude/i.test(response.rawCsv.split(/\r?\n/)[0])) {
         throw new Error('Format data satelit FIRMS tidak sesuai.');
       }
+
       setCustomCsv(response.rawCsv);
+      setIsFallbackSnapshot(false);
+      setFetchFailed(false);
+      const fetchedTime = response.provenance?.fetchedAt || new Date().toISOString();
+      setSnapshotInfo({
+        date: fetchedTime.slice(0, 10),
+        fetchedAt: fetchedTime,
+        isFallback: false,
+      });
       setLiveMetadata({
         status: response.partial ? 'PARTIAL' : response.cached ? 'CACHED' : 'LIVE',
         cached: response.cached === true,
-        fetchedAt: response.provenance?.fetchedAt || new Date().toISOString(),
+        fetchedAt: fetchedTime,
         sourceAttempts: response.sourceAttempts,
       });
       setIsLiveSource(true);
@@ -178,16 +284,124 @@ export const GeospatialHotspotsTab: React.FC<GeospatialHotspotsTabProps> = ({
           ? `NASA FIRMS LANCE: Berhasil memuat ${count} titik anomali termal aktif di ${scopeLabel} (${daysRange * 24} jam terakhir).${cacheNote}`
           : `NASA FIRMS LANCE: 0 anomali termal terdeteksi di ${scopeLabel} dalam ${daysRange * 24} jam terakhir. Area terpantau aman dan kondusif.`
       );
+
+      // Cache snapshot locally
+      hotspotRepositoryClient.saveToLocalStorage({
+        id: `firms-live-${targetScope}-${Date.now().toString(36)}`,
+        snapshotDate: fetchedTime.slice(0, 10),
+        fetchedAt: fetchedTime,
+        year: new Date(fetchedTime).getFullYear(),
+        scope: targetScope,
+        recordCount: count,
+        sensors: 'VIIRS & MODIS',
+        rawCsv: response.rawCsv,
+        source: 'NASA_FIRMS_OPEN_NRT',
+        notes: `Snapshot Operasional ${targetScope.toUpperCase()} (${count} titik)`,
+      });
     } catch (error) {
-      if (!controller.signal.aborted) setFirmsMessage(error instanceof Error ? error.message : 'Tidak dapat mengambil data satelit FIRMS.');
+      if (!controller.signal.aborted) {
+        // Fallback to local storage on exception
+        const local = hotspotRepositoryClient.getLatestLocalSnapshot(targetScope);
+        if (local && local.rawCsv) {
+          setCustomCsv(local.rawCsv);
+          setIsFallbackSnapshot(true);
+          setSnapshotInfo({
+            date: local.snapshotDate,
+            fetchedAt: local.fetchedAt,
+            isFallback: true,
+            notes: 'Dipulihkan dari repositori penyimpanan browser lokal',
+          });
+          setLiveMetadata({
+            status: 'CACHED',
+            cached: true,
+            fetchedAt: local.fetchedAt,
+          });
+          setIsLiveSource(true);
+          liveSourceRef.current = true;
+          setFetchFailed(false);
+          setLastUpdated(new Date());
+          setFirmsMessage(`⚠️ Satelit offline. Menampilkan data arsip tersimpan (${local.snapshotDate}, diambil ${new Date(local.fetchedAt).toLocaleString('id-ID')}).`);
+        } else {
+          setFetchFailed(true);
+          setFirmsMessage(error instanceof Error ? error.message : 'Tidak dapat mengambil data satelit FIRMS.');
+        }
+      }
     } finally {
       if (requestRef.current === controller) { requestRef.current = null; setLoadingFirms(false); }
     }
   };
 
-  // 1-second countdown ticker for transparent 5-minute auto-update cycle
+  // Timeline repository actions
+  const loadTimelineList = async (targetYear: number | 'all' = selectedYear) => {
+    setLoadingTimeline(true);
+    try {
+      const res = await hotspotRepositoryClient.listTimeline({ scope, year: targetYear });
+      setTimelineSnapshots(res.snapshots);
+      setTimelineYears(res.availableYears);
+      if (res.snapshots.length > 0) {
+        const targetId = res.snapshots[0].id;
+        setSelectedSnapshotId(targetId);
+        await loadHistoricalSnapshot(targetId);
+      }
+    } catch (e) {
+      console.warn('Could not load timeline snapshots:', e);
+    } finally {
+      setLoadingTimeline(false);
+    }
+  };
+
+  const loadHistoricalSnapshot = async (id: string) => {
+    setSelectedSnapshotId(id);
+    cancelFirmsRequest();
+    setLoadingFirms(true);
+    try {
+      const snap = await hotspotRepositoryClient.getSnapshotById(id);
+      if (snap && snap.rawCsv) {
+        setCustomCsv(snap.rawCsv);
+        setIsLiveSource(true);
+        setIsUserUploaded(false);
+        setIsFallbackSnapshot(false);
+        setFetchFailed(false);
+        setSnapshotInfo({
+          date: snap.snapshotDate,
+          fetchedAt: snap.fetchedAt,
+          isFallback: false,
+          notes: snap.notes,
+        });
+        setLiveMetadata({
+          status: 'CACHED',
+          cached: true,
+          fetchedAt: snap.fetchedAt,
+        });
+        const scopeLabel = snap.scope === 'indonesia' ? 'Seluruh Indonesia' : snap.scope === 'java' ? 'Pulau Jawa' : regionName;
+        setFirmsMessage(
+          `📅 Garis Waktu Arsip: Data Satelit ${snap.snapshotDate} (Diambil ${new Date(snap.fetchedAt).toLocaleString('id-ID', { dateStyle: 'medium', timeStyle: 'short' })} WIB) • ${snap.recordCount} anomali termal di ${scopeLabel}.`
+        );
+      }
+    } catch (e) {
+      setFirmsMessage('Gagal memuat arsip snapshot terpilih.');
+    } finally {
+      setLoadingFirms(false);
+    }
+  };
+
+  const currentTimelineIndex = timelineSnapshots.findIndex((s) => s.id === selectedSnapshotId);
+
+  const handlePrevSnapshot = () => {
+    if (currentTimelineIndex < timelineSnapshots.length - 1) {
+      loadHistoricalSnapshot(timelineSnapshots[currentTimelineIndex + 1].id);
+    }
+  };
+
+  const handleNextSnapshot = () => {
+    if (currentTimelineIndex > 0) {
+      loadHistoricalSnapshot(timelineSnapshots[currentTimelineIndex - 1].id);
+    }
+  };
+
+  // 1-second countdown ticker for transparent 5-minute auto-update cycle (Active in Live Mode only)
   useEffect(() => {
-    if (isUserUploaded) return;
+    if (isUserUploaded || activeTabMode === 'timeline') return;
     const ticker = setInterval(() => {
       setCountdownSeconds((prev) => {
         if (prev <= 1) {
@@ -198,17 +412,21 @@ export const GeospatialHotspotsTab: React.FC<GeospatialHotspotsTabProps> = ({
       });
     }, 1000);
     return () => clearInterval(ticker);
-  }, [scope, daysRange, selectedSensor, minConfidence, bbox, isUserUploaded]);
+  }, [scope, daysRange, selectedSensor, minConfidence, bbox, isUserUploaded, activeTabMode]);
 
   // Initial load and auto-fetch on parameter/filter change
   useEffect(() => {
     if (isUserUploaded) return;
-    handleLoadFirms(scope, false);
-    setCountdownSeconds(300);
+    if (activeTabMode === 'live') {
+      handleLoadFirms(scope, false);
+      setCountdownSeconds(300);
+    } else {
+      loadTimelineList(selectedYear);
+    }
     return () => {
       requestRef.current?.abort();
     };
-  }, [bbox, daysRange, selectedSensor, scope, minConfidence, isUserUploaded, refreshSignal]);
+  }, [bbox, daysRange, selectedSensor, scope, minConfidence, isUserUploaded, refreshSignal, activeTabMode, selectedYear]);
 
   const formatCountdown = (totalSec: number) => {
     const m = Math.floor(totalSec / 60);
@@ -217,7 +435,11 @@ export const GeospatialHotspotsTab: React.FC<GeospatialHotspotsTabProps> = ({
   };
 
   const analysisEnvelope: AnalysisEnvelope<HotspotAnalysisResult> = useMemo(() => {
-    const source = isUserUploaded ? 'USER_CSV_IMPORT' : 'NASA_FIRMS';
+    const source = isUserUploaded
+      ? 'USER_CSV_IMPORT'
+      : activeTabMode === 'timeline'
+      ? 'HISTORICAL_ARCHIVE'
+      : 'NASA_FIRMS';
     const envelope = firmsService.analyzeHotspots(customCsv, effectiveAOI, effectiveBBox, daysRange, minConfidence, source);
     if (isLiveSource && liveMetadata && envelope.processingState !== 'failed') {
       envelope.dataStatus = liveMetadata.status;
@@ -226,7 +448,7 @@ export const GeospatialHotspotsTab: React.FC<GeospatialHotspotsTabProps> = ({
       envelope.provenance.quality = liveMetadata.sourceAttempts?.map(item => `${item.source}: ${item.status}`).join('; ');
     }
     return envelope;
-  }, [customCsv, effectiveAOI, effectiveBBox, daysRange, minConfidence, isLiveSource, isUserUploaded, liveMetadata]);
+  }, [customCsv, effectiveAOI, effectiveBBox, daysRange, minConfidence, isLiveSource, isUserUploaded, liveMetadata, activeTabMode]);
 
   const data = analysisEnvelope.data;
 
@@ -382,7 +604,7 @@ export const GeospatialHotspotsTab: React.FC<GeospatialHotspotsTabProps> = ({
           <div>
             <div className="flex items-center gap-2">
               <h3 className="text-sm font-bold text-slate-800 dark:text-white">
-                Deteksi Titik Panas Karhutla (NASA FIRMS & SiPongi)
+                Deteksi Titik Panas Permukaan Bumi Tidak Wajar (NASA FIRMS &amp; SiPongi)
               </h3>
               <span className="text-[10px] font-extrabold uppercase px-2 py-0.5 rounded-full bg-rose-500/15 text-rose-700 dark:text-rose-300 border border-rose-500/25">
                 NRT Satelit
@@ -436,7 +658,222 @@ export const GeospatialHotspotsTab: React.FC<GeospatialHotspotsTabProps> = ({
         </div>
       </div>
 
-      {/* Real-time 5-Minute Auto-Sync Satellite Telemetry Bar */}
+      {/* Mode Switcher: Live NRT vs Timeline Historical Archive */}
+      <div className="flex items-center justify-between gap-3 p-1.5 rounded-2xl bg-slate-100 dark:bg-slate-800/80 border border-slate-200 dark:border-slate-700/80">
+        <div className="flex items-center gap-1.5 w-full sm:w-auto">
+          <button
+            type="button"
+            onClick={() => {
+              setActiveTabMode('live');
+              setIsFallbackSnapshot(false);
+              handleLoadFirms(scope, false);
+            }}
+            className={`flex-1 sm:flex-initial px-4 py-2 rounded-xl text-xs font-bold transition-all flex items-center justify-center gap-2 cursor-pointer ${
+              activeTabMode === 'live'
+                ? 'bg-rose-600 text-white shadow-md shadow-rose-600/25'
+                : 'text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white'
+            }`}
+          >
+            <Radio className="w-3.5 h-3.5" />
+            <span>Satelit Real-Time (NRT)</span>
+            {activeTabMode === 'live' && isLiveSource && !isFallbackSnapshot && (
+              <span className="h-2 w-2 rounded-full bg-emerald-400 animate-pulse" />
+            )}
+          </button>
+
+          <button
+            type="button"
+            onClick={() => {
+              setActiveTabMode('timeline');
+              loadTimelineList(selectedYear);
+            }}
+            className={`flex-1 sm:flex-initial px-4 py-2 rounded-xl text-xs font-bold transition-all flex items-center justify-center gap-2 cursor-pointer ${
+              activeTabMode === 'timeline'
+                ? 'bg-gradient-to-r from-amber-600 to-rose-600 text-white shadow-md shadow-amber-600/25'
+                : 'text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white'
+            }`}
+          >
+            <History className="w-3.5 h-3.5" />
+            <span>Garis Waktu & Arsip Historis</span>
+            {timelineSnapshots.length > 0 && (
+              <span className="px-1.5 py-0.2 rounded-full bg-black/20 text-[10px] font-mono">
+                {timelineSnapshots.length}
+              </span>
+            )}
+          </button>
+        </div>
+
+        {activeTabMode === 'timeline' && (
+          <div className="hidden md:flex items-center gap-2 pr-2 text-xs text-slate-500 font-mono">
+            <CalendarDays className="w-3.5 h-3.5 text-amber-500" />
+            <span>Jelajahi rekaman satelit per hari dan tahun</span>
+          </div>
+        )}
+      </div>
+
+      {/* Timeline Historical Archive Panel */}
+      {activeTabMode === 'timeline' && (
+        <div className="p-4 rounded-3xl bg-white dark:bg-slate-800/90 border border-amber-500/30 shadow-sm space-y-4">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b border-slate-100 dark:border-slate-700/60">
+            <div>
+              <div className="flex items-center gap-2">
+                <span className="p-1.5 rounded-lg bg-amber-500/15 text-amber-600 dark:text-amber-400">
+                  <Calendar className="w-4 h-4" />
+                </span>
+                <h4 className="text-sm font-bold text-slate-900 dark:text-white">
+                  Garis Waktu &amp; Arsip Titik Panas Permukaan Bumi Tidak Wajar
+                </h4>
+              </div>
+              <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
+                Pilih snapshot arsip satelit pada hari atau tahun sebelumnya dari repositori
+              </p>
+            </div>
+
+            {/* Quick Year Filter */}
+            <div className="flex items-center gap-1.5 flex-wrap">
+              <span className="text-xs text-slate-400 font-semibold mr-1">Tahun:</span>
+              <button
+                type="button"
+                onClick={() => { setSelectedYear('all'); loadTimelineList('all'); }}
+                className={`px-2.5 py-1 rounded-lg text-xs font-semibold cursor-pointer transition-colors ${
+                  selectedYear === 'all'
+                    ? 'bg-amber-500 text-white shadow-sm'
+                    : 'bg-slate-100 dark:bg-slate-700 text-slate-600 dark:text-slate-300 hover:bg-slate-200'
+                }`}
+              >
+                Semua
+              </button>
+              {(timelineYears.length > 0 ? timelineYears : [2026, 2025, 2024]).map((yr) => (
+                <button
+                  key={yr}
+                  type="button"
+                  onClick={() => { setSelectedYear(yr); loadTimelineList(yr); }}
+                  className={`px-2.5 py-1 rounded-lg text-xs font-semibold cursor-pointer transition-colors ${
+                    selectedYear === yr
+                      ? 'bg-amber-500 text-white shadow-sm'
+                      : 'bg-slate-100 dark:bg-slate-700 text-slate-600 dark:text-slate-300 hover:bg-slate-200'
+                  }`}
+                >
+                  {yr}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          {/* Snapshot Selector with Prev/Next step buttons */}
+          <div className="flex flex-col md:flex-row md:items-center justify-between gap-3">
+            <div className="flex items-center gap-2 flex-1">
+              <label htmlFor="snapshotSelect" className="text-xs font-bold text-slate-700 dark:text-slate-300 whitespace-nowrap">
+                Pilih Snapshot:
+              </label>
+              <select
+                id="snapshotSelect"
+                value={selectedSnapshotId}
+                onChange={(e) => loadHistoricalSnapshot(e.target.value)}
+                disabled={loadingTimeline}
+                className="w-full text-xs p-2.5 rounded-xl bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 text-slate-800 dark:text-slate-200 font-medium"
+              >
+                {timelineSnapshots.map((snap) => (
+                  <option key={snap.id} value={snap.id}>
+                    📅 {snap.snapshotDate} ({new Date(snap.fetchedAt).toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' })} WIB) • {snap.recordCount} Titik ({snap.scope.toUpperCase()}) — {snap.notes || 'Arsip Satelit'}
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            <div className="flex items-center gap-2 shrink-0">
+              <button
+                type="button"
+                onClick={handlePrevSnapshot}
+                disabled={currentTimelineIndex >= timelineSnapshots.length - 1 || loadingFirms}
+                className="px-3 py-2 rounded-xl bg-slate-100 dark:bg-slate-700 hover:bg-slate-200 text-slate-700 dark:text-slate-200 text-xs font-semibold flex items-center gap-1 disabled:opacity-40 cursor-pointer"
+                title="Lihat snapshot tanggal lebih lampau"
+              >
+                <ChevronLeft className="w-3.5 h-3.5" />
+                <span>Tanggal Sebelumnya</span>
+              </button>
+              <button
+                type="button"
+                onClick={handleNextSnapshot}
+                disabled={currentTimelineIndex <= 0 || loadingFirms}
+                className="px-3 py-2 rounded-xl bg-slate-100 dark:bg-slate-700 hover:bg-slate-200 text-slate-700 dark:text-slate-200 text-xs font-semibold flex items-center gap-1 disabled:opacity-40 cursor-pointer"
+                title="Lihat snapshot tanggal lebih baru"
+              >
+                <span>Tanggal Berikutnya</span>
+                <ChevronRight className="w-3.5 h-3.5" />
+              </button>
+            </div>
+          </div>
+
+          {/* Active Snapshot Summary Bar */}
+          {snapshotInfo && (
+            <div className="p-3 rounded-2xl bg-amber-500/10 border border-amber-500/20 flex flex-col sm:flex-row sm:items-center justify-between gap-2 text-xs">
+              <div className="flex items-center gap-2">
+                <Clock className="w-4 h-4 text-amber-600 dark:text-amber-400 shrink-0" />
+                <span className="text-amber-900 dark:text-amber-200">
+                  <span className="font-bold">Waktu Pengambilan Data Arsip:</span>{' '}
+                  {new Date(snapshotInfo.fetchedAt).toLocaleString('id-ID', { dateStyle: 'full', timeStyle: 'medium' })} WIB
+                </span>
+              </div>
+              <span className="px-2.5 py-0.5 rounded-full bg-amber-500/20 text-amber-800 dark:text-amber-300 font-mono font-bold text-[11px] self-start sm:self-auto">
+                {displayedHotspots.length} Titik Anomali Terdata
+              </span>
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* Fallback Alert Banner when in Live Mode but using cached snapshot */}
+      {activeTabMode === 'live' && isFallbackSnapshot && !isUserUploaded && (
+        <div className="p-4 rounded-2xl bg-amber-500/15 border border-amber-500/30 flex flex-col md:flex-row md:items-center justify-between gap-3 text-xs shadow-md">
+          <div className="flex items-center gap-3">
+            <div className="h-10 w-10 rounded-xl bg-amber-500/20 border border-amber-500/30 text-amber-600 dark:text-amber-400 flex items-center justify-center shrink-0">
+              <Clock className="w-5 h-5" />
+            </div>
+            <div>
+              <div className="flex items-center gap-2 flex-wrap">
+                <span className="font-bold text-amber-900 dark:text-amber-100 text-sm">
+                  Menggunakan Data Arsip Satelit Terakhir (Fallback)
+                </span>
+                <span className="px-2 py-0.5 rounded-full bg-amber-500/25 text-amber-900 dark:text-amber-200 font-mono text-[10px] font-bold">
+                  Tanggal: {snapshotInfo?.date}
+                </span>
+                <span className="px-2 py-0.5 rounded-full bg-amber-500/25 text-amber-900 dark:text-amber-200 font-mono text-[10px] font-bold">
+                  Diambil: {snapshotInfo ? new Date(snapshotInfo.fetchedAt).toLocaleString('id-ID', { dateStyle: 'medium', timeStyle: 'short' }) + ' WIB' : ''}
+                </span>
+              </div>
+              <p className="text-[11px] text-amber-800 dark:text-amber-300/90 mt-0.5 leading-relaxed">
+                Koneksi satelit NASA LANCE saat ini sedang tidak dapat dihubungi. Sistem secara otomatis menyajikan data snapshot tersimpan terakhir agar pemantauan hotspot tidak terputus.
+              </p>
+            </div>
+          </div>
+
+          <div className="flex items-center gap-2 shrink-0">
+            <button
+              type="button"
+              onClick={() => {
+                setActiveTabMode('timeline');
+                loadTimelineList();
+              }}
+              className="px-3 py-1.5 rounded-xl bg-slate-900 text-white hover:bg-slate-800 dark:bg-slate-700 dark:hover:bg-slate-600 font-bold transition-colors flex items-center gap-1.5 cursor-pointer"
+            >
+              <Calendar className="w-3.5 h-3.5" />
+              <span>Buka Garis Waktu</span>
+            </button>
+            <button
+              type="button"
+              onClick={() => handleLoadFirms(scope, true)}
+              disabled={loadingFirms}
+              className="px-3 py-1.5 rounded-xl bg-amber-600 hover:bg-amber-700 text-white font-bold transition-colors flex items-center gap-1.5 cursor-pointer"
+            >
+              <RefreshCw className={`w-3.5 h-3.5 ${loadingFirms ? 'animate-spin' : ''}`} />
+              <span>Coba Satelit Lagi</span>
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* Real-time 5-Minute Auto-Sync Satellite Telemetry Bar (Active when in Live Mode and not in Fallback) */}
       {isUserUploaded ? (
         <div className="p-3.5 rounded-2xl bg-indigo-500/15 border border-indigo-500/30 flex items-center justify-between text-xs text-indigo-900 dark:text-indigo-200">
           <div className="flex items-center gap-2">
@@ -452,7 +889,7 @@ export const GeospatialHotspotsTab: React.FC<GeospatialHotspotsTabProps> = ({
             Kembali ke Satelit Live
           </button>
         </div>
-      ) : (
+      ) : activeTabMode === 'live' && !isFallbackSnapshot && (
         <div className="p-3.5 rounded-2xl bg-slate-900/90 dark:bg-slate-900/95 border border-slate-800 text-slate-200 flex flex-col md:flex-row md:items-center justify-between gap-3 shadow-lg">
           <div className="flex items-center gap-3">
             <div className="relative flex h-3 w-3 shrink-0">
@@ -705,10 +1142,22 @@ export const GeospatialHotspotsTab: React.FC<GeospatialHotspotsTabProps> = ({
 
       {/* Hotspots Data Table */}
       <div className="p-4 rounded-3xl bg-white dark:bg-slate-800/90 border border-slate-200 dark:border-slate-700/80 shadow-sm space-y-3">
-        <div className="flex items-center justify-between pb-2 border-b border-slate-100 dark:border-slate-700/60">
-          <h4 className="text-sm font-bold text-slate-900 dark:text-white">
-            Daftar Anomali Termal Terdeteksi ({displayedHotspots.length})
-          </h4>
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between pb-2 border-b border-slate-100 dark:border-slate-700/60 gap-2">
+          <div>
+            <h4 className="text-sm font-bold text-slate-900 dark:text-white">
+              Daftar Anomali Termal Terdeteksi ({displayedHotspots.length})
+            </h4>
+            {snapshotInfo && (
+              <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-0.5">
+                📅 Tanggal Data: <span className="font-semibold text-slate-700 dark:text-slate-200">{snapshotInfo.date}</span> • Waktu Diambil: <span className="font-semibold text-slate-700 dark:text-slate-200">{new Date(snapshotInfo.fetchedAt).toLocaleString('id-ID', { dateStyle: 'medium', timeStyle: 'short' })} WIB</span>
+                {isFallbackSnapshot && (
+                  <span className="ml-1.5 px-2 py-0.5 rounded-full bg-amber-500/20 text-amber-700 dark:text-amber-300 font-bold text-[10px]">
+                    Data Arsip Tersimpan (Fallback)
+                  </span>
+                )}
+              </p>
+            )}
+          </div>
           <span className="text-[10px] text-slate-400 font-mono">
             {analysisEnvelope.provenance.crs} • {analysisEnvelope.provenance.algorithmVersion}
           </span>
@@ -716,25 +1165,58 @@ export const GeospatialHotspotsTab: React.FC<GeospatialHotspotsTabProps> = ({
 
         {displayedHotspots.length === 0 ? (
           <div className="p-8 text-center space-y-3">
-            <div className="h-12 w-12 rounded-2xl bg-emerald-500/10 border border-emerald-500/25 flex items-center justify-center mx-auto text-emerald-500">
-              <ShieldCheck className="w-6 h-6" />
+            <div className={`h-12 w-12 rounded-2xl flex items-center justify-center mx-auto ${
+              loadingFirms
+                ? 'bg-sky-500/10 border border-sky-500/25 text-sky-500'
+                : fetchFailed
+                ? 'bg-amber-500/10 border border-amber-500/25 text-amber-500'
+                : 'bg-emerald-500/10 border border-emerald-500/25 text-emerald-500'
+            }`}>
+              {loadingFirms ? (
+                <RefreshCw className="w-6 h-6 animate-spin" />
+              ) : fetchFailed ? (
+                <AlertTriangle className="w-6 h-6" />
+              ) : (
+                <ShieldCheck className="w-6 h-6" />
+              )}
             </div>
             <div>
               <p className="text-sm font-bold text-slate-800 dark:text-white">
-                {isLiveSource
-                  ? `Nihil Titik Panas Karhutla di ${scope === 'indonesia' ? 'Seluruh Indonesia' : scope === 'java' ? 'Pulau Jawa' : regionName}`
+                {loadingFirms
+                  ? 'Sedang mengunduh data satelit NASA FIRMS…'
+                  : fetchFailed
+                  ? 'Koneksi Satelit NASA FIRMS Belum Tersedia'
+                  : isLiveSource
+                  ? `Nihil Titik Panas Permukaan Bumi Tidak Wajar di ${scope === 'indonesia' ? 'Seluruh Indonesia' : scope === 'java' ? 'Pulau Jawa' : regionName}`
                   : customCsv
                   ? 'Tidak ada deteksi yang cocok dengan kriteria filter'
-                  : 'Sedang mengunduh data satelit NASA FIRMS…'}
+                  : 'Data satelit belum dimuat'}
               </p>
               <p className="text-xs text-slate-500 max-w-md mx-auto mt-1 leading-relaxed">
-                {scope === 'aoi'
-                  ? `Sensor satelit VIIRS (resolusi 375m) dan MODIS (1km) tidak mendeteksi adanya anomali termal/titik api aktif di ${regionName} dalam jendela observasi ${daysRange * 24} jam terakhir. Area terpantau aman dan kondusif. Pembaruan data satelit berlangsung otomatis setiap 5 menit.`
+                {loadingFirms
+                  ? 'Menghubungkan ke satelit NASA EOSDIS LANCE NRT (VIIRS 375m & MODIS 1km) untuk memindai anomali termal…'
+                  : fetchFailed
+                  ? 'Server satelit NASA belum merespons dan belum ada data snapshot untuk filter saat ini. Anda dapat memeriksa ulang satelit atau membuka Garis Waktu Arsip untuk meninjau data historis.'
+                  : scope === 'aoi'
+                  ? `Sensor satelit VIIRS (resolusi 375m) dan MODIS (1km) tidak mendeteksi adanya anomali termal/titik api aktif di ${regionName} dalam jendela observasi ${daysRange * 24} jam terakhir. Area terpantau aman dan kondusif.`
                   : `Tidak ada titik anomali termal dengan ambang keyakinan terpilih di ${scope === 'indonesia' ? 'Seluruh Indonesia' : 'Pulau Jawa'} pada orbit satelit ${daysRange * 24} jam terakhir.`}
               </p>
             </div>
             <div className="flex items-center justify-center gap-2 pt-2 flex-wrap">
-              {scope === 'aoi' && (
+              {fetchFailed && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    setActiveTabMode('timeline');
+                    loadTimelineList();
+                  }}
+                  className="px-3.5 py-2 rounded-xl bg-gradient-to-r from-amber-600 to-rose-600 hover:brightness-110 text-white text-xs font-semibold shadow-sm transition-all flex items-center gap-1.5 cursor-pointer"
+                >
+                  <History className="w-3.5 h-3.5" />
+                  <span>Buka Garis Waktu & Arsip Historis (Timeline)</span>
+                </button>
+              )}
+              {scope === 'aoi' && !fetchFailed && (
                 <button
                   type="button"
                   onClick={() => { setScope('indonesia'); handleLoadFirms('indonesia', false); }}
@@ -760,7 +1242,7 @@ export const GeospatialHotspotsTab: React.FC<GeospatialHotspotsTabProps> = ({
             <table className="w-full text-xs text-left">
               <thead className="text-[10px] text-slate-400 uppercase bg-slate-50 dark:bg-slate-900/50 sticky top-0">
                 <tr>
-                  <th className="p-2">Waktu (UTC)</th>
+                  <th className="p-2">Waktu & Tanggal Akuisisi</th>
                   <th className="p-2">Satelit / Sensor</th>
                   <th className="p-2">Koordinat</th>
                   <th className="p-2">Suhu (K)</th>

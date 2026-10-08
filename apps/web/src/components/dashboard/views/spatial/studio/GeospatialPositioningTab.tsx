@@ -19,6 +19,8 @@ import {
   GNSSPositionState,
 } from '../../../../../services/geospatialAnalysisService';
 import { PreciseLocationInfo } from '../../../../../services/preciseGeocodingService';
+import { GnssAltimeterTool } from './GnssAltimeterTool';
+import { GnssElevationReport } from '../../../../../services/geospatial/gnssElevationService';
 
 interface GeospatialPositioningTabProps {
   currentLat: number;
@@ -75,6 +77,24 @@ export const GeospatialPositioningTab: React.FC<GeospatialPositioningTabProps> =
       simIntervalRef.current = null;
     }
     setIsSimulatingWalk(false);
+  };
+
+  const handleAltimeterPositionUpdated = (rep: GnssElevationReport) => {
+    lastCoordRef.current = { lat: rep.lat, lng: rep.lng, time: Date.now() };
+    setPosition({
+      lat: rep.lat,
+      lng: rep.lng,
+      altitudeM: rep.altitudeM,
+      accuracyM: rep.accuracyM,
+      headingDeg: position.headingDeg,
+      speedKmh: position.speedKmh,
+      timestamp: new Date().toISOString(),
+      epsg4326: `${rep.lat.toFixed(6)}°, ${rep.lng.toFixed(6)}°`,
+      epsg3857: rep.epsg3857,
+      geoidHeightM: null,
+      mode: 'DEVICE GNSS / BROWSER GEOLOCATION',
+      isLiveFix: true,
+    });
   };
 
   const toggleWatchGps = () => {
@@ -543,6 +563,9 @@ export const GeospatialPositioningTab: React.FC<GeospatialPositioningTabProps> =
           <strong>Perhatian Sensor GNSS:</strong> {gpsError}
         </div>
       )}
+
+      {/* Altimeter Geodesi GNSS & Pengukur Ketinggian Presisi */}
+      <GnssAltimeterTool onPositionUpdated={handleAltimeterPositionUpdated} />
 
       {/* Geodetic Telemetry Cards */}
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">

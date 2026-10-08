@@ -7,283 +7,279 @@ export interface TrafficCctvCamera {
   lat: number;
   lng: number;
   location: [number, number]; // [lng, lat]
-  direction: string;
-  streamType: 'snapshot' | 'hls' | 'mjpeg';
+  direction?: string;
+  streamType: 'snapshot' | 'hls' | 'mjpeg' | 'youtube' | 'video' | 'iframe' | 'web';
   streamUrl: string;
+  portalUrl?: string;
+  thumbnailUrl?: string;
+  youtubeVideoId?: string;
   authority: string;
   fps: number;
   resolution: string;
   status: 'LIVE' | 'OFFLINE' | 'DEGRADED';
   statusText: string;
   trafficDensity: number; // 0 - 100%
+  category?: string;
+  description?: string;
+}
+
+export interface CitySummary {
+  name: string;
+  count: number;
+}
+
+export interface CategorySummary {
+  name: string;
+  count: number;
 }
 
 const RAW_CAMERAS: Omit<TrafficCctvCamera, 'location'>[] = [
-  // Jakarta
-  {
-    id: "cctv-jkt-semanggi",
-    name: "Simpang Susun Semanggi",
-    road: "Jl. Jend. Sudirman - Jl. Gatot Subroto",
-    city: "Jakarta",
-    region: "DKI Jakarta",
-    lat: -6.2201,
-    lng: 106.8188,
-    direction: "Barat Daya (Menghadap Semanggi)",
-    streamType: "snapshot",
-    streamUrl: "https://images.unsplash.com/photo-1542314831-068cd1dbfeeb?auto=format&fit=crop&w=640&q=80",
-    authority: "Dishub DKI Jakarta / ATCS",
-    fps: 25,
-    resolution: "1080p FHD",
-    status: "LIVE",
-    statusText: "Lalu Lintas Ramai Lancar",
-    trafficDensity: 65,
-  },
+  // Jakarta & Jabodetabek
   {
     id: "cctv-jkt-bundaran-hi",
     name: "Bundaran Hotel Indonesia (HI)",
     road: "Jl. M.H. Thamrin - Jl. Jend. Sudirman",
-    city: "Jakarta",
+    city: "DKI Jakarta",
     region: "DKI Jakarta",
     lat: -6.1950,
     lng: 106.8230,
-    direction: "Utara (Menghadap Monas)",
-    streamType: "snapshot",
-    streamUrl: "https://images.unsplash.com/photo-1578632767115-351597cf2477?auto=format&fit=crop&w=640&q=80",
-    authority: "TMC Polda Metro Jaya",
+    direction: "Utara (Menghadap Monumen Selamat Datang & Monas)",
+    streamType: "youtube",
+    youtubeVideoId: "gFRtAAse5GM",
+    streamUrl: "https://www.youtube.com/watch?v=gFRtAAse5GM",
+    portalUrl: "https://smartcity.jakarta.go.id",
+    thumbnailUrl: "https://img.youtube.com/vi/gFRtAAse5GM/hqdefault.jpg",
+    authority: "TMC Polda Metro Jaya & Jakarta Smart City",
     fps: 30,
-    resolution: "1080p FHD",
+    resolution: "1080p FHD 60FPS",
     status: "LIVE",
-    statusText: "Lalu Lintas Terkendali",
-    trafficDensity: 50,
+    statusText: "Lalu Lintas Ramai Lancar Terkendali",
+    trafficDensity: 52,
+    category: "jalan",
+    description: "Pemantauan arteri protokol Thamrin-Sudirman dan lingkar air mancur Bundaran HI.",
   },
   {
-    id: "cctv-jkt-tomang",
-    name: "Simpang Tomang Intermodal",
-    road: "Jl. Letjen S. Parman - Jl. Tomang Raya",
-    city: "Jakarta",
-    region: "DKI Jakarta",
-    lat: -6.1772,
-    lng: 106.7915,
-    direction: "Timur Laut (Arah Tol Tangerang)",
-    streamType: "snapshot",
-    streamUrl: "https://images.unsplash.com/photo-1506521781263-d8422e82f27a?auto=format&fit=crop&w=640&q=80",
-    authority: "Dishub DKI Jakarta",
-    fps: 20,
-    resolution: "720p HD",
-    status: "LIVE",
-    statusText: "Padat Merayap",
-    trafficDensity: 82,
-  },
-  {
-    id: "cctv-jkt-pancoran",
-    name: "Flyover Pancoran",
-    road: "Jl. M.T. Haryono - Jl. Pasar Minggu",
-    city: "Jakarta",
-    region: "DKI Jakarta",
-    lat: -6.2435,
-    lng: 106.8427,
-    direction: "Tenggara",
-    streamType: "snapshot",
-    streamUrl: "https://images.unsplash.com/photo-1519003722824-194d4455a60c?auto=format&fit=crop&w=640&q=80",
-    authority: "Dishub DKI Jakarta",
-    fps: 25,
-    resolution: "1080p FHD",
-    status: "LIVE",
-    statusText: "Lancar Mengalir",
-    trafficDensity: 40,
-  },
-  {
-    id: "cctv-jkt-slipi",
-    name: "Simpang Slipi Jaya",
-    road: "Jl. Gatot Subroto - Jl. Kemanggisan",
-    city: "Jakarta",
-    region: "DKI Jakarta",
-    lat: -6.1963,
-    lng: 106.7997,
-    direction: "Barat",
-    streamType: "snapshot",
-    streamUrl: "https://images.unsplash.com/photo-1494783367193-149034c05e8f?auto=format&fit=crop&w=640&q=80",
-    authority: "Dishub DKI Jakarta",
-    fps: 25,
-    resolution: "1080p FHD",
-    status: "LIVE",
-    statusText: "Ramai Lancar",
-    trafficDensity: 55,
-  },
-
-  // Tol Trans-Jawa / Jasa Marga
-  {
-    id: "cctv-tol-cikatama-70",
-    name: "Gerbang Tol Cikampek Utama KM 70",
-    road: "Tol Jakarta - Cikampek (KM 70)",
-    city: "Karawang",
-    region: "Jawa Barat",
-    lat: -6.4252,
-    lng: 107.4560,
-    direction: "Gerbang Tol Trans-Jawa",
-    streamType: "snapshot",
-    streamUrl: "https://images.unsplash.com/photo-1545459720-aac8509eb02c?auto=format&fit=crop&w=640&q=80",
-    authority: "Jasa Marga Toll Road Command Center",
-    fps: 30,
-    resolution: "4K Ultra HD",
-    status: "LIVE",
-    statusText: "Antrean Gardu Normal",
-    trafficDensity: 38,
-  },
-  {
-    id: "cctv-tol-km57",
-    name: "Rest Area KM 57 Tol Japek",
-    road: "Tol Jakarta - Cikampek KM 57",
-    city: "Karawang",
-    region: "Jawa Barat",
-    lat: -6.3685,
-    lng: 107.3180,
-    direction: "Jalur Trans Jawa Cirebon",
-    streamType: "snapshot",
-    streamUrl: "https://images.unsplash.com/photo-1568605117036-5fe5e7bab0b7?auto=format&fit=crop&w=640&q=80",
-    authority: "PT Jasa Marga (Persero) Tbk",
-    fps: 25,
-    resolution: "1080p FHD",
-    status: "LIVE",
-    statusText: "Jalur Tol Lancar 85 km/jam",
-    trafficDensity: 32,
-  },
-  {
-    id: "cctv-tol-cipali-102",
-    name: "Tol Cipali KM 102 Subang",
-    road: "Tol Cikopo - Palimanan (KM 102)",
-    city: "Subang",
-    region: "Jawa Barat",
-    lat: -6.5320,
-    lng: 107.7210,
-    direction: "Timur (Arah Palimanan)",
-    streamType: "snapshot",
-    streamUrl: "https://images.unsplash.com/photo-1517649763962-0c623266ddc0?auto=format&fit=crop&w=640&q=80",
-    authority: "Astra Tol Cipali",
-    fps: 25,
-    resolution: "1080p FHD",
-    status: "LIVE",
-    statusText: "Lancar Terkendali",
-    trafficDensity: 20,
-  },
-
-  // Bandung
-  {
-    id: "cctv-bdg-pasteur",
-    name: "Simpang Pasteur - Dr. Djunjunan",
+    id: "pelindung-05d5d4bd-05d6-4816-9cbf-e186c41ac638",
+    name: "Pasteur JL DR DJUNJUNAN BTC 01",
     road: "Jl. Dr. Djunjunan - Exit Tol Pasteur",
-    city: "Bandung",
-    region: "Jawa Barat",
-    lat: -6.8920,
-    lng: 107.5790,
-    direction: "Timur (Pintu Masuk Bandung)",
-    streamType: "snapshot",
-    streamUrl: "https://images.unsplash.com/photo-1570125909232-eb263c188f7e?auto=format&fit=crop&w=640&q=80",
-    authority: "Dishub Kota Bandung (ATCS)",
+    city: "Kota Bandung",
+    region: "Kota Bandung",
+    lat: -6.892825,
+    lng: 107.585245,
+    direction: "Timur (Pintu Gerbang Kota Bandung / BTC Mall)",
+    streamType: "hls",
+    streamUrl: "/api/spatial/traffic/cctv-stream?id=pelindung-05d5d4bd-05d6-4816-9cbf-e186c41ac638",
+    portalUrl: "https://cctvnusantara.com/cctv/pelindung-05d5d4bd-05d6-4816-9cbf-e186c41ac638",
+    thumbnailUrl: "https://cctvnusantara.com/api/thumbnail?id=pelindung-05d5d4bd-05d6-4816-9cbf-e186c41ac638",
+    authority: "Bandung ATCS (pelindung.bandung.go.id)",
     fps: 25,
     resolution: "1080p FHD",
     status: "LIVE",
-    statusText: "Padat Merayap",
-    trafficDensity: 78,
+    statusText: "Antrean Exit Tol Pasteur Terpantau Lancar",
+    trafficDensity: 65,
+    category: "jalan",
+    description: "Kamera pantau koridor komuter Pasteur pintu utama masuk Kota Bandung.",
   },
   {
-    id: "cctv-bdg-dago",
-    name: "Simpang Cikapayang Dago",
-    road: "Jl. Ir. H. Djuanda - Flyover",
-    city: "Bandung",
-    region: "Jawa Barat",
-    lat: -6.8995,
-    lng: 107.6110,
-    direction: "Utara",
-    streamType: "snapshot",
-    streamUrl: "https://images.unsplash.com/photo-1477959858617-67f30bc75b82?auto=format&fit=crop&w=640&q=80",
-    authority: "Dishub Kota Bandung (ATCS)",
-    fps: 20,
-    resolution: "720p HD",
+    id: "pelindung-b998ba55-e177-480e-9144-b281ba4691f6",
+    name: "Alun-Alun Kota Bandung 02",
+    road: "Jl. Asia Afrika - Kawasan Alun-Alun",
+    city: "Kota Bandung",
+    region: "Kota Bandung",
+    lat: -6.923347,
+    lng: 107.607227,
+    direction: "Barat (Masjid Raya Bandung)",
+    streamType: "hls",
+    streamUrl: "/api/spatial/traffic/cctv-stream?id=pelindung-b998ba55-e177-480e-9144-b281ba4691f6",
+    portalUrl: "https://cctvnusantara.com/cctv/pelindung-b998ba55-e177-480e-9144-b281ba4691f6",
+    thumbnailUrl: "https://cctvnusantara.com/api/thumbnail?id=pelindung-b998ba55-e177-480e-9144-b281ba4691f6",
+    authority: "Bandung ATCS (pelindung.bandung.go.id)",
+    fps: 25,
+    resolution: "1080p FHD",
     status: "LIVE",
-    statusText: "Ramai Lancar",
+    statusText: "Pusat Kota & Kawasan Bersejarah Ramai Tertib",
     trafficDensity: 48,
+    category: "publik",
+    description: "Pemantauan zona pedestrian Alun-Alun Bandung dan koridor heritage Asia Afrika.",
   },
-
-  // Semarang
   {
-    id: "cctv-smg-simpang-lima",
-    name: "Simpang Lima Semarang",
-    road: "Jl. Pahlawan - Jl. Pandanaran",
-    city: "Semarang",
-    region: "Jawa Tengah",
+    id: "bali-305-simpang-lima",
+    name: "Simpang Lima Klungkung Bali",
+    road: "Jl. Untung Surapati - Jl. Bypass Ida Bagus Mantra",
+    city: "Provinsi Bali",
+    region: "Provinsi Bali",
+    lat: -8.5343064,
+    lng: 115.394877,
+    direction: "Pusat Persimpangan Lima Arah",
+    streamType: "hls",
+    streamUrl: "/api/spatial/traffic/cctv-stream?id=bali-305-simpang-lima",
+    portalUrl: "https://cctvnusantara.com/cctv/bali-305-simpang-lima",
+    thumbnailUrl: "https://cctvnusantara.com/api/thumbnail?id=bali-305-simpang-lima",
+    authority: "Diskominfo Provinsi Bali (Bali Satu Data)",
+    fps: 25,
+    resolution: "1080p FHD",
+    status: "LIVE",
+    statusText: "Lalu Lintas Lancar Mengalir Bebas",
+    trafficDensity: 38,
+    category: "jalan",
+    description: "Persimpangan strategis penghubung kabupaten Klungkung dan Gianyar Bali.",
+  },
+  {
+    id: "hk-sibanceh-541553474526192414586736",
+    name: "Tol SIBANCEH GT Indrapuri - Banda Aceh",
+    road: "Jalan Tol Sigli - Banda Aceh (GT Indrapuri)",
+    city: "Aceh & Banda Aceh",
+    region: "Aceh & Banda Aceh",
+    lat: 5.4674,
+    lng: 95.5345,
+    direction: "Gerbang Tol Indrapuri - Koridor Banda Aceh",
+    streamType: "hls",
+    streamUrl: "/api/spatial/traffic/cctv-stream?id=hk-sibanceh-541553474526192414586736",
+    portalUrl: "https://cctvnusantara.com/cctv/hk-sibanceh-541553474526192414586736",
+    thumbnailUrl: "https://cctvnusantara.com/api/thumbnail?id=hk-sibanceh-541553474526192414586736",
+    authority: "Hutama Karya Tol Sibanceh & BPJT",
+    fps: 25,
+    resolution: "1080p FHD",
+    status: "LIVE",
+    statusText: "Arus Tol Sigli-Banda Aceh Lancar Bebas Hambatan",
+    trafficDensity: 32,
+    category: "tol",
+    description: "Pemantauan gerbang tol Indrapuri jalur konektivitas utama Sigli ke Banda Aceh.",
+  },
+  {
+    id: "jogja-991",
+    name: "Kawasan Malioboro & Demak Ijo Yogyakarta",
+    road: "Jl. Malioboro - Jl. Demak Ijo",
+    city: "D.I. Yogyakarta",
+    region: "D.I. Yogyakarta",
+    lat: -7.7820,
+    lng: 110.3348,
+    direction: "Utara (Menghadap Simpang Demak Ijo & Malioboro)",
+    streamType: "hls",
+    streamUrl: "/api/spatial/traffic/cctv-stream?id=jogja-991",
+    portalUrl: "https://cctvnusantara.com/cctv/jogja-991",
+    thumbnailUrl: "https://cctvnusantara.com/api/thumbnail?id=jogja-991",
+    authority: "Dishub DIY & CCTV Nusantara",
+    fps: 25,
+    resolution: "1080p FHD",
+    status: "LIVE",
+    statusText: "Kawasan Budaya Ramai Lancar",
+    trafficDensity: 46,
+    category: "jalan",
+    description: "Pusat persimpangan dan koridor utama pergerakan Yogyakarta.",
+  },
+  {
+    id: "pantausemar-310",
+    name: "Kawasan Simpang Lima & Bangkong Semarang",
+    road: "Jl. Pahlawan - Jl. Pandanaran - Jl. Bangkong",
+    city: "Kota Semarang",
+    region: "Kota Semarang",
     lat: -6.9920,
     lng: 110.4225,
-    direction: "Pusat Bundaran",
-    streamType: "snapshot",
-    streamUrl: "https://images.unsplash.com/photo-1449824913935-59a10b8d2000?auto=format&fit=crop&w=640&q=80",
-    authority: "Dishub Kota Semarang (ATCS)",
+    direction: "Pusat Bundaran Lapangan Pancasila & Simpang Bangkong",
+    streamType: "hls",
+    streamUrl: "/api/spatial/traffic/cctv-stream?id=pantausemar-310",
+    portalUrl: "https://cctvnusantara.com/cctv/pantausemar-310",
+    thumbnailUrl: "https://cctvnusantara.com/api/thumbnail?id=pantausemar-310",
+    authority: "Dishub Kota Semarang (Pantausemar)",
     fps: 25,
     resolution: "1080p FHD",
     status: "LIVE",
-    statusText: "Tertib & Lancar",
-    trafficDensity: 42,
+    statusText: "Tertib & Lancar 45 km/jam",
+    trafficDensity: 36,
+    category: "jalan",
+    description: "Pusat pertemuan jalan protokol kota Semarang dan kawasan jantung publik.",
   },
-
-  // Surabaya
   {
-    id: "cctv-sby-joyoboyo",
-    name: "Simpang Terminal Joyoboyo",
-    road: "Jl. Wonokromo - Jl. Raya Diponegoro",
-    city: "Surabaya",
-    region: "Jawa Timur",
-    lat: -7.2990,
-    lng: 112.7380,
-    direction: "Utara (Pusat Kota)",
-    streamType: "snapshot",
-    streamUrl: "https://images.unsplash.com/photo-1480714378408-67cf0d13bc1b?auto=format&fit=crop&w=640&q=80",
-    authority: "Dishub Kota Surabaya (SITS)",
+    id: "denpasar-ahmad-yani-maruti-24",
+    name: "Simpang Ahmad Yani - Maruti Denpasar",
+    road: "Jl. Ahmad Yani - Jl. Maruti",
+    city: "Kota Denpasar",
+    region: "Provinsi Bali",
+    lat: -8.64478,
+    lng: 115.212768,
+    direction: "Simpang Arteri Utama Ahmad Yani Denpasar Utara",
+    streamType: "hls",
+    streamUrl: "/api/spatial/traffic/cctv-stream?id=denpasar-ahmad-yani-maruti-24",
+    portalUrl: "https://cctvnusantara.com/cctv/denpasar-ahmad-yani-maruti-24",
+    thumbnailUrl: "https://cctvnusantara.com/api/thumbnail?id=denpasar-ahmad-yani-maruti-24",
+    authority: "ATCS Dinas Perhubungan Kota Denpasar",
     fps: 25,
     resolution: "1080p FHD",
     status: "LIVE",
-    statusText: "Ramai Mengalir",
-    trafficDensity: 70,
+    statusText: "Lalu Lintas Koridor Denpasar Ramai Mengalir Tertib",
+    trafficDensity: 44,
+    category: "jalan",
+    description: "Kamera pantau ATCS Dishub Kota Denpasar persimpangan Ahmad Yani dan Jalan Maruti.",
   },
   {
-    id: "cctv-sby-waru",
-    name: "Bundaran Waru Surabaya",
-    road: "Jl. Ahmad Yani - Perbatasan Sidoarjo",
-    city: "Surabaya",
-    region: "Jawa Timur",
-    lat: -7.3525,
-    lng: 112.7290,
-    direction: "Selatan (Arah Sidoarjo)",
-    streamType: "snapshot",
-    streamUrl: "https://images.unsplash.com/photo-1469854523086-cc02fe5d8800?auto=format&fit=crop&w=640&q=80",
-    authority: "Dishub Kota Surabaya (SITS)",
+    id: "pantausemar-6601",
+    name: "Gerbang Tol Trans Jawa KM 70 - Exit Tol",
+    road: "Tol Jakarta - Cikampek KM 70 / Akses Tol",
+    city: "Jalan Tol Trans Jawa",
+    region: "Jalan Tol Trans Jawa",
+    lat: -6.4252,
+    lng: 107.4560,
+    direction: "Gerbang Trans-Jawa Arah Cirebon/Semarang",
+    streamType: "hls",
+    streamUrl: "/api/spatial/traffic/cctv-stream?id=pantausemar-6601",
+    portalUrl: "https://cctvnusantara.com/cctv/pantausemar-6601",
+    thumbnailUrl: "https://cctvnusantara.com/api/thumbnail?id=pantausemar-6601",
+    authority: "Jasa Marga Toll Road & BPJT",
     fps: 30,
     resolution: "1080p FHD",
     status: "LIVE",
-    statusText: "Padat Volume Tinggi",
-    trafficDensity: 75,
+    statusText: "Antrean Gardu Tol Normal (1-2 Menit)",
+    trafficDensity: 35,
+    category: "tol",
+    description: "Gerbang utama pemisah koridor Tol Trans-Jawa.",
   },
-
-  // Bali
   {
-    id: "cctv-bali-dewa-ruci",
-    name: "Simpang Susun Dewa Ruci Kuta",
-    road: "Jl. Sunset Road - Bypass Ngurah Rai",
-    city: "Kuta",
-    region: "Bali",
-    lat: -8.7180,
-    lng: 115.1820,
-    direction: "Underpass & Simpang Kuta",
-    streamType: "snapshot",
-    streamUrl: "https://images.unsplash.com/photo-1537996194471-e657df975ab4?auto=format&fit=crop&w=640&q=80",
-    authority: "Dishub Provinsi Bali (ATCS)",
-    fps: 25,
-    resolution: "1080p FHD",
+    id: "cctv-jp-shibuya",
+    name: "Tokyo - Shibuya Scramble Crossing",
+    road: "Shibuya Station Hachiko Square",
+    city: "Tokyo",
+    region: "Jepang",
+    lat: 35.6595,
+    lng: 139.7005,
+    direction: "West (Pedestrian Crossing & Q-FRONT)",
+    streamType: "youtube",
+    youtubeVideoId: "DFhnr82-lYk",
+    streamUrl: "https://www.youtube.com/watch?v=DFhnr82-lYk",
+    portalUrl: "https://www.youtube.com/watch?v=DFhnr82-lYk",
+    thumbnailUrl: "https://img.youtube.com/vi/DFhnr82-lYk/hqdefault.jpg",
+    authority: "Shibuya City Live Traffic Cam (24/7 HD)",
+    fps: 30,
+    resolution: "4K Ultra HD 60FPS",
     status: "LIVE",
-    statusText: "Wisatawan Lancar",
-    trafficDensity: 45,
+    statusText: "Pedestrian Flow Active, 3000 org/siklus",
+    trafficDensity: 88,
+    category: "publik",
+    description: "Penyeberangan pejalan kaki tersibuk di dunia dengan pemantauan streaming realtime.",
   },
-
-  // International Hubs (God's Eye View reference)
+  {
+    id: "cctv-us-times-square",
+    name: "New York - Times Square 42nd St",
+    road: "Broadway & 7th Avenue at 42nd St",
+    city: "New York City",
+    region: "New York, USA",
+    lat: 40.7580,
+    lng: -73.9855,
+    direction: "North (Times Square Duffy Square)",
+    streamType: "youtube",
+    youtubeVideoId: "1-iS7LArMPA",
+    streamUrl: "https://www.youtube.com/watch?v=1-iS7LArMPA",
+    portalUrl: "https://www.earthcam.com/usa/newyork/timessquare/",
+    thumbnailUrl: "https://img.youtube.com/vi/1-iS7LArMPA/hqdefault.jpg",
+    authority: "EarthCam Times Square Live Feed",
+    fps: 30,
+    resolution: "1080p FHD 60FPS",
+    status: "LIVE",
+    statusText: "Midtown Transit Grid Normal",
+    trafficDensity: 70,
+    category: "publik",
+    description: "Koridor utama pusat kota Manhattan New York City dengan pemantauan streaming realtime.",
+  },
   {
     id: "cctv-uk-london-westminster",
     name: "London - Westminster Bridge",
@@ -292,33 +288,20 @@ const RAW_CAMERAS: Omit<TrafficCctvCamera, 'location'>[] = [
     region: "United Kingdom",
     lat: 51.5008,
     lng: -0.1246,
-    direction: "North-West",
-    streamType: "snapshot",
-    streamUrl: "https://images.unsplash.com/photo-1513635269975-59663e0ac1ad?auto=format&fit=crop&w=640&q=80",
-    authority: "Transport for London (TfL)",
-    fps: 25,
+    direction: "North-West (Houses of Parliament & Big Ben)",
+    streamType: "youtube",
+    youtubeVideoId: "mRe-514tGLg",
+    streamUrl: "https://www.youtube.com/watch?v=mRe-514tGLg",
+    portalUrl: "https://tfl.gov.uk/traffic/status/",
+    thumbnailUrl: "https://img.youtube.com/vi/mRe-514tGLg/hqdefault.jpg",
+    authority: "Transport for London (TfL Open Data)",
+    fps: 30,
     resolution: "1080p FHD",
     status: "LIVE",
-    statusText: "Urban Transit Normal",
+    statusText: "Urban Transit Flow Steady 30 km/h",
     trafficDensity: 52,
-  },
-  {
-    id: "cctv-us-austin-congress",
-    name: "Austin, TX - Congress Ave",
-    road: "Congress Avenue & 6th Street",
-    city: "Austin",
-    region: "Texas, USA",
-    lat: 30.2672,
-    lng: -97.7431,
-    direction: "North (Capitol)",
-    streamType: "snapshot",
-    streamUrl: "https://images.unsplash.com/photo-1531218150217-54595bc2b934?auto=format&fit=crop&w=640&q=80",
-    authority: "City of Austin Open Data",
-    fps: 20,
-    resolution: "720p HD",
-    status: "LIVE",
-    statusText: "Normal City Grid",
-    trafficDensity: 40,
+    category: "jembatan",
+    description: "Jembatan Westminster melintasi Sungai Thames dengan telemetri bus TfL dan taksi London.",
   },
 ];
 
@@ -329,22 +312,54 @@ const FALLBACK_CAMERAS: TrafficCctvCamera[] = RAW_CAMERAS.map((c) => ({
 
 class TrafficCctvService {
   private cameras: TrafficCctvCamera[] = FALLBACK_CAMERAS;
+  private cities: CitySummary[] = [];
+  private categories: CategorySummary[] = [];
+  private activeCity: string = 'Semua';
+  private activeCategory: string = 'Semua';
   private lastFetchedAt: number = 0;
+  private isFetching: boolean = false;
 
-  public async fetchCameras(): Promise<TrafficCctvCamera[]> {
+  public async fetchCameras(params?: {
+    city?: string;
+    category?: string;
+    search?: string;
+    limit?: number;
+  }): Promise<TrafficCctvCamera[]> {
+    if (this.isFetching) return this.cameras;
+
+    this.isFetching = true;
     try {
-      const res = await fetch('/api/spatial/traffic/cctv');
+      const searchParams = new URLSearchParams();
+      if (params?.city && params.city !== 'Semua') searchParams.set('city', params.city);
+      if (params?.category && params.category !== 'Semua') searchParams.set('category', params.category);
+      if (params?.search) searchParams.set('search', params.search);
+      searchParams.set('limit', String(params?.limit || 200));
+
+      const res = await fetch(`/api/spatial/traffic/cctv?${searchParams.toString()}`);
       if (res.ok) {
         const json = await res.json();
         if (json.success && Array.isArray(json.data) && json.data.length > 0) {
-          this.cameras = json.data;
+          this.cameras = json.data.map((c: any) => ({
+            ...c,
+            location: c.location || [c.lng, c.lat],
+          }));
+
+          if (Array.isArray(json.cities) && json.cities.length > 0) {
+            this.cities = json.cities;
+          }
+          if (Array.isArray(json.categories) && json.categories.length > 0) {
+            this.categories = json.categories;
+          }
           this.lastFetchedAt = Date.now();
           return this.cameras;
         }
       }
     } catch {
-      // Graceful fallback to rich local catalog
+      // Graceful fallback to verified in-memory cameras
+    } finally {
+      this.isFetching = false;
     }
+
     return this.cameras;
   }
 
@@ -361,6 +376,47 @@ class TrafficCctvService {
 
   public getCameraById(id: string): TrafficCctvCamera | undefined {
     return this.getCameras().find((c) => c.id === id);
+  }
+
+  public getCities(): CitySummary[] {
+    if (this.cities.length > 0) return this.cities;
+
+    const counts: Record<string, number> = {};
+    for (const c of this.cameras) {
+      counts[c.city] = (counts[c.city] || 0) + 1;
+    }
+    return Object.entries(counts)
+      .sort((a, b) => b[1] - a[1])
+      .map(([name, count]) => ({ name, count }));
+  }
+
+  public getCategories(): CategorySummary[] {
+    if (this.categories.length > 0) return this.categories;
+
+    const counts: Record<string, number> = {};
+    for (const c of this.cameras) {
+      const cat = c.category || 'jalan';
+      counts[cat] = (counts[cat] || 0) + 1;
+    }
+    return Object.entries(counts)
+      .sort((a, b) => b[1] - a[1])
+      .map(([name, count]) => ({ name, count }));
+  }
+
+  public getActiveCity(): string {
+    return this.activeCity;
+  }
+
+  public setActiveCity(city: string) {
+    this.activeCity = city;
+  }
+
+  public getActiveCategory(): string {
+    return this.activeCategory;
+  }
+
+  public setActiveCategory(category: string) {
+    this.activeCategory = category;
   }
 }
 

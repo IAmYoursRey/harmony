@@ -127,7 +127,7 @@ export default function LoginPage() {
 
   const handleDevLogin = async (role: "developer" | "student" = "developer") => {
     setLoading(true);
-    setLoadingText(`Menyiapkan sesi ${role === "developer" ? "Pengembang" : "Siswa"}...`);
+    setLoadingText("Menyiapkan sesi Demo (Akses Penuh)...");
     try {
       const devPayload = role === "developer"
         ? {
@@ -321,15 +321,7 @@ export default function LoginPage() {
                         className="w-full flex items-center justify-center gap-2.5 rounded-xl bg-gradient-to-r from-brand-600 to-indigo-600 px-4 py-2.5 text-sm font-semibold text-white shadow-sm hover:from-brand-500 hover:to-indigo-500 transition-all hover:shadow-md active:scale-[0.99]"
                       >
                         <Sparkles className="h-4 w-4" />
-                        <span>Masuk Langsung sebagai Pengembang (Raihan)</span>
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => handleDevLogin("student")}
-                        className="w-full flex items-center justify-center gap-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-white/60 dark:bg-slate-800/60 px-4 py-2 text-xs font-medium text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 transition-all"
-                      >
-                        <UserCheck className="h-3.5 w-3.5 text-slate-500" />
-                        <span>Masuk sebagai Akun Siswa (Demo)</span>
+                        <span>Masuk Mode Demo (Akses Penuh Semua Fitur)</span>
                       </button>
                     </div>
 

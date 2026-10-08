@@ -94,8 +94,12 @@ export const VolcanoDetailModal: React.FC<VolcanoDetailModalProps> = ({
 
           <button
             type="button"
-            onClick={onClose}
-            className="p-2 rounded-xl text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors shrink-0 cursor-pointer"
+            onClick={(e) => {
+              e.preventDefault();
+              e.stopPropagation();
+              onClose();
+            }}
+            className="p-2 rounded-xl text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors shrink-0 cursor-pointer relative z-10"
             aria-label="Tutup modal"
           >
             <X className="w-5 h-5" />

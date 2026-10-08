@@ -37,7 +37,7 @@ import {
   Newspaper, Palette, Paintbrush, Box, Compass, RotateCcw, RotateCw, LocateFixed, CloudSun,
   Waves, Gauge, Flame, AlertCircle, Navigation, Satellite, Layers, Car, Info, ShieldCheck,
   ArrowUp, ArrowUpRight, Check, Eye, Radio, BookOpen, ExternalLink, Calendar, Sparkles, Droplets,
-  ChevronUp, ChevronDown, Database, Zap, Cpu, Video, Camera, Key, Play
+  ChevronUp, ChevronDown, Database, Zap, Cpu, Video, Camera, Key, Play, Route, Sliders
 } from "lucide-react";
 import { useNavigate, useOutletContext } from "react-router-dom";
 import { seasonalIntelligenceService, type SeasonalInfo, EQUATOR_MONUMENTS } from "@/services/seasonalIntelligenceService";
@@ -51,6 +51,7 @@ const GlobeView3D = lazy(() => import("./GlobeView3D").then(module => ({ default
 import { volcanoService, type VolcanoLiveStatus } from "@/services/volcanoService";
 import { GeospatialWeatherModal, STUDIO_DOMAINS, type StudioDomain } from "./GeospatialWeatherModal";
 import { RouteNavigatorModal } from "./RouteNavigatorModal";
+import { gnssElevationService, type GnssElevationReport } from "@/services/geospatial/gnssElevationService";
 import { RouteResult, routingService } from "@/services/routingService";
 import { WebGISTutorialModal } from "./WebGISTutorialModal";
 import { DisasterRiskCenterModal, LANDSLIDE_SUSCEPTIBILITY_ZONES, TSUNAMI_HAZARD_ZONES } from "./DisasterRiskCenterModal";
@@ -95,8 +96,8 @@ import { GroundedScenarioModal } from "./GroundedScenarioModal";
 import { aoiService, AreaOfInterest } from "@/services/geospatial/aoiService";
 import { trafficCctvService, type TrafficCctvCamera } from "@/services/trafficCctvService";
 import { trafficSignalsService, type TrafficSignalIntersection } from "@/services/trafficSignalsService";
-import { trafficVehicleEngine } from "@/services/trafficVehicleEngine";
 import { liveTrafficFlowService, type LiveTrafficNetworkSummary } from "@/services/liveTrafficFlowService";
+import { trafficGpsDensityService, computeTypicalTraffic, type TrafficCrowdsourceSummary } from "@/services/trafficGpsDensityService";
 import { LiveCctvModal } from "./map/LiveCctvModal";
 import { TrafficSignalModal } from "./map/TrafficSignalModal";
 import { VolcanoDetailModal } from "./map/VolcanoDetailModal";
@@ -398,10 +399,18 @@ function getSynchronousUserId(): string {
 }
 
 // Clean up legacy global keys so previous versions do not force 'true'
-if (typeof window !== 'undefined' && !window.localStorage.getItem('hm_migrated_v3')) {
+if (typeof window !== 'undefined' && !window.localStorage.getItem('hm_migrated_v4')) {
   try {
-    ['hm_showActive', 'hm_showInactive', 'hm_showPeaks', 'hm_showSD', 'hm_showSMP', 'hm_showSMA', 'hm_showTectonic', 'hm_showEarthquakes', 'hm_showForests', 'hm_showKota', 'hm_showKabupaten', 'hm_showDesa', 'hm_equator_zones'].forEach(k => window.localStorage.removeItem(k));
+    ['hm_showActive', 'hm_showInactive', 'hm_showPeaks', 'hm_showSD', 'hm_showSMP', 'hm_showSMA', 'hm_showTectonic', 'hm_showEarthquakes', 'hm_showForests', 'hm_showKota', 'hm_showKabupaten', 'hm_showDesa', 'hm_equator_zones', 'hm_show_bottom_dock', 'hm_geospatial_intel_bar', 'hm_traffic_bar', 'hm_weather_card', 'hm_webgis_tutorial_seen'].forEach(k => window.localStorage.removeItem(k));
     Object.keys(window.localStorage).forEach((k) => {
+      if (
+        k.startsWith('hm_show_bottom_dock_') ||
+        k.startsWith('hm_geospatial_intel_bar_') ||
+        k.startsWith('hm_traffic_bar_') ||
+        k.startsWith('hm_weather_card_')
+      ) {
+        window.localStorage.removeItem(k);
+      }
       if (k.startsWith('hm_user_layers_')) {
         try {
           const parsed = JSON.parse(window.localStorage.getItem(k) || '{}');
@@ -410,7 +419,7 @@ if (typeof window !== 'undefined' && !window.localStorage.getItem('hm_migrated_v
         } catch (e) {}
       }
     });
-    window.localStorage.setItem('hm_migrated_v3', 'true');
+    window.localStorage.setItem('hm_migrated_v4', 'true');
   } catch (e) {}
 }
 
@@ -510,6 +519,7 @@ export function MapsView() {
     return () => window.removeEventListener('view-school-profile', handleViewProfile);
   }, [navigate, setSelection]);
 
+  const activeUserId = currentProfile?.userId || currentUser?.id || getSynchronousUserId() || 'guest';
   const userSchoolId = currentUser ? currentProfile?.schoolId : null;
   const activeSchoolName = currentUser ? (selection?.school?.name || (currentProfile as any)?.schoolName || '') : '';
   const activeSchoolId = currentUser ? (selection?.school?.id || userSchoolId || null) : null;
@@ -570,6 +580,8 @@ export function MapsView() {
   const [showBasemapMenu, setShowBasemapMenu] = useState<boolean>(false);
   const [showMetadataModal, setShowMetadataModal] = useState<boolean>(false);
   const [showDataProvenanceModal, setShowDataProvenanceModal] = useState<boolean>(false);
+  // Geospatial Studio Modal State (Cloud Button)
+  const [showGeospatialModal, setShowGeospatialModal] = useState<boolean>(false);
   const [showTrafficCorridors, setShowTrafficCorridors] = useState<boolean>(false);
   const [showObservationCoverage, setShowObservationCoverage] = useState<boolean>(false);
   const [selectedCorridor, setSelectedCorridor] = useState<TrafficCorridor | null>(null);
@@ -577,22 +589,67 @@ export function MapsView() {
   const [trafficIslandFilter, setTrafficIslandFilter] = useState<string>('all');
   const [trafficSearchQuery, setTrafficSearchQuery] = useState<string>('');
   const [trafficDataList, setTrafficDataList] = useState<TrafficCorridor[]>(INDONESIA_TRAFFIC_CORRIDORS);
+  const isLeanDevice = useMemo(() => {
+    try {
+      const diag = hardwarePerformanceService.getDiagnostics();
+      const prof = hardwarePerformanceService.getProfile();
+      return prof.effectiveMode === 'lite' || diag.isMobile || diag.isTouch || diag.isLowSpecDetected;
+    } catch {
+      return false;
+    }
+  }, []);
+
   const [isTrafficRefreshing, setIsTrafficRefreshing] = useState<boolean>(false);
   const [lastTrafficSyncTime, setLastTrafficSyncTime] = useState<string>('Baru saja');
-  const [isAutoSyncTraffic, setIsAutoSyncTraffic] = useState<boolean>(true);
+  const [isAutoSyncTraffic, setIsAutoSyncTraffic] = useState<boolean>(false);
   const [syncCountdown, setSyncCountdown] = useState<number>(15);
-  // Real-time Traffic Layers & God's Eye Telemetry States
-  const [showMovingVehicles, setShowMovingVehicles] = useState<boolean>(true);
-  const [showTrafficCctv, setShowTrafficCctv] = useState<boolean>(true);
-  const [showTrafficSignals, setShowTrafficSignals] = useState<boolean>(true);
+  // Real-time Traffic Layers & Google Maps Traffic Engine States (Lightweight on-demand for mobile)
+  const [trafficMode, setTrafficMode] = useState<'live' | 'typical'>('live');
+  const [trafficTypicalDay, setTrafficTypicalDay] = useState<number>(() => new Date().getDay()); // 0 = M, 1 = S, 2 = S, 3 = R, 4 = K, 5 = J, 6 = S
+  const [trafficTypicalHour, setTrafficTypicalHour] = useState<number>(() => {
+    const d = new Date();
+    return Math.round((d.getHours() + d.getMinutes() / 60) * 10) / 10;
+  });
+  const [showBottomDock, setShowBottomDock] = useState<boolean>(() => {
+    try {
+      return window.localStorage.getItem(`hm_show_bottom_dock_${activeUserId}`) === 'true';
+    } catch {
+      return false;
+    }
+  });
+  const [showTrafficControlBar, setShowTrafficControlBar] = useState<boolean>(() => {
+    try {
+      return window.localStorage.getItem(`hm_traffic_bar_${activeUserId}`) === 'true';
+    } catch {
+      return false;
+    }
+  });
+  const [showGeospatialIntelBar, setShowGeospatialIntelBar] = useState<boolean>(() => {
+    try {
+      return window.localStorage.getItem(`hm_geospatial_intel_bar_${activeUserId}`) === 'true';
+    } catch {
+      return false;
+    }
+  });
+  const [showGpsProbes, setShowGpsProbes] = useState<boolean>(false);
+  const [isBroadcastingUserGps, setIsBroadcastingUserGps] = useState<boolean>(false);
+  const [crowdsourceSummary, setCrowdsourceSummary] = useState<TrafficCrowdsourceSummary>(() => trafficGpsDensityService.getSummary());
+  const [showTrafficCctv, setShowTrafficCctv] = useState<boolean>(false);
+  const [showTrafficSignals, setShowTrafficSignals] = useState<boolean>(false);
   const [selectedCctvCamera, setSelectedCctvCamera] = useState<TrafficCctvCamera | null>(null);
+  const [cctvCameras, setCctvCameras] = useState<TrafficCctvCamera[]>(() => trafficCctvService.getAllCameras());
+  const [cctvCityFilter, setCctvCityFilter] = useState<string>('Semua');
+  const [cctvCategoryFilter, setCctvCategoryFilter] = useState<string>('Semua');
+  const [cctvSearchQuery, setCctvSearchQuery] = useState<string>('');
+  const [isCctvLoading, setIsCctvLoading] = useState<boolean>(false);
+  const [cctvDisplayLimit, setCctvDisplayLimit] = useState<number>(40);
   const [selectedTrafficSignalId, setSelectedTrafficSignalId] = useState<string | null>(null);
   const [selectedVolcanoForModal, setSelectedVolcanoForModal] = useState<VolcanoLiveStatus | null>(null);
   const [selectedEarthquakeForModal, setSelectedEarthquakeForModal] = useState<EarthquakeRecord | null>(null);
   const [selectedHotspotForModal, setSelectedHotspotForModal] = useState<ActiveFireHotspot | null>(null);
-  const [showHotspots, setShowHotspots] = useState<boolean>(true);
+  const [showHotspots, setShowHotspots] = useState<boolean>(false);
   const [liveTrafficSummary, setLiveTrafficSummary] = useState<LiveTrafficNetworkSummary | null>(null);
-  const [trafficDrawerTab, setTrafficDrawerTab] = useState<'corridors' | 'cctv' | 'signals' | 'byok'>('corridors');
+  const [trafficDrawerTab, setTrafficDrawerTab] = useState<'corridors' | 'probes' | 'cctv' | 'signals' | 'byok'>('corridors');
   const [customTomTomKeyInput, setCustomTomTomKeyInput] = useState<string>(() => liveTrafficFlowService.getCustomTomTomApiKey() || '');
   const [customTomTomKeyStatus, setCustomTomTomKeyStatus] = useState<string>('');
   const [uiExperienceMode, setUiExperienceMode] = useState<'education' | 'expert'>(() => {
@@ -600,7 +657,7 @@ export function MapsView() {
       const saved = window.localStorage.getItem('hm_ui_experience_mode');
       if (saved === 'expert' || saved === 'education') return saved;
     } catch (e) {}
-    return 'education';
+    return 'expert';
   });
   const [showGroundedScenarioModal, setShowGroundedScenarioModal] = useState<boolean>(false);
   const [tomtomProbeResult, setTomtomProbeResult] = useState<{
@@ -914,19 +971,15 @@ export function MapsView() {
       setLiveTrafficSummary(summary);
       if (summary) {
         setLastTrafficSyncTime(`Live API ${new Date().toLocaleTimeString('id-ID')}`);
-        // Notify moving vehicles engine with updated flow speeds
-        summary.severeBottlenecks.forEach((sb) => {
-          trafficVehicleEngine.updateFlowSpeed(sb.corridorId, sb.currentSpeedKmh, sb.status);
-        });
       }
     });
 
-    if (isAutoSyncTraffic) {
+    if (isAutoSyncTraffic && !showGeospatialModal) {
       liveTrafficFlowService.startPolling(15000);
     }
 
     const timer = setInterval(() => {
-      if (!isAutoSyncTraffic) return;
+      if (!isAutoSyncTraffic || showGeospatialModal) return;
       setSyncCountdown((prev) => {
         if (prev <= 1) {
           if (selectedCorridor) {
@@ -949,7 +1002,7 @@ export function MapsView() {
       liveTrafficFlowService.stopPolling();
       clearInterval(timer);
     };
-  }, [showTrafficCorridors, activeMapBasemap, isAutoSyncTraffic, selectedCorridor, handleCheckTomTomLive]);
+  }, [showTrafficCorridors, activeMapBasemap, isAutoSyncTraffic, selectedCorridor, handleCheckTomTomLive, showGeospatialModal]);
 
   const handleFocusCorridor = useCallback((corridor: TrafficCorridor) => {
     setSelectedCorridor(corridor);
@@ -986,6 +1039,41 @@ export function MapsView() {
     });
   }, []);
 
+  const updateCctvLayerFeatures = useCallback((cams: TrafficCctvCamera[]) => {
+    if (!trafficCctvLayerRef.current) return;
+    const source = trafficCctvLayerRef.current.getSource();
+    if (!source) return;
+    source.clear();
+    const features = cams.map((cam) => {
+      return new Feature({
+        geometry: new Point(fromLonLat(cam.location)),
+        isTrafficCctv: true,
+        cctvId: cam.id,
+        cctvData: cam,
+        name: cam.name,
+      });
+    });
+    source.addFeatures(features);
+  }, []);
+
+  const loadCctvFeeds = useCallback(async (city?: string, category?: string, search?: string) => {
+    setIsCctvLoading(true);
+    try {
+      const cams = await trafficCctvService.fetchCameras({
+        city: city && city !== 'Semua' ? city : undefined,
+        category: category && category !== 'Semua' ? category : undefined,
+        search: search || undefined,
+        limit: 300,
+      });
+      setCctvCameras(cams);
+      updateCctvLayerFeatures(cams);
+    } catch {
+      // Fallback preserves existing in-memory catalog
+    } finally {
+      setIsCctvLoading(false);
+    }
+  }, [updateCctvLayerFeatures]);
+
   const handleFocusSignal = useCallback((sig: TrafficSignalIntersection) => {
     mapRef.current?.getView().animate({
       center: fromLonLat(sig.location),
@@ -1003,6 +1091,19 @@ export function MapsView() {
     );
     setTimeout(() => setCustomTomTomKeyStatus(''), 4000);
   }, [customTomTomKeyInput]);
+
+  const handleToggleBroadcastGps = useCallback(async () => {
+    if (isBroadcastingUserGps) {
+      trafficGpsDensityService.stopBroadcastingUserGps();
+      setIsBroadcastingUserGps(false);
+    } else {
+      const started = await trafficGpsDensityService.startBroadcastingUserGps();
+      setIsBroadcastingUserGps(started);
+      if (!started) {
+        alert('Tidak dapat mengaktifkan Geolocation browser. Pastikan izin akses lokasi telah diberikan di peramban Anda.');
+      }
+    }
+  }, [isBroadcastingUserGps]);
 
   // Compass Rose & Wind Direction State (Fitur Arah Mata Angin)
   const [windDirectionDeg, setWindDirectionDeg] = useState<number>(135);
@@ -1069,7 +1170,6 @@ export function MapsView() {
   const trafficOverlayLayerRef = useRef<TileLayer<any> | null>(null);
 
   // Per-User Settings: defaults to all OFF for new accounts/users
-  const activeUserId = currentProfile?.userId || currentUser?.id || getSynchronousUserId() || 'guest';
   const profileMapSettings = (currentProfile as any)?.mapSettings;
   const { settings, updateSetting } = useUserMapSettings(activeUserId, profileMapSettings);
 
@@ -1347,13 +1447,7 @@ export function MapsView() {
   const setShowTsunamiZones = (v: boolean | ((prev: boolean) => boolean)) => updateSetting('showTsunamiZones', v);
 
   // Pusat Risiko Bencana & Edukasi Sekolah Tangguh
-  const [showWebGisTutorial, setShowWebGisTutorial] = useState<boolean>(() => {
-    try {
-      return window.localStorage.getItem('hm_webgis_tutorial_seen') !== 'true';
-    } catch (e) {
-      return false;
-    }
-  });
+  const [showWebGisTutorial, setShowWebGisTutorial] = useState<boolean>(false);
   const [showDisasterRiskCenter, setShowDisasterRiskCenter] = useState<boolean>(false);
   const landslideLayerRef = useRef<VectorLayer<VectorSource> | null>(null);
   const tsunamiLayerRef = useRef<VectorLayer<VectorSource> | null>(null);
@@ -1406,7 +1500,7 @@ export function MapsView() {
   const tsunamiSensorsLayerRef = useRef<VectorLayer<VectorSource> | null>(null);
   const [showWindyModal, setShowWindyModal] = useState(false);
   const [windyOverlay, setWindyOverlay] = useState<string>('rain');
-  const [showWindyMenu, setShowWindyMenu] = useState<boolean>(true);
+  const [showWindyMenu, setShowWindyMenu] = useState<boolean>(false);
   const [weatherOverlayOpacity, setWeatherOverlayOpacity] = useState<number>(0.85);
   const [weatherInteractionTarget, setWeatherInteractionTarget] = useState<'weather' | 'disaster'>('weather');
   const [windyCoords, setWindyCoords] = useState<{ lat: number; lng: number; zoom: number }>({ lat: -2.5, lng: 118.0, zoom: 5 });
@@ -1476,11 +1570,21 @@ export function MapsView() {
   const [sensorFamilyFilter, setSensorFamilyFilter] = useState<SensorFamily | 'ALL'>('ALL');
   const sensorRegistryStats = useMemo(() => getSensorRegistryStats(), []);
 
-  // Geospatial Studio Modal State (Cloud Button)
-  const [showGeospatialModal, setShowGeospatialModal] = useState(false);
+
+  // De-load and re-render map when switching between Map and Geospatial Studio modal
+  useEffect(() => {
+    if (!showGeospatialModal && mapRef.current) {
+      const timer = setTimeout(() => {
+        mapRef.current?.updateSize();
+        mapRef.current?.render();
+      }, 50);
+      return () => clearTimeout(timer);
+    }
+  }, [showGeospatialModal]);
 
   // GPS Location & Realtime Tracking State
   const [showRouteModal, setShowRouteModal] = useState(false);
+  const [userElevationReport, setUserElevationReport] = useState<GnssElevationReport | null>(null);
   const [activeRoute, setActiveRoute] = useState<RouteResult | null>(null);
   const [isPickingRouteLocation, setIsPickingRouteLocation] = useState(false);
   const [pickedRouteDestination, setPickedRouteDestination] = useState<{ lat: number; lng: number; label: string } | null>(null);
@@ -1498,6 +1602,7 @@ export function MapsView() {
     province?: string;
     road?: string;
     fullAddress?: string;
+    elevationReport?: GnssElevationReport | null;
   } | null>(null);
   const [globeInitialCenter, setGlobeInitialCenter] = useState<{ lat: number; lng: number } | undefined>(undefined);
   const [globeInitialZoom, setGlobeInitialZoom] = useState<number>(6);
@@ -1517,7 +1622,6 @@ export function MapsView() {
   const [activeLayerLoads, setActiveLayerLoads] = useState(0);
   const equatorLayerRef = useRef<VectorLayer<VectorSource> | null>(null);
   const trafficVectorLayerRef = useRef<VectorLayer<VectorSource> | null>(null);
-  const trafficVehiclesLayerRef = useRef<VectorLayer<VectorSource> | null>(null);
   const trafficCctvLayerRef = useRef<VectorLayer<VectorSource> | null>(null);
   const trafficSignalsLayerRef = useRef<VectorLayer<VectorSource> | null>(null);
   const observationCoverageLayerRef = useRef<VectorLayer<VectorSource> | null>(null);
@@ -1548,6 +1652,35 @@ export function MapsView() {
     setShowWindyModal(true);
   };
 
+  // Harmony Navigation & AI Copilot Event Listeners (Buka Cuaca, Lapisan Peta, dll)
+  useEffect(() => {
+    const handleOpenWeather = (e: Event) => {
+      const customEvent = e as CustomEvent;
+      const domain = (customEvent.detail?.domain as StudioDomain) || 'weather';
+      openStudioDomain(domain);
+    };
+
+    const handleOpenLayers = () => {
+      setShowPanel(true);
+    };
+
+    window.addEventListener('harmony:open-weather', handleOpenWeather);
+    window.addEventListener('harmony:open-layers', handleOpenLayers);
+
+    // Cek query param jika dibuka via URL: /app/maps?open=weather
+    const params = new URLSearchParams(window.location.search);
+    if (params.get('open') === 'weather') {
+      openStudioDomain('weather');
+      const newUrl = window.location.pathname;
+      window.history.replaceState({}, '', newUrl);
+    }
+
+    return () => {
+      window.removeEventListener('harmony:open-weather', handleOpenWeather);
+      window.removeEventListener('harmony:open-layers', handleOpenLayers);
+    };
+  }, []);
+
   // Safety Watchdog: Auto-clear layer loading spinner if stalled
   useEffect(() => {
     if (activeLayerLoads > 0) {
@@ -1567,7 +1700,13 @@ export function MapsView() {
     weatherDesc?: string;
     weatherCode?: number;
   } | null>(null);
-  const [showWeatherCard, setShowWeatherCard] = useState<boolean>(true);
+  const [showWeatherCard, setShowWeatherCard] = useState<boolean>(() => {
+    try {
+      return window.localStorage.getItem(`hm_weather_card_${activeUserId}`) === 'true';
+    } catch {
+      return false;
+    }
+  });
   const [showSeasonalModal, setShowSeasonalModal] = useState<boolean>(false);
 
   // Update Seasonal Intelligence when user location or active school changes
@@ -1662,18 +1801,83 @@ export function MapsView() {
         });
       }
       setGlobeInitialCenter({ lat: userCoords.lat, lng: userCoords.lng });
-      setLocationStatusToast({
-        type: 'success',
-        title: userPreciseLocation?.village ? `${userPreciseLocation.village}, ${userPreciseLocation.subDistrict || ''}` : 'Lokasi GPS Presisi Terverifikasi',
-        message: userPreciseLocation?.shortDisplay || 'Kamera dipusatkan kembali ke koordinat GPS Anda.',
-        accuracy: userAccuracy || undefined,
-        village: userPreciseLocation?.village,
-        subDistrict: userPreciseLocation?.subDistrict,
-        city: userPreciseLocation?.city,
-        province: userPreciseLocation?.province,
-        road: userPreciseLocation?.road,
-        fullAddress: userPreciseLocation?.fullAddress,
-      });
+
+      // Refresh elevation report if missing
+      if (!userElevationReport) {
+        gnssElevationService.fetchGroundElevation(userCoords.lat, userCoords.lng).then((demAlt) => {
+          const alt = demAlt ?? 25.0;
+          const topo = gnssElevationService.getTopographyZone(alt);
+          const dmsLat = gnssElevationService.toDMS(userCoords.lat, true);
+          const dmsLng = gnssElevationService.toDMS(userCoords.lng, false);
+          const dmsDisplay = `${dmsLat}, ${dmsLng}`;
+          const pressure = gnssElevationService.calculateBarometricPressure(alt);
+          const boilingPoint = gnssElevationService.calculateBoilingPoint(alt);
+          const rep: GnssElevationReport = {
+            lat: userCoords.lat,
+            lng: userCoords.lng,
+            accuracyM: userAccuracy ? Math.round(userAccuracy) : 10,
+            altitudeM: alt,
+            altitudeSource: 'dem_srtm_model',
+            dmsLat,
+            dmsLng,
+            dmsDisplay,
+            epsg3857: geospatialAnalysisService.toEPSG3857(userCoords.lat, userCoords.lng),
+            topographyZone: topo.zone,
+            topographyDescription: topo.description,
+            estimatedBarometricPressureHpa: pressure,
+            estimatedBoilingPointC: boilingPoint,
+            locationInfo: userPreciseLocation || undefined,
+            timestamp: new Date().toLocaleTimeString('id-ID'),
+            formattedReportText: [
+              '========================================',
+              '📌 LAPORAN KETINGGIAN & KOORDINAT PENGGUNA',
+              '========================================',
+              `🕒 Waktu Pengukuran : ${new Date().toLocaleTimeString('id-ID')} WIB`,
+              `📍 Wilayah / Lokasi : ${userPreciseLocation?.shortDisplay || 'Koordinat Geospasial'}`,
+              `🏠 Alamat Lengkap   : ${userPreciseLocation?.fullAddress || `${userCoords.lat.toFixed(5)}°, ${userCoords.lng.toFixed(5)}°`}`,
+              '----------------------------------------',
+              `🏔️ Ketinggian Medan  : ${alt >= 0 ? `+${alt}` : alt} mdpl`,
+              `⛰️ Zona Topografi    : ${topo.zone}`,
+              `📝 Deskripsi Morfo   : ${topo.description}`,
+              `🌡️ Tekanan Atmosfer : ${pressure} hPa`,
+              `☕ Titik Didih Air   : ${boilingPoint} °C`,
+              '----------------------------------------',
+              `🌐 Koordinat Desimal : ${userCoords.lat.toFixed(6)}°, ${userCoords.lng.toFixed(6)}°`,
+              `🧭 Format DMS (Geod) : ${dmsDisplay}`,
+              `🎯 Akurasi Sensor GPS: ±${userAccuracy ? Math.round(userAccuracy) : 10} meter`,
+              '========================================',
+            ].join('\n'),
+          };
+          setUserElevationReport(rep);
+          setLocationStatusToast({
+            type: 'success',
+            title: userPreciseLocation?.village ? `${userPreciseLocation.village}, ${userPreciseLocation.subDistrict || ''}` : 'Lokasi GPS Presisi Terverifikasi',
+            message: userPreciseLocation?.shortDisplay || 'Kamera dipusatkan kembali ke koordinat GPS Anda.',
+            accuracy: userAccuracy || undefined,
+            village: userPreciseLocation?.village,
+            subDistrict: userPreciseLocation?.subDistrict,
+            city: userPreciseLocation?.city,
+            province: userPreciseLocation?.province,
+            road: userPreciseLocation?.road,
+            fullAddress: userPreciseLocation?.fullAddress,
+            elevationReport: rep,
+          });
+        });
+      } else {
+        setLocationStatusToast({
+          type: 'success',
+          title: userPreciseLocation?.village ? `${userPreciseLocation.village}, ${userPreciseLocation.subDistrict || ''}` : 'Lokasi GPS Presisi Terverifikasi',
+          message: userPreciseLocation?.shortDisplay || 'Kamera dipusatkan kembali ke koordinat GPS Anda.',
+          accuracy: userAccuracy || undefined,
+          village: userPreciseLocation?.village,
+          subDistrict: userPreciseLocation?.subDistrict,
+          city: userPreciseLocation?.city,
+          province: userPreciseLocation?.province,
+          road: userPreciseLocation?.road,
+          fullAddress: userPreciseLocation?.fullAddress,
+          elevationReport: userElevationReport,
+        });
+      }
       return;
     }
 
@@ -1700,6 +1904,9 @@ export function MapsView() {
         setIsLocatingUser(false);
         setIsTrackingLive(true);
         const { latitude, longitude, accuracy } = pos.coords;
+        const deviceAlt = pos.coords.altitude != null && Number.isFinite(pos.coords.altitude)
+          ? Math.round(pos.coords.altitude * 10) / 10
+          : null;
         setUserCoords({ lat: latitude, lng: longitude });
         setUserAccuracy(accuracy);
         setGlobeInitialCenter({ lat: latitude, lng: longitude });
@@ -1717,29 +1924,87 @@ export function MapsView() {
         const accRounded = Math.round(accuracy);
         setLocationStatusToast({
           type: 'success',
-          title: 'Memverifikasi Alamat Geodesi...',
-          message: `Koordinat ${latitude.toFixed(5)}°, ${longitude.toFixed(5)}° (Akurasi ±${accRounded}m). Mencari data desa & kecamatan...`,
+          title: 'Memverifikasi Alamat & Mengukur Elevasi...',
+          message: `Koordinat ${latitude.toFixed(5)}°, ${longitude.toFixed(5)}° (Akurasi ±${accRounded}m). Mengukur ketinggian medan...`,
           accuracy: accRounded,
         });
 
-        // Resolve exact Desa, Kecamatan, Kabupaten, and Road
+        // Parallel: Resolve exact Desa, Kecamatan, Kabupaten AND Ground Elevation
         try {
-          const locInfo = await preciseGeocodingService.reverseGeocode(latitude, longitude, accuracy);
-          setUserPreciseLocation(locInfo);
+          const [locInfo, demAlt] = await Promise.all([
+            preciseGeocodingService.reverseGeocode(latitude, longitude, accuracy).catch(() => null),
+            gnssElevationService.fetchGroundElevation(latitude, longitude).catch(() => null),
+          ]);
+
+          if (locInfo) {
+            setUserPreciseLocation(locInfo);
+          }
+
+          const finalAlt = deviceAlt ?? demAlt ?? 25.0;
+          const topo = gnssElevationService.getTopographyZone(finalAlt);
+          const dmsLat = gnssElevationService.toDMS(latitude, true);
+          const dmsLng = gnssElevationService.toDMS(longitude, false);
+          const dmsDisplay = `${dmsLat}, ${dmsLng}`;
+          const pressure = gnssElevationService.calculateBarometricPressure(finalAlt);
+          const boilingPoint = gnssElevationService.calculateBoilingPoint(finalAlt);
+          const epsg3857 = geospatialAnalysisService.toEPSG3857(latitude, longitude);
+
+          const reportText = [
+            '========================================',
+            '📌 LAPORAN KETINGGIAN & KOORDINAT PENGGUNA',
+            '========================================',
+            `🕒 Waktu Pengukuran : ${new Date().toLocaleTimeString('id-ID')} WIB`,
+            `📍 Wilayah / Lokasi : ${locInfo?.shortDisplay || 'Koordinat Geospasial'}`,
+            `🏠 Alamat Lengkap   : ${locInfo?.fullAddress || `${latitude.toFixed(5)}°, ${longitude.toFixed(5)}°`}`,
+            '----------------------------------------',
+            `🏔️ Ketinggian Medan  : ${finalAlt >= 0 ? `+${finalAlt}` : finalAlt} mdpl`,
+            `⛰️ Zona Topografi    : ${topo.zone}`,
+            `📝 Deskripsi Morfo   : ${topo.description}`,
+            `🌡️ Tekanan Atmosfer : ${pressure} hPa`,
+            `☕ Titik Didih Air   : ${boilingPoint} °C`,
+            '----------------------------------------',
+            `🌐 Koordinat Desimal : ${latitude.toFixed(6)}°, ${longitude.toFixed(6)}°`,
+            `🧭 Format DMS (Geod) : ${dmsDisplay}`,
+            `🎯 Akurasi Sensor GPS: ±${accRounded} meter`,
+            '========================================',
+          ].join('\n');
+
+          const rep: GnssElevationReport = {
+            lat: latitude,
+            lng: longitude,
+            accuracyM: accRounded,
+            altitudeM: finalAlt,
+            altitudeSource: deviceAlt != null ? 'device_sensor' : 'dem_srtm_model',
+            dmsLat,
+            dmsLng,
+            dmsDisplay,
+            epsg3857,
+            topographyZone: topo.zone,
+            topographyDescription: topo.description,
+            estimatedBarometricPressureHpa: pressure,
+            estimatedBoilingPointC: boilingPoint,
+            locationInfo: locInfo || undefined,
+            timestamp: new Date().toLocaleTimeString('id-ID'),
+            formattedReportText: reportText,
+          };
+
+          setUserElevationReport(rep);
+
           setLocationStatusToast({
             type: 'success',
-            title: locInfo.village ? `${locInfo.village}, ${locInfo.subDistrict || ''}` : 'Lokasi GPS Presisi Terverifikasi',
-            message: locInfo.shortDisplay,
+            title: locInfo?.village ? `${locInfo.village}, ${locInfo.subDistrict || ''}` : 'Lokasi GPS & Elevasi Terverifikasi',
+            message: locInfo?.shortDisplay || `Ketinggian ${finalAlt} mdpl • ${topo.zone}`,
             accuracy: accRounded,
-            village: locInfo.village,
-            subDistrict: locInfo.subDistrict,
-            city: locInfo.city,
-            province: locInfo.province,
-            road: locInfo.road,
-            fullAddress: locInfo.fullAddress,
+            village: locInfo?.village,
+            subDistrict: locInfo?.subDistrict,
+            city: locInfo?.city,
+            province: locInfo?.province,
+            road: locInfo?.road,
+            fullAddress: locInfo?.fullAddress,
+            elevationReport: rep,
           });
         } catch (err) {
-          console.warn('Failed to reverse geocode user position:', err);
+          console.warn('Failed to resolve geocode or elevation:', err);
         }
 
         // Start continuous background watch for realtime tracking
@@ -1935,6 +2200,23 @@ export function MapsView() {
     setWeatherMapOverlay('none');
     setShowTrafficCorridors(false);
     setActiveMapBasemap('osm');
+    setShowBottomDock(false);
+    setShowTrafficControlBar(false);
+    setShowGeospatialIntelBar(false);
+    setShowObservationCoverage(false);
+    setShowEquatorZones(false);
+    setShowWeatherCard(false);
+    setShowGpsProbes(false);
+    setShowTrafficCctv(false);
+    setShowTrafficSignals(false);
+    setShowHotspots(false);
+    try {
+      window.localStorage.setItem(`hm_show_bottom_dock_${activeUserId}`, 'false');
+      window.localStorage.setItem(`hm_geospatial_intel_bar_${activeUserId}`, 'false');
+      window.localStorage.setItem(`hm_traffic_bar_${activeUserId}`, 'false');
+      window.localStorage.setItem(`hm_weather_card_${activeUserId}`, 'false');
+      window.localStorage.setItem('hm_equator_zones', 'false');
+    } catch (e) {}
   };
 
   const managedLayers = useMemo<ManagedLayer[]>(() => {
@@ -2350,65 +2632,66 @@ export function MapsView() {
     trafficVectorLayerRef.current.changed();
   }, [trafficDataList]);
 
-  // Synchronize corridors to vehicle engine
+  // Synchronize corridors to GPS density service
   useEffect(() => {
-    trafficVehicleEngine.setCorridors(trafficDataList);
+    trafficGpsDensityService.setCorridors(trafficDataList);
   }, [trafficDataList]);
 
-  // Real-time Vehicle Movement & ATCS Signal Animation Loop (Inspired by Gods-Eye-View)
+  // Subscribe to crowdsourced GPS density telemetry summary
   useEffect(() => {
-    const isTrafficActive = activeMapBasemap === 'traffic' || showTrafficCorridors;
+    const unsub = trafficGpsDensityService.subscribe((summary) => {
+      setCrowdsourceSummary(summary);
+    });
+    return unsub;
+  }, []);
+
+  // Real-time Traffic Corridors, GPS Probes, Heatmap & ATCS Signal Animation Loop
+  useEffect(() => {
+    const isTrafficActive = (activeMapBasemap === 'traffic' || showTrafficCorridors) && !showGeospatialModal;
     if (!isTrafficActive) return;
 
     let animFrameId: number;
     let lastTime = performance.now();
     let signalTickCounter = 0;
+    let densityTickCounter = 0;
 
     const animate = (currentTime: number) => {
       const dt = Math.min((currentTime - lastTime) / 1000, 0.1);
       lastTime = currentTime;
 
-      // 1. Advance moving vehicles along snapped road geometry
-      if (showMovingVehicles && trafficVehiclesLayerRef.current) {
-        const source = trafficVehiclesLayerRef.current.getSource();
-        if (source) {
-          trafficVehicleEngine.advance(dt);
-          const vehicles = trafficVehicleEngine.getVehicles();
-          const features = source.getFeatures();
+      // 1. Advance crowdsourced GPS commuter probes along road vectors
+      trafficGpsDensityService.advanceProbes(dt);
 
-          if (features.length === 0 && vehicles.length > 0) {
-            vehicles.forEach((veh) => {
-              const f = new Feature({
-                geometry: new Point(fromLonLat([veh.coord[0], veh.coord[1]])),
-                isVehicle: true,
-                vehicleId: veh.id,
-                vehicleType: veh.type,
-                speedKmh: veh.speedKmh,
-                heading: veh.headingDeg,
-                status: veh.status,
-                color: veh.color,
-                corridorId: veh.corridorId,
-                corridorName: veh.corridorName,
+      // 2. Dynamic Congestion Calculation (Google Maps Live GPS vs Typical Profile)
+      densityTickCounter += dt;
+      if (densityTickCounter >= 2.5) {
+        densityTickCounter = 0;
+        if (trafficMode === 'live') {
+          trafficGpsDensityService.recomputeDensity();
+          setCrowdsourceSummary(trafficGpsDensityService.getSummary());
+          if (trafficVectorLayerRef.current) {
+            const vecSource = trafficVectorLayerRef.current.getSource();
+            if (vecSource) {
+              vecSource.getFeatures().forEach((feat) => {
+                if (feat.get('isTrafficLine')) {
+                  const segId = feat.get('segmentId') || feat.get('corridorId');
+                  const metric = trafficGpsDensityService.getSegmentMetric(segId);
+                  if (metric) {
+                    feat.set('status', metric.congestionLevel, true);
+                    feat.set('speedKmh', metric.averageSpeedKmh, true);
+                    feat.set('probeCount', metric.probeCount, true);
+                    feat.set('densityPerKm', metric.densityPerKm, true);
+                    feat.set('delayMinutes', metric.delayMinutes, true);
+                  }
+                }
               });
-              source.addFeature(f);
-            });
-          } else {
-            for (let i = 0; i < features.length && i < vehicles.length; i++) {
-              const f = features[i];
-              const veh = vehicles[i];
-              const geom = f.getGeometry() as Point;
-              if (geom) {
-                geom.setCoordinates(fromLonLat([veh.coord[0], veh.coord[1]]));
-              }
-              f.set('heading', veh.headingDeg, true);
-              f.set('speedKmh', veh.speedKmh, true);
-              f.set('status', veh.status, true);
+              trafficVectorLayerRef.current.changed();
             }
           }
         }
       }
 
-      // 2. Advance ATCS Signals countdown & phase changes every ~1 second
+      // 3. Advance ATCS Signals countdown & phase changes every ~1 second
       signalTickCounter += dt;
       if (signalTickCounter >= 1.0) {
         signalTickCounter = 0;
@@ -2438,7 +2721,48 @@ export function MapsView() {
     return () => {
       cancelAnimationFrame(animFrameId);
     };
-  }, [activeMapBasemap, showTrafficCorridors, showMovingVehicles, showTrafficSignals]);
+  }, [activeMapBasemap, showTrafficCorridors, trafficMode, showTrafficSignals, showGeospatialModal]);
+
+  // Google Maps Typical Traffic Profile Engine: updates roads when day or hour slider moves
+  useEffect(() => {
+    if (trafficMode !== 'typical' || !trafficVectorLayerRef.current) return;
+    const source = trafficVectorLayerRef.current.getSource();
+    if (!source) return;
+
+    source.getFeatures().forEach((feat) => {
+      if (feat.get('isTrafficLine')) {
+        const corridorId = (feat.get('corridorId') || '') as string;
+        const tier = (feat.get('tier') || 'arterial') as 'expressway' | 'arterial' | 'collector' | 'local';
+        const profile = computeTypicalTraffic(corridorId, tier, trafficTypicalDay, trafficTypicalHour);
+        feat.set('status', profile.status, true);
+        feat.set('speedKmh', profile.speedKmh, true);
+        feat.set('delayMinutes', profile.delayMinutes, true);
+      }
+    });
+    trafficVectorLayerRef.current.changed();
+  }, [trafficMode, trafficTypicalDay, trafficTypicalHour]);
+
+  // When switching back to live traffic, immediately restore live density metrics
+  useEffect(() => {
+    if (trafficMode === 'live' && trafficVectorLayerRef.current) {
+      trafficGpsDensityService.recomputeDensity();
+      const vecSource = trafficVectorLayerRef.current.getSource();
+      if (vecSource) {
+        vecSource.getFeatures().forEach((feat) => {
+          if (feat.get('isTrafficLine')) {
+            const segId = feat.get('segmentId') || feat.get('corridorId');
+            const metric = trafficGpsDensityService.getSegmentMetric(segId);
+            if (metric) {
+              feat.set('status', metric.congestionLevel, true);
+              feat.set('speedKmh', metric.averageSpeedKmh, true);
+              feat.set('delayMinutes', metric.delayMinutes, true);
+            }
+          }
+        });
+        trafficVectorLayerRef.current.changed();
+      }
+    }
+  }, [trafficMode]);
 
   // Search State
   const [searchQuery, setSearchQuery] = useState("");
@@ -2490,12 +2814,16 @@ export function MapsView() {
     setIsSearchFocused(false);
   };
 
-  // Fetch Data
+  const isSchoolLayerActive = Boolean(settings?.showSD || settings?.showSMP || settings?.showSMA);
+  const isVolcanoLayerActive = Boolean(settings?.showActive || settings?.showInactive || settings?.showPeaks);
+
+  // On-demand fetch for mountains: only loads when volcano layers are activated or non-lean device
   useEffect(() => {
+    if (isLeanDevice && !isVolcanoLayerActive) return;
+    if (mountains.length > 10) return; // already enriched
+
     let mounted = true;
-    
-    // Fetch mountains
-    setActiveLayerLoads(prev => prev + 1);
+    setActiveLayerLoads((prev) => prev + 1);
     fetch('/data/mountains.json')
       .then((res) => res.json())
       .then(async (data) => {
@@ -2506,16 +2834,23 @@ export function MapsView() {
       })
       .catch((err) => console.error("Failed to load mountains", err))
       .finally(() => {
-        setActiveLayerLoads(prev => Math.max(0, prev - 1));
+        setActiveLayerLoads((prev) => Math.max(0, prev - 1));
       });
 
-    // Fetch lightweight schools directly from static JSON for speed
-    setActiveLayerLoads(prev => prev + 1);
+    return () => { mounted = false; };
+  }, [isVolcanoLayerActive, isLeanDevice, mountains.length]);
+
+  // On-demand fetch for schools: only loads when school layers are activated or non-lean device
+  useEffect(() => {
+    if (isLeanDevice && !isSchoolLayerActive) return;
+    if (schools.length > 0) return; // already loaded
+
+    let mounted = true;
+    setActiveLayerLoads((prev) => prev + 1);
     fetch('/data/schools-lite.json')
       .then((res) => res.json())
       .then((data) => {
         if (mounted && data && Array.isArray(data)) {
-          // Map to optimized tuple format [id, lat, lng, cat, name]
           const mappedSchools = data.map((s: any) => {
              const name = (s.name || s.school_name || "").toUpperCase();
              let cat = 0;
@@ -2535,17 +2870,17 @@ export function MapsView() {
                cat,
                s.name || s.school_name
              ];
-          }).filter((s) => !isNaN(s[1]) && !isNaN(s[2])); // Only valid coords
+          }).filter((s) => !isNaN(s[1]) && !isNaN(s[2]));
           setSchools(mappedSchools);
         }
       })
       .catch((err) => console.error("Failed to load schools", err))
       .finally(() => {
-        setActiveLayerLoads(prev => Math.max(0, prev - 1));
+        setActiveLayerLoads((prev) => Math.max(0, prev - 1));
       });
 
     return () => { mounted = false; };
-  }, []);
+  }, [isSchoolLayerActive, isLeanDevice, schools.length]);
 
   // Initialize Map
   useEffect(() => {
@@ -2769,12 +3104,12 @@ export function MapsView() {
         // Authentic Google Maps Live Traffic color palette
         const color =
           status === 'Lancar'
-            ? '#10b981' // Vivid emerald free-flow
+            ? '#0f9d58' // Authentic Google Maps Emerald / Free-flow
             : status === 'Ramai Lancar'
-            ? '#f59e0b' // Amber moderate flow
+            ? '#f9ab00' // Authentic Google Maps Amber / Moderate flow
             : status === 'Padat Merayap'
-            ? '#ef4444' // Crimson congestion
-            : '#881337'; // Deep maroon standstill
+            ? '#ea4335' // Authentic Google Maps Red / Congested
+            : '#7f1d1d'; // Authentic Google Maps Dark Burgundy / Standstill
 
         const isLocal = tier === 'local';
         const isCollector = tier === 'collector';
@@ -2928,57 +3263,8 @@ export function MapsView() {
     });
     trafficVectorLayerRef.current = trafficVectorLayer;
 
-    // Realtime Moving Vehicles Layer (God's Eye Particle Vector Flow)
-    const trafficVehiclesSource = new VectorSource();
-    trafficVehicleEngine.setCorridors(INDONESIA_TRAFFIC_CORRIDORS);
-    const initialVehicles = trafficVehicleEngine.getVehicles();
-    initialVehicles.forEach((veh) => {
-      const f = new Feature({
-        geometry: new Point(fromLonLat([veh.coord[0], veh.coord[1]])),
-        isVehicle: true,
-        vehicleId: veh.id,
-        vehicleType: veh.type,
-        speedKmh: veh.speedKmh,
-        heading: veh.headingDeg,
-        status: veh.status,
-        color: veh.color,
-        corridorId: veh.corridorId,
-        corridorName: veh.corridorName,
-      });
-      trafficVehiclesSource.addFeature(f);
-    });
-
-    const trafficVehiclesLayer = new VectorLayer({
-      source: trafficVehiclesSource,
-      zIndex: 24,
-      visible: (activeMapBasemap === 'traffic' || showTrafficCorridors) && showMovingVehicles,
-      style: (feature, resolution) => {
-        const heading = (feature.get('heading') as number) || 0;
-        const vType = (feature.get('vehicleType') as string) || 'car';
-        const status = (feature.get('status') as string) || 'Ramai Lancar';
-        const color =
-          status === 'Lancar'
-            ? '#10b981'
-            : status === 'Ramai Lancar'
-            ? '#f59e0b'
-            : status === 'Padat Merayap'
-            ? '#ef4444'
-            : '#991b1b';
-
-        const rad = (-heading * Math.PI) / 180;
-        const isTruckOrBus = vType === 'truck' || vType === 'bus';
-        return new Style({
-          image: new RegularShape({
-            points: 3,
-            radius: resolution < 35 ? (isTruckOrBus ? 6.5 : 5.5) : (isTruckOrBus ? 4.5 : 3.8),
-            rotation: rad,
-            fill: new Fill({ color }),
-            stroke: new Stroke({ color: '#0f172a', width: 1.5 }),
-          }),
-        });
-      },
-    });
-    trafficVehiclesLayerRef.current = trafficVehiclesLayer;
+    // Initialize crowdsourced GPS density service corridors for probe simulation
+    trafficGpsDensityService.setCorridors(INDONESIA_TRAFFIC_CORRIDORS);
 
     // Realtime Public Traffic CCTV Cameras Layer
     const trafficCctvSource = new VectorSource();
@@ -3119,7 +3405,6 @@ export function MapsView() {
         kotaLayer,
         desaLayer,
         trafficVectorLayer,
-        trafficVehiclesLayer,
         trafficSignalsLayer,
         trafficCctvLayer
       ],
@@ -4170,11 +4455,11 @@ export function MapsView() {
 
       earthquakeLayerRef.current.setVisible(showEarthquakes);
 
-      // Animation Loop (paused when 3D globe is active to prevent lag)
-      if (showEarthquakes && !(is3D && (globeType === 'globe' || globeType === 'cesium'))) {
+      // Animation Loop (paused when 3D globe or Geospatial Studio is active to prevent lag)
+      if (showEarthquakes && !(is3D && (globeType === 'globe' || globeType === 'cesium')) && !showGeospatialModal) {
         let lastRender = 0;
         const animateEq = (timestamp: number) => {
-          if (earthquakeLayerRef.current?.getVisible() && !(is3D && (globeType === 'globe' || globeType === 'cesium'))) {
+          if (earthquakeLayerRef.current?.getVisible() && !(is3D && (globeType === 'globe' || globeType === 'cesium')) && !showGeospatialModal) {
             if (timestamp - lastRender >= 100) {
               earthquakeLayerRef.current.changed();
               lastRender = timestamp;
@@ -4196,7 +4481,7 @@ export function MapsView() {
       tsunamiLayerRef.current.setVisible(showTsunamiZones);
     }
 
-  }, [showTectonic, showEarthquakes, showLandslideZones, showTsunamiZones, is3D, globeType, quakeSnapshot]);
+  }, [showTectonic, showEarthquakes, showLandslideZones, showTsunamiZones, is3D, globeType, quakeSnapshot, showGeospatialModal]);
 
   // Satellite Thermal Anomaly & Fire Hotspots Sync (OpenLayers 2D)
   useEffect(() => {
@@ -4286,7 +4571,6 @@ export function MapsView() {
             layer === userMarkerLayerRef.current ||
             layer === tsunamiSensorsLayerRef.current ||
             layer === trafficVectorLayerRef.current ||
-            layer === trafficVehiclesLayerRef.current ||
             layer === trafficCctvLayerRef.current ||
             layer === trafficSignalsLayerRef.current ||
             layer === equatorLayerRef.current ||
@@ -4513,49 +4797,15 @@ export function MapsView() {
               if (popupRef.current) popupRef.current.style.display = 'none';
               return;
             }
-          } else if (feature.get('isVehicle')) {
-            const vehType = (feature.get('vehicleType') || 'car') as string;
-            const speed = (feature.get('speedKmh') || 40) as number;
-            const status = (feature.get('status') || 'Ramai Lancar') as string;
-            const cName = (feature.get('corridorName') || 'Koridor Nyata') as string;
-            const vehIcon = vehType === 'truck' ? '🚚' : vehType === 'bus' ? '🚌' : vehType === 'motorcycle' ? '🛵' : '🚗';
-            const vehLabel = vehType === 'truck' ? 'Truk Logistik' : vehType === 'bus' ? 'Bus Antarkota' : vehType === 'motorcycle' ? 'Sepeda Motor' : 'Mobil Pribadi';
-
-            popupRef.current.innerHTML = `
-              <div style="min-width: 220px; font-family: Inter, sans-serif;" class="p-1 relative">
-                <button id="close-popup-btn" style="position: absolute; top: -2px; right: -2px; background: #f1f5f9; border-radius: 50%; padding: 2px 6px; border: none; cursor: pointer; color: #94a3b8; font-size: 12px; font-weight: bold;">✖</button>
-                <div style="display: flex; align-items: center; gap: 6px; margin-bottom: 5px;">
-                  <span style="font-size: 15px;">${vehIcon}</span>
-                  <span style="font-size: 10px; font-weight: 800; color: #7c3aed; background: #f3e8ff; padding: 1.5px 6px; border-radius: 4px;">TELEMETRI PARTIKEL</span>
-                </div>
-                <strong style="font-size: 12px; color: #0f172a; display: block; margin-bottom: 2px;">${vehLabel}</strong>
-                <div style="font-size: 10px; color: #64748b; margin-bottom: 6px;">Lintasan: ${cName}</div>
-                <div style="background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 8px; padding: 6px 8px; font-size: 10px;">
-                  <div style="display: flex; justify-content: space-between; margin-bottom: 2px;">
-                    <span style="color: #64748b;">Laju Partikel:</span>
-                    <strong style="color: #0f172a; font-family: monospace;">${speed.toFixed(0)} km/jam</strong>
-                  </div>
-                  <div style="display: flex; justify-content: space-between;">
-                    <span style="color: #64748b;">Status Aliran:</span>
-                    <strong style="color: #16a34a;">${status}</strong>
-                  </div>
-                </div>
-              </div>
-            `;
-            popupOverlayRef.current.setPosition(coords);
-            if (popupRef.current) popupRef.current.style.display = 'block';
-            const closeBtn = popupRef.current.querySelector('#close-popup-btn');
-            if (closeBtn) {
-              closeBtn.addEventListener('click', () => {
-                if (popupRef.current) popupRef.current.style.display = 'none';
-              });
-            }
           } else if (feature.get('isTrafficLine') || feature.get('isTrafficMilestone') || feature.get('isTrafficPoint')) {
             const corridor = feature.get('corridorData') as TrafficCorridor | undefined;
             const segmentName = feature.get('segmentName') as string | undefined;
             const corridorName = feature.get('corridorName') || corridor?.name || 'Lintasan Jalan';
             const status = feature.get('status') || 'Lancar';
             const speed = feature.get('speedKmh') || 80;
+            const probeCount = feature.get('probeCount') as number | undefined;
+            const densityPerKm = feature.get('densityPerKm') as number | undefined;
+            const delayMinutes = feature.get('delayMinutes') as number | undefined;
             const routeType = feature.get('routeType') || corridor?.routeType || 'Jalan Tol';
             const tier = (feature.get('tier') || corridor?.tier || 'arterial') as string;
             const condition = corridor?.condition || 'Kondisi Perkerasan Jalan Baik, VMS Aktif';
@@ -4600,6 +4850,16 @@ export function MapsView() {
                         <span style="color: #64748b;">Kecepatan Terkini:</span>
                         <strong style="color: ${statusColor}; font-size: 11.5px;">${speed} km/jam</strong>
                       </div>
+                      ${probeCount !== undefined ? `
+                      <div style="display: flex; justify-content: space-between; margin-bottom: 2px;">
+                        <span style="color: #64748b;">📡 Titik GPS Terdeteksi:</span>
+                        <strong style="color: #4f46e5;">${probeCount} sinyal (${densityPerKm ?? 0}/km)</strong>
+                      </div>` : ''}
+                      ${delayMinutes && delayMinutes > 0 ? `
+                      <div style="display: flex; justify-content: space-between; margin-bottom: 2px;">
+                        <span style="color: #64748b;">⏱️ Estimasi Kemacetan:</span>
+                        <strong style="color: #dc2626; font-weight: 700;">+${delayMinutes} mnt dari normal</strong>
+                      </div>` : ''}
                       <div style="display: flex; justify-content: space-between; margin-bottom: 2px;">
                         <span style="color: #64748b;">Panjang Koridor:</span>
                         <span style="color: #334155; font-weight: 600;">${lengthKm} km</span>
@@ -4927,9 +5187,6 @@ export function MapsView() {
     if (trafficVectorLayerRef.current) {
       trafficVectorLayerRef.current.setVisible(isTrafficActive);
     }
-    if (trafficVehiclesLayerRef.current) {
-      trafficVehiclesLayerRef.current.setVisible(isTrafficActive && showMovingVehicles);
-    }
     if (trafficCctvLayerRef.current) {
       trafficCctvLayerRef.current.setVisible(isTrafficActive && showTrafficCctv);
     }
@@ -4937,7 +5194,14 @@ export function MapsView() {
       trafficSignalsLayerRef.current.setVisible(isTrafficActive && showTrafficSignals);
     }
     mapRef.current?.render();
-  }, [activeMapBasemap, showTrafficCorridors, showMovingVehicles, showTrafficCctv, showTrafficSignals]);
+  }, [activeMapBasemap, showTrafficCorridors, showTrafficCctv, showTrafficSignals]);
+
+  // Load CCTV cameras when CCTV tab is active or filters update
+  useEffect(() => {
+    if (trafficDrawerTab === 'cctv') {
+      loadCctvFeeds(cctvCityFilter, cctvCategoryFilter, cctvSearchQuery);
+    }
+  }, [trafficDrawerTab, cctvCityFilter, cctvCategoryFilter, cctvSearchQuery, loadCctvFeeds]);
 
   // Fetch and periodically refresh RainViewer radar and satellite timestamp paths
   const rainViewerFetchGen = useRef(0);
@@ -4996,6 +5260,9 @@ export function MapsView() {
   }, []);
 
   useEffect(() => {
+    const isWeatherActive = ['radar', 'satellite', 'bmkg_radar', 'bmkg_sat'].includes(weatherMapOverlay);
+    if (!isWeatherActive) return;
+
     fetchRainViewerMetadata();
     const interval = setInterval(fetchRainViewerMetadata, 300000); // 5 min cadence
     const handleVisChange = () => {
@@ -5007,7 +5274,7 @@ export function MapsView() {
       document.removeEventListener('visibilitychange', handleVisChange);
       rainViewerController.current?.abort();
     };
-  }, [fetchRainViewerMetadata]);
+  }, [fetchRainViewerMetadata, weatherMapOverlay]);
 
   const fetchGibsMetadata = useCallback(() => {
     if (gibsController.current) gibsController.current.abort('superseded');
@@ -5396,6 +5663,7 @@ export function MapsView() {
             : 'map-viewport-2d'
         }`}
         style={{
+          display: showGeospatialModal ? 'none' : 'flex',
           perspective: (is3D && (globeType !== 'globe' && globeType !== 'cesium')) ? '1200px' : 'none',
           perspectiveOrigin: '50% 50%',
           opacity: (is3D && (globeType === 'globe' || globeType === 'cesium')) ? 0 : 1,
@@ -5800,6 +6068,60 @@ export function MapsView() {
             </button>
           </div>
         </div>
+
+        {/* Tombol Cepat: Cuaca & Navigasi Rute (Tepat di Bawah GPS & Kompas) */}
+        <div className="relative flex items-stretch gap-1.5 p-1.5 rounded-2xl bg-white/90 dark:bg-slate-900/90 shadow-glass backdrop-blur-xl border border-slate-200/80 dark:border-slate-800 shadow-lg select-none">
+          {/* Tombol Cuaca */}
+          <button
+            type="button"
+            onClick={() => openStudioDomain('weather')}
+            className="relative flex flex-col items-center justify-between gap-1 w-14 py-2 px-1 rounded-xl bg-gradient-to-b from-sky-500/10 via-indigo-500/5 to-transparent hover:from-sky-500/20 hover:via-indigo-500/15 border border-sky-500/25 hover:border-sky-500/40 text-slate-800 dark:text-slate-100 transition-all hover:scale-[1.03] active:scale-95 group cursor-pointer shadow-xs"
+            title="Buka Studio Cuaca, Presipitasi & Radar Doppler 16 Sumber"
+            aria-label="Buka Studio Cuaca"
+          >
+            <div className="relative flex items-center justify-center h-8 w-8 rounded-lg bg-sky-500/15 text-sky-600 dark:text-sky-400 group-hover:bg-sky-500 group-hover:text-white transition-all shadow-2xs">
+              <CloudSun className="w-4.5 h-4.5 transition-transform group-hover:scale-110" />
+              <span className="absolute -top-1 -right-1 flex h-2 w-2">
+                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-sky-400 opacity-75" />
+                <span className="relative inline-flex rounded-full h-2 w-2 bg-sky-500" />
+              </span>
+            </div>
+            <div className="text-center w-full">
+              <span className="text-[10px] font-bold block text-slate-800 dark:text-white leading-tight">Cuaca</span>
+              <span className="text-[8px] font-mono font-semibold text-sky-600 dark:text-sky-400 block truncate">16 Sumber</span>
+            </div>
+          </button>
+
+          {/* Divider Vertikal Halus */}
+          <div className="w-px self-stretch bg-slate-200/80 dark:bg-slate-800 my-0.5" />
+
+          {/* Tombol Navigasi Rute / Lintasan & Trafik Jalan */}
+          <button
+            type="button"
+            onClick={() => {
+              const willOpen = !showTrafficCorridors;
+              closeMapDrawers();
+              setShowRouteModal(false);
+              setTrafficDrawerTab('corridors');
+              setShowTrafficCorridors(willOpen);
+            }}
+            className="relative flex flex-col items-center justify-between gap-1 w-14 py-2 px-1 rounded-xl bg-gradient-to-b from-emerald-500/10 via-teal-500/5 to-transparent hover:from-emerald-500/20 hover:via-teal-500/15 border border-emerald-500/25 hover:border-emerald-500/40 text-slate-800 dark:text-slate-100 transition-all hover:scale-[1.03] active:scale-95 group cursor-pointer shadow-xs"
+            title="Buka Panel Lintasan & Trafik Jalan"
+            aria-label="Buka Lintasan & Trafik Jalan"
+          >
+            <div className="relative flex items-center justify-center h-8 w-8 rounded-lg bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 group-hover:bg-emerald-500 group-hover:text-white transition-all shadow-2xs">
+              <Route className="w-4.5 h-4.5 transition-transform group-hover:scale-110" />
+              <span className="absolute -top-1 -right-1 flex h-2 w-2">
+                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75" />
+                <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500" />
+              </span>
+            </div>
+            <div className="text-center w-full">
+              <span className="text-[10px] font-bold block text-slate-800 dark:text-white leading-tight">Rute</span>
+              <span className="text-[8px] font-mono font-semibold text-emerald-600 dark:text-emerald-400 block truncate">Navigasi</span>
+            </div>
+          </button>
+        </div>
       </div>
 
       {/* Custom OpenLayers & 3D Tilt Styles */}
@@ -5944,39 +6266,6 @@ export function MapsView() {
           <span>Panduan WebGIS</span>
         </button>
 
-        {/* Progressive Disclosure Mode Switcher: Edukasi/Awam vs Studio GIS */}
-        <div className="flex items-center rounded-full bg-white/95 dark:bg-slate-900/95 p-1 shadow-glass backdrop-blur-md border border-slate-200/80 dark:border-slate-800 ml-1">
-          <button
-            type="button"
-            onClick={() => {
-              setUiExperienceMode('education');
-              try { window.localStorage.setItem('hm_ui_experience_mode', 'education'); } catch (e) {}
-            }}
-            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-bold transition-all cursor-pointer ${
-              uiExperienceMode === 'education'
-                ? 'bg-gradient-to-r from-emerald-600 to-teal-600 text-white shadow-xs'
-                : 'text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white'
-            }`}
-            title="Mode Siswa/Awam: Ringkas, fokus sintesis risiko, bahasa manusia, bebas jargon teknis"
-          >
-            <span>🎓 Edukasi &amp; Siswa</span>
-          </button>
-          <button
-            type="button"
-            onClick={() => {
-              setUiExperienceMode('expert');
-              try { window.localStorage.setItem('hm_ui_experience_mode', 'expert'); } catch (e) {}
-            }}
-            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-bold transition-all cursor-pointer ${
-              uiExperienceMode === 'expert'
-                ? 'bg-gradient-to-r from-indigo-600 to-brand-600 text-white shadow-xs'
-                : 'text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white'
-            }`}
-            title="Mode Studio GIS: Analisis spasial mendalam, layer manager, buffer, digitasi, dan inspeksi sensor untuk guru & peneliti"
-          >
-            <span>⚙️ Studio GIS</span>
-          </button>
-        </div>
       </div>
 
       {/* Harmony Left Top Stack: Conditional Education Risk Card vs Expert GIS Toolbar */}
@@ -6133,6 +6422,57 @@ export function MapsView() {
               <p className="text-[11px] text-slate-600 dark:text-slate-300 mt-1 leading-relaxed">
                 {locationStatusToast.message}
               </p>
+
+              {/* Laporan Ketinggian & Koordinat GNSS Pengguna */}
+              {locationStatusToast.elevationReport && (
+                <div className="mt-2 p-2.5 rounded-2xl bg-gradient-to-r from-sky-500/10 via-indigo-500/10 to-transparent border border-sky-500/25 space-y-1.5 text-xs">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-1.5">
+                      <Mountain className="w-3.5 h-3.5 text-sky-500" />
+                      <span className="font-extrabold text-slate-900 dark:text-white font-mono text-xs">
+                        {locationStatusToast.elevationReport.altitudeM >= 0
+                          ? `+${locationStatusToast.elevationReport.altitudeM}`
+                          : locationStatusToast.elevationReport.altitudeM}{' '}
+                        mdpl
+                      </span>
+                      <span className="text-[10px] text-slate-500 dark:text-slate-400">
+                        (Elevasi Medan)
+                      </span>
+                    </div>
+                    <span className="text-[9px] font-mono px-2 py-0.5 rounded-full bg-sky-500/15 text-sky-600 dark:text-sky-400 font-bold border border-sky-500/20">
+                      {locationStatusToast.elevationReport.topographyZone}
+                    </span>
+                  </div>
+
+                  <div className="flex items-center justify-between text-[10px] font-mono text-slate-600 dark:text-slate-300 pt-1 border-t border-sky-500/20">
+                    <span>
+                      {locationStatusToast.elevationReport.lat.toFixed(5)}°,{' '}
+                      {locationStatusToast.elevationReport.lng.toFixed(5)}°
+                    </span>
+                    <span className="text-slate-400 font-sans">
+                      {locationStatusToast.elevationReport.dmsDisplay}
+                    </span>
+                  </div>
+
+                  <div className="flex items-center justify-between text-[9px] text-slate-500 dark:text-slate-400 pt-0.5">
+                    <span>
+                      Tekanan: {locationStatusToast.elevationReport.estimatedBarometricPressureHpa} hPa
+                    </span>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        navigator.clipboard.writeText(
+                          locationStatusToast.elevationReport!.formattedReportText
+                        );
+                        alert('Laporan Ketinggian & Koordinat GNSS berhasil disalin ke clipboard!');
+                      }}
+                      className="text-sky-600 dark:text-sky-400 hover:underline font-bold cursor-pointer"
+                    >
+                      Salin Laporan
+                    </button>
+                  </div>
+                </div>
+              )}
 
               {locationStatusToast.type === 'success' && userCoords && (
                 <div className="flex items-center gap-2 mt-2.5 pt-2 border-t border-slate-100 dark:border-slate-800 flex-wrap">
@@ -6329,25 +6669,54 @@ export function MapsView() {
               </div>
 
               {/* Quick God's Eye Layer Switches */}
-              <div className="px-3 py-2 bg-slate-100/80 dark:bg-slate-900/80 border-b border-slate-200/80 dark:border-slate-800 flex items-center justify-between gap-1.5 shrink-0">
+              <div className="px-3 py-2 bg-slate-100/80 dark:bg-slate-900/80 border-b border-slate-200/80 dark:border-slate-800 grid grid-cols-4 gap-1 shrink-0">
                 <button
                   type="button"
-                  onClick={() => setShowMovingVehicles((v) => !v)}
-                  className={`flex-1 py-1 px-1.5 rounded-xl text-[10px] font-bold border transition-all cursor-pointer flex items-center justify-center gap-1 ${
-                    showMovingVehicles
+                  onClick={() => {
+                    if (activeMapBasemap === 'traffic') {
+                      setActiveMapBasemap('osm');
+                      setShowTrafficCorridors(false);
+                    } else {
+                      setShowTrafficCorridors((v) => !v);
+                    }
+                  }}
+                  className={`py-1 px-1 rounded-xl text-[10px] font-bold border transition-all cursor-pointer flex items-center justify-center gap-1 ${
+                    activeMapBasemap === 'traffic' || showTrafficCorridors
                       ? 'bg-purple-600 text-white border-purple-500 shadow-xs'
                       : 'bg-white dark:bg-slate-800 text-slate-500 dark:text-slate-400 border-slate-200 dark:border-slate-700'
                   }`}
-                  title="Tampilkan aliran partikel kendaraan bergerak di jalan"
+                  title="Tampilkan garis koridor geometri jalan raya & tol OSM"
                 >
-                  <span>🚗</span>
-                  <span className="truncate">Kendaraan {showMovingVehicles ? 'ON' : 'OFF'}</span>
+                  <span>🛣️</span>
+                  <span className="truncate">Koridor {activeMapBasemap === 'traffic' || showTrafficCorridors ? 'ON' : 'OFF'}</span>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => {
+                    const next = !showTrafficControlBar;
+                    setShowTrafficControlBar(next);
+                    if (next) {
+                      setShowBottomDock(true);
+                      try { window.localStorage.setItem(`hm_show_bottom_dock_${activeUserId}`, 'true'); } catch (e) {}
+                    }
+                    try { window.localStorage.setItem(`hm_traffic_bar_${activeUserId}`, String(next)); } catch (e) {}
+                  }}
+                  className={`py-1 px-1 rounded-xl text-[10px] font-bold border transition-all cursor-pointer flex items-center justify-center gap-1 ${
+                    showTrafficControlBar
+                      ? 'bg-teal-700 text-white border-teal-600 shadow-xs'
+                      : 'bg-white dark:bg-slate-800 text-slate-500 dark:text-slate-400 border-slate-200 dark:border-slate-700'
+                  }`}
+                  title="Tampilkan panel kontrol lalu lintas Google Maps di layar bawah"
+                >
+                  <span>🎛️</span>
+                  <span className="truncate">Bar {showTrafficControlBar ? 'ON' : 'OFF'}</span>
                 </button>
 
                 <button
                   type="button"
                   onClick={() => setShowTrafficCctv((v) => !v)}
-                  className={`flex-1 py-1 px-1.5 rounded-xl text-[10px] font-bold border transition-all cursor-pointer flex items-center justify-center gap-1 ${
+                  className={`py-1 px-1 rounded-xl text-[10px] font-bold border transition-all cursor-pointer flex items-center justify-center gap-1 ${
                     showTrafficCctv
                       ? 'bg-cyan-600 text-white border-cyan-500 shadow-xs'
                       : 'bg-white dark:bg-slate-800 text-slate-500 dark:text-slate-400 border-slate-200 dark:border-slate-700'
@@ -6361,7 +6730,7 @@ export function MapsView() {
                 <button
                   type="button"
                   onClick={() => setShowTrafficSignals((v) => !v)}
-                  className={`flex-1 py-1 px-1.5 rounded-xl text-[10px] font-bold border transition-all cursor-pointer flex items-center justify-center gap-1 ${
+                  className={`py-1 px-1 rounded-xl text-[10px] font-bold border transition-all cursor-pointer flex items-center justify-center gap-1 ${
                     showTrafficSignals
                       ? 'bg-emerald-600 text-white border-emerald-500 shadow-xs'
                       : 'bg-white dark:bg-slate-800 text-slate-500 dark:text-slate-400 border-slate-200 dark:border-slate-700'
@@ -6374,11 +6743,11 @@ export function MapsView() {
               </div>
 
               {/* Navigation Tabs */}
-              <div className="grid grid-cols-4 p-1.5 bg-slate-50 dark:bg-slate-900 border-b border-slate-200/80 dark:border-slate-800 text-[10px] font-bold shrink-0 gap-1">
+              <div className="grid grid-cols-5 p-1.5 bg-slate-50 dark:bg-slate-900 border-b border-slate-200/80 dark:border-slate-800 text-[10px] font-bold shrink-0 gap-1">
                 <button
                   type="button"
                   onClick={() => setTrafficDrawerTab('corridors')}
-                  className={`py-1.5 px-1 rounded-xl transition-all cursor-pointer flex flex-col items-center gap-0.5 ${
+                  className={`py-1.5 px-0.5 rounded-xl transition-all cursor-pointer flex flex-col items-center gap-0.5 ${
                     trafficDrawerTab === 'corridors'
                       ? 'bg-purple-600 text-white shadow-xs'
                       : 'text-slate-600 dark:text-slate-400 hover:bg-slate-200/60 dark:hover:bg-slate-800'
@@ -6389,8 +6758,20 @@ export function MapsView() {
 
                 <button
                   type="button"
+                  onClick={() => setTrafficDrawerTab('probes')}
+                  className={`py-1.5 px-0.5 rounded-xl transition-all cursor-pointer flex flex-col items-center gap-0.5 ${
+                    trafficDrawerTab === 'probes'
+                      ? 'bg-rose-600 text-white shadow-xs'
+                      : 'text-slate-600 dark:text-slate-400 hover:bg-slate-200/60 dark:hover:bg-slate-800'
+                  }`}
+                >
+                  <span>🔥 Densitas</span>
+                </button>
+
+                <button
+                  type="button"
                   onClick={() => setTrafficDrawerTab('cctv')}
-                  className={`py-1.5 px-1 rounded-xl transition-all cursor-pointer flex flex-col items-center gap-0.5 ${
+                  className={`py-1.5 px-0.5 rounded-xl transition-all cursor-pointer flex flex-col items-center gap-0.5 ${
                     trafficDrawerTab === 'cctv'
                       ? 'bg-cyan-600 text-white shadow-xs'
                       : 'text-slate-600 dark:text-slate-400 hover:bg-slate-200/60 dark:hover:bg-slate-800'
@@ -6402,7 +6783,7 @@ export function MapsView() {
                 <button
                   type="button"
                   onClick={() => setTrafficDrawerTab('signals')}
-                  className={`py-1.5 px-1 rounded-xl transition-all cursor-pointer flex flex-col items-center gap-0.5 ${
+                  className={`py-1.5 px-0.5 rounded-xl transition-all cursor-pointer flex flex-col items-center gap-0.5 ${
                     trafficDrawerTab === 'signals'
                       ? 'bg-emerald-600 text-white shadow-xs'
                       : 'text-slate-600 dark:text-slate-400 hover:bg-slate-200/60 dark:hover:bg-slate-800'
@@ -6414,13 +6795,13 @@ export function MapsView() {
                 <button
                   type="button"
                   onClick={() => setTrafficDrawerTab('byok')}
-                  className={`py-1.5 px-1 rounded-xl transition-all cursor-pointer flex flex-col items-center gap-0.5 ${
+                  className={`py-1.5 px-0.5 rounded-xl transition-all cursor-pointer flex flex-col items-center gap-0.5 ${
                     trafficDrawerTab === 'byok'
                       ? 'bg-indigo-600 text-white shadow-xs'
                       : 'text-slate-600 dark:text-slate-400 hover:bg-slate-200/60 dark:hover:bg-slate-800'
                   }`}
                 >
-                  <span>🔑 API Kunci</span>
+                  <span>🔑 API</span>
                 </button>
               </div>
 
@@ -6717,77 +7098,436 @@ export function MapsView() {
                 </>
               )}
 
-              {/* Tab Content: Kamera CCTV Live */}
-              {trafficDrawerTab === 'cctv' && (
-                <div className="p-3 overflow-y-auto space-y-2 flex-1">
-                  <div className="p-2.5 bg-cyan-50/80 dark:bg-cyan-950/30 rounded-2xl border border-cyan-200/80 dark:border-cyan-900/60 text-xs space-y-1">
-                    <div className="flex items-center justify-between font-bold text-cyan-800 dark:text-cyan-200 text-[11px]">
+              {/* Tab Content: GPS Probes & Algoritma Densitas Kemacetan Crowdsource */}
+              {trafficDrawerTab === 'probes' && (
+                <div className="p-3 overflow-y-auto space-y-3 flex-1">
+                  {/* Crowdsource Banner & Overview */}
+                  <div className="p-3 bg-gradient-to-br from-rose-50 to-orange-50 dark:from-rose-950/40 dark:to-orange-950/30 rounded-2xl border border-rose-200/80 dark:border-rose-900/60 text-xs space-y-2">
+                    <div className="flex items-center justify-between font-bold text-rose-800 dark:text-rose-200 text-[11px]">
                       <span className="flex items-center gap-1.5">
-                        <Camera className="w-3.5 h-3.5 text-cyan-600" />
-                        Jaringan CCTV Lalu Lintas Terintegrasi
+                        <Radio className="w-3.5 h-3.5 text-rose-600 animate-pulse" />
+                        Prediksi Kemacetan Crowdsourced GPS
                       </span>
-                      <span className="px-2 py-0.5 rounded-full bg-cyan-100 dark:bg-cyan-900 text-[9.5px]">
-                        {trafficCctvService.getAllCameras().length} Kamera Aktif
+                      <span className="px-2 py-0.5 rounded-full bg-rose-100 dark:bg-rose-900 text-rose-700 dark:text-rose-300 text-[9.5px]">
+                        {crowdsourceSummary.totalActiveProbes} Sinyal Terkoneksi
                       </span>
                     </div>
-                    <p className="text-[10px] text-cyan-700/80 dark:text-cyan-300/80 leading-relaxed">
-                      Kamera CCTV publik realtime mencakup Tol Trans-Jawa, arteri DKI Jakarta, Surabaya, Semarang, Bandung, dan Bali.
+                    <p className="text-[10px] text-rose-700/80 dark:text-rose-300/80 leading-relaxed">
+                      Kepadatan jalan diprediksi secara matematis dari konsentrasi titik GPS pengendara. Semakin banyak sinyal GPS melambat pada satu titik jalan, semakin pekat indikasi kemacetan (Segmen Vektor Merah/Burgundy Standar Google Maps).
                     </p>
+
+                    {/* Telemetry Metric Badges */}
+                    <div className="grid grid-cols-2 gap-2 pt-1 text-[10px]">
+                      <div className="p-2 rounded-xl bg-white/80 dark:bg-slate-900/60 border border-rose-100 dark:border-rose-900/50">
+                        <span className="text-slate-500 dark:text-slate-400 block text-[9px]">Titik Sinyal GPS Aktif:</span>
+                        <strong className="text-slate-800 dark:text-white font-mono text-xs">{crowdsourceSummary.totalActiveProbes} pengendara</strong>
+                      </div>
+                      <div className="p-2 rounded-xl bg-white/80 dark:bg-slate-900/60 border border-rose-100 dark:border-rose-900/50">
+                        <span className="text-slate-500 dark:text-slate-400 block text-[9px]">Kecepatan Rata-rata:</span>
+                        <strong className="text-emerald-600 dark:text-emerald-400 font-mono text-xs">{crowdsourceSummary.averageNetworkSpeedKmh} km/jam</strong>
+                      </div>
+                      <div className="p-2 rounded-xl bg-white/80 dark:bg-slate-900/60 border border-rose-100 dark:border-rose-900/50">
+                        <span className="text-slate-500 dark:text-slate-400 block text-[9px]">Segmen Padat/Macet:</span>
+                        <strong className="text-rose-600 dark:text-rose-400 font-mono text-xs">{crowdsourceSummary.congestedSegmentsCount} titik leher botol</strong>
+                      </div>
+                      <div className="p-2 rounded-xl bg-white/80 dark:bg-slate-900/60 border border-rose-100 dark:border-rose-900/50">
+                        <span className="text-slate-500 dark:text-slate-400 block text-[9px]">Kontributor Warga:</span>
+                        <strong className="text-indigo-600 dark:text-indigo-400 font-mono text-xs">
+                          {isBroadcastingUserGps ? '🟢 Aktif Membagikan' : '⚪ Mode Anonim'}
+                        </strong>
+                      </div>
+                    </div>
                   </div>
 
-                  {trafficCctvService.getAllCameras().map((cam) => (
-                    <div
-                      key={cam.id}
-                      className="p-3 rounded-2xl border border-slate-200/80 dark:border-slate-800 bg-white/80 dark:bg-slate-800/50 hover:bg-slate-50 dark:hover:bg-slate-800/80 transition-all text-xs space-y-2"
-                    >
-                      <div className="flex items-start justify-between gap-2">
-                        <div className="min-w-0 flex-1">
-                          <span className="text-[9px] font-bold px-1.5 py-0.5 rounded bg-cyan-100 dark:bg-cyan-950 text-cyan-700 dark:text-cyan-300 border border-cyan-200 dark:border-cyan-800">
-                            {cam.authority}
-                          </span>
-                          <h4 className="font-bold text-slate-800 dark:text-white leading-tight mt-1 text-xs">
-                            {cam.name}
+                  {/* Citizen GPS Contributor Card */}
+                  <div className="p-3 rounded-2xl border border-indigo-200/80 dark:border-indigo-900/60 bg-gradient-to-r from-indigo-50/70 to-purple-50/70 dark:from-indigo-950/30 dark:to-purple-950/30 text-xs space-y-2">
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-1.5">
+                        <span className="text-base">📡</span>
+                        <div>
+                          <h4 className="font-bold text-slate-800 dark:text-white text-xs">
+                            Kontributor GPS Realtime (HTML5 Geolocation)
                           </h4>
-                          <p className="text-[10px] text-slate-500 dark:text-slate-400 mt-0.5">
-                            {cam.road} • {cam.city}, {cam.region}
+                          <p className="text-[10px] text-slate-500 dark:text-slate-400">
+                            Bagikan sinyal GPS perangkat Anda secara anonim ke backend Harmony
                           </p>
-                        </div>
-
-                        <span className="flex items-center gap-1 px-2 py-0.5 rounded-full bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/30 text-[9px] font-bold shrink-0">
-                          <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
-                          Live {cam.fps} FPS
-                        </span>
-                      </div>
-
-                      <div className="flex items-center justify-between pt-1 border-t border-slate-100 dark:border-slate-700/50 text-[10px]">
-                        <span className="text-slate-500 dark:text-slate-400">
-                          Status: <strong className="text-slate-700 dark:text-slate-300">{cam.statusText}</strong>
-                        </span>
-
-                        <div className="flex items-center gap-1.5">
-                          <button
-                            type="button"
-                            onClick={() => handleFocusCctv(cam)}
-                            className="px-2 py-1 rounded-xl bg-slate-100 dark:bg-slate-700 text-slate-700 dark:text-slate-300 hover:bg-slate-200 font-bold text-[10px] flex items-center gap-1 cursor-pointer"
-                            title="Pusatkan kamera di peta"
-                          >
-                            <Navigation className="w-3 h-3" />
-                            <span>Pusatkan</span>
-                          </button>
-
-                          <button
-                            type="button"
-                            onClick={() => setSelectedCctvCamera(cam)}
-                            className="px-2.5 py-1 rounded-xl bg-cyan-600 hover:bg-cyan-700 text-white font-bold text-[10px] flex items-center gap-1 shadow-2xs cursor-pointer"
-                            title="Buka live streaming kamera ini"
-                          >
-                            <Camera className="w-3 h-3" />
-                            <span>Buka Live CCTV</span>
-                          </button>
                         </div>
                       </div>
                     </div>
-                  ))}
+
+                    <div className="flex items-center justify-between pt-1">
+                      <span className="text-[10px] text-slate-600 dark:text-slate-300">
+                        Status: <strong className={isBroadcastingUserGps ? 'text-emerald-600' : 'text-slate-500'}>
+                          {isBroadcastingUserGps ? '📡 Memancarkan Koordinat Realtime' : 'Mati (Hanya Menonton)'}
+                        </strong>
+                      </span>
+
+                      <button
+                        type="button"
+                        onClick={handleToggleBroadcastGps}
+                        className={`px-3 py-1.5 rounded-xl font-bold text-[10.5px] flex items-center gap-1.5 transition-all cursor-pointer shadow-xs ${
+                          isBroadcastingUserGps
+                            ? 'bg-rose-600 hover:bg-rose-700 text-white'
+                            : 'bg-indigo-600 hover:bg-indigo-700 text-white'
+                        }`}
+                      >
+                        <Radio className="w-3 h-3" />
+                        <span>{isBroadcastingUserGps ? 'Hentikan Berbagi GPS' : 'Mulai Jadi Kontributor'}</span>
+                      </button>
+                    </div>
+                  </div>
+
+                  {/* Detected High-Density Bottlenecks */}
+                  <div className="space-y-2">
+                    <div className="flex items-center justify-between px-1">
+                      <h4 className="text-xs font-bold text-slate-800 dark:text-white flex items-center gap-1.5">
+                        <span>🔥</span>
+                        <span>Titik Kepadatan GPS Tertinggi (Bottlenecks)</span>
+                      </h4>
+                      <span className="text-[9.5px] text-slate-500 dark:text-slate-400">
+                        Top Cluster Hotspots
+                      </span>
+                    </div>
+
+                    <div className="space-y-2">
+                      {[
+                        {
+                          name: 'Simpang Susun Semanggi',
+                          city: 'Jakarta, DKI Jakarta',
+                          pings: 142,
+                          density: 95,
+                          speed: '8 km/jam',
+                          delay: '+22 mnt',
+                          status: 'Macet Total',
+                          coords: [106.816666, -6.219722] as [number, number],
+                        },
+                        {
+                          name: 'Simpang Tomang Intermodal',
+                          city: 'Jakarta Barat',
+                          pings: 98,
+                          density: 76,
+                          speed: '14 km/jam',
+                          delay: '+16 mnt',
+                          status: 'Padat Merayap',
+                          coords: [106.7944, -6.1772] as [number, number],
+                        },
+                        {
+                          name: 'Simpang Pasteur Exit Tol',
+                          city: 'Bandung, Jawa Barat',
+                          pings: 86,
+                          density: 68,
+                          speed: '12 km/jam',
+                          delay: '+14 mnt',
+                          status: 'Padat Merayap',
+                          coords: [107.5794, -6.8927] as [number, number],
+                        },
+                        {
+                          name: 'Bundaran Waru Sidoarjo-Surabaya',
+                          city: 'Surabaya, Jawa Timur',
+                          pings: 92,
+                          density: 72,
+                          speed: '11 km/jam',
+                          delay: '+15 mnt',
+                          status: 'Padat Merayap',
+                          coords: [112.7291, -7.3486] as [number, number],
+                        },
+                        {
+                          name: 'Gerbang Tol Cikampek Utama KM 70',
+                          city: 'Karawang, Jawa Barat',
+                          pings: 110,
+                          density: 55,
+                          speed: '38 km/jam',
+                          delay: '+5 mnt',
+                          status: 'Ramai Lancar',
+                          coords: [107.4522, -6.4215] as [number, number],
+                        },
+                      ].map((hotspot, idx) => (
+                        <div
+                          key={idx}
+                          className="p-2.5 rounded-2xl border border-slate-200/80 dark:border-slate-800 bg-white/80 dark:bg-slate-800/50 hover:bg-slate-50 dark:hover:bg-slate-800/80 transition-all text-xs space-y-1.5"
+                        >
+                          <div className="flex items-start justify-between gap-2">
+                            <div className="min-w-0 flex-1">
+                              <h5 className="font-bold text-slate-800 dark:text-white text-xs leading-tight">
+                                {hotspot.name}
+                              </h5>
+                              <p className="text-[10px] text-slate-500 dark:text-slate-400">
+                                {hotspot.city}
+                              </p>
+                            </div>
+                            <span className={`px-2 py-0.5 rounded-full text-[9px] font-bold ${
+                              hotspot.status === 'Macet Total'
+                                ? 'bg-rose-500/10 text-rose-600 dark:text-rose-400 border border-rose-500/30'
+                                : hotspot.status === 'Padat Merayap'
+                                ? 'bg-orange-500/10 text-orange-600 dark:text-orange-400 border border-orange-500/30'
+                                : 'bg-amber-500/10 text-amber-600 dark:text-amber-400 border border-amber-500/30'
+                            }`}>
+                              {hotspot.status}
+                            </span>
+                          </div>
+
+                          <div className="flex items-center justify-between pt-1 border-t border-slate-100 dark:border-slate-700/50 text-[10px]">
+                            <div className="flex items-center gap-2 text-slate-600 dark:text-slate-300">
+                              <span>📡 <strong>{hotspot.pings}</strong> pings</span>
+                              <span>•</span>
+                              <span>Kecepatan: <strong>{hotspot.speed}</strong></span>
+                              <span>•</span>
+                              <span className="text-rose-600 font-bold">{hotspot.delay}</span>
+                            </div>
+
+                            <button
+                              type="button"
+                              onClick={() => {
+                                mapRef.current?.getView().animate({
+                                  center: fromLonLat(hotspot.coords),
+                                  zoom: 14.5,
+                                  duration: 700,
+                                });
+                              }}
+                              className="px-2 py-1 rounded-xl bg-slate-100 dark:bg-slate-700 hover:bg-slate-200 text-slate-700 dark:text-slate-200 font-bold text-[9.5px] flex items-center gap-1 cursor-pointer"
+                            >
+                              <Navigation className="w-3 h-3" />
+                              <span>Pusatkan</span>
+                            </button>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* Tab Content: Kamera CCTV Live */}
+              {/* Tab Content: Kamera CCTV Live */}
+              {trafficDrawerTab === 'cctv' && (
+                <div className="p-3 overflow-y-auto space-y-2.5 flex-1">
+                  <div className="p-3 bg-cyan-50/90 dark:bg-cyan-950/40 rounded-2xl border border-cyan-200/90 dark:border-cyan-900/70 text-xs space-y-2 shadow-2xs">
+                    <div className="flex items-center justify-between font-bold text-cyan-800 dark:text-cyan-200 text-[11px]">
+                      <span className="flex items-center gap-1.5">
+                        <Camera className="w-3.5 h-3.5 text-cyan-600 dark:text-cyan-400" />
+                        Jaringan CCTV Publik &amp; Siaran Langsung
+                      </span>
+                      <div className="flex items-center gap-1.5">
+                        <span className="px-2 py-0.5 rounded-full bg-cyan-100 dark:bg-cyan-900 text-cyan-800 dark:text-cyan-200 text-[9.5px] font-bold">
+                          {cctvCameras.length} Kamera
+                        </span>
+                        <button
+                          type="button"
+                          onClick={() => loadCctvFeeds(cctvCityFilter, cctvCategoryFilter, cctvSearchQuery)}
+                          disabled={isCctvLoading}
+                          className="p-1 rounded-lg hover:bg-cyan-200/60 dark:hover:bg-cyan-900/60 text-cyan-700 dark:text-cyan-300 transition-colors cursor-pointer"
+                          title="Perbarui daftar kamera CCTV dari CCTV Nusantara"
+                        >
+                          <RotateCcw className={`w-3 h-3 ${isCctvLoading ? 'animate-spin' : ''}`} />
+                        </button>
+                      </div>
+                    </div>
+                    <p className="text-[10px] text-cyan-700/90 dark:text-cyan-300/80 leading-relaxed">
+                      Kamera CCTV publik realtime terintegrasi dengan jaringan <strong>CCTV Nusantara</strong> dan portal resmi ATCS pemerintah (Dishub DKI, Bandung, Surabaya, Semarang, Jogja, Bali, Tol Trans-Jawa, &amp; Tol Sumatera).
+                    </p>
+
+                    {/* Search & Filter Bar */}
+                    <div className="space-y-1.5 pt-1">
+                      <div className="relative">
+                        <Search className="w-3.5 h-3.5 absolute left-2.5 top-1/2 -translate-y-1/2 text-cyan-600/70 dark:text-cyan-400/70" />
+                        <input
+                          type="text"
+                          value={cctvSearchQuery}
+                          onChange={(e) => setCctvSearchQuery(e.target.value)}
+                          placeholder="Cari simpang, jalan, atau otoritas CCTV..."
+                          className="w-full pl-8 pr-7 py-1.5 text-[11px] rounded-xl bg-white/90 dark:bg-slate-900/90 border border-cyan-200 dark:border-cyan-800 text-slate-800 dark:text-slate-100 placeholder:text-slate-400 focus:outline-hidden focus:ring-1 focus:ring-cyan-500"
+                        />
+                        {cctvSearchQuery && (
+                          <button
+                            type="button"
+                            onClick={() => setCctvSearchQuery('')}
+                            className="absolute right-2 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 text-xs"
+                          >
+                            ×
+                          </button>
+                        )}
+                      </div>
+
+                      <div className="grid grid-cols-2 gap-1.5">
+                        <select
+                          value={cctvCityFilter}
+                          onChange={(e) => {
+                            setCctvCityFilter(e.target.value);
+                            setCctvDisplayLimit(40);
+                          }}
+                          className="px-2 py-1 text-[10px] font-semibold rounded-xl bg-white/90 dark:bg-slate-900/90 border border-cyan-200 dark:border-cyan-800 text-slate-700 dark:text-slate-200 focus:outline-hidden"
+                        >
+                          <option value="Semua">Semua Kota ({trafficCctvService.getAllCameras().length})</option>
+                          {trafficCctvService.getCities().slice(0, 30).map((ct) => (
+                            <option key={ct.name} value={ct.name}>
+                              {ct.name} ({ct.count})
+                            </option>
+                          ))}
+                        </select>
+
+                        <select
+                          value={cctvCategoryFilter}
+                          onChange={(e) => {
+                            setCctvCategoryFilter(e.target.value);
+                            setCctvDisplayLimit(40);
+                          }}
+                          className="px-2 py-1 text-[10px] font-semibold rounded-xl bg-white/90 dark:bg-slate-900/90 border border-cyan-200 dark:border-cyan-800 text-slate-700 dark:text-slate-200 focus:outline-hidden"
+                        >
+                          <option value="Semua">Semua Kategori</option>
+                          <option value="jalan">Jalan Raya</option>
+                          <option value="tol">Jalan Tol</option>
+                          <option value="publik">Kawasan Publik</option>
+                          <option value="wisata">Destinasi Wisata</option>
+                          <option value="pengadilan">Layanan Peradilan</option>
+                        </select>
+                      </div>
+
+                      {/* Quick City Pills */}
+                      <div className="flex items-center gap-1 overflow-x-auto pb-0.5 pt-0.5 no-scrollbar">
+                        {['Semua', 'DKI Jakarta', 'Kota Bandung', 'D.I. Yogyakarta', 'Surabaya', 'Provinsi Bali', 'Jalan Tol Trans Jawa'].map((cityName) => (
+                          <button
+                            key={cityName}
+                            type="button"
+                            onClick={() => {
+                              setCctvCityFilter(cityName);
+                              setCctvDisplayLimit(40);
+                            }}
+                            className={`px-2 py-0.5 rounded-lg text-[9px] font-bold whitespace-nowrap transition-colors cursor-pointer ${
+                              cctvCityFilter === cityName
+                                ? 'bg-cyan-600 text-white shadow-2xs'
+                                : 'bg-cyan-100/70 dark:bg-cyan-900/50 text-cyan-800 dark:text-cyan-200 hover:bg-cyan-200 dark:hover:bg-cyan-800'
+                            }`}
+                          >
+                            {cityName}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Camera Cards List */}
+                  {cctvCameras.length === 0 ? (
+                    <div className="p-6 text-center text-slate-500 dark:text-slate-400 text-xs">
+                      <Camera className="w-8 h-8 mx-auto text-slate-400 mb-2 opacity-50" />
+                      <p className="font-semibold">Tidak ada kamera ditemukan untuk filter ini.</p>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setCctvCityFilter('Semua');
+                          setCctvCategoryFilter('Semua');
+                          setCctvSearchQuery('');
+                        }}
+                        className="mt-2 px-3 py-1 bg-cyan-600 text-white rounded-xl text-[10px] font-bold"
+                      >
+                        Reset Filter
+                      </button>
+                    </div>
+                  ) : (
+                    cctvCameras.slice(0, cctvDisplayLimit).map((cam) => (
+                      <div
+                        key={cam.id}
+                        className="p-3 rounded-2xl border border-slate-200/80 dark:border-slate-800 bg-white/80 dark:bg-slate-800/50 hover:bg-slate-50 dark:hover:bg-slate-800/80 transition-all text-xs space-y-2 shadow-2xs"
+                      >
+                        <div className="flex items-start justify-between gap-2">
+                          <div className="min-w-0 flex-1">
+                            <div className="flex items-center gap-1.5 flex-wrap">
+                              <span className="text-[9px] font-bold px-1.5 py-0.5 rounded bg-cyan-100 dark:bg-cyan-950 text-cyan-700 dark:text-cyan-300 border border-cyan-200 dark:border-cyan-800">
+                                {cam.authority}
+                              </span>
+                              {cam.streamType === 'hls' ? (
+                                <span className="text-[9px] font-bold px-1.5 py-0.5 rounded bg-emerald-100 dark:bg-emerald-950 text-emerald-700 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800 flex items-center gap-1">
+                                  <Video className="w-2.5 h-2.5" /> HLS 24/7 Live
+                                </span>
+                              ) : cam.streamType === 'youtube' ? (
+                                <span className="text-[9px] font-bold px-1.5 py-0.5 rounded bg-rose-100 dark:bg-rose-950 text-rose-700 dark:text-rose-300 border border-rose-200 dark:border-rose-800 flex items-center gap-1">
+                                  <Video className="w-2.5 h-2.5" /> YouTube Live
+                                </span>
+                              ) : cam.streamType === 'iframe' ? (
+                                <span className="text-[9px] font-bold px-1.5 py-0.5 rounded bg-sky-100 dark:bg-sky-950 text-sky-700 dark:text-sky-300 border border-sky-200 dark:border-sky-800 flex items-center gap-1">
+                                  <Video className="w-2.5 h-2.5" /> Siaran Langsung
+                                </span>
+                              ) : (
+                                <span className="text-[9px] font-bold px-1.5 py-0.5 rounded bg-amber-100 dark:bg-amber-950 text-amber-700 dark:text-amber-300 border border-amber-200 dark:border-amber-800 flex items-center gap-1">
+                                  <Camera className="w-2.5 h-2.5" /> Snapshot ATCS
+                                </span>
+                              )}
+                              <span className="text-[8.5px] font-mono px-1 py-0.5 rounded bg-slate-100 dark:bg-slate-700 text-slate-500 dark:text-slate-300">
+                                {cam.city}
+                              </span>
+                            </div>
+                            <h4 className="font-bold text-slate-800 dark:text-white leading-tight mt-1 text-xs">
+                              {cam.name}
+                            </h4>
+                            <p className="text-[10px] text-slate-500 dark:text-slate-400 mt-0.5">
+                              {cam.road}
+                            </p>
+                            <p className="text-[9px] font-mono text-slate-400 dark:text-slate-500 mt-0.5">
+                              📍 {cam.lat.toFixed(4)}°, {cam.lng.toFixed(4)}°
+                            </p>
+                          </div>
+
+                          <span className="flex items-center gap-1 px-2 py-0.5 rounded-full bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/30 text-[9px] font-bold shrink-0">
+                            <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
+                            Live {cam.fps} FPS
+                          </span>
+                        </div>
+
+                        <div className="flex items-center justify-between pt-1 border-t border-slate-100 dark:border-slate-700/50 text-[10px]">
+                          <span className="text-slate-500 dark:text-slate-400 truncate max-w-[170px]" title={cam.statusText}>
+                            Status: <strong className="text-slate-700 dark:text-slate-300">{cam.statusText}</strong>
+                          </span>
+
+                          <div className="flex items-center gap-1.5 shrink-0">
+                            {cam.portalUrl && (
+                              <a
+                                href={cam.portalUrl}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="px-2 py-1 rounded-xl bg-slate-100 dark:bg-slate-700 text-slate-600 dark:text-slate-300 hover:bg-slate-200 font-bold text-[9.5px] flex items-center gap-1 cursor-pointer"
+                                title="Kunjungi portal resmi penyedia CCTV"
+                              >
+                                <Globe className="w-3 h-3" />
+                                <span>Portal</span>
+                              </a>
+                            )}
+
+                            <button
+                              type="button"
+                              onClick={() => handleFocusCctv(cam)}
+                              className="px-2 py-1 rounded-xl bg-slate-100 dark:bg-slate-700 text-slate-700 dark:text-slate-300 hover:bg-slate-200 font-bold text-[10px] flex items-center gap-1 cursor-pointer"
+                              title="Pusatkan kamera di peta"
+                            >
+                              <Navigation className="w-3 h-3" />
+                              <span>Pusatkan</span>
+                            </button>
+
+                            <button
+                              type="button"
+                              onClick={() => setSelectedCctvCamera(cam)}
+                              className="px-2.5 py-1 rounded-xl bg-cyan-600 hover:bg-cyan-700 text-white font-bold text-[10px] flex items-center gap-1 shadow-2xs cursor-pointer"
+                              title="Buka siaran live kamera ini"
+                            >
+                              <Camera className="w-3 h-3" />
+                              <span>Buka Live CCTV</span>
+                            </button>
+                          </div>
+                        </div>
+                      </div>
+                    ))
+                  )}
+
+                  {/* Load More Button if more cameras available */}
+                  {cctvCameras.length > cctvDisplayLimit && (
+                    <div className="pt-2 text-center pb-2">
+                      <button
+                        type="button"
+                        onClick={() => setCctvDisplayLimit((prev) => prev + 40)}
+                        className="px-4 py-1.5 rounded-xl bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 font-bold text-[10.5px] transition-all cursor-pointer shadow-2xs"
+                      >
+                        Tampilkan 40 Kamera Berikutnya ({cctvDisplayLimit} dari {cctvCameras.length})
+                      </button>
+                    </div>
+                  )}
                 </div>
               )}
 
@@ -6830,14 +7570,33 @@ export function MapsView() {
                       >
                         <div className="flex items-start justify-between gap-2">
                           <div className="min-w-0 flex-1">
-                            <span className="text-[9px] font-bold px-1.5 py-0.5 rounded bg-slate-100 dark:bg-slate-700 text-slate-700 dark:text-slate-300 border border-slate-200 dark:border-slate-600">
-                              {sig.intersectionType}
-                            </span>
+                            <div className="flex items-center gap-1.5 flex-wrap">
+                              <span className="text-[9px] font-bold px-1.5 py-0.5 rounded bg-slate-100 dark:bg-slate-700 text-slate-700 dark:text-slate-300 border border-slate-200 dark:border-slate-600">
+                                {sig.intersectionType}
+                              </span>
+                              {sig.isUnderRepair ? (
+                                <span className="text-[9px] font-bold px-1.5 py-0.5 rounded bg-amber-500/10 text-amber-600 dark:text-amber-400 border border-amber-500/30">
+                                  🔧 Pemeliharaan
+                                </span>
+                              ) : (
+                                <span className="text-[9px] font-bold px-1.5 py-0.5 rounded bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/30">
+                                  ✓ SCATS/SITS Normal
+                                </span>
+                              )}
+                              <span className="text-[8.5px] font-mono text-sky-600 dark:text-sky-400 px-1 py-0.5 rounded bg-sky-50 dark:bg-sky-950/60 border border-sky-200 dark:border-sky-800">
+                                ±{sig.telemetryDelaySec}s Delay
+                              </span>
+                            </div>
                             <h4 className="font-bold text-slate-800 dark:text-white leading-tight mt-1 text-xs">
                               {sig.name}
                             </h4>
                             <p className="text-[10px] text-slate-500 dark:text-slate-400 mt-0.5">
-                              {sig.city} • Antrean: ~{sig.queueEstimateVehicles} kend.
+                              {sig.city} • Antrean: ~{sig.queueEstimateVehicles} kend. • Otoritas: {sig.authoritySource}
+                            </p>
+                            <p className="text-[9.5px] text-slate-600 dark:text-slate-300 mt-1 bg-slate-50 dark:bg-slate-900/60 p-1.5 rounded-lg border border-slate-200/60 dark:border-slate-800">
+                              <strong className={sig.isUnderRepair ? 'text-amber-500' : 'text-emerald-500'}>{sig.statusLabel}:</strong>{' '}
+                              <span>{sig.maintenanceNote}</span>{' '}
+                              <span className="text-slate-400 font-mono">({sig.updatedBy})</span>
                             </p>
                           </div>
 
@@ -6849,7 +7608,7 @@ export function MapsView() {
 
                         <div className="flex items-center justify-between pt-1 border-t border-slate-100 dark:border-slate-700/50 text-[10px]">
                           <span className="text-slate-500 dark:text-slate-400">
-                            Durasi Siklus Total: <strong className="font-mono text-slate-700 dark:text-slate-300">{sig.cycleTotalSeconds} detik</strong>
+                            Durasi Siklus: <strong className="font-mono text-slate-700 dark:text-slate-300">{sig.cycleTotalSeconds}s</strong>
                           </span>
 
                           <div className="flex items-center gap-1.5">
@@ -7406,70 +8165,428 @@ export function MapsView() {
         </div>
       )}
 
-      {/* Bottom-Left Unified Status & Intelligence Bar */}
-      {weatherMapOverlay === 'none' && (
-        <div className="absolute bottom-3 sm:bottom-4 left-3 sm:left-4 z-20 flex flex-wrap items-center gap-2 max-w-[calc(100vw-8rem)] pointer-events-auto">
-          {/* 1. Basemap Provenance Pill */}
-          <button
-            type="button"
-            onClick={() => setShowMetadataModal(true)}
-            className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-slate-900/85 hover:bg-slate-900 backdrop-blur-md border border-white/15 text-white text-[11px] font-medium shadow-md transition-all hover:scale-105 cursor-pointer"
-            title="Klik untuk melihat informasi validitas & tahun data geospasial"
-          >
-            <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
-            <span className="font-bold text-slate-200">
-              {BASEMAP_METADATA[activeMapBasemap].name.split(' ')[0]}:
-            </span>
-            <span className="text-emerald-300 font-semibold">
-              {BASEMAP_METADATA[activeMapBasemap].year}
-            </span>
-            <Info className="w-3 h-3 text-slate-400 ml-0.5" />
-          </button>
-
-          {/* 2. Seasonal Intelligence & Equator Distance Pill */}
-          {seasonalInfo && (
-            <button
-              type="button"
-              onClick={() => setShowSeasonalModal(true)}
-              className="flex items-center gap-2 px-3 py-1.5 rounded-xl bg-slate-900/85 hover:bg-slate-900 backdrop-blur-md border border-amber-500/30 text-white text-[11px] font-medium shadow-lg transition-all hover:scale-105 cursor-pointer group"
-              title="Klik untuk melihat Detail Konsensus Musim & Iklim Global"
-            >
-              <span className="text-sm leading-none">{seasonalInfo.seasonIcon}</span>
-              <div className="flex items-center gap-1.5 text-left">
-                <span className="font-bold text-amber-300">
-                  {seasonalInfo.seasonName}
-                </span>
-                {globalWeatherSummary?.temperature !== undefined && (
-                  <span className="text-slate-300 font-mono font-bold">
-                    {globalWeatherSummary.temperature}°C
+      {/* Bottom Center: Unified Navigation, Geospatial Intel & Traffic Dock */}
+      {weatherMapOverlay === 'none' && (showBottomDock || showGeospatialIntelBar || showTrafficControlBar) && (
+        <div className="absolute bottom-4 sm:bottom-5 left-1/2 -translate-x-1/2 z-30 flex flex-col items-center gap-2 pointer-events-none max-w-[96vw]">
+          {/* Top Tier: Geospatial Intel Bar (Lintasan & Iklim) */}
+          <AnimatePresence mode="wait">
+            {showGeospatialIntelBar ? (
+              <motion.div
+                key="geospatial-projector-panel"
+                initial={{ opacity: 0, y: 45, scale: 0.96 }}
+                animate={{ opacity: 1, y: 0, scale: 1 }}
+                exit={{ opacity: 0, y: 45, scale: 0.96 }}
+                transition={{ type: 'spring', stiffness: 350, damping: 28 }}
+                className="flex flex-wrap items-center justify-center gap-2 max-w-[95vw] sm:max-w-2xl md:max-w-3xl pointer-events-auto"
+              >
+                {/* 1. Basemap Provenance Pill */}
+                <button
+                  type="button"
+                  onClick={() => setShowMetadataModal(true)}
+                  className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-slate-900/85 hover:bg-slate-900 backdrop-blur-md border border-white/15 text-white text-[11px] font-medium shadow-md transition-all hover:scale-105 cursor-pointer"
+                  title="Klik untuk melihat informasi validitas & tahun data geospasial"
+                >
+                  <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
+                  <span className="font-bold text-slate-200">
+                    {BASEMAP_METADATA[activeMapBasemap].name.split(' ')[0]}:
                   </span>
-                )}
-              </div>
-              <span className="hidden md:inline-flex items-center text-[10px] text-slate-400 font-mono pl-1 border-l border-slate-700">
-                {Math.round(seasonalInfo.distanceToEquatorKm)} km ke Khatulistiwa
-              </span>
-            </button>
-          )}
+                  <span className="text-emerald-300 font-semibold">
+                    {BASEMAP_METADATA[activeMapBasemap].year}
+                  </span>
+                  <Info className="w-3 h-3 text-slate-400 ml-0.5" />
+                </button>
 
-          {/* 3. Petunjuk & Menu Garis Khatulistiwa 0° */}
-          <button
-            type="button"
-            onClick={() => setShowEquatorGuide((prev) => !prev)}
-            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl backdrop-blur-md border text-[11px] font-medium shadow-md transition-all hover:scale-105 cursor-pointer ${
-              showEquatorZones
-                ? 'bg-slate-900/85 hover:bg-slate-900 border-amber-400/40 text-amber-300'
-                : 'bg-slate-900/60 hover:bg-slate-900/80 border-white/10 text-slate-400'
-            }`}
-            title="Petunjuk Garis Khatulistiwa 0° & Garis Balik Tropis"
-          >
-            <span className="w-2.5 h-0.5 rounded-full bg-amber-400" />
-            <span className="font-bold">Khatulistiwa 0°</span>
-            <ChevronUp className={`w-3 h-3 transition-transform ${showEquatorGuide ? 'rotate-180' : ''}`} />
-          </button>
+                {/* 2. Seasonal Intelligence & Equator Distance Pill */}
+                {seasonalInfo && (
+                  <button
+                    type="button"
+                    onClick={() => setShowSeasonalModal(true)}
+                    className="flex items-center gap-2 px-3 py-1.5 rounded-xl bg-slate-900/85 hover:bg-slate-900 backdrop-blur-md border border-amber-500/30 text-white text-[11px] font-medium shadow-lg transition-all hover:scale-105 cursor-pointer group"
+                    title="Klik untuk melihat Detail Konsensus Musim & Iklim Global"
+                  >
+                    <span className="text-sm leading-none">{seasonalInfo.seasonIcon}</span>
+                    <div className="flex items-center gap-1.5 text-left">
+                      <span className="font-bold text-amber-300">
+                        {seasonalInfo.seasonName}
+                      </span>
+                      {globalWeatherSummary?.temperature !== undefined && (
+                        <span className="text-slate-300 font-mono font-bold">
+                          {globalWeatherSummary.temperature}°C
+                        </span>
+                      )}
+                    </div>
+                    <span className="hidden md:inline-flex items-center text-[10px] text-slate-400 font-mono pl-1 border-l border-slate-700">
+                      {Math.round(seasonalInfo.distanceToEquatorKm)} km ke Khatulistiwa
+                    </span>
+                  </button>
+                )}
+
+                {/* 3. Petunjuk & Menu Garis Khatulistiwa 0° */}
+                <button
+                  type="button"
+                  onClick={() => setShowEquatorGuide((prev) => !prev)}
+                  className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl backdrop-blur-md border text-[11px] font-medium shadow-md transition-all hover:scale-105 cursor-pointer ${
+                    showEquatorZones
+                      ? 'bg-slate-900/85 hover:bg-slate-900 border-amber-400/40 text-amber-300'
+                      : 'bg-slate-900/60 hover:bg-slate-900/80 border-white/10 text-slate-400'
+                  }`}
+                  title="Petunjuk Garis Khatulistiwa 0° & Garis Balik Tropis"
+                >
+                  <span className="w-2.5 h-0.5 rounded-full bg-amber-400" />
+                  <span className="font-bold">Khatulistiwa 0°</span>
+                  <ChevronUp className={`w-3 h-3 transition-transform ${showEquatorGuide ? 'rotate-180' : ''}`} />
+                </button>
+
+                {/* 4. Projector Roll-Down Button (Tutup / Tarik ke Bawah) */}
+                <button
+                  type="button"
+                  onClick={(e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    setShowGeospatialIntelBar(false);
+                    try {
+                      window.localStorage.setItem(`hm_geospatial_intel_bar_${activeUserId}`, 'false');
+                    } catch (err) {}
+                  }}
+                  className="flex items-center justify-center p-1.5 rounded-xl bg-slate-900/85 hover:bg-slate-900 backdrop-blur-md border border-white/15 text-slate-400 hover:text-white shadow-md transition-all hover:scale-105 cursor-pointer shrink-0"
+                  title="Tutup / Tarik Panel ke Bawah"
+                  aria-label="Tutup Panel Intelijen"
+                >
+                  <ChevronDown className="w-3.5 h-3.5" />
+                </button>
+              </motion.div>
+            ) : showTrafficControlBar ? (
+              <motion.div
+                key="geospatial-minimized-top-pill"
+                initial={{ opacity: 0, y: 15, scale: 0.95 }}
+                animate={{ opacity: 1, y: 0, scale: 1 }}
+                exit={{ opacity: 0, y: 15, scale: 0.95 }}
+                transition={{ type: 'spring', stiffness: 350, damping: 28 }}
+                className="pointer-events-auto"
+              >
+                <button
+                  type="button"
+                  onClick={() => {
+                    setShowGeospatialIntelBar(true);
+                    setShowBottomDock(true);
+                    try {
+                      window.localStorage.setItem(`hm_geospatial_intel_bar_${activeUserId}`, 'true');
+                      window.localStorage.setItem(`hm_show_bottom_dock_${activeUserId}`, 'true');
+                    } catch (e) {}
+                  }}
+                  className="flex items-center gap-2 px-3 py-1.5 rounded-2xl bg-slate-900/90 hover:bg-slate-900 backdrop-blur-xl border border-white/15 text-white text-xs font-semibold shadow-xl hover:scale-105 active:scale-95 transition-all cursor-pointer shadow-indigo-500/10"
+                  title="Buka Panel Intelijen Wilayah & Iklim (Tarik ke Atas)"
+                >
+                  <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
+                  <span className="font-bold text-slate-200">Lintasan &amp; Iklim</span>
+                  <ChevronUp className="w-3.5 h-3.5 text-slate-400" />
+                </button>
+              </motion.div>
+            ) : null}
+          </AnimatePresence>
+
+          {/* Bottom Tier: Traffic Control Bar OR Minimized Buttons */}
+          <AnimatePresence mode="wait">
+            {showTrafficControlBar ? (
+              <motion.div
+                key="google-maps-traffic-bar"
+                initial={{ opacity: 0, y: 45, scale: 0.96 }}
+                animate={{ opacity: 1, y: 0, scale: 1 }}
+                exit={{ opacity: 0, y: 45, scale: 0.96 }}
+                transition={{ type: 'spring', stiffness: 350, damping: 28 }}
+                className="w-[92vw] sm:w-[460px] max-w-[460px] rounded-2xl bg-white/95 dark:bg-slate-900/95 backdrop-blur-xl border border-slate-200/90 dark:border-slate-700/80 shadow-2xl p-3 sm:p-3.5 text-slate-800 dark:text-slate-100 select-none pointer-events-auto"
+                style={{ fontFamily: 'Inter, system-ui, sans-serif' }}
+              >
+                {/* Top Row: Mode dropdown | Speed Gradient | Switch | Close */}
+                <div className="flex items-center justify-between gap-2 pb-2.5 border-b border-slate-100 dark:border-slate-800/80">
+                  <div className="relative">
+                    <select
+                      value={trafficMode}
+                      onChange={(e) => setTrafficMode(e.target.value as 'live' | 'typical')}
+                      className="appearance-none bg-slate-100/80 dark:bg-slate-800/80 hover:bg-slate-200/80 dark:hover:bg-slate-700/80 text-slate-900 dark:text-slate-100 font-semibold text-xs sm:text-[13px] py-1 pl-2.5 pr-7 rounded-lg cursor-pointer focus:outline-none transition-colors border border-slate-200 dark:border-slate-700"
+                    >
+                      <option value="typical" className="bg-white dark:bg-slate-900 text-slate-900 dark:text-slate-100">
+                        Lalu lintas biasanya
+                      </option>
+                      <option value="live" className="bg-white dark:bg-slate-900 text-slate-900 dark:text-slate-100">
+                        Lalu lintas langsung
+                      </option>
+                    </select>
+                    <ChevronDown className="w-3.5 h-3.5 absolute right-2 top-1/2 -translate-y-1/2 pointer-events-none text-slate-500" />
+                  </div>
+
+                  <div className="flex items-center gap-2">
+                    {/* Google Maps Speed Color Bar */}
+                    <div className="flex items-center gap-1.5 text-[10.5px] sm:text-[11px] text-slate-500 dark:text-slate-400 font-medium">
+                      <span className="italic">Cepat</span>
+                      <div className="flex items-center h-2 rounded-full overflow-hidden w-16 sm:w-24 shadow-2xs">
+                        <span className="h-full flex-1 bg-[#0f9d58]" title="Lancar (> 45 km/jam)" />
+                        <span className="h-full flex-1 bg-[#f9ab00]" title="Ramai Lancar (25 - 45 km/jam)" />
+                        <span className="h-full flex-1 bg-[#ea4335]" title="Padat (10 - 25 km/jam)" />
+                        <span className="h-full flex-1 bg-[#7f1d1d]" title="Pelan / Macet Total (< 10 km/jam)" />
+                      </div>
+                      <span className="italic">Pelan</span>
+                    </div>
+
+                    {/* Layer Toggle Switch */}
+                    <button
+                      type="button"
+                      onClick={() => {
+                        if (activeMapBasemap === 'traffic') {
+                          setActiveMapBasemap('osm');
+                          setShowTrafficCorridors(false);
+                        } else {
+                          setShowTrafficCorridors((v) => !v);
+                        }
+                      }}
+                      className={`w-7 h-4 rounded-full transition-colors relative p-0.5 cursor-pointer shrink-0 ${
+                        activeMapBasemap === 'traffic' || showTrafficCorridors
+                          ? 'bg-teal-600 dark:bg-teal-500'
+                          : 'bg-slate-300 dark:bg-slate-600'
+                      }`}
+                      title="Nyalakan/Matikan Lapisan Lalu Lintas"
+                    >
+                      <span
+                        className={`block w-3 h-3 rounded-full bg-white shadow-xs transition-transform ${
+                          activeMapBasemap === 'traffic' || showTrafficCorridors ? 'translate-x-3' : 'translate-x-0'
+                        }`}
+                      />
+                    </button>
+
+                    {/* Close Button: Tarik ke Bawah (Projector Pull-Down) */}
+                    <button
+                      type="button"
+                      onClick={(e) => {
+                        e.preventDefault();
+                        e.stopPropagation();
+                        setShowTrafficControlBar(false);
+                        try {
+                          window.localStorage.setItem(`hm_traffic_bar_${activeUserId}`, 'false');
+                        } catch (err) {}
+                      }}
+                      className="p-1.5 rounded-lg text-slate-400 hover:text-slate-700 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors shrink-0 cursor-pointer relative z-10"
+                      title="Tutup / Sembunyikan Panel Lalu Lintas"
+                      aria-label="Tutup Panel Lalu Lintas"
+                    >
+                      <X className="h-4 w-4" />
+                    </button>
+                  </div>
+                </div>
+
+                {/* Bottom Content: Typical vs Live */}
+                {trafficMode === 'typical' ? (
+                  <div className="pt-2 space-y-2">
+                    {/* Day selector: M S S R K J S */}
+                    <div className="flex items-center gap-1 sm:gap-1.5">
+                      {[
+                        { label: 'M', day: 0, name: 'Minggu' },
+                        { label: 'S', day: 1, name: 'Senin' },
+                        { label: 'S', day: 2, name: 'Selasa' },
+                        { label: 'R', day: 3, name: 'Rabu' },
+                        { label: 'K', day: 4, name: 'Kamis' },
+                        { label: 'J', day: 5, name: 'Jumat' },
+                        { label: 'S', day: 6, name: 'Sabtu' },
+                      ].map((d) => {
+                        const isSelected = trafficTypicalDay === d.day;
+                        return (
+                          <button
+                            key={`day-pill-${d.day}-${d.label}`}
+                            type="button"
+                            onClick={() => setTrafficTypicalDay(d.day)}
+                            className={`w-6 h-6 rounded-full text-xs font-bold transition-all cursor-pointer flex items-center justify-center ${
+                              isSelected
+                                ? 'bg-teal-700 text-white font-black shadow-xs ring-2 ring-teal-500/40'
+                                : 'text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800'
+                            }`}
+                            title={d.name}
+                          >
+                            {d.label}
+                          </button>
+                        );
+                      })}
+                    </div>
+
+                    {/* Current Day and Time Display */}
+                    <div className="text-xs font-semibold text-slate-800 dark:text-slate-200">
+                      {['Minggu', 'Senin', 'Selasa', 'Rabu', 'Kamis', 'Jumat', 'Sabtu'][trafficTypicalDay]},{' '}
+                      {String(Math.floor(trafficTypicalHour)).padStart(2, '0')}.
+                      {String(Math.round((trafficTypicalHour - Math.floor(trafficTypicalHour)) * 60)).padStart(2, '0')}
+                    </div>
+
+                    {/* Slider */}
+                    <div className="relative pt-0.5 pb-0.5">
+                      <input
+                        type="range"
+                        min={6}
+                        max={22}
+                        step={0.25}
+                        value={trafficTypicalHour}
+                        onChange={(e) => setTrafficTypicalHour(parseFloat(e.target.value))}
+                        className="w-full h-1.5 bg-slate-200 dark:bg-slate-700 rounded-lg appearance-none cursor-pointer accent-teal-600 dark:accent-teal-400"
+                      />
+                      <div className="flex justify-between text-[9px] text-slate-400 dark:text-slate-500 font-mono mt-0.5 px-0.5">
+                        <span>08.00</span>
+                        <span>12.00</span>
+                        <span>16.00</span>
+                        <span>20.00</span>
+                      </div>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="pt-2 space-y-2">
+                    <div className="flex items-center justify-between text-xs">
+                      <div className="flex items-center gap-1.5 text-slate-800 dark:text-slate-200 font-medium">
+                        <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
+                        <span>Real-time GPS Crowdsource</span>
+                        <span className="text-slate-300 dark:text-slate-600">•</span>
+                        <span className="font-mono text-emerald-600 dark:text-emerald-400 font-bold">
+                          {crowdsourceSummary.totalActiveProbes} Sinyal
+                        </span>
+                      </div>
+                      <span className="text-[10px] text-slate-400 font-mono">
+                        {crowdsourceSummary.timestamp}
+                      </span>
+                    </div>
+
+                    <div className="flex items-center justify-between gap-2">
+                      <p className="text-[10.5px] text-slate-500 dark:text-slate-400 truncate">
+                        Titik Terpadat: <span className="font-semibold text-rose-500">{crowdsourceSummary.heaviestBottleneck}</span>
+                      </p>
+                      <div className="flex items-center gap-1.5 shrink-0">
+                        <button
+                          type="button"
+                          onClick={handleToggleBroadcastGps}
+                          className={`px-2 py-1 rounded-lg text-[9.5px] font-bold border transition-colors cursor-pointer flex items-center gap-1 ${
+                            isBroadcastingUserGps
+                              ? 'bg-rose-500 text-white border-rose-600'
+                              : 'bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 border-slate-300 dark:border-slate-700 hover:bg-slate-200 dark:hover:bg-slate-700'
+                          }`}
+                          title="Siarkan koordinat GPS perangkat secara anonim untuk kontribusi kepadatan"
+                        >
+                          <span>📡</span>
+                          <span>{isBroadcastingUserGps ? 'Berhenti GPS' : 'Siarkan GPS'}</span>
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setShowTrafficCorridors(true)}
+                          className="px-2 py-1 rounded-lg text-[9.5px] font-bold bg-teal-600 hover:bg-teal-700 text-white transition-colors cursor-pointer flex items-center gap-1"
+                          title="Buka panel daftar koridor, kamera CCTV, dan sinyal ATCS"
+                        >
+                          <span>🚗</span>
+                          <span>Koridor &amp; CCTV</span>
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                )}
+              </motion.div>
+            ) : !showGeospatialIntelBar ? (
+              /* When BOTH are minimized: Show both trigger buttons side-by-side in center + close button */
+              <motion.div
+                key="both-minimized-pills"
+                initial={{ opacity: 0, y: 35, scale: 0.95 }}
+                animate={{ opacity: 1, y: 0, scale: 1 }}
+                exit={{ opacity: 0, y: 35, scale: 0.95 }}
+                transition={{ type: 'spring', stiffness: 350, damping: 28 }}
+                className="flex items-center justify-center gap-2 pointer-events-auto"
+              >
+                <button
+                  type="button"
+                  onClick={() => {
+                    setShowGeospatialIntelBar(true);
+                    setShowBottomDock(true);
+                    try {
+                      window.localStorage.setItem(`hm_geospatial_intel_bar_${activeUserId}`, 'true');
+                      window.localStorage.setItem(`hm_show_bottom_dock_${activeUserId}`, 'true');
+                    } catch (e) {}
+                  }}
+                  className="flex items-center gap-2 px-3 py-2 rounded-2xl bg-slate-900/90 hover:bg-slate-900 backdrop-blur-xl border border-white/15 text-white text-xs font-semibold shadow-2xl hover:scale-105 active:scale-95 transition-all cursor-pointer shadow-indigo-500/10"
+                  title="Buka Panel Intelijen Wilayah & Iklim (Tarik ke Atas)"
+                >
+                  <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
+                  <span className="font-bold text-slate-200">Lintasan &amp; Iklim</span>
+                  <ChevronUp className="w-3.5 h-3.5 text-slate-400" />
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => {
+                    setShowTrafficControlBar(true);
+                    setShowBottomDock(true);
+                    try {
+                      window.localStorage.setItem(`hm_traffic_bar_${activeUserId}`, 'true');
+                      window.localStorage.setItem(`hm_show_bottom_dock_${activeUserId}`, 'true');
+                    } catch (e) {}
+                    if (activeMapBasemap !== 'traffic') {
+                      setShowTrafficCorridors(true);
+                    }
+                  }}
+                  className="flex items-center gap-2 px-3.5 py-2 rounded-2xl bg-slate-900/95 hover:bg-slate-900 backdrop-blur-xl border border-teal-500/50 text-white text-xs font-semibold shadow-2xl hover:scale-105 active:scale-95 transition-all cursor-pointer shadow-teal-500/10"
+                  title="Buka Panel Kontrol Lalu Lintas Google Maps (Tarik ke Atas)"
+                >
+                  <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
+                  <span className="font-bold text-teal-300">Lalu Lintas</span>
+                  <span className="text-[10px] text-slate-400 font-mono hidden sm:inline">• Live</span>
+                  <ChevronUp className="w-3.5 h-3.5 text-slate-400" />
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => {
+                    setShowBottomDock(false);
+                    setShowGeospatialIntelBar(false);
+                    setShowTrafficControlBar(false);
+                    try {
+                      window.localStorage.setItem(`hm_show_bottom_dock_${activeUserId}`, 'false');
+                      window.localStorage.setItem(`hm_geospatial_intel_bar_${activeUserId}`, 'false');
+                      window.localStorage.setItem(`hm_traffic_bar_${activeUserId}`, 'false');
+                    } catch (e) {}
+                  }}
+                  className="flex items-center justify-center p-2 rounded-2xl bg-slate-900/90 hover:bg-slate-900 backdrop-blur-xl border border-white/15 text-slate-400 hover:text-white shadow-2xl hover:scale-105 active:scale-95 transition-all cursor-pointer"
+                  title="Sembunyikan / Nonaktifkan Dock (Off)"
+                  aria-label="Sembunyikan Dock"
+                >
+                  <X className="w-3.5 h-3.5" />
+                </button>
+              </motion.div>
+            ) : (
+              /* When Geospatial is open and Traffic is minimized: Show Traffic pill directly underneath */
+              <motion.div
+                key="traffic-minimized-under-pill"
+                initial={{ opacity: 0, y: 15, scale: 0.95 }}
+                animate={{ opacity: 1, y: 0, scale: 1 }}
+                exit={{ opacity: 0, y: 15, scale: 0.95 }}
+                transition={{ type: 'spring', stiffness: 350, damping: 28 }}
+                className="pointer-events-auto"
+              >
+                <button
+                  type="button"
+                  onClick={() => {
+                    setShowTrafficControlBar(true);
+                    setShowBottomDock(true);
+                    try {
+                      window.localStorage.setItem(`hm_traffic_bar_${activeUserId}`, 'true');
+                      window.localStorage.setItem(`hm_show_bottom_dock_${activeUserId}`, 'true');
+                    } catch (e) {}
+                    if (activeMapBasemap !== 'traffic') {
+                      setShowTrafficCorridors(true);
+                    }
+                  }}
+                  className="flex items-center gap-2 px-3.5 py-1.5 rounded-2xl bg-slate-900/95 hover:bg-slate-900 backdrop-blur-xl border border-teal-500/50 text-white text-xs font-semibold shadow-xl hover:scale-105 active:scale-95 transition-all cursor-pointer shadow-teal-500/10"
+                  title="Buka Panel Kontrol Lalu Lintas Google Maps (Tarik ke Atas)"
+                >
+                  <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
+                  <span className="font-bold text-teal-300">Lalu Lintas</span>
+                  <span className="text-[10px] text-slate-400 font-mono hidden sm:inline">• Live</span>
+                  <ChevronUp className="w-3.5 h-3.5 text-slate-400" />
+                </button>
+              </motion.div>
+            )}
+          </AnimatePresence>
         </div>
       )}
 
-      {/* Floating Equator & Climate Zones Guide Card (Pojok Kiri Bawah) */}
+      {/* Floating Equator & Climate Zones Guide Card (Pusat Bawah) */}
       <AnimatePresence>
         {showEquatorGuide && (
           <motion.div
@@ -7477,7 +8594,11 @@ export function MapsView() {
             initial={{ opacity: 0, y: 12, scale: 0.95 }}
             animate={{ opacity: 1, y: 0, scale: 1 }}
             exit={{ opacity: 0, y: 12, scale: 0.95 }}
-            className="absolute bottom-16 left-4 sm:left-6 z-30 w-80 max-w-[calc(100vw-2rem)] rounded-2xl bg-slate-900/95 backdrop-blur-xl border border-slate-700/80 p-3.5 shadow-2xl text-white"
+            className={`absolute z-40 w-80 max-w-[calc(100vw-2rem)] rounded-2xl bg-slate-900/95 backdrop-blur-xl border border-slate-700/80 p-3.5 shadow-2xl text-white left-1/2 -translate-x-1/2 ${
+              showTrafficControlBar
+                ? 'bottom-52 sm:bottom-56'
+                : 'bottom-20 sm:bottom-24'
+            }`}
           >
             <div className="flex items-center justify-between pb-2 border-b border-slate-800">
               <div className="flex items-center gap-2">
@@ -7489,10 +8610,16 @@ export function MapsView() {
               </div>
               <button
                 type="button"
-                onClick={() => setShowEquatorGuide(false)}
-                className="p-1 rounded-lg hover:bg-slate-800 text-slate-400 hover:text-white"
+                onClick={(e) => {
+                  e.preventDefault();
+                  e.stopPropagation();
+                  setShowEquatorGuide(false);
+                }}
+                className="p-1.5 rounded-lg hover:bg-slate-800 text-slate-400 hover:text-white transition-colors cursor-pointer relative z-10"
+                title="Tutup Petunjuk Khatulistiwa"
+                aria-label="Tutup Petunjuk Khatulistiwa"
               >
-                <X className="w-3.5 h-3.5" />
+                <X className="w-4 h-4" />
               </button>
             </div>
 
@@ -7914,46 +9041,6 @@ export function MapsView() {
           </motion.button>
         )}
 
-        {/* Quick Performance Mode Toggle Pill (Bawah Kiri) */}
-        {!showPanel && !showLayerManager && !showBasemapMenu && (
-          <motion.button
-            key="perf-mode-pill-quick"
-            type="button"
-            initial={{ opacity: 0, scale: 0.92, y: 12 }}
-            animate={{ opacity: 1, scale: 1, y: 0 }}
-            exit={{ opacity: 0, scale: 0.92, y: 12 }}
-            transition={{ duration: 0.2 }}
-            onClick={() => {
-              const nextMode: PerformanceMode =
-                perfMode === 'auto' ? 'lite' : perfMode === 'lite' ? 'high' : 'auto';
-              setPerfMode(nextMode);
-            }}
-            className="absolute bottom-6 left-4 sm:left-6 z-20 flex items-center gap-2 rounded-2xl bg-white/95 dark:bg-slate-900/95 px-3 py-2 shadow-2xl backdrop-blur-xl border border-slate-200/90 dark:border-slate-800 text-slate-800 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-800/90 transition-all hover:scale-[1.02] active:scale-95 group cursor-pointer shadow-indigo-500/10"
-            title={`Mode Performa: ${
-              perfMode === 'lite'
-                ? 'Hemat & Ringan (Anti-Lag Aktif)'
-                : perfMode === 'high'
-                ? 'Grafis Penuh'
-                : 'Otomatis Adaptif'
-            }. Klik untuk mengganti.`}
-          >
-            <div className={`flex h-7 w-7 items-center justify-center rounded-xl ${
-              effectivePerfMode === 'lite'
-                ? 'bg-emerald-100 dark:bg-emerald-950/60 text-emerald-600 dark:text-emerald-400'
-                : 'bg-indigo-100 dark:bg-indigo-950/60 text-indigo-600 dark:text-indigo-400'
-            }`}>
-              <Zap className="h-3.5 w-3.5" />
-            </div>
-            <div className="flex flex-col items-start text-left">
-              <span className="font-display font-bold text-[11px] leading-tight">
-                {perfMode === 'lite' ? '🚀 Mode Ringan' : perfMode === 'high' ? '✨ Grafis Penuh' : '⚡ Adaptif Auto'}
-              </span>
-              <span className="text-[9.5px] text-slate-400 font-medium">
-                {effectivePerfMode === 'lite' ? '60fps Anti-Lag' : 'Visual Maksimal'}
-              </span>
-            </div>
-          </motion.button>
-        )}
 
         {/* Windy Quick Pill (Ketika Cuaca Aktif tetapi Menu Diminimalkan) */}
         {weatherMapOverlay !== 'none' && !showWindyMenu && !showPanel && !showLayerManager && !showBasemapMenu && !showTrafficCorridors && !showObservationCoverage && (
@@ -8345,6 +9432,33 @@ export function MapsView() {
                         activeClass="bg-emerald-600" 
                       />
                     </div>
+
+                    {/* Bottom Intelligence & Traffic Dock Switch */}
+                    <div className="mt-2.5 flex items-center justify-between p-2.5 rounded-xl bg-slate-100/70 dark:bg-slate-800/60 border border-slate-200/50 dark:border-slate-700/50">
+                      <label className="flex items-center gap-2 select-none text-xs text-ink-700 dark:text-slate-300 font-semibold cursor-pointer">
+                        <Sliders className="h-4 w-4 text-teal-500" />
+                        <span>Dock Lintasan &amp; Lalu Lintas Bawah</span>
+                      </label>
+                      <Toggle 
+                        checked={showBottomDock || showGeospatialIntelBar || showTrafficControlBar} 
+                        label="Dock Lintasan & Lalu Lintas Bawah"
+                        onChange={(val) => {
+                          setShowBottomDock(val);
+                          if (!val) {
+                            setShowGeospatialIntelBar(false);
+                            setShowTrafficControlBar(false);
+                          }
+                          try {
+                            window.localStorage.setItem(`hm_show_bottom_dock_${activeUserId}`, String(val));
+                            if (!val) {
+                              window.localStorage.setItem(`hm_geospatial_intel_bar_${activeUserId}`, 'false');
+                              window.localStorage.setItem(`hm_traffic_bar_${activeUserId}`, 'false');
+                            }
+                          } catch (e) {}
+                        }} 
+                        activeClass="bg-teal-600" 
+                      />
+                    </div>
                   </div>
                 )}
 
@@ -8460,7 +9574,17 @@ export function MapsView() {
                       <label className="flex items-center gap-2 text-xs font-semibold text-slate-700 dark:text-slate-200">
                         <Thermometer className="h-4 w-4 text-sky-500" /> Kartu Cuaca di Peta
                       </label>
-                      <Toggle checked={showWeatherCard} onChange={setShowWeatherCard} activeClass="bg-sky-500" label="Kartu Cuaca di Peta" />
+                      <Toggle 
+                        checked={showWeatherCard} 
+                        onChange={(val) => {
+                          setShowWeatherCard(val);
+                          try {
+                            window.localStorage.setItem(`hm_weather_card_${activeUserId}`, String(val));
+                          } catch (e) {}
+                        }} 
+                        activeClass="bg-sky-500" 
+                        label="Kartu Cuaca di Peta" 
+                      />
                     </div>
                     <div className="flex items-center justify-between mb-2">
                       <h3 className="text-xs font-bold uppercase tracking-wider text-slate-400">
@@ -8488,17 +9612,6 @@ export function MapsView() {
                         }`}
                       >
                         📡 Radar Native (OpenLayers)
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => setWeatherRenderMode('windy')}
-                        className={`flex-1 py-1.5 px-2 rounded-lg text-center transition-all ${
-                          weatherRenderMode === 'windy'
-                            ? 'bg-white dark:bg-slate-900 text-sky-600 dark:text-sky-400 shadow-xs'
-                            : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-200'
-                        }`}
-                      >
-                        🌐 Model ECMWF (Windy)
                       </button>
                     </div>
 
@@ -9437,6 +10550,7 @@ export function MapsView() {
       <LiveCctvModal
         camera={selectedCctvCamera}
         onClose={() => setSelectedCctvCamera(null)}
+        onSelectCamera={setSelectedCctvCamera}
       />
 
       {/* Realtime ATCS Smart Traffic Signal Modal */}

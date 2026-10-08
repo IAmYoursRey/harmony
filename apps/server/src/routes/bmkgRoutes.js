@@ -68,17 +68,18 @@ function parseMagnitude(magVal) {
   return null;
 }
 
-async function fetchBmkgJson(url, maxRetries = 1) {
+async function fetchBmkgJson(url, maxRetries = 2) {
   let lastErr;
   for (let attempt = 0; attempt <= maxRetries; attempt++) {
     const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 6000);
+    const timeoutId = setTimeout(() => controller.abort(), 9000);
     try {
       const res = await fetch(url, {
         signal: controller.signal,
         headers: {
-          "User-Agent": "Harmony-Earth-Intelligence/2.0 (Analytic Geospatial Integration)",
-          "Accept": "application/json",
+          "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36 Harmony-Earth-Intelligence/2.0",
+          "Referer": "https://www.bmkg.go.id/",
+          "Accept": "application/json, text/plain, */*",
         },
       });
       if (!res.ok) {
@@ -88,10 +89,10 @@ async function fetchBmkgJson(url, maxRetries = 1) {
       return data;
     } catch (err) {
       lastErr = err;
-      if (attempt === maxRetries || err.name === 'AbortError') {
+      if (attempt === maxRetries) {
         throw err;
       }
-      await new Promise(resolve => setTimeout(resolve, 300));
+      await new Promise(resolve => setTimeout(resolve, 500));
     } finally {
       clearTimeout(timeoutId);
     }
@@ -146,13 +147,24 @@ router.get(["/gempa/autogempa", "/autogempa"], async (req, res) => {
     console.warn("BMKG autogempa live fetch failed; no new data:", error.message);
   }
 
+  if (cache.autogempa.data) {
+    return res.json({
+      success: true,
+      source: "stale_cache",
+      dataStatus: "CACHED",
+      fetchedAt: new Date(cache.autogempa.timestamp).toISOString(),
+      data: cache.autogempa.data,
+      warning: "Server BMKG sedang sibuk, menyajikan data cache terverifikasi.",
+    });
+  }
+
   return res.status(502).json({
     success: false,
-    source: cache.autogempa.data ? 'stale_cache' : 'unavailable',
-    dataStatus: cache.autogempa.data ? 'CACHED' : 'UNAVAILABLE',
-    fetchedAt: cache.autogempa.timestamp ? new Date(cache.autogempa.timestamp).toISOString() : null,
+    source: 'unavailable',
+    dataStatus: 'UNAVAILABLE',
+    fetchedAt: null,
     error: 'Pengambilan terbaru dari BMKG gagal. Tidak ada data baru yang berhasil diambil.',
-    data: cache.autogempa.data || null,
+    data: null,
   });
 });
 
@@ -207,13 +219,25 @@ router.get(["/gempa/terkini", "/gempaterkini"], async (req, res) => {
     console.warn("BMKG gempaterkini fetch failed; no new data:", error.message);
   }
 
+  if (cache.gempaterkini.data) {
+    return res.json({
+      success: true,
+      source: "stale_cache",
+      dataStatus: "CACHED",
+      fetchedAt: new Date(cache.gempaterkini.timestamp).toISOString(),
+      count: cache.gempaterkini.data.length,
+      data: cache.gempaterkini.data,
+      warning: "Server BMKG sedang sibuk, menyajikan data cache terverifikasi.",
+    });
+  }
+
   return res.status(502).json({
     success: false,
-    source: cache.gempaterkini.data ? 'stale_cache' : 'unavailable',
-    dataStatus: cache.gempaterkini.data ? 'CACHED' : 'UNAVAILABLE',
-    fetchedAt: cache.gempaterkini.timestamp ? new Date(cache.gempaterkini.timestamp).toISOString() : null,
+    source: 'unavailable',
+    dataStatus: 'UNAVAILABLE',
+    fetchedAt: null,
     error: 'Pengambilan terbaru dari BMKG gagal. Tidak ada data baru yang berhasil diambil.',
-    data: cache.gempaterkini.data || null,
+    data: null,
   });
 });
 
@@ -267,13 +291,25 @@ router.get(["/gempa/dirasakan", "/gempadirasakan"], async (req, res) => {
     console.warn("BMKG gempadirasakan fetch failed; no new data:", error.message);
   }
 
+  if (cache.gempadirasakan.data) {
+    return res.json({
+      success: true,
+      source: "stale_cache",
+      dataStatus: "CACHED",
+      fetchedAt: new Date(cache.gempadirasakan.timestamp).toISOString(),
+      count: cache.gempadirasakan.data.length,
+      data: cache.gempadirasakan.data,
+      warning: "Server BMKG sedang sibuk, menyajikan data cache terverifikasi.",
+    });
+  }
+
   return res.status(502).json({
     success: false,
-    source: cache.gempadirasakan.data ? 'stale_cache' : 'unavailable',
-    dataStatus: cache.gempadirasakan.data ? 'CACHED' : 'UNAVAILABLE',
-    fetchedAt: cache.gempadirasakan.timestamp ? new Date(cache.gempadirasakan.timestamp).toISOString() : null,
+    source: 'unavailable',
+    dataStatus: 'UNAVAILABLE',
+    fetchedAt: null,
     error: 'Pengambilan terbaru dari BMKG gagal. Tidak ada data baru yang berhasil diambil.',
-    data: cache.gempadirasakan.data || null,
+    data: null,
   });
 });
 

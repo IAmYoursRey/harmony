@@ -17,6 +17,7 @@
     "cesium": "^1.146.0",
     "framer-motion": "^12.43.0",
     "geotiff": "^3.1.0-beta.0",
+    "hls.js": "^1.7.3",
     "leaflet": "^1.9.4",
     "lucide-react": "^0.344.0",
     "ol": "^10.10.0",

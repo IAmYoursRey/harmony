@@ -20,6 +20,38 @@ export interface SeasonalInfo {
   dayLengthHours: number;
 }
 
+export interface CalibratedRainPoint {
+  hour: number;
+  time?: string;
+  label?: string;
+  temperature?: number;
+  humidity?: number;
+  precipitation?: number | null;
+  precipitationProb?: number | null;
+  cloudCover?: number | null;
+  calibratedPrecipitation: number;
+  calibratedPrecipProb: number;
+  isPast?: boolean;
+  isLiveNow?: boolean;
+  rainMechanism: string;
+}
+
+export interface CalibratedRainAnalysis {
+  seasonalZoneName: string;
+  seasonName: string;
+  seasonKey: 'hujan' | 'kemarau' | 'pancaroba';
+  seasonBadge: string;
+  seasonIcon: string;
+  regimeType: 'monsunal' | 'ekuatorial' | 'lokal';
+  diurnalConvectionActive: boolean;
+  convectionPeakHours: string;
+  climatologicalNote: string;
+  calibratedRainWindowText: string;
+  calibratedRainWindowCompact: string;
+  recommendationText: string;
+  hasRainExpected?: boolean;
+}
+
 export interface EquatorMonument {
   name: string;
   location: string;
@@ -607,6 +639,194 @@ class SeasonalIntelligenceService {
       seasonalInfo,
       raw,
       dataStatus: raw ? 'AVAILABLE' : 'UNAVAILABLE',
+    };
+  }
+
+  /**
+   * Menghitung kalibrasi klimatologi hujan Indonesia berdasarkan musim & posisi geografis lintang/bujur.
+   * Mengintegrasikan zona musim BMKG (Monsunal, Ekuatorial, Lokal) dengan pemanasan diurnal
+   * konvektif lokal tropis sore hari vs pengaruh angin monsun.
+   */
+  public getCalibratedRainAnalysis(
+    lat: number,
+    lng: number,
+    hourlyPoints: Array<{
+      hour: number;
+      time?: string;
+      label?: string;
+      temperature?: number | null;
+      apparentTemp?: number | null;
+      humidity?: number | null;
+      precipitation?: number | null;
+      precipitationProb?: number | null;
+      cloudCover?: number | null;
+      isPast?: boolean;
+      isLiveNow?: boolean;
+    }>,
+    date: Date = new Date(),
+    _timezone = 'Asia/Jakarta'
+  ): CalibratedRainAnalysis {
+    const month = date.getMonth(); // 0 = Jan, 9 = Okt, 11 = Des
+    const seasonalInfo = this.calculateSeason(lat, lng, date);
+
+    // 1. Klasifikasi Zona Regim Klimatologi Indonesia
+    const isIndonesia = lat >= -11.5 && lat <= 6.5 && lng >= 94.5 && lng <= 141.5;
+    let regimeType: 'monsunal' | 'ekuatorial' | 'lokal' = 'monsunal';
+    let seasonalZoneName = 'Zona Monsunal Indonesia';
+
+    if (isIndonesia) {
+      if (lng >= 125.0 && lat <= -1.0 && lat >= -7.5) {
+        regimeType = 'lokal';
+        seasonalZoneName = 'Zona Iklim Lokal Maluku & Banda';
+      } else if (Math.abs(lat) <= 2.8 && lng < 121.0) {
+        regimeType = 'ekuatorial';
+        seasonalZoneName = 'Zona Ekuatorial Bimodal (Sumatra & Kalimantan)';
+      } else if (lat <= -7.5 && lng >= 114.5) {
+        regimeType = 'monsunal';
+        seasonalZoneName = 'Zona Monsunal Nusa Tenggara (Semi-Arid)';
+      } else if (lat <= -5.0 && lng < 115.0) {
+        regimeType = 'monsunal';
+        seasonalZoneName = 'Zona Monsunal Jawa & Bali';
+      } else if (lng >= 130.0) {
+        regimeType = 'ekuatorial';
+        seasonalZoneName = 'Zona Tropis Lembap Papua';
+      } else {
+        regimeType = 'monsunal';
+        seasonalZoneName = 'Zona Monsunal Tropis Sulawesi & Sekitarnya';
+      }
+    } else {
+      seasonalZoneName = `Zona ${seasonalInfo.zoneCategory} (${seasonalInfo.hemisphere})`;
+      regimeType = Math.abs(lat) <= 3 ? 'ekuatorial' : 'monsunal';
+    }
+
+    // 2. Fase Musim & Ciri Presipitasi Khusus
+    let seasonKey: 'hujan' | 'kemarau' | 'pancaroba' = 'pancaroba';
+    let seasonName = 'Masa Pancaroba';
+    let seasonBadge = 'Pancaroba';
+    let seasonIcon = '⛅';
+    let climatologicalNote = '';
+
+    if (regimeType === 'lokal') {
+      if (month >= 4 && month <= 7) {
+        seasonKey = 'hujan';
+        seasonName = 'Musim Hujan Lokal (Monsun Timur Laut Banda)';
+        seasonBadge = 'Musim Hujan';
+        seasonIcon = '🌧️';
+        climatologicalNote = 'Pola lokal Maluku: angin timur dari Laut Banda memicu curah hujan maksimum.';
+      } else if (month >= 9 || month <= 1) {
+        seasonKey = 'kemarau';
+        seasonName = 'Musim Kering / Stabil Lokal';
+        seasonBadge = 'Musim Stabil';
+        seasonIcon = '☀️';
+        climatologicalNote = 'Periode transisi relatif stabil dengan tutupan awan moderat.';
+      } else {
+        seasonKey = 'pancaroba';
+        seasonName = 'Masa Peralihan Lokal';
+        seasonBadge = 'Pancaroba';
+        seasonIcon = '🌦️';
+        climatologicalNote = 'Peralihan angin regional dengan variasi hujan sporadis.';
+      }
+    } else if (regimeType === 'ekuatorial') {
+      const isEquinoxPeak = month === 2 || month === 3 || month === 9 || month === 10;
+      seasonKey = isEquinoxPeak ? 'hujan' : 'pancaroba';
+      seasonName = isEquinoxPeak
+        ? 'Puncak Hujan Ekuatorial (Kulminasi Ekuinoks)'
+        : 'Musim Tropis Lembap Konvektif';
+      seasonBadge = isEquinoxPeak ? 'Hujan Ekuatorial' : 'Tropis Lembap';
+      seasonIcon = isEquinoxPeak ? '🌧️' : '🌦️';
+      climatologicalNote = 'Pola bimodal khatulistiwa: hujan konvektif zenital harian tinggi akibat insolasi surya ekuator.';
+    } else {
+      if (month === 9) {
+        // Oktober: Masa Peralihan II (Pancaroba Akhir Kemarau ke Hujan)
+        seasonKey = 'pancaroba';
+        seasonName = 'Masa Pancaroba (Peralihan Kemarau ke Musim Hujan)';
+        seasonBadge = 'Pancaroba';
+        seasonIcon = '⛅';
+        climatologicalNote = 'Pemanasan siang terik memicu labilitas udara dan konveksi awan sore hari (14:00–17:30).';
+      } else if (month >= 10 || month <= 1) {
+        seasonKey = 'hujan';
+        seasonName = 'Puncak Musim Hujan (Monsun Barat Asia)';
+        seasonBadge = 'Musim Hujan';
+        seasonIcon = '🌧️';
+        climatologicalNote = 'Arus basah Monsun Asia membawa awan hujan tebal berskala luas melintasi daratan.';
+      } else if (month >= 2 && month <= 4) {
+        seasonKey = 'pancaroba';
+        seasonName = 'Masa Pancaroba (Peralihan Hujan ke Kemarau)';
+        seasonBadge = 'Pancaroba';
+        seasonIcon = '🌦️';
+        climatologicalNote = 'Fluktuasi suhu tajam dengan potensi hujan petir lokal di sore hari.';
+      } else {
+        seasonKey = 'kemarau';
+        seasonName = 'Puncak Musim Kemarau (Monsun Australia)';
+        seasonBadge = 'Musim Kemarau';
+        seasonIcon = '☀️';
+        climatologicalNote = 'Massa udara kering Australia menekan pembentukan awan hujan, malam cenderung dingin (bediding).';
+      }
+    }
+
+    // 3. Evaluasi Kejadian Hujan Aktual & Ramalan
+    const pointsWithRain = hourlyPoints.filter(p => (p.precipitation ?? 0) > 0);
+    const pointsWithProb = hourlyPoints.filter(p => (p.precipitationProb ?? 0) >= 40);
+
+    const maxPrecip = pointsWithRain.length > 0
+      ? Math.max(...pointsWithRain.map(p => p.precipitation ?? 0))
+      : 0;
+    const maxProb = pointsWithProb.length > 0
+      ? Math.max(...pointsWithProb.map(p => p.precipitationProb ?? 0))
+      : (hourlyPoints.length > 0 ? Math.max(...hourlyPoints.map(p => p.precipitationProb ?? 0)) : 0);
+
+    // Identifikasi jendela konveksi diurnal sore (13:00 - 18:00)
+    const afternoonPoints = hourlyPoints.filter(p => p.hour >= 13 && p.hour <= 18);
+    const afternoonHasRain = afternoonPoints.some(p => (p.precipitation ?? 0) > 0 || (p.precipitationProb ?? 0) >= 45);
+    const diurnalConvectionActive = (seasonKey === 'pancaroba' || seasonKey === 'hujan') && afternoonHasRain;
+    const convectionPeakHours = '14:00 – 17:30';
+
+    // Kalibrasi ringkasan teks
+    let calibratedRainWindowCompact = '';
+    let calibratedRainWindowText = '';
+
+    if (maxPrecip > 0) {
+      const peakPoint = pointsWithRain.reduce((prev, curr) => ((curr.precipitation ?? 0) > (prev.precipitation ?? 0) ? curr : prev), pointsWithRain[0]);
+      const rainType = maxPrecip >= 10 ? 'Hujan lebat' : maxPrecip >= 3 ? 'Hujan sedang' : 'Hujan ringan/gerimis';
+      const peakHourLabel = peakPoint.label || `${String(peakPoint.hour).padStart(2, '0')}:00`;
+      calibratedRainWindowCompact = `${rainType} (~${maxPrecip} mm)`;
+      calibratedRainWindowText = `${rainType} (~${maxPrecip} mm/jam) sekitar pukul ${peakHourLabel}`;
+      if (peakPoint.hour >= 13 && peakPoint.hour <= 18) {
+        calibratedRainWindowText += ' (karakter konvektif lokal sore)';
+      }
+    } else if (maxProb >= 40) {
+      const peakProbPoint = pointsWithProb.reduce((prev, curr) => ((curr.precipitationProb ?? 0) > (prev.precipitationProb ?? 0) ? curr : prev), pointsWithProb[0]);
+      const peakHourLabel = peakProbPoint.label || `${String(peakProbPoint.hour).padStart(2, '0')}:00`;
+      calibratedRainWindowCompact = `Potensi hujan ${maxProb}% (${peakHourLabel})`;
+      calibratedRainWindowText = `Peluang presipitasi mencapai ${maxProb}% sekitar pukul ${peakHourLabel}`;
+    } else if (diurnalConvectionActive) {
+      calibratedRainWindowCompact = `Potensi konvektif sore (${convectionPeakHours})`;
+      calibratedRainWindowText = `Indikasi konveksi lokal sore hari (${convectionPeakHours}) akibat labilitas suhu siang`;
+    } else {
+      calibratedRainWindowCompact = seasonKey === 'kemarau' ? 'Cenderung kering stabil' : 'Kering & minim presipitasi';
+      calibratedRainWindowText = `Cenderung kering sepanjang periode (${seasonName})`;
+    }
+
+    const recommendationText = diurnalConvectionActive
+      ? 'Waspadai perubahan cuaca cepat menjelang sore hari (14:00–17:30) akibat pembentukan awan konvektif lokal.'
+      : seasonKey === 'hujan'
+      ? 'Kondisi musim hujan aktif; siapkan payung dan pantau potensi genangan air.'
+      : 'Cuaca relatif kondusif untuk aktivitas luar ruangan.';
+
+    return {
+      seasonalZoneName,
+      seasonName,
+      seasonKey,
+      seasonBadge,
+      seasonIcon,
+      regimeType,
+      diurnalConvectionActive,
+      convectionPeakHours,
+      climatologicalNote,
+      calibratedRainWindowText,
+      calibratedRainWindowCompact,
+      recommendationText,
+      hasRainExpected: Boolean(maxPrecip > 0 || maxProb >= 40 || diurnalConvectionActive),
     };
   }
 }

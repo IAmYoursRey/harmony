@@ -12,13 +12,21 @@ import {
   exportAnalysis,
   getHotspots,
   getPublicHotspotsFeed,
+  getHotspotsTimeline,
+  getHotspotsSnapshotByIdEndpoint,
+  saveHotspotSnapshotEndpoint,
   getIsochrones,
   getFacilityAccessibility,
   calculateTransportEmissions,
   getTrafficFlowProxy,
   getTrafficCctvList,
+  streamTrafficCctv,
+  proxyCctvStream,
+  getTrafficCctvThumbnail,
   getTrafficSignalsList,
   getLiveTrafficNetwork,
+  submitGpsProbe,
+  getGpsProbes,
   getSchoolRiskSynthesis,
   getVolcanoesList,
   getLiveVolcanoUpdates,
@@ -52,10 +60,18 @@ router.get("/analysis/:id/export", exportAnalysis);
 // Environmental, Mobility & Accessibility Endpoints
 router.get("/hotspots", getHotspots);
 router.get("/hotspots/public-feed", getPublicHotspotsFeed);
+router.get("/hotspots/timeline", getHotspotsTimeline);
+router.get("/hotspots/timeline/:id", getHotspotsSnapshotByIdEndpoint);
+router.post("/hotspots/snapshot", saveHotspotSnapshotEndpoint);
 router.get("/traffic/flow", getTrafficFlowProxy);
 router.get("/traffic/cctv", getTrafficCctvList);
+router.get("/traffic/cctv-stream", streamTrafficCctv);
+router.get("/traffic/cctv-proxy", proxyCctvStream);
+router.get("/traffic/cctv-thumbnail", getTrafficCctvThumbnail);
 router.get("/traffic/signals", getTrafficSignalsList);
 router.get("/traffic/live-network", getLiveTrafficNetwork);
+router.post("/traffic/gps-probe", submitGpsProbe);
+router.get("/traffic/probes", getGpsProbes);
 router.post("/network/isochrones", getIsochrones);
 router.post("/network/accessibility", getFacilityAccessibility);
 router.post("/transport/emissions", calculateTransportEmissions);

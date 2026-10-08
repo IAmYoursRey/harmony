@@ -23,7 +23,7 @@ export interface HotspotRecord {
   confidenceNumeric?: number; // Only for MODIS (0-100%)
   frpMw: number | null; // Fire Radiative Power in MegaWatts
   dayNight: 'D' | 'N' | 'unknown';
-  systemSource: 'NASA_FIRMS' | 'SIPONGI_KLHK_IMPORT' | 'USER_CSV_IMPORT' | 'DEMO';
+  systemSource: 'NASA_FIRMS' | 'SIPONGI_KLHK_IMPORT' | 'USER_CSV_IMPORT' | 'DEMO' | 'HISTORICAL_ARCHIVE';
 }
 
 export interface HotspotAnalysisResult {
@@ -46,7 +46,7 @@ export class FirmsService {
   /**
    * Parse raw NASA FIRMS CSV text into normalized HotspotRecord[]
    */
-  public parseFirmsCsv(csvText: string, systemSource: 'NASA_FIRMS' | 'SIPONGI_KLHK_IMPORT' | 'USER_CSV_IMPORT' | 'DEMO' = 'NASA_FIRMS'): HotspotRecord[] {
+  public parseFirmsCsv(csvText: string, systemSource: 'NASA_FIRMS' | 'SIPONGI_KLHK_IMPORT' | 'USER_CSV_IMPORT' | 'DEMO' | 'HISTORICAL_ARCHIVE' = 'NASA_FIRMS'): HotspotRecord[] {
     if (!csvText || typeof csvText !== 'string' || csvText.trim().length === 0) {
       return [];
     }
@@ -186,7 +186,7 @@ export class FirmsService {
     bbox: [number, number, number, number],
     daysRange = 1,
     minConfidence: 'all' | 'nominal_high' | 'high_only' = 'all',
-    systemSource: 'NASA_FIRMS' | 'SIPONGI_KLHK_IMPORT' | 'USER_CSV_IMPORT' | 'DEMO' = 'NASA_FIRMS'
+    systemSource: 'NASA_FIRMS' | 'SIPONGI_KLHK_IMPORT' | 'USER_CSV_IMPORT' | 'DEMO' | 'HISTORICAL_ARCHIVE' = 'NASA_FIRMS'
   ): AnalysisEnvelope<HotspotAnalysisResult> {
     const requestId = `firms-${Date.now()}`;
     const aoiHash = aoiService.computeCanonicalHash(aoi, { bbox, daysRange, minConfidence, systemSource });
@@ -262,6 +262,8 @@ export class FirmsService {
     const dataStatus: DataStatus =
       systemSource === 'DEMO'
         ? 'DEMO'
+        : systemSource === 'HISTORICAL_ARCHIVE'
+        ? 'CACHED'
         : systemSource === 'USER_CSV_IMPORT' || systemSource === 'SIPONGI_KLHK_IMPORT'
         ? 'IMPORTED'
         : allRecords.length === 0
@@ -288,6 +290,8 @@ export class FirmsService {
         provider:
           systemSource === 'DEMO'
             ? 'Harmony Geospatial Demo Sandbox (Bukan Data Operasional)'
+            : systemSource === 'HISTORICAL_ARCHIVE'
+            ? 'Repositori Garis Waktu & Arsip Satelit NASA FIRMS'
             : systemSource === 'SIPONGI_KLHK_IMPORT'
             ? 'Impor Berkas Resmi SiPongi KLHK'
             : systemSource === 'USER_CSV_IMPORT'
@@ -296,6 +300,8 @@ export class FirmsService {
         agency:
           systemSource === 'DEMO'
             ? 'Simulasi'
+            : systemSource === 'HISTORICAL_ARCHIVE'
+            ? 'NASA EOSDIS / Harmony Repository'
             : systemSource === 'SIPONGI_KLHK_IMPORT'
             ? 'KLHK RI'
             : systemSource === 'USER_CSV_IMPORT'
@@ -304,6 +310,8 @@ export class FirmsService {
         dataset:
           systemSource === 'DEMO'
             ? 'Dataset Contoh Hotspot Demonstrasi'
+            : systemSource === 'HISTORICAL_ARCHIVE'
+            ? 'Arsip Garis Waktu Anomali Termal Satelit'
             : systemSource === 'USER_CSV_IMPORT'
             ? 'Deteksi Titik Panas CSV Pengguna'
             : 'FIRMS Near Real-Time Active Fire / Thermal Anomaly Data',

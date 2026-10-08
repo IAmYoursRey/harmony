@@ -7,7 +7,6 @@ import {
   LogIn,
   ArrowRight,
   X,
-  UserCheck,
   Loader2,
   ShieldCheck,
   Map,
@@ -31,7 +30,7 @@ export function AuthRequiredModal({
   const navigate = useNavigate();
   const { login, finalizeLogin } = useAuth();
   const { show } = useToast();
-  const [loadingRole, setLoadingRole] = useState<string | null>(null);
+  const [isLoadingDemo, setIsLoadingDemo] = useState(false);
 
   if (!isOpen) return null;
 
@@ -40,39 +39,30 @@ export function AuthRequiredModal({
     navigate(`/login?redirect=${encodeURIComponent(targetPath)}`);
   };
 
-  const handleQuickLogin = async (role: "developer" | "student") => {
-    setLoadingRole(role);
+  const handleQuickLogin = async () => {
+    setIsLoadingDemo(true);
     try {
-      const devPayload =
-        role === "developer"
-          ? {
-              email: "raihanansari3345@gmail.com",
-              name: "Raihan Ansari",
-              sub: "116086836535518680376",
-              picture:
-                "https://lh3.googleusercontent.com/a/ACg8ocILCQOch6sL8tq_D5QC25Km3hcV9kb-m3kA0_5HBSnoie9Zjrg=s96-c",
-            }
-          : {
-              email: "student6273@sman1ngoro.sch.id",
-              name: "ABDUL WAHID",
-              sub: "usr-6273-1789454953604-708",
-              picture:
-                "https://api.dicebear.com/7.x/avataaars/svg?seed=AbdulWahid",
-            };
+      const devPayload = {
+        email: "raihanansari3345@gmail.com",
+        name: "Raihan Ansari",
+        sub: "116086836535518680376",
+        picture:
+          "https://lh3.googleusercontent.com/a/ACg8ocILCQOch6sL8tq_D5QC25Km3hcV9kb-m3kA0_5HBSnoie9Zjrg=s96-c",
+      };
 
       const result = await login(JSON.stringify(devPayload));
       if (result.success && result.account) {
         await finalizeLogin(result.account);
-        show(`Selamat datang, ${result.account.name}! Akses fitur terbuka.`, "success");
+        show(`Selamat datang di Mode Demo! Akses penuh seluruh fitur terbuka.`, "success");
         onClose();
         navigate(targetPath);
       } else {
-        show(result.error ?? "Gagal masuk mode pengujian", "error");
+        show(result.error ?? "Gagal masuk mode demo", "error");
       }
     } catch (e: any) {
       show(e?.message || "Gagal masuk sesi demo", "error");
     } finally {
-      setLoadingRole(null);
+      setIsLoadingDemo(false);
     }
   };
 
@@ -152,7 +142,7 @@ export function AuthRequiredModal({
               <ArrowRight className="h-4 w-4 transition-transform group-hover:translate-x-0.5" />
             </button>
 
-            {/* Quick test logins for fast evaluation */}
+            {/* Quick test login for fast evaluation */}
             <div className="relative my-1 flex items-center justify-center">
               <div className="w-full border-t border-slate-200 dark:border-slate-800" />
               <span className="absolute bg-white px-2 text-[10px] font-bold uppercase tracking-wider text-slate-400 dark:bg-slate-900 dark:text-slate-500">
@@ -160,35 +150,19 @@ export function AuthRequiredModal({
               </span>
             </div>
 
-            <div className="grid grid-cols-2 gap-2">
-              <button
-                type="button"
-                disabled={loadingRole !== null}
-                onClick={() => handleQuickLogin("developer")}
-                className="flex items-center justify-center gap-1.5 rounded-xl border border-slate-200 bg-white/70 px-3 py-2 text-xs font-semibold text-ink-700 transition-all hover:bg-brand-50 hover:text-brand-700 hover:border-brand-200 disabled:opacity-50 dark:border-slate-800 dark:bg-slate-800/60 dark:text-slate-200 dark:hover:bg-slate-800"
-              >
-                {loadingRole === "developer" ? (
-                  <Loader2 className="h-3.5 w-3.5 animate-spin text-brand-600" />
-                ) : (
-                  <Sparkles className="h-3.5 w-3.5 text-brand-500" />
-                )}
-                <span>Dev (Raihan)</span>
-              </button>
-
-              <button
-                type="button"
-                disabled={loadingRole !== null}
-                onClick={() => handleQuickLogin("student")}
-                className="flex items-center justify-center gap-1.5 rounded-xl border border-slate-200 bg-white/70 px-3 py-2 text-xs font-semibold text-ink-700 transition-all hover:bg-brand-50 hover:text-brand-700 hover:border-brand-200 disabled:opacity-50 dark:border-slate-800 dark:bg-slate-800/60 dark:text-slate-200 dark:hover:bg-slate-800"
-              >
-                {loadingRole === "student" ? (
-                  <Loader2 className="h-3.5 w-3.5 animate-spin text-brand-600" />
-                ) : (
-                  <UserCheck className="h-3.5 w-3.5 text-slate-500" />
-                )}
-                <span>Siswa (Demo)</span>
-              </button>
-            </div>
+            <button
+              type="button"
+              disabled={isLoadingDemo}
+              onClick={handleQuickLogin}
+              className="flex w-full items-center justify-center gap-2 rounded-xl border border-brand-200 bg-brand-50/70 px-4 py-2.5 text-xs font-semibold text-brand-700 transition-all hover:bg-brand-100 hover:text-brand-800 hover:border-brand-300 disabled:opacity-50 dark:border-brand-900/50 dark:bg-brand-950/40 dark:text-brand-300 dark:hover:bg-brand-900/50"
+            >
+              {isLoadingDemo ? (
+                <Loader2 className="h-3.5 w-3.5 animate-spin text-brand-600 dark:text-brand-400" />
+              ) : (
+                <Sparkles className="h-3.5 w-3.5 text-brand-500" />
+              )}
+              <span>Masuk Mode Demo (Akses Penuh Semua Fitur)</span>
+            </button>
 
             <button
               type="button"

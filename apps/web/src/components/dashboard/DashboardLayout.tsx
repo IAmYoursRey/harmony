@@ -55,7 +55,7 @@ export function DashboardLayout() {
   }, [authRequiredParam, currentUser, setSearchParams]);
 
   // If unauthenticated and accessing a protected education feature, redirect to maps with auth prompt
-  if (!isLoading && !currentUser && activeId !== "maps") {
+  if (!isLoading && !currentUser && activeId !== "maps" && activeId !== "geospatial") {
     return <Navigate to={`/app/maps?authRequired=${activeId}`} replace />;
   }
 
@@ -85,7 +85,7 @@ export function DashboardLayout() {
     });
   };
 
-  if (isLoading) {
+  if (isLoading && activeId !== "maps") {
     return (
       <div className="h-[100dvh] overflow-hidden bg-gradient-to-b from-brand-50/40 via-white to-white dark:from-slate-900 dark:via-slate-950 dark:to-slate-950">
         <div className="flex h-[100dvh]">

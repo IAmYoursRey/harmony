@@ -1,6 +1,7 @@
 import { normalizeFirmsQuery, fetchFirmsSnapshot } from '../services/firmsIntegrity.js';
 import { validateProviderCurrent } from '../services/weatherIntegrity.js';
 import { synthesizeSchoolRisk } from '../services/spatialRiskEngine.js';
+import { cctvService } from '../services/cctvService.js';
 import {
   getSpatialCache,
   setSpatialCache,
@@ -12,6 +13,13 @@ import {
   getSpatialJobById,
   deleteSpatialJobById,
 } from "../repositories/repository.js";
+import {
+  saveHotspotSnapshot,
+  getLatestHotspotSnapshot,
+  getHotspotSnapshotById,
+  listTimelineSnapshots,
+  getTimelineSummary,
+} from "../repositories/hotspotRepository.js";
 import osmtogeojson from "osmtogeojson";
 
 const OVERPASS_ENDPOINTS = [
@@ -1015,6 +1023,59 @@ export const getPublicHotspotsFeed = async (req, res) => {
     );
     const rawCsv = [csvHeader, ...csvRows].join('\n');
 
+    // Persist snapshot to repository for historical timeline & offline fallback
+    if (returnedRecords.length > 0) {
+      saveHotspotSnapshot({
+        scope,
+        bbox: bounds,
+        dayRange: parseInt(dayRange, 10),
+        rawCsv,
+        data: returnedRecords,
+        source: 'NASA_FIRMS_OPEN_NRT',
+        snapshotDate: fetchedAt.slice(0, 10),
+        fetchedAt,
+        sensors: source === 'VIIRS' ? 'VIIRS' : source === 'MODIS' ? 'MODIS' : 'VIIRS & MODIS',
+        notes: `Observasi Satelit Operasional NASA LANCE NRT (${returnedRecords.length} titik)`,
+      }).catch((err) => console.warn('Could not auto-save hotspot snapshot:', err.message));
+    }
+
+    // If zero records were received and all feeds failed or were rejected, fallback to latest cached snapshot
+    if (receivedCount === 0 && returnedRecords.length === 0) {
+      const fallback = await getLatestHotspotSnapshot({ scope, dayRange: parseInt(dayRange, 10) });
+      if (fallback) {
+        return res.status(200).json({
+          success: true,
+          count: fallback.recordCount,
+          totalMatched: fallback.recordCount,
+          receivedCount: fallback.recordCount,
+          data: fallback.data || [],
+          rawCsv: fallback.rawCsv,
+          csvFormat: 'HARMONY_NORMALIZED_FIRMS_V1',
+          source: fallback.source,
+          dayRange: fallback.dayRange,
+          scope: fallback.scope,
+          windowEnd: fallback.fetchedAt,
+          isFallback: true,
+          snapshotId: fallback.id,
+          snapshotDate: fallback.snapshotDate,
+          snapshotFetchedAt: fallback.fetchedAt,
+          provenance: {
+            sourceType: 'SATELLITE_HOTSPOT',
+            provider: 'NASA EOSDIS LANCE FIRMS (Arsip Snapshot Tersimpan / Offline Fallback)',
+            dataStatus: 'CACHED',
+            fetchedAt: fallback.fetchedAt,
+            attribution: 'NASA LANCE / FIRMS MODIS & VIIRS — Arsip Snapshot Tersimpan',
+            cached: true,
+            isFallback: true,
+          },
+          reason: {
+            code: 'FALLBACK_TO_HISTORICAL_SNAPSHOT',
+            message: `Koneksi satelit NASA LANCE tidak dapat dihubungi. Menampilkan data arsip tersimpan (${fallback.snapshotDate}, diambil ${new Date(fallback.fetchedAt).toLocaleString('id-ID')}).`,
+          },
+        });
+      }
+    }
+
     return res.status(200).json({
       success: true,
       count: returnedRecords.length,
@@ -1037,10 +1098,127 @@ export const getPublicHotspotsFeed = async (req, res) => {
       },
     });
   } catch (error) {
+    try {
+      const fallback = await getLatestHotspotSnapshot({ scope, dayRange: parseInt(dayRange, 10) });
+      if (fallback) {
+        return res.status(200).json({
+          success: true,
+          count: fallback.recordCount,
+          totalMatched: fallback.recordCount,
+          receivedCount: fallback.recordCount,
+          data: fallback.data || [],
+          rawCsv: fallback.rawCsv,
+          csvFormat: 'HARMONY_NORMALIZED_FIRMS_V1',
+          source: fallback.source,
+          dayRange: fallback.dayRange,
+          scope: fallback.scope,
+          windowEnd: fallback.fetchedAt,
+          isFallback: true,
+          snapshotId: fallback.id,
+          snapshotDate: fallback.snapshotDate,
+          snapshotFetchedAt: fallback.fetchedAt,
+          provenance: {
+            sourceType: 'SATELLITE_HOTSPOT',
+            provider: 'NASA EOSDIS LANCE FIRMS (Arsip Snapshot Tersimpan / Offline Fallback)',
+            dataStatus: 'CACHED',
+            fetchedAt: fallback.fetchedAt,
+            attribution: 'NASA LANCE / FIRMS MODIS & VIIRS — Arsip Snapshot Tersimpan',
+            cached: true,
+            isFallback: true,
+          },
+          reason: {
+            code: 'FALLBACK_TO_HISTORICAL_SNAPSHOT',
+            message: `Koneksi satelit NASA LANCE mengalami kendala. Menampilkan data arsip tersimpan (${fallback.snapshotDate}, diambil ${new Date(fallback.fetchedAt).toLocaleString('id-ID')}).`,
+          },
+        });
+      }
+    } catch {}
+
     return res.status(502).json({
       success: false,
       error: error instanceof Error ? error.message : 'Gagal mengambil data publik NASA FIRMS',
       data: [],
+    });
+  }
+};
+
+/**
+ * GET /api/spatial/hotspots/timeline?scope=indonesia&year=2026
+ * Lists available historical snapshots for timeline browsing
+ */
+export const getHotspotsTimeline = async (req, res) => {
+  try {
+    const { scope, year, limit = 50 } = req.query;
+    const result = await listTimelineSnapshots({
+      scope: scope || null,
+      year: year ? parseInt(year, 10) : null,
+      limit: parseInt(limit, 10) || 50,
+    });
+    return res.status(200).json({
+      success: true,
+      ...result,
+    });
+  } catch (error) {
+    return res.status(500).json({
+      success: false,
+      error: error instanceof Error ? error.message : 'Gagal memuat garis waktu arsip hotspot',
+    });
+  }
+};
+
+/**
+ * GET /api/spatial/hotspots/timeline/:id
+ * Retrieve a specific hotspot snapshot by its ID
+ */
+export const getHotspotsSnapshotByIdEndpoint = async (req, res) => {
+  try {
+    const { id } = req.params;
+    if (!id) {
+      return res.status(400).json({ success: false, error: 'Parameter id wajib diisi' });
+    }
+    const snapshot = await getHotspotSnapshotById(id);
+    if (!snapshot) {
+      return res.status(404).json({ success: false, error: 'Snapshot hotspot tidak ditemukan' });
+    }
+    return res.status(200).json({
+      success: true,
+      snapshot,
+    });
+  } catch (error) {
+    return res.status(500).json({
+      success: false,
+      error: error instanceof Error ? error.message : 'Gagal mengambil detail snapshot hotspot',
+    });
+  }
+};
+
+/**
+ * POST /api/spatial/hotspots/snapshot
+ * Save or import a snapshot to the repository
+ */
+export const saveHotspotSnapshotEndpoint = async (req, res) => {
+  try {
+    const { rawCsv, scope, bbox, dayRange, snapshotDate, notes, source } = req.body;
+    if (!rawCsv || typeof rawCsv !== 'string') {
+      return res.status(400).json({ success: false, error: 'Parameter rawCsv wajib diisi' });
+    }
+    const snapshot = await saveHotspotSnapshot({
+      rawCsv,
+      scope,
+      bbox,
+      dayRange,
+      snapshotDate,
+      notes,
+      source: source || 'USER_SAVED_SNAPSHOT',
+    });
+    return res.status(201).json({
+      success: true,
+      snapshot,
+    });
+  } catch (error) {
+    return res.status(400).json({
+      success: false,
+      error: error instanceof Error ? error.message : 'Gagal menyimpan snapshot hotspot',
     });
   }
 };
@@ -1518,325 +1696,242 @@ export const getSchoolRiskSynthesis = async (req, res) => {
   }
 };
 
+// In-memory buffer for anonymous crowdsourced GPS probe pings
+const gpsProbesBuffer = [];
+
+/**
+ * Submit Anonymous Crowdsourced GPS Probe Ping
+ * POST /api/spatial/traffic/gps-probe
+ */
+export const submitGpsProbe = async (req, res) => {
+  try {
+    const { lat, lng, speedKmh, headingDeg, deviceType = "mobile_gps", clientTimestamp } = req.body || {};
+    const pLat = Number(lat);
+    const pLng = Number(lng);
+    const pSpeed = Number(speedKmh);
+    const pHeading = Number(headingDeg) || 0;
+
+    if (!Number.isFinite(pLat) || !Number.isFinite(pLng) || Math.abs(pLat) > 90 || Math.abs(pLng) > 180) {
+      return res.status(400).json({ success: false, error: "Koordinat GPS tidak valid" });
+    }
+
+    const probe = {
+      id: `usr-probe-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
+      lat: Number(pLat.toFixed(6)),
+      lng: Number(pLng.toFixed(6)),
+      speedKmh: Number.isFinite(pSpeed) ? Math.max(0, Math.min(180, Math.round(pSpeed))) : 25,
+      headingDeg: Math.round(((pHeading % 360) + 360) % 360),
+      deviceType: String(deviceType).slice(0, 32),
+      receivedAt: Date.now(),
+      clientTimestamp: Number(clientTimestamp) || Date.now(),
+    };
+
+    gpsProbesBuffer.push(probe);
+    if (gpsProbesBuffer.length > 500) {
+      gpsProbesBuffer.shift();
+    }
+
+    return res.status(201).json({
+      success: true,
+      message: "Probe GPS berhasil diagregasikan ke jaringan telemetri kemacetan.",
+      data: {
+        probeId: probe.id,
+        activeProbesCount: gpsProbesBuffer.length,
+        receivedAt: new Date(probe.receivedAt).toISOString(),
+      },
+    });
+  } catch (error) {
+    return res.status(500).json({ success: false, error: error.message });
+  }
+};
+
+/**
+ * Get Active Crowdsourced GPS Probes & Hotspots
+ * GET /api/spatial/traffic/probes
+ */
+export const getGpsProbes = async (req, res) => {
+  try {
+    const now = Date.now();
+    const recentProbes = gpsProbesBuffer.filter((p) => now - p.receivedAt < 15 * 60 * 1000);
+
+    return res.json({
+      success: true,
+      count: recentProbes.length,
+      data: recentProbes,
+      provenance: {
+        provider: "Harmony Crowdsourced GPS Probe Network",
+        dataStatus: "LIVE",
+        refreshedAt: new Date(now).toISOString(),
+      },
+    });
+  } catch (error) {
+    return res.status(500).json({ success: false, error: error.message });
+  }
+};
+
+/**
+ * Safe CORS/CORB Proxy for Public ATCS CCTV Snapshots & HLS Video Chunks
+ * GET /api/spatial/traffic/cctv-proxy?url=<encoded_url>
+ */
+export const proxyCctvStream = async (req, res) => {
+  try {
+    const targetUrl = req.query.url;
+    if (!targetUrl || typeof targetUrl !== 'string') {
+      return sendFallbackCctvPattern(res, "ATCS STANDBY", "Parameter URL tidak valid");
+    }
+
+    const decoded = decodeURIComponent(targetUrl);
+    if (!decoded.startsWith('http://') && !decoded.startsWith('https://')) {
+      return sendFallbackCctvPattern(res, "PROTOKOL TIDAK VALID", decoded);
+    }
+
+    const result = await cctvService.proxyStreamChunk(decoded);
+    if (!result.ok) {
+      if (decoded.includes('.ts') || decoded.includes('stream?t=')) {
+        return res.status(result.status || 504).send(result.error);
+      }
+      return sendFallbackCctvPattern(res, "FEED OFFLINE", result.error || decoded);
+    }
+
+    res.setHeader('Content-Type', result.contentType);
+    res.setHeader('Access-Control-Allow-Origin', '*');
+    res.setHeader('Access-Control-Allow-Methods', 'GET, HEAD, OPTIONS');
+    res.setHeader('Access-Control-Allow-Headers', '*');
+
+    if (result.contentType.includes('mpegurl') || decoded.includes('.m3u8')) {
+      res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
+    } else {
+      res.setHeader('Cache-Control', 'public, max-age=60');
+    }
+    return res.send(result.buffer);
+  } catch (err) {
+    return sendFallbackCctvPattern(res, "ERROR PROXY ATCS", err.message);
+  }
+};
+
+/**
+ * Live HLS Stream Playlist Rewriter & Proxy
+ * GET /api/spatial/traffic/cctv-stream?id=<camera_id>
+ */
+export const streamTrafficCctv = async (req, res) => {
+  try {
+    const cameraId = req.query.id;
+    if (!cameraId || typeof cameraId !== 'string') {
+      return res.status(400).json({ success: false, error: 'Parameter id kamera tidak valid' });
+    }
+
+    const result = await cctvService.fetchHlsPlaylist(cameraId);
+    if (!result.ok) {
+      return res.status(result.status || 502).json({ success: false, error: result.error });
+    }
+
+    res.setHeader('Content-Type', result.contentType);
+    res.setHeader('Access-Control-Allow-Origin', '*');
+    res.setHeader('Access-Control-Allow-Methods', 'GET, HEAD, OPTIONS');
+    res.setHeader('Access-Control-Allow-Headers', '*');
+    res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
+    return res.send(result.playlist);
+  } catch (error) {
+    return res.status(500).json({ success: false, error: error.message });
+  }
+};
+
+/**
+ * Direct Live CCTV Thumbnail Endpoint
+ * GET /api/spatial/traffic/cctv-thumbnail?id=<camera_id>
+ */
+export const getTrafficCctvThumbnail = async (req, res) => {
+  try {
+    const cameraId = req.query.id;
+    if (!cameraId || typeof cameraId !== 'string') {
+      return sendFallbackCctvPattern(res, "CCTV", "ID Kamera tidak valid");
+    }
+
+    const resolvedId = cctvService.resolveAlias(cameraId);
+    const targetUrl = `https://cctvnusantara.com/api/thumbnail?id=${encodeURIComponent(resolvedId)}`;
+    const result = await cctvService.proxyStreamChunk(targetUrl);
+
+    if (!result.ok) {
+      return sendFallbackCctvPattern(res, "STANDBY", "Snapshot sedang memperbarui");
+    }
+
+    res.setHeader('Content-Type', result.contentType || 'image/jpeg');
+    res.setHeader('Access-Control-Allow-Origin', '*');
+    res.setHeader('Access-Control-Allow-Methods', 'GET, HEAD, OPTIONS');
+    res.setHeader('Access-Control-Allow-Headers', '*');
+    res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
+    return res.send(result.buffer);
+  } catch (err) {
+    return sendFallbackCctvPattern(res, "ERROR", err.message);
+  }
+};
+
+function sendFallbackCctvPattern(res, title, subtitle) {
+  const timeStr = new Date().toLocaleTimeString('id-ID');
+  const dateStr = new Date().toISOString().split('T')[0];
+  const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="640" height="360" viewBox="0 0 640 360">
+    <rect width="640" height="360" fill="#090d16"/>
+    <defs>
+      <pattern id="grid" width="40" height="40" patternUnits="userSpaceOnUse">
+        <path d="M 40 0 L 0 0 0 40" fill="none" stroke="rgba(255,255,255,0.05)" stroke-width="1"/>
+      </pattern>
+    </defs>
+    <rect width="640" height="360" fill="url(#grid)"/>
+    <circle cx="320" cy="180" r="120" fill="none" stroke="rgba(14,165,233,0.15)" stroke-width="2"/>
+    <circle cx="320" cy="180" r="60" fill="none" stroke="rgba(239,68,68,0.25)" stroke-width="2"/>
+    <line x1="320" y1="40" x2="320" y2="320" stroke="rgba(255,255,255,0.1)" stroke-width="1"/>
+    <line x1="160" y1="180" x2="480" y2="180" stroke="rgba(255,255,255,0.1)" stroke-width="1"/>
+    
+    <rect x="20" y="20" width="140" height="26" rx="6" fill="rgba(239,68,68,0.25)" stroke="#ef4444" stroke-width="1.5"/>
+    <circle cx="34" cy="33" r="5" fill="#ef4444"/>
+    <text x="46" y="37" fill="#fecaca" font-family="monospace" font-size="11" font-weight="bold">STANDBY ATCS</text>
+
+    <text x="620" y="37" text-anchor="end" fill="#38bdf8" font-family="monospace" font-size="12" font-weight="bold">${dateStr} ${timeStr} WIB</text>
+
+    <text x="320" y="165" text-anchor="middle" fill="#f8fafc" font-family="sans-serif" font-size="16" font-weight="bold">${title}</text>
+    <text x="320" y="195" text-anchor="middle" fill="#94a3b8" font-family="sans-serif" font-size="11">Mencoba menghubungkan ulang ke sensor kamera daerah...</text>
+    <text x="320" y="220" text-anchor="middle" fill="#64748b" font-family="monospace" font-size="9">${subtitle ? String(subtitle).slice(0, 70) : ''}</text>
+
+    <rect x="0" y="335" width="640" height="25" fill="rgba(0,0,0,0.7)"/>
+    <text x="15" y="352" fill="#64748b" font-family="sans-serif" font-size="10">HARMONY SMART MOBILITY • CCTV NUSANTARA &amp; ATCS DISHUB</text>
+  </svg>`;
+
+  res.setHeader('Content-Type', 'image/svg+xml');
+  res.setHeader('Access-Control-Allow-Origin', '*');
+  res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
+  return res.send(svg);
+}
+
 /**
  * Real-time Traffic CCTV Feeds Catalog
  * GET /api/spatial/traffic/cctv
  */
 export const getTrafficCctvList = async (req, res) => {
   try {
-    const { region } = req.query;
-    const cameras = [
-      // Jakarta & Jabodetabek
-      {
-        id: "cctv-jkt-semanggi",
-        name: "Simpang Susun Semanggi",
-        road: "Jl. Jend. Sudirman - Jl. Gatot Subroto",
-        city: "Jakarta",
-        region: "DKI Jakarta",
-        lat: -6.2201,
-        lng: 106.8188,
-        direction: "Barat Daya (Menghadap Polda Metro)",
-        streamType: "snapshot",
-        streamUrl: "https://images.unsplash.com/photo-1542314831-068cd1dbfeeb?auto=format&fit=crop&w=640&q=80",
-        authority: "Dishub DKI Jakarta / ATCS",
-        fps: 25,
-        resolution: "1080p FHD",
-        status: "LIVE",
-        statusText: "Lalu Lintas Ramai Lancar",
-        trafficDensity: 65,
-      },
-      {
-        id: "cctv-jkt-bundaran-hi",
-        name: "Bundaran Hotel Indonesia (HI)",
-        road: "Jl. M.H. Thamrin - Jl. Jend. Sudirman",
-        city: "Jakarta",
-        region: "DKI Jakarta",
-        lat: -6.1950,
-        lng: 106.8230,
-        direction: "Utara (Menghadap Monas)",
-        streamType: "snapshot",
-        streamUrl: "https://images.unsplash.com/photo-1578632767115-351597cf2477?auto=format&fit=crop&w=640&q=80",
-        authority: "TMC Polda Metro Jaya",
-        fps: 30,
-        resolution: "1080p FHD",
-        status: "LIVE",
-        statusText: "Lalu Lintas Terkendali",
-        trafficDensity: 50,
-      },
-      {
-        id: "cctv-jkt-tomang",
-        name: "Simpang Tomang Intermodal",
-        road: "Jl. Letjen S. Parman - Jl. Tomang Raya",
-        city: "Jakarta",
-        region: "DKI Jakarta",
-        lat: -6.1772,
-        lng: 106.7915,
-        direction: "Timur Laut (Arah Tol Tangerang)",
-        streamType: "snapshot",
-        streamUrl: "https://images.unsplash.com/photo-1506521781263-d8422e82f27a?auto=format&fit=crop&w=640&q=80",
-        authority: "Dishub DKI Jakarta",
-        fps: 20,
-        resolution: "720p HD",
-        status: "LIVE",
-        statusText: "Padat Merayap di Jam Masuk Tol",
-        trafficDensity: 82,
-      },
-      {
-        id: "cctv-jkt-pancoran",
-        name: "Flyover Pancoran",
-        road: "Jl. M.T. Haryono - Jl. Pasar Minggu",
-        city: "Jakarta",
-        region: "DKI Jakarta",
-        lat: -6.2435,
-        lng: 106.8427,
-        direction: "Tenggara",
-        streamType: "snapshot",
-        streamUrl: "https://images.unsplash.com/photo-1519003722824-194d4455a60c?auto=format&fit=crop&w=640&q=80",
-        authority: "Dishub DKI Jakarta",
-        fps: 25,
-        resolution: "1080p FHD",
-        status: "LIVE",
-        statusText: "Lancar Mengalir",
-        trafficDensity: 40,
-      },
-      {
-        id: "cctv-jkt-slipi",
-        name: "Simpang Slipi Jaya",
-        road: "Jl. Gatot Subroto - Jl. Kemanggisan",
-        city: "Jakarta",
-        region: "DKI Jakarta",
-        lat: -6.1963,
-        lng: 106.7997,
-        direction: "Barat",
-        streamType: "snapshot",
-        streamUrl: "https://images.unsplash.com/photo-1494783367193-149034c05e8f?auto=format&fit=crop&w=640&q=80",
-        authority: "Dishub DKI Jakarta",
-        fps: 25,
-        resolution: "1080p FHD",
-        status: "LIVE",
-        statusText: "Ramai Lancar",
-        trafficDensity: 55,
-      },
+    const { region, city, category, search, q, limit, page } = req.query;
+    const filterCity = city || region;
+    const filterSearch = search || q;
 
-      // Tol Trans-Jawa / Jasa Marga
-      {
-        id: "cctv-tol-cikatama-70",
-        name: "Gerbang Tol Cikampek Utama KM 70",
-        road: "Tol Jakarta - Cikampek (KM 70)",
-        city: "Karawang",
-        region: "Jawa Barat",
-        lat: -6.4252,
-        lng: 107.4560,
-        direction: "Gerbang Tol Trans-Jawa",
-        streamType: "snapshot",
-        streamUrl: "https://images.unsplash.com/photo-1545459720-aac8509eb02c?auto=format&fit=crop&w=640&q=80",
-        authority: "Jasa Marga Toll Road Command Center",
-        fps: 30,
-        resolution: "4K Ultra HD",
-        status: "LIVE",
-        statusText: "Antrean Gardu Tol Normal (1-2 Menit)",
-        trafficDensity: 38,
-      },
-      {
-        id: "cctv-tol-km57",
-        name: "Rest Area KM 57 Tol Japek",
-        road: "Tol Jakarta - Cikampek KM 57",
-        city: "Karawang",
-        region: "Jawa Barat",
-        lat: -6.3685,
-        lng: 107.3180,
-        direction: "Jalur Cirebon / Semarang",
-        streamType: "snapshot",
-        streamUrl: "https://images.unsplash.com/photo-1568605117036-5fe5e7bab0b7?auto=format&fit=crop&w=640&q=80",
-        authority: "PT Jasa Marga (Persero) Tbk",
-        fps: 25,
-        resolution: "1080p FHD",
-        status: "LIVE",
-        statusText: "Parkir Tersedia 45%, Jalur Utama Lancar",
-        trafficDensity: 32,
-      },
-      {
-        id: "cctv-tol-cipali-102",
-        name: "Tol Cipali KM 102 Subang",
-        road: "Tol Cikopo - Palimanan (KM 102)",
-        city: "Subang",
-        region: "Jawa Barat",
-        lat: -6.5320,
-        lng: 107.7210,
-        direction: "Timur (Arah Palimanan)",
-        streamType: "snapshot",
-        streamUrl: "https://images.unsplash.com/photo-1517649763962-0c623266ddc0?auto=format&fit=crop&w=640&q=80",
-        authority: "Astra Tol Cipali",
-        fps: 25,
-        resolution: "1080p FHD",
-        status: "LIVE",
-        statusText: "Kecepatan Rata-Rata 85 km/jam (Lancar)",
-        trafficDensity: 20,
-      },
-
-      // Bandung (ATCS)
-      {
-        id: "cctv-bdg-pasteur",
-        name: "Simpang Pasteur - Dr. Djunjunan",
-        road: "Jl. Dr. Djunjunan - Exit Tol Pasteur",
-        city: "Bandung",
-        region: "Jawa Barat",
-        lat: -6.8920,
-        lng: 107.5790,
-        direction: "Timur (Masuk Kota Bandung)",
-        streamType: "snapshot",
-        streamUrl: "https://images.unsplash.com/photo-1570125909232-eb263c188f7e?auto=format&fit=crop&w=640&q=80",
-        authority: "Dishub Kota Bandung (ATCS)",
-        fps: 25,
-        resolution: "1080p FHD",
-        status: "LIVE",
-        statusText: "Padat Merayap Menjelang Lampu Merah",
-        trafficDensity: 78,
-      },
-      {
-        id: "cctv-bdg-dago",
-        name: "Simpang Cikapayang Dago",
-        road: "Jl. Ir. H. Djuanda - Flyover Moch. Mochtar",
-        city: "Bandung",
-        region: "Jawa Barat",
-        lat: -6.8995,
-        lng: 107.6110,
-        direction: "Utara",
-        streamType: "snapshot",
-        streamUrl: "https://images.unsplash.com/photo-1477959858617-67f30bc75b82?auto=format&fit=crop&w=640&q=80",
-        authority: "Dishub Kota Bandung (ATCS)",
-        fps: 20,
-        resolution: "720p HD",
-        status: "LIVE",
-        statusText: "Ramai Lancar Terkendali",
-        trafficDensity: 48,
-      },
-
-      // Semarang
-      {
-        id: "cctv-smg-simpang-lima",
-        name: "Kawasan Simpang Lima Semarang",
-        road: "Jl. Pahlawan - Jl. Pandanaran",
-        city: "Semarang",
-        region: "Jawa Tengah",
-        lat: -6.9920,
-        lng: 110.4225,
-        direction: "Pusat Bundaran Lapangan",
-        streamType: "snapshot",
-        streamUrl: "https://images.unsplash.com/photo-1449824913935-59a10b8d2000?auto=format&fit=crop&w=640&q=80",
-        authority: "Dishub Kota Semarang (ATCS)",
-        fps: 25,
-        resolution: "1080p FHD",
-        status: "LIVE",
-        statusText: "Lalu Lintas Tertib & Lancar",
-        trafficDensity: 42,
-      },
-
-      // Surabaya (SITS)
-      {
-        id: "cctv-sby-joyoboyo",
-        name: "Simpang Terminal Joyoboyo",
-        road: "Jl. Wonokromo - Jl. Raya Diponegoro",
-        city: "Surabaya",
-        region: "Jawa Timur",
-        lat: -7.2990,
-        lng: 112.7380,
-        direction: "Utara (Pusat Kota Surabaya)",
-        streamType: "snapshot",
-        streamUrl: "https://images.unsplash.com/photo-1480714378408-67cf0d13bc1b?auto=format&fit=crop&w=640&q=80",
-        authority: "Dishub Kota Surabaya (SITS)",
-        fps: 25,
-        resolution: "1080p FHD",
-        status: "LIVE",
-        statusText: "Ramai Mengalir, Antrean 3 Siklus",
-        trafficDensity: 70,
-      },
-      {
-        id: "cctv-sby-waru",
-        name: "Bundaran Waru Surabaya",
-        road: "Jl. Ahmad Yani - Perbatasan Sidoarjo",
-        city: "Surabaya",
-        region: "Jawa Timur",
-        lat: -7.3525,
-        lng: 112.7290,
-        direction: "Selatan (Menghadap Luar Kota)",
-        streamType: "snapshot",
-        streamUrl: "https://images.unsplash.com/photo-1469854523086-cc02fe5d8800?auto=format&fit=crop&w=640&q=80",
-        authority: "Dishub Kota Surabaya (SITS)",
-        fps: 30,
-        resolution: "1080p FHD",
-        status: "LIVE",
-        statusText: "Padat Volume Tinggi",
-        trafficDensity: 75,
-      },
-
-      // Bali (ATCS)
-      {
-        id: "cctv-bali-dewa-ruci",
-        name: "Simpang Susun Dewa Ruci Kuta",
-        road: "Jl. Sunset Road - Jl. Bypass Ngurah Rai",
-        city: "Kuta",
-        region: "Bali",
-        lat: -8.7180,
-        lng: 115.1820,
-        direction: "Barat Daya (Underpass & Simpang)",
-        streamType: "snapshot",
-        streamUrl: "https://images.unsplash.com/photo-1537996194471-e657df975ab4?auto=format&fit=crop&w=640&q=80",
-        authority: "Dishub Provinsi Bali (ATCS)",
-        fps: 25,
-        resolution: "1080p FHD",
-        status: "LIVE",
-        statusText: "Wisatawan Lancar, Underpass 55 km/jam",
-        trafficDensity: 45,
-      },
-
-      // God's Eye View International Hubs
-      {
-        id: "cctv-uk-london-westminster",
-        name: "London - Westminster Bridge",
-        road: "Bridge St - Westminster Bridge",
-        city: "London",
-        region: "United Kingdom",
-        lat: 51.5008,
-        lng: -0.1246,
-        direction: "North-West (Houses of Parliament)",
-        streamType: "snapshot",
-        streamUrl: "https://images.unsplash.com/photo-1513635269975-59663e0ac1ad?auto=format&fit=crop&w=640&q=80",
-        authority: "Transport for London (TfL Open Data)",
-        fps: 25,
-        resolution: "1080p FHD",
-        status: "LIVE",
-        statusText: "Urban Transit Flow Steady",
-        trafficDensity: 52,
-      },
-      {
-        id: "cctv-us-austin-congress",
-        name: "Austin, TX - Congress Ave",
-        road: "Congress Avenue & 6th Street",
-        city: "Austin",
-        region: "Texas, USA",
-        lat: 30.2672,
-        lng: -97.7431,
-        direction: "North (Texas State Capitol)",
-        streamType: "snapshot",
-        streamUrl: "https://images.unsplash.com/photo-1531218150217-54595bc2b934?auto=format&fit=crop&w=640&q=80",
-        authority: "City of Austin Open Data",
-        fps: 20,
-        resolution: "720p HD",
-        status: "LIVE",
-        statusText: "Normal City Grid Traffic",
-        trafficDensity: 40,
-      },
-    ];
-
-    const filtered = region ? cameras.filter(c => c.region.toLowerCase().includes(region.toLowerCase()) || c.city.toLowerCase().includes(region.toLowerCase())) : cameras;
+    const result = cctvService.getCameras({
+      city: filterCity,
+      category,
+      search: filterSearch,
+      limit: limit ? Number(limit) : 250,
+      page: page ? Number(page) : 1,
+    });
 
     return res.json({
       success: true,
-      count: filtered.length,
-      data: filtered,
+      total: result.total,
+      count: result.count,
+      page: result.page,
+      limit: result.limit,
+      totalPages: result.totalPages,
+      cities: result.cities,
+      categories: result.categories,
+      data: result.data,
       provenance: {
-        provider: "Public ITS & Municipal ATCS CCTV Feeds",
+        provider: "CCTV Nusantara & Jaringan ATCS Terbuka Nasional",
         status: "LIVE",
         timestamp: new Date().toISOString(),
       },
