@@ -608,7 +608,7 @@ export const GeospatialWeatherModal: React.FC<GeospatialWeatherModalProps> = ({
   const [refreshCountdown, setRefreshCountdown] = useState<number>(300); // 300 seconds = 5 minutes
   const [refreshSignal, setRefreshSignal] = useState<number>(0);
   const [windyOverlay, setWindyOverlay] = useState<'radar' | 'satellite' | 'wind' | 'rain' | 'temp' | 'clouds'>('radar');
-  const [chartZoomLevel, setChartZoomLevel] = useState<'fit' | '24h' | '6h' | '3h' | 'minute' | '72h' | 'multiday' | 'monthly'>('multiday');
+  const [chartZoomLevel, setChartZoomLevel] = useState<'fit' | '24h' | '6h' | '3h' | 'minute' | '72h' | 'multiday' | 'monthly'>('fit');
   const [currentTime, setCurrentTime] = useState<Date>(() => new Date());
 
   useEffect(() => {
@@ -1114,7 +1114,15 @@ export const GeospatialWeatherModal: React.FC<GeospatialWeatherModalProps> = ({
       return minutePoints;
     }
 
-    // Default 'multiday' / '72h' -> Return the COMPLETE multi-day stream!
+    if (chartZoomLevel === 'multiday' || chartZoomLevel === '72h') {
+      let start = Math.max(0, validIdx - 24);
+      let end = Math.min(baseData.length, start + 75);
+      if (end - start < 75 && start > 0) {
+        start = Math.max(0, end - 75);
+      }
+      return baseData.slice(start, end);
+    }
+
     return baseData;
   }, [data, timeframe, chartData, hourlyChartData, chartZoomLevel, selectedHour, selectedPointKey, currentTime, activeLat, activeLng]);
 
@@ -1246,8 +1254,8 @@ export const GeospatialWeatherModal: React.FC<GeospatialWeatherModalProps> = ({
       };
     }
 
-    // 'multiday', '72h', or default continuous scroll:
-    const calculatedWidth = Math.max(2600, totalPoints * 52);
+    // 'multiday', '72h', or default continuous scroll (strictly capped at 3200px):
+    const calculatedWidth = Math.min(3200, Math.max(2200, totalPoints * 38));
     return {
       width: `${calculatedWidth}px`,
       minWidth: `${calculatedWidth}px`,
@@ -1282,40 +1290,32 @@ export const GeospatialWeatherModal: React.FC<GeospatialWeatherModalProps> = ({
   }, [chartDisplayData, liveNowChartPoint, activeChartPoint, currentTime, chartZoomLevel]);
 
   const handleJumpToDay = useCallback((targetDayDiff: number) => {
-    if (!chartDisplayData || chartDisplayData.length === 0) return;
+    const source = (hourlyChartData && hourlyChartData.length > 0) ? hourlyChartData : chartDisplayData;
+    if (!source || source.length === 0) return;
     if (chartZoomLevel === 'monthly') return;
     const currentH = currentTime.getHours();
-    let point = chartDisplayData.find((p: any) => p.dayDiff === targetDayDiff && p.hour === currentH);
+    let point = source.find((p: any) => p.dayDiff === targetDayDiff && p.hour === currentH);
     if (!point) {
-      point = chartDisplayData.find((p: any) => p.dayDiff === targetDayDiff && p.hour === 12);
+      point = source.find((p: any) => p.dayDiff === targetDayDiff && p.hour === 12);
     }
     if (!point) {
-      point = chartDisplayData.find((p: any) => p.dayDiff === targetDayDiff);
+      point = source.find((p: any) => p.dayDiff === targetDayDiff);
     }
     if (point) {
       setSelectedHour(point.hour);
       setSelectedPointKey(point.pointKey || point.time);
-      const targetIdx = chartDisplayData.findIndex((p: any) => p.pointKey === point.pointKey);
-      if (targetIdx >= 0 && chartScrollRef.current) {
-        const container = chartScrollRef.current;
-        const scrollWidth = container.scrollWidth;
-        const containerWidth = container.clientWidth;
-        const leftMargin = 65;
-        const rightMargin = 40;
-        const usableWidth = Math.max(0, scrollWidth - leftMargin - rightMargin);
-        const pointX = leftMargin + (chartDisplayData.length > 1 ? (targetIdx / (chartDisplayData.length - 1)) * usableWidth : usableWidth / 2);
-        const maxScroll = Math.max(0, scrollWidth - containerWidth);
-        const targetScrollLeft = Math.max(0, Math.min(maxScroll, pointX - containerWidth / 2));
-        container.scrollTo({ left: targetScrollLeft, behavior: 'smooth' });
-      }
+      setTimeout(() => {
+        scrollToCurrentHour('smooth');
+      }, 50);
     }
-  }, [chartDisplayData, chartZoomLevel, currentTime]);
+  }, [hourlyChartData, chartDisplayData, chartZoomLevel, currentTime, scrollToCurrentHour]);
 
   const availableDaysInChart = useMemo(() => {
-    if (!chartDisplayData || chartDisplayData.length === 0) return [];
+    const source = (hourlyChartData && hourlyChartData.length > 0) ? hourlyChartData : chartDisplayData;
+    if (!source || source.length === 0) return [];
     const seen = new Set<number>();
     const days: { dayDiff: number; dayName: string; label: string }[] = [];
-    for (const pt of chartDisplayData) {
+    for (const pt of source) {
       if (typeof pt.dayDiff === 'number' && !seen.has(pt.dayDiff)) {
         seen.add(pt.dayDiff);
         const lbl = pt.dayDiff === 0
@@ -1337,7 +1337,7 @@ export const GeospatialWeatherModal: React.FC<GeospatialWeatherModalProps> = ({
       }
     }
     return days.sort((a, b) => a.dayDiff - b.dayDiff);
-  }, [chartDisplayData]);
+  }, [hourlyChartData, chartDisplayData]);
 
   const handleShiftPrevious = useCallback(() => {
     if (!chartDisplayData || chartDisplayData.length === 0) return;
@@ -3353,16 +3353,29 @@ export const GeospatialWeatherModal: React.FC<GeospatialWeatherModalProps> = ({
                         <div className="flex items-center gap-1 bg-white dark:bg-slate-900 p-0.5 rounded-xl border border-slate-200/60 dark:border-slate-700/60 flex-wrap">
                           <button
                             type="button"
+                            onClick={() => setChartZoomLevel('fit')}
+                            className={`px-2.5 py-1 rounded-lg text-xs font-semibold transition-all flex items-center gap-1 cursor-pointer ${
+                              chartZoomLevel === 'fit'
+                                ? 'bg-indigo-600 text-white shadow-xs font-bold'
+                                : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
+                            }`}
+                            title="Tampilkan seluruh 24 jam pas di layar tanpa perlu menggeser (Mode Sekali Lirik)"
+                          >
+                            <Eye className="w-3 h-3" />
+                            <span>Pas Layar (Sekali Lirik)</span>
+                          </button>
+                          <button
+                            type="button"
                             onClick={() => setChartZoomLevel('multiday')}
                             className={`px-2.5 py-1 rounded-lg text-xs font-semibold transition-all flex items-center gap-1 cursor-pointer ${
                               chartZoomLevel === 'multiday'
                                 ? 'bg-indigo-600 text-white shadow-xs font-bold'
                                 : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
                             }`}
-                            title="Linimasa penuh multi-hari: geser kiri untuk hari kemarin & lusa lalu, geser kanan untuk besok & seterusnya"
+                            title="Linimasa multi-hari 72 jam: geser kiri untuk hari kemarin & lusa lalu, geser kanan untuk ramalan mendatang"
                           >
                             <Compass className="w-3 h-3" />
-                            <span>Multihari (Geser Bebas)</span>
+                            <span>Multihari (72 Jam)</span>
                           </button>
                           <button
                             type="button"
@@ -3376,19 +3389,6 @@ export const GeospatialWeatherModal: React.FC<GeospatialWeatherModalProps> = ({
                           >
                             <Calendar className="w-3 h-3" />
                             <span>Grafik Bulanan (30H)</span>
-                          </button>
-                          <button
-                            type="button"
-                            onClick={() => setChartZoomLevel('fit')}
-                            className={`px-2.5 py-1 rounded-lg text-xs font-semibold transition-all flex items-center gap-1 cursor-pointer ${
-                              chartZoomLevel === 'fit'
-                                ? 'bg-indigo-600 text-white shadow-xs font-bold'
-                                : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
-                            }`}
-                            title="Tampilkan seluruh 24 jam pas di layar tanpa perlu menggeser (Mode Sekali Lirik)"
-                          >
-                            <Eye className="w-3 h-3" />
-                            <span>Pas Layar (Sekali Lirik)</span>
                           </button>
                           <button
                             type="button"
