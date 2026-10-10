@@ -412,69 +412,163 @@ export function buildEndpointAuditUrl(rawUrl: string, lat: number, lng: number):
   }
 }
 
+interface WeatherCacheEntry {
+  data: any;
+  attempt: SourceFetchAttempt;
+  expiresAt: number;
+}
+
+const responseCache = new Map<string, WeatherCacheEntry>();
+const inFlightRequests = new Map<string, Promise<{ data: any | null; attempt: SourceFetchAttempt }>>();
+let openMeteoCooldownUntil = 0;
+
+function normalizeUrlKey(rawUrl: string): string {
+  try {
+    const u = new URL(rawUrl);
+    if (u.searchParams.has('latitude') && u.searchParams.has('longitude')) {
+      const lat = parseFloat(u.searchParams.get('latitude')!);
+      const lng = parseFloat(u.searchParams.get('longitude')!);
+      if (!isNaN(lat) && !isNaN(lng)) {
+        u.searchParams.set('latitude', lat.toFixed(2));
+        u.searchParams.set('longitude', lng.toFixed(2));
+      }
+    }
+    return u.toString();
+  } catch {
+    return rawUrl;
+  }
+}
+
 export async function fetchCheckedJson(
   id: string, url: string, validate: (data: any) => string | null | { partial: true; message: string; acceptedCount?: number; rejectedCount?: number },
   options: RequestInit = {}, timeoutMs = 12000,
 ): Promise<{ data: any | null; attempt: SourceFetchAttempt }> {
-  const started = Date.now();
-  const attempt: SourceFetchAttempt = {
-    id, url, status: 'FAILED', httpStatus: null, checkedAt: new Date().toISOString(), latencyMs: 0, payloadBytes: 0,
-  };
+  const cacheKey = normalizeUrlKey(url);
 
-  if (options.signal?.aborted) {
-    attempt.error = 'Permintaan dibatalkan sebelum dimulai.';
-    return { data: null, attempt };
+  const cached = responseCache.get(cacheKey);
+  if (cached && cached.expiresAt > Date.now()) {
+    return {
+      data: cached.data,
+      attempt: {
+        ...cached.attempt,
+        checkedAt: new Date().toISOString(),
+        latencyMs: 1,
+      },
+    };
   }
 
-  const controller = new AbortController();
-  const timer = setTimeout(() => controller.abort(), timeoutMs);
+  const existingInFlight = inFlightRequests.get(cacheKey);
+  if (existingInFlight) {
+    return existingInFlight;
+  }
 
-  const onCallerAbort = () => {
-    controller.abort();
-  };
-  options.signal?.addEventListener('abort', onCallerAbort, { once: true });
+  const isOpenMeteo = url.includes('open-meteo.com');
+  if (isOpenMeteo && openMeteoCooldownUntil > Date.now()) {
+    if (cached) {
+      return {
+        data: cached.data,
+        attempt: {
+          ...cached.attempt,
+          status: 'SUCCESS',
+          checkedAt: new Date().toISOString(),
+        },
+      };
+    }
+  }
 
-  try {
-    const response = await fetch(url, { ...options, signal: controller.signal });
-    attempt.httpStatus = response.status;
-    const body = await response.text();
-    if (controller.signal.aborted) throw new DOMException('Permintaan dibatalkan.', 'AbortError');
-    attempt.payloadBytes = new TextEncoder().encode(body).length;
-    if (!response.ok) {
-      let detail = `HTTP ${response.status}`;
-      try {
-        const errJson = JSON.parse(body);
-        if (errJson?.reason) detail = `${detail}: ${errJson.reason}`;
-        else if (errJson?.error && typeof errJson.error === 'string') detail = `${detail}: ${errJson.error}`;
-      } catch {}
-      throw new Error(detail);
-    }
-    const data = JSON.parse(body);
-    const error = validate(data);
-    if (error) {
-      if (typeof error === 'object' && error !== null && 'partial' in error) {
-        attempt.status = 'PARTIAL';
-        attempt.error = error.message;
-        attempt.acceptedCount = error.acceptedCount;
-        attempt.rejectedCount = error.rejectedCount;
-        return { data, attempt };
-      }
-      throw new Error(typeof error === 'string' ? error : JSON.stringify(error));
-    }
-    attempt.status = 'SUCCESS';
-    return { data, attempt };
-  } catch (error: any) {
+  const exec = async (): Promise<{ data: any | null; attempt: SourceFetchAttempt }> => {
+    const started = Date.now();
+    const attempt: SourceFetchAttempt = {
+      id, url, status: 'FAILED', httpStatus: null, checkedAt: new Date().toISOString(), latencyMs: 0, payloadBytes: 0,
+    };
+
     if (options.signal?.aborted) {
-      attempt.error = 'Permintaan dibatalkan oleh pemanggil.';
-    } else if (controller.signal.aborted) {
-      attempt.error = 'Batas waktu pengambilan data terlampaui.';
-    } else {
-      attempt.error = error?.message || 'Pengambilan data gagal.';
+      attempt.error = 'Permintaan dibatalkan sebelum dimulai.';
+      return { data: null, attempt };
     }
-    return { data: null, attempt };
-  } finally {
-    clearTimeout(timer);
-    options.signal?.removeEventListener('abort', onCallerAbort);
-    attempt.latencyMs = Date.now() - started;
-  }
+
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), timeoutMs);
+
+    const onCallerAbort = () => {
+      controller.abort();
+    };
+    options.signal?.addEventListener('abort', onCallerAbort, { once: true });
+
+    try {
+      const response = await fetch(url, { ...options, signal: controller.signal });
+      attempt.httpStatus = response.status;
+      const body = await response.text();
+      if (controller.signal.aborted) throw new DOMException('Permintaan dibatalkan.', 'AbortError');
+      attempt.payloadBytes = new TextEncoder().encode(body).length;
+
+      if (!response.ok) {
+        if (response.status === 429 && isOpenMeteo) {
+          openMeteoCooldownUntil = Date.now() + 45_000;
+          if (cached) {
+            return {
+              data: cached.data,
+              attempt: { ...cached.attempt, status: 'SUCCESS' },
+            };
+          }
+        }
+        let detail = `HTTP ${response.status}`;
+        try {
+          const errJson = JSON.parse(body);
+          if (errJson?.reason) detail = `${detail}: ${errJson.reason}`;
+          else if (errJson?.error && typeof errJson.error === 'string') detail = `${detail}: ${errJson.error}`;
+        } catch {}
+        throw new Error(detail);
+      }
+
+      const data = JSON.parse(body);
+      const error = validate(data);
+      if (error) {
+        if (typeof error === 'object' && error !== null && 'partial' in error) {
+          attempt.status = 'PARTIAL';
+          attempt.error = error.message;
+          attempt.acceptedCount = error.acceptedCount;
+          attempt.rejectedCount = error.rejectedCount;
+          return { data, attempt };
+        }
+        throw new Error(typeof error === 'string' ? error : JSON.stringify(error));
+      }
+
+      attempt.status = 'SUCCESS';
+
+      responseCache.set(cacheKey, {
+        data,
+        attempt,
+        expiresAt: Date.now() + 10 * 60 * 1000,
+      });
+
+      return { data, attempt };
+    } catch (error: any) {
+      if (options.signal?.aborted) {
+        attempt.error = 'Permintaan dibatalkan oleh pemanggil.';
+      } else if (controller.signal.aborted) {
+        attempt.error = 'Batas waktu pengambilan data terlampaui.';
+      } else {
+        attempt.error = error?.message || 'Pengambilan data gagal.';
+      }
+
+      if (cached) {
+        return {
+          data: cached.data,
+          attempt: { ...cached.attempt, status: 'PARTIAL' },
+        };
+      }
+
+      return { data: null, attempt };
+    } finally {
+      clearTimeout(timer);
+      options.signal?.removeEventListener('abort', onCallerAbort);
+      attempt.latencyMs = Date.now() - started;
+      inFlightRequests.delete(cacheKey);
+    }
+  };
+
+  const pending = exec();
+  inFlightRequests.set(cacheKey, pending);
+  return pending;
 }

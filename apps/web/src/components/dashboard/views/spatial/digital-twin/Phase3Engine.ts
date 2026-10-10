@@ -774,7 +774,7 @@ export class Phase3Engine {
 
     for (const tile of floor.tiles) {
       if (tile.tile_type === "WALL" || tile.tile_type === "BORDER") {
-        this.ctx.fillStyle = "#475569"; // Slate wall
+        this.ctx.fillStyle = "#334155"; // Slate wall
       } else if (
         tile.tile_type === "DOOR" ||
         tile.tile_type === "DOOR_LOCKED"
@@ -787,9 +787,22 @@ export class Phase3Engine {
         } else {
           this.ctx.fillStyle = "#d97706"; // Closed door (Amber)
         }
-      } else if (tile.tile_type === "FLOOR" || tile.tile_type === "PAVING") {
-        this.ctx.fillStyle =
-          tile.tile_type === "PAVING" ? "#94a3b8" : "#e2e8f0";
+      } else if (tile.tile_type === "FLOOR") {
+        this.ctx.fillStyle = "#f8fafc";
+      } else if (tile.tile_type === "PAVING") {
+        this.ctx.fillStyle = "#475569";
+      } else if (tile.tile_type === "ROAD") {
+        this.ctx.fillStyle = "#1e293b";
+      } else if (tile.tile_type === "GRASS") {
+        this.ctx.fillStyle = "#16a34a";
+      } else if (tile.tile_type === "COURT_VOLI") {
+        this.ctx.fillStyle = "#ea580c";
+      } else if (tile.tile_type === "COURT_BASKET") {
+        this.ctx.fillStyle = "#475569";
+      } else if (tile.tile_type === "PARKING") {
+        this.ctx.fillStyle = "#374151";
+      } else if (tile.tile_type === "MOSQUE") {
+        this.ctx.fillStyle = "#047857";
       } else {
         this.ctx.fillStyle = "#cbd5e1";
       }
@@ -801,7 +814,7 @@ export class Phase3Engine {
         TILE_SIZE,
       );
 
-      this.ctx.strokeStyle = "rgba(0,0,0,0.1)";
+      this.ctx.strokeStyle = "rgba(0,0,0,0.08)";
       this.ctx.strokeRect(
         tile.x * TILE_SIZE,
         tile.y * TILE_SIZE,
@@ -948,19 +961,72 @@ export class Phase3Engine {
           }
           this.ctx.restore();
           break;
-        case "SAFE_ZONE":
-          this.ctx.fillStyle = "rgba(34, 197, 94, 0.3)";
+        case "SAFE_ZONE": {
+          const sPulse = Math.sin(this.simTimeMs / 250) * 0.15 + 0.85;
+          this.ctx.fillStyle = "rgba(34, 197, 94, 0.22)";
           this.ctx.fillRect(px, py, pw, ph);
-          this.ctx.strokeStyle = "#22c55e";
+
+          this.ctx.strokeStyle = `rgba(34, 197, 94, ${0.7 * sPulse})`;
+          this.ctx.lineWidth = 2.5;
           this.ctx.strokeRect(px, py, pw, ph);
+
+          // Corner brackets
+          const bLen = Math.min(16, Math.min(pw, ph) * 0.25);
+          this.ctx.strokeStyle = "#4ade80";
+          this.ctx.lineWidth = 3;
+          this.ctx.beginPath();
+          this.ctx.moveTo(px, py + bLen);
+          this.ctx.lineTo(px, py);
+          this.ctx.lineTo(px + bLen, py);
+          this.ctx.moveTo(px + pw - bLen, py);
+          this.ctx.lineTo(px + pw, py);
+          this.ctx.lineTo(px + pw, py + bLen);
+          this.ctx.moveTo(px, py + ph - bLen);
+          this.ctx.lineTo(px, py + ph);
+          this.ctx.lineTo(px + bLen, py + ph);
+          this.ctx.moveTo(px + pw - bLen, py + ph);
+          this.ctx.lineTo(px + pw, py + ph);
+          this.ctx.lineTo(px + pw, py + ph - bLen);
+          this.ctx.stroke();
+
+          // Target crosshair & concentric beacon
+          const cx = px + pw / 2;
+          const cy = py + ph / 2;
+          const r = Math.min(pw, ph) * 0.25;
+          this.ctx.fillStyle = `rgba(34, 197, 94, ${0.35 * sPulse})`;
+          this.ctx.beginPath();
+          this.ctx.arc(cx, cy, r * sPulse, 0, Math.PI * 2);
+          this.ctx.fill();
+          this.ctx.strokeStyle = "#22c55e";
+          this.ctx.lineWidth = 1.5;
+          this.ctx.beginPath();
+          this.ctx.arc(cx, cy, r, 0, Math.PI * 2);
+          this.ctx.stroke();
           break;
-        case "EXIT":
-          this.ctx.fillStyle = "#0ea5e9";
+        }
+        case "EXIT": {
+          const ePulse = Math.sin(this.simTimeMs / 200) * 0.15 + 0.85;
+          this.ctx.fillStyle = "rgba(16, 185, 129, 0.35)";
           this.ctx.fillRect(px, py, pw, ph);
-          this.ctx.fillStyle = "white";
-          this.ctx.font = "bold 12px sans-serif";
-          this.ctx.fillText("EXIT", px + 4, py + ph / 2 + 4);
+
+          this.ctx.strokeStyle = `rgba(52, 211, 153, ${0.85 * ePulse})`;
+          this.ctx.lineWidth = 2;
+          this.ctx.strokeRect(px, py, pw, ph);
+
+          // Animated chevron pointing toward West exit gate
+          const cx = px + pw / 2;
+          const cy = py + ph / 2;
+          const arrowOffset = ((this.simTimeMs / 180) % 8) - 4;
+          this.ctx.strokeStyle = "#34d1bd";
+          this.ctx.lineWidth = 3;
+          this.ctx.lineCap = "round";
+          this.ctx.beginPath();
+          this.ctx.moveTo(cx + 4 + arrowOffset, cy - 6);
+          this.ctx.lineTo(cx - 4 + arrowOffset, cy);
+          this.ctx.lineTo(cx + 4 + arrowOffset, cy + 6);
+          this.ctx.stroke();
           break;
+        }
         case "OBJECTIVE":
           this.ctx.fillStyle = "rgba(234, 179, 8, 0.5)";
           this.ctx.beginPath();

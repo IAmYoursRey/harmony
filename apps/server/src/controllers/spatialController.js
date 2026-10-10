@@ -2,6 +2,7 @@ import { normalizeFirmsQuery, fetchFirmsSnapshot } from '../services/firmsIntegr
 import { validateProviderCurrent } from '../services/weatherIntegrity.js';
 import { synthesizeSchoolRisk } from '../services/spatialRiskEngine.js';
 import { cctvService } from '../services/cctvService.js';
+import { trafficSignalsService as trafficSignalsBackendService } from '../services/trafficSignalsService.js';
 import {
   getSpatialCache,
   setSpatialCache,
@@ -1837,6 +1838,74 @@ export const streamTrafficCctv = async (req, res) => {
 };
 
 /**
+ * Direct Live CCTV Stream Handler for /api/stream
+ * Proxies both HLS playlists (?id=<cameraId>) and fMP4 / TS video segments (?t=<token>)
+ * GET /api/stream?t=<token>
+ * GET /api/stream?id=<cameraId>
+ */
+export const handleDirectCctvStream = async (req, res) => {
+  try {
+    const { t, id, url } = req.query;
+
+    if (t && typeof t === 'string') {
+      const targetUrl = `${cctvService.getBaseUrl()}/api/stream?t=${encodeURIComponent(t)}`;
+      const result = await cctvService.proxyStreamChunk(targetUrl);
+      if (!result.ok) {
+        return res.status(result.status || 502).send(result.error);
+      }
+
+      res.setHeader('Content-Type', result.contentType || 'video/mp4');
+      res.setHeader('Access-Control-Allow-Origin', '*');
+      res.setHeader('Access-Control-Allow-Methods', 'GET, HEAD, OPTIONS');
+      res.setHeader('Access-Control-Allow-Headers', '*');
+
+      if (result.isPlaylist || result.contentType.includes('mpegurl')) {
+        res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
+      } else {
+        res.setHeader('Cache-Control', 'public, max-age=86400, immutable');
+      }
+      return res.send(result.buffer);
+    }
+
+    if (id && typeof id === 'string') {
+      const result = await cctvService.fetchHlsPlaylist(id);
+      if (!result.ok) {
+        return res.status(result.status || 502).json({ success: false, error: result.error });
+      }
+
+      res.setHeader('Content-Type', result.contentType || 'application/vnd.apple.mpegurl; charset=utf-8');
+      res.setHeader('Access-Control-Allow-Origin', '*');
+      res.setHeader('Access-Control-Allow-Methods', 'GET, HEAD, OPTIONS');
+      res.setHeader('Access-Control-Allow-Headers', '*');
+      res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
+      return res.send(result.playlist);
+    }
+
+    if (url && typeof url === 'string') {
+      const decoded = decodeURIComponent(url);
+      const result = await cctvService.proxyStreamChunk(decoded);
+      if (!result.ok) {
+        return res.status(result.status || 502).send(result.error);
+      }
+      res.setHeader('Content-Type', result.contentType);
+      res.setHeader('Access-Control-Allow-Origin', '*');
+      res.setHeader('Access-Control-Allow-Methods', 'GET, HEAD, OPTIONS');
+      res.setHeader('Access-Control-Allow-Headers', '*');
+      if (result.isPlaylist || result.contentType.includes('mpegurl')) {
+        res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
+      } else {
+        res.setHeader('Cache-Control', 'public, max-age=86400, immutable');
+      }
+      return res.send(result.buffer);
+    }
+
+    return res.status(400).json({ success: false, error: 'Parameter t atau id diperlukan' });
+  } catch (error) {
+    return res.status(500).json({ success: false, error: error.message });
+  }
+};
+
+/**
  * Direct Live CCTV Thumbnail Endpoint
  * GET /api/spatial/traffic/cctv-thumbnail?id=<camera_id>
  */
@@ -1934,7 +2003,46 @@ export const getTrafficCctvList = async (req, res) => {
         provider: "CCTV Nusantara & Jaringan ATCS Terbuka Nasional",
         status: "LIVE",
         timestamp: new Date().toISOString(),
+        lastRefreshedAt: new Date(cctvService.lastRefreshedAt).toISOString(),
+        syncIntervalMinutes: 5,
+        autoUpdateActive: true,
+        health: cctvService.getHealthStatus(),
       },
+    });
+  } catch (error) {
+    return res.status(500).json({ success: false, error: error.message });
+  }
+};
+
+/**
+ * Real-time CCTV Health & Auto-Sync Telemetry
+ * GET /api/spatial/traffic/cctv-health
+ */
+export const getTrafficCctvHealth = async (req, res) => {
+  try {
+    const health = cctvService.getHealthStatus();
+    return res.json({
+      success: true,
+      health,
+      timestamp: new Date().toISOString(),
+    });
+  } catch (error) {
+    return res.status(500).json({ success: false, error: error.message });
+  }
+};
+
+/**
+ * Trigger immediate manual refresh of CCTV catalog and background probe
+ * POST /api/spatial/traffic/cctv-refresh
+ */
+export const triggerTrafficCctvRefresh = async (req, res) => {
+  try {
+    await cctvService.periodicUpdateTask();
+    return res.json({
+      success: true,
+      message: "Sinkronisasi data CCTV dan health probe berhasil dijalankan.",
+      health: cctvService.getHealthStatus(),
+      timestamp: new Date().toISOString(),
     });
   } catch (error) {
     return res.status(500).json({ success: false, error: error.message });
@@ -1948,172 +2056,14 @@ export const getTrafficCctvList = async (req, res) => {
 export const getTrafficSignalsList = async (req, res) => {
   try {
     const now = Date.now();
-    const signals = [
-      {
-        id: "sig-jkt-sarinah",
-        name: "Simpang Sarinah Thamrin",
-        city: "Jakarta",
-        lat: -6.1875,
-        lng: 106.8240,
-        cycleTotalSec: 90,
-        greenSec: 45,
-        yellowSec: 5,
-        redSec: 40,
-        controller: "SCATS / ATCS DKI",
-        intersectionType: "Simpang 4 Terkoordinasi",
-      },
-      {
-        id: "sig-jkt-kuningan",
-        name: "Simpang Kuningan Rasuna Said",
-        city: "Jakarta",
-        lat: -6.2301,
-        lng: 106.8315,
-        cycleTotalSec: 100,
-        greenSec: 40,
-        yellowSec: 5,
-        redSec: 55,
-        controller: "Adaptive Traffic Signal",
-        intersectionType: "Simpang Koridor Bisnis",
-      },
-      {
-        id: "sig-jkt-harmoni",
-        name: "Simpang Harmoni Juanda",
-        city: "Jakarta",
-        lat: -6.1662,
-        lng: 106.8202,
-        cycleTotalSec: 80,
-        greenSec: 35,
-        yellowSec: 5,
-        redSec: 40,
-        controller: "ATCS Dishub DKI",
-        intersectionType: "Simpang Transit Utama",
-      },
-      {
-        id: "sig-jkt-cawang",
-        name: "Simpang Cawang Otista",
-        city: "Jakarta",
-        lat: -6.2420,
-        lng: 106.8710,
-        cycleTotalSec: 90,
-        greenSec: 35,
-        yellowSec: 5,
-        redSec: 50,
-        controller: "ATCS Cawang Komersial",
-        intersectionType: "Simpang Pertemuan Arteri",
-      },
-      {
-        id: "sig-bdg-pasteur",
-        name: "Simpang Pasteur Pasirkaliki",
-        city: "Bandung",
-        lat: -6.8970,
-        lng: 107.5980,
-        cycleTotalSec: 75,
-        greenSec: 30,
-        yellowSec: 5,
-        redSec: 40,
-        controller: "ATCS Kota Bandung",
-        intersectionType: "Simpang Arteri Perkotaan",
-      },
-      {
-        id: "sig-sby-siola",
-        name: "Simpang Siola Tunjungan",
-        city: "Surabaya",
-        lat: -7.2575,
-        lng: 112.7380,
-        cycleTotalSec: 65,
-        greenSec: 30,
-        yellowSec: 5,
-        redSec: 30,
-        controller: "SITS Dishub Surabaya",
-        intersectionType: "Kawasan Budaya & Niaga",
-      },
-      {
-        id: "sig-sby-darmo",
-        name: "Simpang Raya Darmo - Polisi Istimewa",
-        city: "Surabaya",
-        lat: -7.2830,
-        lng: 112.7410,
-        cycleTotalSec: 80,
-        greenSec: 40,
-        yellowSec: 5,
-        redSec: 35,
-        controller: "SITS Dishub Surabaya",
-        intersectionType: "Simpang Arteri Protokol",
-      },
-      {
-        id: "sig-smg-tugumuda",
-        name: "Simpang Tugu Muda",
-        city: "Semarang",
-        lat: -6.9839,
-        lng: 110.4095,
-        cycleTotalSec: 85,
-        greenSec: 40,
-        yellowSec: 5,
-        redSec: 40,
-        controller: "ATCS Kota Semarang",
-        intersectionType: "Bundaran & Simpang 5 Arah",
-      },
-      {
-        id: "sig-bali-sanur",
-        name: "Simpang Bypass Sanur Hang Tuah",
-        city: "Denpasar",
-        lat: -8.6740,
-        lng: 115.2590,
-        cycleTotalSec: 70,
-        greenSec: 35,
-        yellowSec: 5,
-        redSec: 30,
-        controller: "ATCS Dishub Bali",
-        intersectionType: "Simpang Gerbang Wisata",
-      },
-    ].map((sig, idx) => {
-      const offsetMs = idx * 17000;
-      const cycleMs = sig.cycleTotalSec * 1000;
-      const elapsedInCycle = (now + offsetMs) % cycleMs;
-      const elapsedSec = elapsedInCycle / 1000;
-
-      let currentPhase = 'RED';
-      let remainingSec = 0;
-      let phaseColor = '#ef4444';
-
-      if (elapsedSec < sig.greenSec) {
-        currentPhase = 'GREEN';
-        remainingSec = Math.ceil(sig.greenSec - elapsedSec);
-        phaseColor = '#10b981';
-      } else if (elapsedSec < sig.greenSec + sig.yellowSec) {
-        currentPhase = 'YELLOW';
-        remainingSec = Math.ceil((sig.greenSec + sig.yellowSec) - elapsedSec);
-        phaseColor = '#f59e0b';
-      } else {
-        currentPhase = 'RED';
-        remainingSec = Math.ceil(sig.cycleTotalSec - elapsedSec);
-        phaseColor = '#ef4444';
-      }
-
-      const queueVehicles = currentPhase === 'RED'
-        ? Math.min(32, Math.max(5, Math.floor((sig.redSec - remainingSec) * 0.7)))
-        : Math.max(2, Math.floor(remainingSec * 0.3));
-
-      return {
-        ...sig,
-        currentPhase,
-        remainingSec,
-        phaseColor,
-        queueVehicles,
-        pedestrianActive: currentPhase === 'RED',
-        lastSync: new Date(now).toISOString(),
-      };
-    });
+    const signals = trafficSignalsBackendService.getSignals(now);
+    const provenance = trafficSignalsBackendService.getProvenance();
 
     return res.json({
       success: true,
       count: signals.length,
       data: signals,
-      provenance: {
-        provider: "Municipal ATCS / SCATS Realtime Signal Controllers",
-        status: "LIVE",
-        timestamp: new Date().toISOString(),
-      },
+      provenance,
     });
   } catch (error) {
     return res.status(500).json({ success: false, error: error.message });

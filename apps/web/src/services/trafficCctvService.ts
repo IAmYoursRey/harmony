@@ -305,7 +305,14 @@ const RAW_CAMERAS: Omit<TrafficCctvCamera, 'location'>[] = [
   },
 ];
 
-const FALLBACK_CAMERAS: TrafficCctvCamera[] = RAW_CAMERAS.map((c) => ({
+import { BINA_MARGA_CAMERAS } from '@/data/binaMargaCctvData';
+
+const ALL_RAW_CAMERAS: Omit<TrafficCctvCamera, 'location'>[] = [
+  ...RAW_CAMERAS,
+  ...BINA_MARGA_CAMERAS,
+];
+
+const FALLBACK_CAMERAS: TrafficCctvCamera[] = ALL_RAW_CAMERAS.map((c) => ({
   ...c,
   location: [c.lng, c.lat] as [number, number],
 }));
@@ -318,6 +325,54 @@ class TrafficCctvService {
   private activeCategory: string = 'Semua';
   private lastFetchedAt: number = 0;
   private isFetching: boolean = false;
+  private listeners: Set<(cameras: TrafficCctvCamera[]) => void> = new Set();
+  private syncTimer: ReturnType<typeof setInterval> | null = null;
+  private currentParams: { city?: string; category?: string; search?: string; limit?: number } | undefined;
+
+  constructor() {
+    this.startBackgroundSync(5 * 60 * 1000);
+  }
+
+  public subscribe(listener: (cameras: TrafficCctvCamera[]) => void): () => void {
+    this.listeners.add(listener);
+    return () => {
+      this.listeners.delete(listener);
+    };
+  }
+
+  private notifyListeners() {
+    const list = this.getCamerasFiltered(this.currentParams);
+    this.listeners.forEach((listener) => {
+      try {
+        listener(list);
+      } catch {
+        // Listener error is non-fatal
+      }
+    });
+  }
+
+  public startBackgroundSync(intervalMs = 5 * 60 * 1000) {
+    if (this.syncTimer) return;
+
+    this.syncTimer = setInterval(async () => {
+      try {
+        await this.fetchCameras(this.currentParams);
+      } catch {
+        // Network blip caught cleanly; preserves local dataset
+      }
+    }, intervalMs);
+  }
+
+  public stopBackgroundSync() {
+    if (this.syncTimer) {
+      clearInterval(this.syncTimer);
+      this.syncTimer = null;
+    }
+  }
+
+  public getLastFetchedAt(): number {
+    return this.lastFetchedAt;
+  }
 
   public async fetchCameras(params?: {
     city?: string;
@@ -325,7 +380,8 @@ class TrafficCctvService {
     search?: string;
     limit?: number;
   }): Promise<TrafficCctvCamera[]> {
-    if (this.isFetching) return this.cameras;
+    this.currentParams = params;
+    if (this.isFetching) return this.getCamerasFiltered(params);
 
     this.isFetching = true;
     try {
@@ -333,7 +389,7 @@ class TrafficCctvService {
       if (params?.city && params.city !== 'Semua') searchParams.set('city', params.city);
       if (params?.category && params.category !== 'Semua') searchParams.set('category', params.category);
       if (params?.search) searchParams.set('search', params.search);
-      searchParams.set('limit', String(params?.limit || 200));
+      searchParams.set('limit', String(params?.limit || 300));
 
       const res = await fetch(`/api/spatial/traffic/cctv?${searchParams.toString()}`);
       if (res.ok) {
@@ -351,6 +407,7 @@ class TrafficCctvService {
             this.categories = json.categories;
           }
           this.lastFetchedAt = Date.now();
+          this.notifyListeners();
           return this.cameras;
         }
       }
@@ -360,7 +417,42 @@ class TrafficCctvService {
       this.isFetching = false;
     }
 
-    return this.cameras;
+    return this.getCamerasFiltered(params);
+  }
+
+  public getCamerasFiltered(params?: {
+    city?: string;
+    category?: string;
+    search?: string;
+    limit?: number;
+  }): TrafficCctvCamera[] {
+    let result = this.getCameras();
+
+    if (params?.city && params.city !== 'Semua') {
+      result = result.filter((c) => c.city.toLowerCase() === params.city?.toLowerCase());
+    }
+
+    if (params?.category && params.category !== 'Semua') {
+      result = result.filter((c) => c.category === params.category);
+    }
+
+    if (params?.search) {
+      const q = params.search.toLowerCase().trim();
+      result = result.filter(
+        (c) =>
+          c.name.toLowerCase().includes(q) ||
+          c.road.toLowerCase().includes(q) ||
+          c.city.toLowerCase().includes(q) ||
+          (c.direction && c.direction.toLowerCase().includes(q)) ||
+          (c.authority && c.authority.toLowerCase().includes(q))
+      );
+    }
+
+    if (params?.limit && params.limit > 0) {
+      result = result.slice(0, params.limit);
+    }
+
+    return result;
   }
 
   public getCameras(): TrafficCctvCamera[] {

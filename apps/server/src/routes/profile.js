@@ -47,16 +47,17 @@ router.get("/all", verifyToken, async (req, res) => {
   const schools = await getBaseSchools();
 
   const enrichedProfiles = db.profiles.map((p) => {
+    const dbSchool = (db.schools || []).find((s) => s.id === p.schoolId);
     const school =
       p.schoolId && p.schoolId !== "unknown"
-        ? schools.find((s) => s.id === p.schoolId || s.school_id === p.schoolId)
+        ? dbSchool || schools.find((s) => s.id === p.schoolId || s.school_id === p.schoolId)
         : null;
 
     return {
       ...p,
-      schoolName: school ? school.name || school.school_name : p.schoolId,
-      province: school ? school.province : "Unknown",
-      regency: school ? school.regency : "Unknown",
+      schoolName: p.schoolName || (school ? school.name || school.school_name : p.schoolId),
+      province: p.province || (school ? school.province : "Jawa Timur"),
+      regency: p.regency || (school ? school.regency : "Mojokerto"),
     };
   });
 

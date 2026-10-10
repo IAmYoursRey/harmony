@@ -125,23 +125,37 @@ export default function LoginPage() {
     }
   };
 
-  const handleDevLogin = async (role: "developer" | "student" = "developer") => {
+  const handleDevLogin = async (role: "developer" | "student" | "teacher" = "developer") => {
     setLoading(true);
-    setLoadingText("Menyiapkan sesi Demo (Akses Penuh)...");
+    setLoadingText(
+      role === "developer"
+        ? "Menyiapkan sesi Demo Pengembang (Akses Penuh SMAN 1 Ngoro)..."
+        : role === "teacher"
+        ? "Menyiapkan sesi Guru SMAN 1 Ngoro (Siti Nurhaliza, S.Pd.)..."
+        : "Menyiapkan sesi Siswa SMAN 1 Ngoro (Dimas Pratama)..."
+    );
     try {
-      const devPayload = role === "developer"
-        ? {
-            email: "raihanansari3345@gmail.com",
-            name: "Raihan Ansari",
-            sub: "116086836535518680376",
-            picture: "https://lh3.googleusercontent.com/a/ACg8ocILCQOch6sL8tq_D5QC25Km3hcV9kb-m3kA0_5HBSnoie9Zjrg=s96-c",
-          }
-        : {
-            email: "student6273@sman1ngoro.sch.id",
-            name: "ABDUL WAHID",
-            sub: "usr-6273-1789454953604-708",
-            picture: "https://api.dicebear.com/7.x/avataaars/svg?seed=AbdulWahid",
-          };
+      const devPayload =
+        role === "developer"
+          ? {
+              email: "raihanansari3345@gmail.com",
+              name: "Raihan Ansari",
+              sub: "usr-1789435370447",
+              picture: "https://lh3.googleusercontent.com/a/ACg8ocILCQOch6sL8tq_D5QC25Km3hcV9kb-m3kA0_5HBSnoie9Zjrg=s96-c",
+            }
+          : role === "teacher"
+          ? {
+              email: "siti.nurhaliza@sman1ngoro.sch.id",
+              name: "Siti Nurhaliza, S.Pd.",
+              sub: "seed-siti.nurhaliza",
+              picture: "https://api.dicebear.com/7.x/avataaars/svg?seed=SitiNurhaliza",
+            }
+          : {
+              email: "aditya.pratama.01@sman1ngoro.sch.id",
+              name: "Aditya Pratama",
+              sub: "st-sman1ngoro-x1-01",
+              picture: "https://api.dicebear.com/7.x/avataaars/svg?seed=AdityaPratama",
+            };
 
       const result = await login(JSON.stringify(devPayload));
       if (result.success && result.account) {
@@ -314,15 +328,34 @@ export default function LoginPage() {
                       </div>
                     </div>
 
-                    <div className="flex w-full flex-col gap-2.5">
+                    <div className="flex w-full flex-col gap-2">
                       <button
                         type="button"
                         onClick={() => handleDevLogin("developer")}
-                        className="w-full flex items-center justify-center gap-2.5 rounded-xl bg-gradient-to-r from-brand-600 to-indigo-600 px-4 py-2.5 text-sm font-semibold text-white shadow-sm hover:from-brand-500 hover:to-indigo-500 transition-all hover:shadow-md active:scale-[0.99]"
+                        className="w-full flex items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-brand-600 to-indigo-600 px-4 py-2.5 text-xs sm:text-sm font-semibold text-white shadow-sm hover:from-brand-500 hover:to-indigo-500 transition-all hover:shadow-md active:scale-[0.99]"
                       >
                         <Sparkles className="h-4 w-4" />
-                        <span>Masuk Mode Demo (Akses Penuh Semua Fitur)</span>
+                        <span>Masuk Mode Presentasi (Akses Lengkap SMAN 1 Ngoro)</span>
                       </button>
+
+                      <div className="grid grid-cols-2 gap-2">
+                        <button
+                          type="button"
+                          onClick={() => handleDevLogin("teacher")}
+                          className="flex items-center justify-center gap-1.5 rounded-xl border border-purple-200 dark:border-purple-800 bg-purple-50/80 dark:bg-purple-950/40 px-3 py-2 text-xs font-bold text-purple-700 dark:text-purple-300 hover:bg-purple-100 transition-all"
+                        >
+                          <span>👨‍🏫</span>
+                          <span>Demo Guru</span>
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => handleDevLogin("student")}
+                          className="flex items-center justify-center gap-1.5 rounded-xl border border-blue-200 dark:border-blue-800 bg-blue-50/80 dark:bg-blue-950/40 px-3 py-2 text-xs font-bold text-blue-700 dark:text-blue-300 hover:bg-blue-100 transition-all"
+                        >
+                          <span>🎒</span>
+                          <span>Demo Siswa</span>
+                        </button>
+                      </div>
                     </div>
 
                     <p className="text-[11px] text-center text-slate-400 dark:text-slate-500 leading-relaxed max-w-sm mt-1">

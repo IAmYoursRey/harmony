@@ -10,6 +10,7 @@ import {
 } from './cloudThermodynamicsEngine';
 import { metNorwayService } from './metNorwayService';
 import { increasingForecastTimes, weatherValue, validateAirQuality } from './weatherValueValidation';
+import { weatherHistoryArchiveService } from './weatherHistoryArchiveService';
 
 export interface WeatherModelValue {
   modelId?: string;
@@ -283,9 +284,9 @@ class WeatherAggregatorService {
     const currentFields = 'temperature_2m,relative_humidity_2m,apparent_temperature,precipitation,rain,showers,weather_code,cloud_cover,surface_pressure,wind_speed_10m,wind_direction_10m,wind_gusts_10m';
     const hourlyFields = 'temperature_2m,relative_humidity_2m,apparent_temperature,precipitation_probability,precipitation,rain,showers,weather_code,cloud_cover,surface_pressure,wind_speed_10m,wind_direction_10m,wind_gusts_10m,uv_index';
     const dailyFields = 'weather_code,temperature_2m_max,temperature_2m_min,apparent_temperature_max,precipitation_sum,precipitation_probability_max,wind_speed_10m_max,wind_gusts_10m_max,uv_index_max';
-    const weatherUrl = `https://api.open-meteo.com/v1/forecast?${coordinates}&current=${currentFields}&hourly=${hourlyFields}&daily=${dailyFields}&forecast_days=14`;
-    const modelUrl = `https://api.open-meteo.com/v1/forecast?${coordinates}&hourly=temperature_2m&forecast_days=14&models=${WEATHER_MODELS.map(m => m.id).join(',')}`;
-    const airUrl = `https://air-quality-api.open-meteo.com/v1/air-quality?${coordinates}&current=pm10,pm2_5,ozone&hourly=pm10,pm2_5,ozone&past_days=1&forecast_days=7`;
+    const weatherUrl = `https://api.open-meteo.com/v1/forecast?${coordinates}&current=${currentFields}&hourly=${hourlyFields}&daily=${dailyFields}&past_days=7&forecast_days=14`;
+    const modelUrl = `https://api.open-meteo.com/v1/forecast?${coordinates}&hourly=temperature_2m&past_days=7&forecast_days=14&models=${WEATHER_MODELS.map(m => m.id).join(',')}`;
+    const airUrl = `https://air-quality-api.open-meteo.com/v1/air-quality?${coordinates}&current=pm10,pm2_5,ozone&hourly=pm10,pm2_5,ozone&past_days=7&forecast_days=7`;
     const [weather, models, air] = await Promise.all([
       fetchCheckedJson('open_meteo_weather', weatherUrl, d => {
         const error = validateCurrentWeather(d, lat, lng);
@@ -319,15 +320,15 @@ class WeatherAggregatorService {
     }
 
     let modelResult = models;
-    // A rejected batch must not disable any registered model. Retry missing or
-    // invalid series independently, then join only validated values by epoch.
     const initialHourly = modelResult.data?.hourly || {};
-    const retryModels = WEATHER_MODELS.filter(m => {
-      const values = initialHourly[`temperature_2m_${m.id}`];
-      if (!Array.isArray(values)) return true;
-      if (values.length > 0 && values.every(v => v === null)) return false;
-      return values.some(v => !finiteNumber(v) || v < -100 || v > 65);
-    });
+    const retryModels = (modelResult.data && modelResult.attempt.httpStatus !== 429)
+      ? WEATHER_MODELS.filter(m => {
+          const values = initialHourly[`temperature_2m_${m.id}`];
+          if (!Array.isArray(values)) return true;
+          if (values.length > 0 && values.every(v => v === null)) return false;
+          return values.some(v => !finiteNumber(v) || v < -100 || v > 65);
+        })
+      : [];
     if (retryModels.length) {
       const individual: Array<{ model: typeof WEATHER_MODELS[number]; data: any; attempt: SourceFetchAttempt }> = [];
       // Limit retries to three concurrent requests to avoid a burst against the
@@ -647,6 +648,36 @@ class WeatherAggregatorService {
         return (finiteNumber(val) && val >= -100 && val <= 65) ? val : undefined;
       };
       const hour = localHour(time, timezone);
+      const isPastFrozen = weatherHistoryArchiveService.isPermanentThreshold(time);
+      if (isPastFrozen) {
+        const archived = weatherHistoryArchiveService.getArchivedPoint(lat, lng, time);
+        if (archived) {
+          return {
+            time: epochIso(time),
+            hour,
+            label: `${String(hour).padStart(2, '0')}:00`,
+            temperature: archived.temperature,
+            apparentTemp: archived.apparentTemp ?? undefined,
+            ecmwfTemp: getModel('ecmwf_ifs025'),
+            gfsTemp: getModel('gfs_seamless'),
+            iconTemp: getModel('icon_seamless'),
+            jmaTemp: getModel('jma_seamless'),
+            humidity: archived.humidity,
+            precipitation: archived.precipitation,
+            precipitationProb: archived.precipitationProb,
+            cloudCover: archived.cloudCover,
+            conditionCode: archived.weatherCode,
+            conditionText: getWeatherConditionText(archived.weatherCode),
+            pressure: archived.surfacePressure ?? h.surface_pressure[index],
+            windSpeed: archived.windSpeed,
+            windDirection: h.wind_direction_10m[index],
+            windGusts: nullableNumber(h.wind_gusts_10m?.[index]),
+            pm25: nullableNumber(airHourly.pm2_5?.[airIndex]),
+            ozone: nullableNumber(airHourly.ozone?.[airIndex]),
+            uvIndex: archived.uvIndex,
+          };
+        }
+      }
       return {
         time: epochIso(time),
         hour,
@@ -684,13 +715,16 @@ class WeatherAggregatorService {
     });
 
     const pastIndices = hourlyTimes.map((time, index) => ({ time, index })).filter(p => finiteNumber(p.time) && p.time < currentHourEpoch);
-    const allFutureIndices = hourlyTimes.map((time, index) => ({ time, index })).filter(p => finiteNumber(p.time) && p.time >= currentHourEpoch).slice(0, 48);
-    const selectedPastIndices = pastIndices.slice(-24);
+    const allFutureIndices = hourlyTimes.map((time, index) => ({ time, index })).filter(p => finiteNumber(p.time) && p.time >= currentHourEpoch);
+    const selectedPastIndices = pastIndices;
     const extendedHourlyIndices = [...selectedPastIndices, ...allFutureIndices];
     const extendedHourly: WeatherHourlyPoint[] = extendedHourlyIndices.flatMap(({ time, index }) => {
       const p = buildHourlyPoint(time, index);
       return p ? [p] : [];
     });
+    try {
+      weatherHistoryArchiveService.recordPermanentPoints(lat, lng, extendedHourly);
+    } catch {}
     const daily: WeatherDailyPoint[] = (Array.isArray(d.time) ? d.time : []).flatMap((time: number, index: number) => {
       if (!finiteNumber(time) || time > Date.now() / 1000 + 30 * 86400 || !['temperature_2m_max', 'temperature_2m_min', 'precipitation_sum', 'wind_speed_10m_max', 'weather_code'].every(k => finiteNumber(d[k]?.[index])) || d.temperature_2m_min[index] > d.temperature_2m_max[index]) return [];
       return [{ date: epochIso(time), dayName: new Intl.DateTimeFormat('id-ID', { timeZone: timezone, weekday: 'short' }).format(time * 1000), tempMax: d.temperature_2m_max[index], tempMin: d.temperature_2m_min[index], apparentTempMax: nullableNumber(d.apparent_temperature_max?.[index]), windGustMax: nullableNumber(d.wind_gusts_10m_max?.[index]), precipitationSum: d.precipitation_sum[index], precipitationProbMax: nullableNumber(d.precipitation_probability_max?.[index]), windSpeedMax: d.wind_speed_10m_max[index], uvIndexMax: nullableNumber(d.uv_index_max?.[index]), condition: getWeatherConditionText(d.weather_code[index]) }];

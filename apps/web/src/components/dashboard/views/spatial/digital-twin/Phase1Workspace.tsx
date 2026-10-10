@@ -18,6 +18,7 @@ import { useNavigate } from "react-router-dom";
 import { Phase1MapEditor } from "./Phase1MapEditor";
 import { Phase2ScenarioEditor } from "./Phase2ScenarioEditor";
 import { Phase3Runtime } from "./Phase3Runtime";
+import { GameGridSandbox } from "./GameGridSandbox";
 
 export function Phase1Workspace() {
   const { selection } = useSchool();
@@ -36,6 +37,9 @@ export function Phase1Workspace() {
   const [isDeleting, setIsDeleting] = useState(false);
   const navigate = useNavigate();
   const [selectedMapId, setSelectedMapId] = useState<string | null>(null);
+  const [activeSandboxScenarioId, setActiveSandboxScenarioId] = useState<
+    string | null
+  >(null);
 
   const [showCreateScenario, setShowCreateScenario] = useState(false);
   const [newScenarioName, setNewScenarioName] = useState("");
@@ -57,6 +61,9 @@ export function Phase1Workspace() {
     try {
       const data = await phase1Api.getMaps(activeSchool.id);
       setMaps(data);
+      if (data && data.length > 0 && !selectedMapId) {
+        setSelectedMapId(data[0].id);
+      }
     } catch (err: any) {
       show(`Gagal memuat map: ${err.message}`, "error");
     } finally {
@@ -167,29 +174,42 @@ export function Phase1Workspace() {
         <div className="flex items-center gap-4 mb-6">
           <button
             onClick={() => setSelectedMapId(null)}
-            className="p-2 bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 rounded-xl transition-colors"
+            className="p-2 bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 rounded-xl transition-colors text-sm font-medium"
           >
-            ← Back
+            ← Semua Peta
           </button>
           <div>
             <h2 className="text-2xl font-bold text-slate-800 dark:text-white flex items-center gap-2">
               <MapIcon className="h-6 w-6 text-brand-600" />
               {map.name}
             </h2>
-            <p className="text-slate-500">{map.description}</p>
+            <p className="text-slate-500 text-sm">{map.description}</p>
           </div>
-          <div className="ml-auto">
+          <div className="ml-auto flex items-center gap-2">
             <button
               onClick={() => navigate(`/app/digital-twin/editor/${map.id}`)}
-              className="flex items-center gap-2 bg-slate-800 hover:bg-slate-900 text-white px-4 py-2 rounded-xl transition-colors font-medium shadow-sm"
+              className="flex items-center gap-2 bg-slate-800 hover:bg-slate-900 text-white px-4 py-2 rounded-xl transition-colors font-medium shadow-sm text-sm"
             >
               <Edit className="h-4 w-4" /> Edit Base Map
             </button>
           </div>
         </div>
 
+        {/* Interactive Game Grid Sandbox with Visual Effects */}
+        <GameGridSandbox
+          mapId={map.id}
+          scenarioId={activeSandboxScenarioId || map.scenarios?.[0]?.id}
+        />
+
         <div className="flex justify-between items-center mb-4">
-          <h3 className="text-lg font-bold">Disaster Scenarios</h3>
+          <div>
+            <h3 className="text-lg font-bold text-slate-800 dark:text-white">
+              Skenario Tanggap Bencana
+            </h3>
+            <p className="text-xs text-slate-500">
+              Pilih skenario simulasi untuk melihat zona bahaya & rute evakuasi di atas game grid
+            </p>
+          </div>
           <button
             onClick={() => setShowCreateScenario(true)}
             className="flex items-center gap-2 bg-brand-600 hover:bg-brand-700 text-white px-4 py-2 rounded-xl transition-colors font-medium text-sm"
@@ -260,65 +280,92 @@ export function Phase1Workspace() {
           </div>
         ) : (
           <div className="space-y-3">
-            {map.scenarios.map((scen) => (
-              <div
-                key={scen.id}
-                className="glass p-4 rounded-xl flex items-center justify-between border border-slate-200/50 dark:border-slate-700/50"
-              >
-                <div>
-                  <div className="flex items-center gap-2">
-                    <span className="font-bold text-slate-800 dark:text-white">
-                      {scen.name}
-                    </span>
-                    <span
-                      className={`px-2 py-0.5 text-[10px] font-bold uppercase rounded-md ${scen.status === "published" ? "bg-emerald-100 text-emerald-700" : "bg-amber-100 text-amber-700"}`}
-                    >
-                      {scen.status}
-                    </span>
-                    <span className="px-2 py-0.5 text-[10px] font-bold uppercase rounded-md bg-slate-100 text-slate-600 border border-slate-200">
-                      v{scen.version}
-                    </span>
-                  </div>
-                  <div className="text-xs text-slate-500 mt-1">
-                    Jenis: {scen.disaster_type}
-                  </div>
-                </div>
-                <div className="flex gap-2">
-                  <button
-                    onClick={() =>
-                      navigate(
-                        `/app/digital-twin/scenario-editor/${map.id}/${scen.id}`,
-                      )
-                    }
-                    className="px-3 py-1.5 text-sm bg-brand-50 hover:bg-brand-100 text-brand-700 rounded-lg font-medium transition-colors"
+            {map.scenarios.map((scen) => {
+              const isSandboxActive =
+                (activeSandboxScenarioId || map.scenarios?.[0]?.id) === scen.id;
+
+              return (
+                <div
+                  key={scen.id}
+                  className={`glass p-4 rounded-xl flex items-center justify-between border transition-all ${
+                    isSandboxActive
+                      ? "border-brand-500 shadow-md ring-1 ring-brand-500/40"
+                      : "border-slate-200/50 dark:border-slate-700/50 hover:border-slate-300 dark:hover:border-slate-600"
+                  }`}
+                >
+                  <div
+                    className="cursor-pointer flex-1 mr-4"
+                    onClick={() => setActiveSandboxScenarioId(scen.id)}
                   >
-                    Edit Scenario
-                  </button>
-                  {scen.status === "published" && (
+                    <div className="flex items-center gap-2">
+                      <span className="font-bold text-slate-800 dark:text-white">
+                        {scen.name}
+                      </span>
+                      {isSandboxActive && (
+                        <span className="px-2 py-0.5 text-[10px] font-extrabold uppercase rounded-md bg-brand-500/20 text-brand-600 dark:text-brand-400 border border-brand-500/30">
+                          Aktif di Grid
+                        </span>
+                      )}
+                      <span
+                        className={`px-2 py-0.5 text-[10px] font-bold uppercase rounded-md ${scen.status === "published" ? "bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400" : "bg-amber-100 text-amber-700"}`}
+                      >
+                        {scen.status}
+                      </span>
+                      <span className="px-2 py-0.5 text-[10px] font-bold uppercase rounded-md bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-300 border border-slate-200 dark:border-slate-700">
+                        v{scen.version}
+                      </span>
+                    </div>
+                    <div className="text-xs text-slate-500 mt-1">
+                      Jenis Bencana: <strong className="text-slate-700 dark:text-slate-300">{scen.disaster_type}</strong> • Klik untuk memuat efek & zona bahaya di peta grid
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <button
+                      onClick={() => setActiveSandboxScenarioId(scen.id)}
+                      className={`px-3 py-1.5 text-xs rounded-lg font-medium transition-colors ${
+                        isSandboxActive
+                          ? "bg-brand-600 text-white font-bold"
+                          : "bg-slate-100 hover:bg-slate-200 text-slate-700 dark:bg-slate-800 dark:text-slate-300"
+                      }`}
+                    >
+                      {isSandboxActive ? "Previewing" : "Preview"}
+                    </button>
                     <button
                       onClick={() =>
-                        navigate(`/app/digital-twin/play/${map.id}/${scen.id}`)
+                        navigate(
+                          `/app/digital-twin/scenario-editor/${map.id}/${scen.id}`,
+                        )
                       }
-                      className="px-3 py-1.5 text-sm bg-brand-600 hover:bg-brand-700 text-white rounded-lg font-bold transition-colors flex items-center gap-1"
+                      className="px-3 py-1.5 text-xs bg-brand-50 hover:bg-brand-100 text-brand-700 dark:bg-brand-900/30 dark:text-brand-300 rounded-lg font-medium transition-colors"
                     >
-                      <Play className="h-3 w-3" /> Play
+                      Edit
                     </button>
-                  )}
-                  <button
-                    onClick={() => handleDuplicateScenario(scen.id)}
-                    className="px-3 py-1.5 text-sm bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-lg font-medium transition-colors"
-                  >
-                    Duplicate
-                  </button>
-                  <button
-                    onClick={() => handlePublishScenario(scen.id, scen.status)}
-                    className={`px-3 py-1.5 text-sm rounded-lg font-medium transition-colors ${scen.status === "draft" ? "bg-emerald-50 text-emerald-700 hover:bg-emerald-100" : "bg-amber-50 text-amber-700 hover:bg-amber-100"}`}
-                  >
-                    {scen.status === "draft" ? "Publish" : "Unpublish"}
-                  </button>
+                    {scen.status === "published" && (
+                      <button
+                        onClick={() =>
+                          navigate(`/app/digital-twin/play/${map.id}/${scen.id}`)
+                        }
+                        className="px-3 py-1.5 text-xs bg-emerald-600 hover:bg-emerald-500 text-white rounded-lg font-bold transition-all flex items-center gap-1 shadow-sm"
+                      >
+                        <Play className="h-3 w-3 fill-white" /> Play
+                      </button>
+                    )}
+                    <button
+                      onClick={() => handleDuplicateScenario(scen.id)}
+                      className="px-3 py-1.5 text-xs bg-slate-100 hover:bg-slate-200 text-slate-700 dark:bg-slate-800 dark:text-slate-300 rounded-lg font-medium transition-colors"
+                    >
+                      Duplicate
+                    </button>
+                    <button
+                      onClick={() => handlePublishScenario(scen.id, scen.status)}
+                      className={`px-3 py-1.5 text-xs rounded-lg font-medium transition-colors ${scen.status === "draft" ? "bg-emerald-50 text-emerald-700 hover:bg-emerald-100" : "bg-amber-50 text-amber-700 hover:bg-amber-100"}`}
+                    >
+                      {scen.status === "draft" ? "Publish" : "Unpublish"}
+                    </button>
+                  </div>
                 </div>
-              </div>
-            ))}
+              );
+            })}
           </div>
         )}
       </div>

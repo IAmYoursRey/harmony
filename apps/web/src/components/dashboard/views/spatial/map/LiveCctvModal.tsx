@@ -24,6 +24,8 @@ export const LiveCctvModal: React.FC<LiveCctvModalProps> = ({ camera, onClose, o
   const [streamError, setStreamError] = useState<boolean>(false);
   const [snapshotError, setSnapshotError] = useState<boolean>(false);
   const [isPlaying, setIsPlaying] = useState<boolean>(false);
+  const [isConnecting, setIsConnecting] = useState<boolean>(true);
+  const [connectionErrorText, setConnectionErrorText] = useState<string>('');
   const [isMuted, setIsMuted] = useState<boolean>(true);
   const [streamMode, setStreamMode] = useState<'stream' | 'snapshot'>('stream');
   
@@ -69,6 +71,8 @@ export const LiveCctvModal: React.FC<LiveCctvModalProps> = ({ camera, onClose, o
     setStreamError(false);
     setSnapshotError(false);
     setIsPlaying(false);
+    setIsConnecting(true);
+    setConnectionErrorText('');
     if (onSelectCamera) onSelectCamera(nextCam);
   }, [allCameras, currentIndex, onSelectCamera]);
 
@@ -79,21 +83,53 @@ export const LiveCctvModal: React.FC<LiveCctvModalProps> = ({ camera, onClose, o
     setStreamError(false);
     setSnapshotError(false);
     setIsPlaying(false);
+    setIsConnecting(true);
+    setConnectionErrorText('');
     if (onSelectCamera) onSelectCamera(prevCam);
   }, [allCameras, currentIndex, onSelectCamera]);
 
-  // Jump to a guaranteed 24/7 active streaming video camera
+  // Jump to a guaranteed 24/7 active streaming video camera (prioritizing same city)
   const handleSwitchToVerifiedLive = useCallback(() => {
-    const verified = allCameras.find(
-      (c) => (c.streamType === 'youtube' || c.streamType === 'hls') && 
-             !c.id.includes('badilag') && 
-             !c.id.startsWith('acehtengah') &&
-             c.id !== camera?.id
+    if (!allCameras.length) return;
+
+    // Priority 1: Verified active camera in the SAME city
+    let verified = allCameras.find(
+      (c) => c.city === camera?.city &&
+             c.id !== camera?.id &&
+             (c.streamType === 'youtube' || 
+              (c.streamType === 'hls' && (
+                c.id.startsWith('pantausemar') || 
+                c.id.startsWith('pelindung') || 
+                c.id.startsWith('sits') || 
+                c.id.startsWith('jogja') || 
+                c.id.startsWith('bali')
+              )))
     );
+
+    // Priority 2: Any active non-courtroom camera in the same city
+    if (!verified) {
+      verified = allCameras.find(
+        (c) => c.city === camera?.city &&
+               c.id !== camera?.id &&
+               !c.id.includes('badilag') &&
+               !c.id.startsWith('binamarga-tol-semarang')
+      );
+    }
+
+    // Priority 3: Nationwide guaranteed 24/7 stream
+    if (!verified) {
+      verified = allCameras.find(
+        (c) => (c.streamType === 'youtube' || (c.streamType === 'hls' && c.id.startsWith('pantausemar'))) &&
+               c.id !== camera?.id
+      );
+    }
+
     if (verified && onSelectCamera) {
       setStreamError(false);
       setSnapshotError(false);
       setIsPlaying(false);
+      setIsConnecting(true);
+      setConnectionErrorText('');
       onSelectCamera(verified);
     }
   }, [allCameras, camera, onSelectCamera]);
@@ -104,6 +140,8 @@ export const LiveCctvModal: React.FC<LiveCctvModalProps> = ({ camera, onClose, o
     setStreamError(false);
     setSnapshotError(false);
     setIsPlaying(false);
+    setIsConnecting(true);
+    setConnectionErrorText('');
     setFrameCount(1);
 
     if (camera.streamType === 'hls' || camera.streamType === 'youtube' || camera.streamType === 'video' || camera.streamType === 'iframe') {
@@ -132,8 +170,14 @@ export const LiveCctvModal: React.FC<LiveCctvModalProps> = ({ camera, onClose, o
         const hls = new Hls({
           enableWorker: true,
           lowLatencyMode: true,
-          backBufferLength: 20,
-          maxBufferLength: 10,
+          backBufferLength: 15,
+          maxBufferLength: 8,
+          manifestLoadingTimeOut: 4500,
+          manifestLoadingMaxRetry: 1,
+          manifestLoadingRetryDelay: 800,
+          fragLoadingTimeOut: 6000,
+          fragLoadingMaxRetry: 2,
+          fragLoadingRetryDelay: 500,
         });
         hlsRef.current = hls;
 
@@ -141,6 +185,7 @@ export const LiveCctvModal: React.FC<LiveCctvModalProps> = ({ camera, onClose, o
         hls.attachMedia(video);
 
         hls.on(Hls.Events.MANIFEST_PARSED, () => {
+          setIsConnecting(false);
           video.play().then(() => {
             setIsPlaying(true);
             setStreamError(false);
@@ -152,15 +197,26 @@ export const LiveCctvModal: React.FC<LiveCctvModalProps> = ({ camera, onClose, o
         });
 
         hls.on(Hls.Events.FRAG_LOADED, () => {
+          setIsConnecting(false);
           setIsPlaying(true);
           setStreamError(false);
         });
 
+        let networkErrorCount = 0;
         hls.on(Hls.Events.ERROR, (_event, data) => {
           if (data.fatal) {
             switch (data.type) {
               case Hls.ErrorTypes.NETWORK_ERROR:
-                hls.startLoad();
+                networkErrorCount++;
+                if (networkErrorCount > 1) {
+                  hls.destroy();
+                  setStreamError(true);
+                  setIsPlaying(false);
+                  setIsConnecting(false);
+                  setConnectionErrorText('Penyedia CCTV upstream tidak merespons (502 / Gangguan Server Daerah)');
+                } else {
+                  hls.startLoad();
+                }
                 break;
               case Hls.ErrorTypes.MEDIA_ERROR:
                 hls.recoverMediaError();
@@ -169,7 +225,8 @@ export const LiveCctvModal: React.FC<LiveCctvModalProps> = ({ camera, onClose, o
                 hls.destroy();
                 setStreamError(true);
                 setIsPlaying(false);
-                setStreamMode('snapshot');
+                setIsConnecting(false);
+                setConnectionErrorText('Format video stream tidak dapat didekode');
                 break;
             }
           }
@@ -177,20 +234,27 @@ export const LiveCctvModal: React.FC<LiveCctvModalProps> = ({ camera, onClose, o
       } else if (video.canPlayType('application/vnd.apple.mpegurl')) {
         video.src = streamUrl;
         video.addEventListener('loadedmetadata', () => {
+          setIsConnecting(false);
           video.play().then(() => setIsPlaying(true)).catch(() => {});
         });
       } else {
         setStreamError(true);
-        setStreamMode('snapshot');
+        setIsConnecting(false);
+        setConnectionErrorText('Browser tidak mendukung pemutar HLS');
       }
-    }
 
-    return () => {
-      if (hlsRef.current) {
-        hlsRef.current.destroy();
-        hlsRef.current = null;
-      }
-    };
+      const watchdog = setTimeout(() => {
+        setIsConnecting(false);
+      }, 6000);
+
+      return () => {
+        clearTimeout(watchdog);
+        if (hlsRef.current) {
+          hlsRef.current.destroy();
+          hlsRef.current = null;
+        }
+      };
+    }
   }, [camera, streamMode]);
 
   // Auto-refresh timer for snapshot mode
@@ -381,25 +445,80 @@ export const LiveCctvModal: React.FC<LiveCctvModalProps> = ({ camera, onClose, o
 
           {/* 3. Live HLS Video Player (When active and playing) */}
           {isHls && streamMode === 'stream' && !streamError && (
-            <video
-              ref={videoRef}
-              className="w-full h-full object-contain bg-black"
-              playsInline
-              autoPlay
-              muted={isMuted}
-              controls
-              onPlay={() => setIsPlaying(true)}
-              onPause={() => setIsPlaying(false)}
-              onError={() => {
-                setStreamError(true);
-                setIsPlaying(false);
-                setStreamMode('snapshot');
-              }}
-            />
+            <div className="relative w-full h-full flex items-center justify-center">
+              <video
+                ref={videoRef}
+                className="w-full h-full object-contain bg-black"
+                playsInline
+                autoPlay
+                muted={isMuted}
+                controls
+                onPlay={() => setIsPlaying(true)}
+                onPause={() => setIsPlaying(false)}
+                onError={() => {
+                  setStreamError(true);
+                  setIsPlaying(false);
+                  setIsConnecting(false);
+                  setConnectionErrorText('Pemutar video tidak dapat memuat siaran upstream');
+                }}
+              />
+
+              {/* Connecting Overlay (removes buffering ambiguity) */}
+              {isConnecting && !isPlaying && (
+                <div className="absolute inset-0 bg-slate-950/80 backdrop-blur-xs flex flex-col items-center justify-center p-4 z-10 pointer-events-none transition-opacity duration-200">
+                  <div className="relative flex items-center justify-center mb-3">
+                    <div className="w-12 h-12 rounded-full border-2 border-cyan-500/20 border-t-cyan-400 animate-spin" />
+                    <Video className="w-5 h-5 text-cyan-400 absolute" />
+                  </div>
+                  <span className="text-sm font-semibold text-slate-100 tracking-wide">Menghubungkan Siaran Langsung...</span>
+                  <span className="text-xs text-slate-400 mt-1">Mengunduh feed HLS dari server Dishub / Pengelola Jalan</span>
+                </div>
+              )}
+            </div>
           )}
 
-          {/* 4. Live Snapshot Image (Crisp, Clean, Auto-Updating) */}
-          {(streamMode === 'snapshot' || streamError || (!isYouTube && !isIframe && !isHls)) && !snapshotError && (
+          {/* 4. Stream Error Recovery Screen (When HLS stream fails) */}
+          {isHls && streamMode === 'stream' && streamError && (
+            <div className="w-full h-full bg-slate-950 flex flex-col items-center justify-center p-6 text-center space-y-3">
+              <div className="w-12 h-12 rounded-full bg-amber-500/10 border border-amber-500/30 flex items-center justify-center text-amber-400 mb-1">
+                <Camera className="w-6 h-6 animate-pulse" />
+              </div>
+              <div>
+                <h4 className="font-bold text-sm text-slate-200">{currentCamera.name}</h4>
+                <p className="text-xs text-amber-300/90 mt-1 max-w-md font-medium">
+                  {connectionErrorText || 'Koneksi ke siaran video server daerah terputus atau sedang offline.'}
+                </p>
+                <p className="text-[11px] text-slate-400 mt-0.5 max-w-sm">
+                  Sistem mendeteksi kamera alternatif di wilayah yang sama yang aktif dan lancar.
+                </p>
+              </div>
+              <div className="flex flex-wrap items-center justify-center gap-2 pt-2">
+                <button
+                  type="button"
+                  onClick={handleSwitchToVerifiedLive}
+                  className="px-3.5 py-2 rounded-xl bg-cyan-600 hover:bg-cyan-500 text-white font-bold text-xs flex items-center gap-1.5 transition-all shadow-md cursor-pointer"
+                >
+                  <Video className="w-3.5 h-3.5" />
+                  <span>Beralih ke Kamera Aktif ({currentCamera.city || 'Regional'})</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setStreamMode('snapshot');
+                    setStreamError(false);
+                    setSnapshotError(false);
+                  }}
+                  className="px-3 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 font-semibold text-xs flex items-center gap-1.5 border border-slate-700 transition-all cursor-pointer"
+                >
+                  <RefreshCw className="w-3.5 h-3.5" />
+                  <span>Coba Snapshot Foto</span>
+                </button>
+              </div>
+            </div>
+          )}
+
+          {/* 5. Live Snapshot Image (Crisp, Clean, Auto-Updating) */}
+          {(streamMode === 'snapshot' || (!isYouTube && !isIframe && !isHls)) && !snapshotError && (
             <img
               key={`cctv-img-${currentCamera.id}-${frameCount}`}
               src={snapshotSrc}
@@ -409,7 +528,7 @@ export const LiveCctvModal: React.FC<LiveCctvModalProps> = ({ camera, onClose, o
             />
           )}
 
-          {/* 5. Standby Fallback only if snapshot completely fails */}
+          {/* 6. Standby Fallback only if snapshot completely fails */}
           {snapshotError && (
             <div className="w-full h-full bg-slate-950 flex flex-col items-center justify-center p-6 text-center space-y-3">
               <Camera className="w-10 h-10 text-slate-500 animate-pulse" />
@@ -581,7 +700,9 @@ export const LiveCctvModal: React.FC<LiveCctvModalProps> = ({ camera, onClose, o
                 title="Buka portal penyedia resmi"
               >
                 <Globe className="w-3.5 h-3.5" />
-                <span>Buka di CCTV Nusantara</span>
+                <span>
+                  {currentCamera.authority.includes('Bina Marga') ? 'Portal Bina Marga Non-Tol' : 'Buka di CCTV Nusantara'}
+                </span>
                 <ExternalLink className="w-2.5 h-2.5" />
               </a>
             )}

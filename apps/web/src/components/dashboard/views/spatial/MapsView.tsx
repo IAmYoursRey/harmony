@@ -36,7 +36,7 @@ import {
   Activity, CloudRain, Thermometer, Wind, Cloud, Sun, Globe, TreePine, Map as MapIcon2, 
   Newspaper, Palette, Paintbrush, Box, Compass, RotateCcw, RotateCw, LocateFixed, CloudSun,
   Waves, Gauge, Flame, AlertCircle, Navigation, Satellite, Layers, Car, Info, ShieldCheck,
-  ArrowUp, ArrowUpRight, Check, Eye, Radio, BookOpen, ExternalLink, Calendar, Sparkles, Droplets,
+  ArrowLeft, ArrowUp, ArrowUpRight, Check, Eye, Radio, BookOpen, ExternalLink, Calendar, Sparkles, Droplets,
   ChevronUp, ChevronDown, Database, Zap, Cpu, Video, Camera, Key, Play, Route, Sliders
 } from "lucide-react";
 import { useNavigate, useOutletContext } from "react-router-dom";
@@ -68,6 +68,11 @@ import {
   simulateRealtimeTraffic,
   snapCorridorToActualRoad,
 } from "@/services/trafficTelemetryService";
+
+export interface ProcessedTrafficCorridor extends TrafficCorridor {
+  distanceKm?: number | null;
+  distanceFormatted?: string | null;
+}
 import { TSUNAMI_EARTH_SENSOR_NETWORK, TsunamiSensorNode } from "@/services/spatialDataEngine";
 import { 
   GLOBAL_EARTH_SENSOR_NETWORK, 
@@ -506,6 +511,12 @@ export function MapsView() {
   const [userCoords, setUserCoords] = useState<{ lat: number; lng: number } | null>(null);
   const [userAccuracy, setUserAccuracy] = useState<number | null>(null);
   const [userPreciseLocation, setUserPreciseLocation] = useState<PreciseLocationInfo | null>(null);
+  const userCoordsRef = useRef<{ lat: number; lng: number } | null>(userCoords);
+  useEffect(() => {
+    userCoordsRef.current = userCoords;
+  }, [userCoords]);
+  const [liveSignalTime, setLiveSignalTime] = useState<number>(() => Date.now());
+  const [isNearestSignalHudDismissed, setIsNearestSignalHudDismissed] = useState<boolean>(false);
   
   // Custom Event Listener for popup buttons
   useEffect(() => {
@@ -589,6 +600,7 @@ export function MapsView() {
   const [trafficIslandFilter, setTrafficIslandFilter] = useState<string>('all');
   const [trafficSearchQuery, setTrafficSearchQuery] = useState<string>('');
   const [trafficDataList, setTrafficDataList] = useState<TrafficCorridor[]>(INDONESIA_TRAFFIC_CORRIDORS);
+  const [visibleCorridorsCount, setVisibleCorridorsCount] = useState<number>(15);
   const isLeanDevice = useMemo(() => {
     try {
       const diag = hardwarePerformanceService.getDiagnostics();
@@ -641,9 +653,10 @@ export function MapsView() {
   const [cctvCityFilter, setCctvCityFilter] = useState<string>('Semua');
   const [cctvCategoryFilter, setCctvCategoryFilter] = useState<string>('Semua');
   const [cctvSearchQuery, setCctvSearchQuery] = useState<string>('');
-  const [isCctvLoading, setIsCctvLoading] = useState<boolean>(false);
   const [cctvDisplayLimit, setCctvDisplayLimit] = useState<number>(40);
+  const [isCctvLoading, setIsCctvLoading] = useState<boolean>(false);
   const [selectedTrafficSignalId, setSelectedTrafficSignalId] = useState<string | null>(null);
+  const [isSignalsLoading, setIsSignalsLoading] = useState<boolean>(false);
   const [selectedVolcanoForModal, setSelectedVolcanoForModal] = useState<VolcanoLiveStatus | null>(null);
   const [selectedEarthquakeForModal, setSelectedEarthquakeForModal] = useState<EarthquakeRecord | null>(null);
   const [selectedHotspotForModal, setSelectedHotspotForModal] = useState<ActiveFireHotspot | null>(null);
@@ -670,6 +683,29 @@ export function MapsView() {
     confidence?: number | null;
     roadClosure?: boolean | null;
   } | null>(null);
+
+  const handleTrafficBack = useCallback(() => {
+    if (trafficDrawerTab !== 'corridors') {
+      setTrafficDrawerTab('corridors');
+    } else {
+      setShowTrafficCorridors(false);
+    }
+  }, [trafficDrawerTab]);
+
+  useEffect(() => {
+    if (!showTrafficCorridors) return;
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        if (trafficDrawerTab !== 'corridors') {
+          setTrafficDrawerTab('corridors');
+        } else {
+          setShowTrafficCorridors(false);
+        }
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [showTrafficCorridors, trafficDrawerTab]);
 
   const handleCheckTomTomLive = async (corridor: TrafficCorridor) => {
     const reqCorridorId = corridor.id;
@@ -929,11 +965,11 @@ export function MapsView() {
     }
   }, []);
 
-  const filteredCorridors = useMemo(() => {
-    return trafficDataList.filter((corridor) => {
+  const filteredCorridors: ProcessedTrafficCorridor[] = useMemo(() => {
+    const q = trafficSearchQuery.trim().toLowerCase();
+    const list = trafficDataList.filter((corridor) => {
       const matchTier = trafficTierFilter === 'all' || corridor.tier === trafficTierFilter;
       const matchIsland = trafficIslandFilter === 'all' || corridor.island.toLowerCase() === trafficIslandFilter.toLowerCase();
-      const q = trafficSearchQuery.trim().toLowerCase();
       const matchSearch =
         !q ||
         corridor.name.toLowerCase().includes(q) ||
@@ -942,7 +978,75 @@ export function MapsView() {
         corridor.condition.toLowerCase().includes(q);
       return matchTier && matchIsland && matchSearch;
     });
-  }, [trafficDataList, trafficTierFilter, trafficIslandFilter, trafficSearchQuery]);
+
+    const mapped: ProcessedTrafficCorridor[] = list.map((c) => {
+      if (!userCoords) return { ...c, distanceKm: null, distanceFormatted: null };
+      const distKm = geospatialAnalysisService.calculateDistanceKm(userCoords.lat, userCoords.lng, c.center[1], c.center[0]);
+      return {
+        ...c,
+        distanceKm: distKm,
+        distanceFormatted: distKm < 1 ? `${Math.round(distKm * 1000)} m` : `${distKm.toFixed(1)} km`,
+      };
+    });
+
+    if (userCoords) {
+      mapped.sort((a, b) => ((a.distanceKm ?? Infinity) - (b.distanceKm ?? Infinity)));
+    }
+
+    return mapped;
+  }, [trafficDataList, trafficTierFilter, trafficIslandFilter, trafficSearchQuery, userCoords]);
+
+  useEffect(() => {
+    setVisibleCorridorsCount(15);
+  }, [trafficTierFilter, trafficIslandFilter, trafficSearchQuery]);
+
+  const displayedCorridors = useMemo(() => {
+    return filteredCorridors.slice(0, visibleCorridorsCount);
+  }, [filteredCorridors, visibleCorridorsCount]);
+
+  const liveSignals = useMemo(() => {
+    const all = trafficSignalsService.getAllSignals(liveSignalTime);
+    if (!userCoords) return all;
+    return [...all].sort((a, b) => {
+      const distA = geospatialAnalysisService.calculateDistanceKm(userCoords.lat, userCoords.lng, a.lat, a.lng);
+      const distB = geospatialAnalysisService.calculateDistanceKm(userCoords.lat, userCoords.lng, b.lat, b.lng);
+      return distA - distB;
+    });
+  }, [liveSignalTime, userCoords]);
+
+  const nearestSignal = useMemo(() => {
+    if (!userCoords || liveSignals.length === 0) return null;
+    const nearest = liveSignals[0];
+    const distanceKm = geospatialAnalysisService.calculateDistanceKm(userCoords.lat, userCoords.lng, nearest.lat, nearest.lng);
+    return {
+      signal: nearest,
+      distanceKm,
+      distanceFormatted: distanceKm < 1 ? `${Math.round(distanceKm * 1000)} m` : `${distanceKm.toFixed(1)} km`,
+    };
+  }, [userCoords, liveSignals]);
+
+  const nearestTrafficStatus = useMemo(() => {
+    if (!userCoords || filteredCorridors.length === 0) return null;
+    const nearest = filteredCorridors[0];
+    const distanceKm = nearest.distanceKm ?? 0;
+    const distanceFormatted = nearest.distanceFormatted ?? (distanceKm < 1 ? `${Math.round(distanceKm * 1000)} m` : `${distanceKm.toFixed(1)} km`);
+    return {
+      corridor: nearest,
+      distanceKm,
+      distanceFormatted,
+      status: nearest.status,
+      speedKmh: nearest.speedKmh,
+    };
+  }, [userCoords, filteredCorridors]);
+
+  const sortedCctvCameras = useMemo(() => {
+    if (!userCoords) return cctvCameras;
+    return [...cctvCameras].sort((a, b) => {
+      const distA = geospatialAnalysisService.calculateDistanceKm(userCoords.lat, userCoords.lng, a.lat, a.lng);
+      const distB = geospatialAnalysisService.calculateDistanceKm(userCoords.lat, userCoords.lng, b.lat, b.lng);
+      return distA - distB;
+    });
+  }, [cctvCameras, userCoords]);
 
   const handleRefreshTraffic = useCallback(() => {
     setIsTrafficRefreshing(true);
@@ -1003,6 +1107,18 @@ export function MapsView() {
       clearInterval(timer);
     };
   }, [showTrafficCorridors, activeMapBasemap, isAutoSyncTraffic, selectedCorridor, handleCheckTomTomLive, showGeospatialModal]);
+
+  // 1-second ticker for realtime traffic signals (countdown & phase shifts)
+  useEffect(() => {
+    const isSignalsActive = showTrafficSignals || showTrafficCorridors || activeMapBasemap === 'traffic';
+    if (!isSignalsActive) return;
+
+    const interval = setInterval(() => {
+      setLiveSignalTime(Date.now());
+    }, 1000);
+
+    return () => clearInterval(interval);
+  }, [showTrafficSignals, showTrafficCorridors, activeMapBasemap]);
 
   const handleFocusCorridor = useCallback((corridor: TrafficCorridor) => {
     setSelectedCorridor(corridor);
@@ -1074,7 +1190,11 @@ export function MapsView() {
     }
   }, [updateCctvLayerFeatures]);
 
-  const handleFocusSignal = useCallback((sig: TrafficSignalIntersection) => {
+  const handleFocusSignal = useCallback((sig: TrafficSignalIntersection, openModal: boolean = false) => {
+    setShowTrafficSignals(true);
+    if (openModal) {
+      setSelectedTrafficSignalId(sig.id);
+    }
     mapRef.current?.getView().animate({
       center: fromLonLat(sig.location),
       zoom: 16.5,
@@ -1664,13 +1784,36 @@ export function MapsView() {
       setShowPanel(true);
     };
 
+    const handleLocateUserEvent = (e: Event) => {
+      const customEvent = e as CustomEvent;
+      if (customEvent.detail?.lat && customEvent.detail?.lng) {
+        const { lat, lng } = customEvent.detail;
+        setUserCoords({ lat, lng });
+        if (mapRef.current) {
+          mapRef.current.getView().animate({
+            center: fromLonLat([lng, lat]),
+            zoom: 17,
+            duration: 800,
+          });
+        }
+      } else {
+        handleFindUserLocation();
+      }
+    };
+
     window.addEventListener('harmony:open-weather', handleOpenWeather);
     window.addEventListener('harmony:open-layers', handleOpenLayers);
+    window.addEventListener('harmony:locate-user', handleLocateUserEvent);
 
-    // Cek query param jika dibuka via URL: /app/maps?open=weather
+    // Cek query param jika dibuka via URL: /app/maps?open=weather atau ?locate=true
     const params = new URLSearchParams(window.location.search);
     if (params.get('open') === 'weather') {
       openStudioDomain('weather');
+      const newUrl = window.location.pathname;
+      window.history.replaceState({}, '', newUrl);
+    }
+    if (params.get('locate') === 'true') {
+      setTimeout(() => handleFindUserLocation(), 400);
       const newUrl = window.location.pathname;
       window.history.replaceState({}, '', newUrl);
     }
@@ -1678,6 +1821,7 @@ export function MapsView() {
     return () => {
       window.removeEventListener('harmony:open-weather', handleOpenWeather);
       window.removeEventListener('harmony:open-layers', handleOpenLayers);
+      window.removeEventListener('harmony:locate-user', handleLocateUserEvent);
     };
   }, []);
 
@@ -2060,6 +2204,31 @@ export function MapsView() {
       geoOptions
     );
   };
+
+  // Otomatis meminta izin lokasi GPS saat pengguna membuka trafik atau geospasial
+  useEffect(() => {
+    if (
+      showTrafficCorridors ||
+      showTrafficSignals ||
+      showTrafficCctv ||
+      showGeospatialModal ||
+      showGeospatialIntelBar ||
+      activeMapBasemap === 'traffic'
+    ) {
+      if (!userCoords && !isLocatingUser) {
+        handleFindUserLocation();
+      }
+    }
+  }, [
+    showTrafficCorridors,
+    showTrafficSignals,
+    showTrafficCctv,
+    showGeospatialModal,
+    showGeospatialIntelBar,
+    activeMapBasemap,
+    userCoords,
+    isLocatingUser,
+  ]);
 
 
   // Layer Refs for new features
@@ -2673,9 +2842,9 @@ export function MapsView() {
             const vecSource = trafficVectorLayerRef.current.getSource();
             if (vecSource) {
               vecSource.getFeatures().forEach((feat) => {
-                if (feat.get('isTrafficLine')) {
-                  const segId = feat.get('segmentId') || feat.get('corridorId');
-                  const metric = trafficGpsDensityService.getSegmentMetric(segId);
+                if (feat.get('isTrafficMilestone')) {
+                  const corridorId = feat.get('corridorId');
+                  const metric = trafficGpsDensityService.getSegmentMetric(corridorId);
                   if (metric) {
                     feat.set('status', metric.congestionLevel, true);
                     feat.set('speedKmh', metric.averageSpeedKmh, true);
@@ -2695,16 +2864,30 @@ export function MapsView() {
       signalTickCounter += dt;
       if (signalTickCounter >= 1.0) {
         signalTickCounter = 0;
-        if (showTrafficSignals && trafficSignalsLayerRef.current) {
+        if ((showTrafficSignals || trafficDrawerTab === 'signals') && trafficSignalsLayerRef.current) {
           const source = trafficSignalsLayerRef.current.getSource();
           if (source) {
             const signals = trafficSignalsService.getAllSignals();
+            const currUserCoords = userCoordsRef.current;
+            let nearestId: string | null = null;
+            if (currUserCoords) {
+              let minDist = Infinity;
+              signals.forEach((s) => {
+                const dist = geospatialAnalysisService.calculateDistanceKm(currUserCoords.lat, currUserCoords.lng, s.lat, s.lng);
+                if (dist < minDist) {
+                  minDist = dist;
+                  nearestId = s.id;
+                }
+              });
+            }
+
             source.getFeatures().forEach((feat) => {
               const sigId = feat.get('signalId');
               const sig = signals.find((s) => s.id === sigId);
               if (sig) {
                 feat.set('currentPhase', sig.currentPhase, true);
                 feat.set('remainingSeconds', sig.remainingSeconds, true);
+                feat.set('isNearest', sig.id === nearestId, true);
                 feat.set('signalData', sig, true);
               }
             });
@@ -2721,7 +2904,7 @@ export function MapsView() {
     return () => {
       cancelAnimationFrame(animFrameId);
     };
-  }, [activeMapBasemap, showTrafficCorridors, trafficMode, showTrafficSignals, showGeospatialModal]);
+  }, [activeMapBasemap, showTrafficCorridors, trafficMode, showTrafficSignals, trafficDrawerTab, showGeospatialModal]);
 
   // Google Maps Typical Traffic Profile Engine: updates roads when day or hour slider moves
   useEffect(() => {
@@ -2730,7 +2913,7 @@ export function MapsView() {
     if (!source) return;
 
     source.getFeatures().forEach((feat) => {
-      if (feat.get('isTrafficLine')) {
+      if (feat.get('isTrafficMilestone')) {
         const corridorId = (feat.get('corridorId') || '') as string;
         const tier = (feat.get('tier') || 'arterial') as 'expressway' | 'arterial' | 'collector' | 'local';
         const profile = computeTypicalTraffic(corridorId, tier, trafficTypicalDay, trafficTypicalHour);
@@ -2749,9 +2932,9 @@ export function MapsView() {
       const vecSource = trafficVectorLayerRef.current.getSource();
       if (vecSource) {
         vecSource.getFeatures().forEach((feat) => {
-          if (feat.get('isTrafficLine')) {
-            const segId = feat.get('segmentId') || feat.get('corridorId');
-            const metric = trafficGpsDensityService.getSegmentMetric(segId);
+          if (feat.get('isTrafficMilestone')) {
+            const corridorId = feat.get('corridorId');
+            const metric = trafficGpsDensityService.getSegmentMetric(corridorId);
             if (metric) {
               feat.set('status', metric.congestionLevel, true);
               feat.set('speedKmh', metric.averageSpeedKmh, true);
@@ -3010,49 +3193,10 @@ export function MapsView() {
     });
     satelliteReferenceLayerRef.current = satelliteRefLayer;
 
-    // Traffic Vector Layer: Real road geometry polylines styled like Google Maps Live Traffic
+    // Traffic Strategic Milestones & Toll Plazas (Google Maps native traffic renders all connected roads)
     const trafficSource = new VectorSource();
     INDONESIA_TRAFFIC_CORRIDORS.forEach((corridor) => {
-      // If corridor has multi-segment breakdown, add each subsegment as an individual LineString feature
-      if (corridor.segments && corridor.segments.length > 0) {
-        corridor.segments.forEach((seg) => {
-          if (seg.path && seg.path.length > 1) {
-            const lineCoords = seg.path.map(([lng, lat]) => fromLonLat([lng, lat]));
-            const lineFeat = new Feature({
-              geometry: new LineString(lineCoords),
-              isTrafficLine: true,
-              corridorId: corridor.id,
-              segmentId: seg.id,
-              name: seg.name,
-              segmentName: seg.name,
-              corridorName: corridor.name,
-              status: seg.status,
-              speedKmh: seg.speedKmh,
-              routeType: corridor.routeType,
-              tier: corridor.tier,
-              corridorData: corridor,
-            });
-            trafficSource.addFeature(lineFeat);
-          }
-        });
-      } else if (corridor.path && corridor.path.length > 1) {
-        const lineCoords = corridor.path.map(([lng, lat]) => fromLonLat([lng, lat]));
-        const lineFeat = new Feature({
-          geometry: new LineString(lineCoords),
-          isTrafficLine: true,
-          corridorId: corridor.id,
-          name: corridor.name,
-          corridorName: corridor.name,
-          status: corridor.status,
-          speedKmh: corridor.speedKmh,
-          routeType: corridor.routeType,
-          tier: corridor.tier,
-          corridorData: corridor,
-        });
-        trafficSource.addFeature(lineFeat);
-      }
-
-      // Add strategic milestone markers (Toll Plazas / Junctions)
+      // Add strategic milestone markers (Toll Plazas / Junctions / Interchanges)
       if (corridor.milestones && corridor.milestones.length > 0) {
         corridor.milestones.forEach((ms) => {
           const pointFeat = new Feature({
@@ -3092,11 +3236,9 @@ export function MapsView() {
       zIndex: 22,
       visible: activeMapBasemap === 'traffic' || showTrafficCorridors,
       style: (feature, resolution) => {
-        const isLine = feature.get('isTrafficLine');
         const isMilestone = feature.get('isTrafficMilestone');
         const status = feature.get('status') as string;
         const speed = (feature.get('speedKmh') as number) || 60;
-        const name = (feature.get('name') || '') as string;
         const tier = (feature.get('tier') as string) || 'arterial';
         const corridorId = feature.get('corridorId');
         const isSelected = selectedCorridor && selectedCorridor.id === corridorId;
@@ -3112,118 +3254,6 @@ export function MapsView() {
             : '#7f1d1d'; // Authentic Google Maps Dark Burgundy / Standstill
 
         const isLocal = tier === 'local';
-        const isCollector = tier === 'collector';
-        const isExpressway = tier === 'expressway';
-
-        if (resolution > 2000 && isLocal) {
-          return [];
-        }
-
-        if (isLine) {
-          // Dynamic width hierarchy matching authentic GPS navigation
-          let casingWidth = 5.2;
-          let innerWidth = 3.6;
-
-          if (resolution >= 450) {
-            // Island / National overview
-            casingWidth = isExpressway ? 6.5 : isCollector ? 4.4 : isLocal ? 3.8 : 5.0;
-            innerWidth = isExpressway ? 4.4 : isCollector ? 2.8 : isLocal ? 2.4 : 3.4;
-          } else if (resolution >= 120) {
-            // Province / Regional scale
-            casingWidth = isExpressway ? 9.0 : isCollector ? 6.5 : isLocal ? 5.8 : 7.2;
-            innerWidth = isExpressway ? 6.2 : isCollector ? 4.5 : isLocal ? 3.8 : 5.0;
-          } else if (resolution >= 35) {
-            // City / Metropolitan corridor scale
-            casingWidth = isExpressway ? 12.0 : isCollector ? 9.0 : isLocal ? 8.2 : 10.0;
-            innerWidth = isExpressway ? 8.5 : isCollector ? 6.2 : isLocal ? 5.8 : 7.0;
-          } else {
-            // Close-up street inspection scale
-            casingWidth = isExpressway ? 15.0 : isCollector ? 11.5 : isLocal ? 10.5 : 12.5;
-            innerWidth = isExpressway ? 11.0 : isCollector ? 8.5 : isLocal ? 7.8 : 9.0;
-          }
-
-          if (isSelected) {
-            casingWidth += 3.5;
-            innerWidth += 1.5;
-          }
-
-          const styles: Style[] = [];
-
-          // Outer selection glow if active corridor
-          if (isSelected) {
-            styles.push(
-              new Style({
-                stroke: new Stroke({
-                  color: isLocal ? 'rgba(14, 165, 233, 0.55)' : 'rgba(168, 85, 247, 0.45)',
-                  width: casingWidth + 7,
-                  lineCap: 'round',
-                  lineJoin: 'round',
-                }),
-              })
-            );
-          }
-
-          // Dark road base foundation casing for high contrast against any basemap
-          styles.push(
-            new Style({
-              stroke: new Stroke({
-                color: isSelected ? (isLocal ? '#0284c7' : '#7c3aed') : (isLocal ? 'rgba(30, 41, 59, 0.96)' : 'rgba(15, 23, 42, 0.94)'),
-                width: casingWidth,
-                lineCap: 'round',
-                lineJoin: 'round',
-              }),
-            })
-          );
-
-          // Vivid traffic flow core
-          styles.push(
-            new Style({
-              stroke: new Stroke({
-                color: color,
-                width: innerWidth,
-                lineCap: 'round',
-                lineJoin: 'round',
-              }),
-            })
-          );
-
-          // Authentic Navigation Chevrons: subtle directional flow arrows along the corridor
-          if (resolution < 220) {
-            styles.push(
-              new Style({
-                text: new Text({
-                  text: '›',
-                  font: `bold ${resolution < 50 ? '14px' : '12px'} Inter, system-ui, sans-serif`,
-                  placement: 'line',
-                  repeat: resolution < 60 ? 65 : 110,
-                  offsetY: -0.5,
-                  fill: new Fill({ color: 'rgba(255, 255, 255, 0.92)' }),
-                  stroke: new Stroke({ color: 'rgba(15, 23, 42, 0.85)', width: 2 }),
-                }),
-              })
-            );
-          }
-
-          // Road name & live speed label on street zoom
-          if (resolution < 90) {
-            const labelPrefix = isLocal ? '🛵 ' : '';
-            styles.push(
-              new Style({
-                text: new Text({
-                  text: `${labelPrefix}${name} • ${speed} km/j`,
-                  font: isLocal ? 'bold 10px Inter, system-ui, sans-serif' : 'bold 9.5px Inter, system-ui, sans-serif',
-                  placement: 'line',
-                  repeat: 450,
-                  offsetY: -11,
-                  fill: new Fill({ color: isLocal ? '#38bdf8' : '#ffffff' }),
-                  stroke: new Stroke({ color: '#0f172a', width: 3.5 }),
-                }),
-              })
-            );
-          }
-
-          return styles;
-        }
 
         if (isMilestone) {
           // Declutter: speed badges appear when zoomed in to city level (resolution < 120) or when corridor is selected
@@ -3328,33 +3358,70 @@ export function MapsView() {
     const trafficSignalsLayer = new VectorLayer({
       source: trafficSignalsSource,
       zIndex: 25,
-      visible: (activeMapBasemap === 'traffic' || showTrafficCorridors) && showTrafficSignals,
+      visible: showTrafficSignals || trafficDrawerTab === 'signals',
       style: (feature, resolution) => {
-        const phase = (feature.get('currentPhase') as string) || 'red';
+        const rawPhase = (feature.get('currentPhase') as string) || 'RED';
+        const phase = rawPhase.toUpperCase();
         const remaining = (feature.get('remainingSeconds') as number) || 10;
-        const isClose = resolution < 120;
-        const phaseColor =
-          phase === 'green' ? '#10b981' : phase === 'yellow' ? '#f59e0b' : '#ef4444';
+        const isNearest = Boolean(feature.get('isNearest'));
+        const name = (feature.get('name') as string) || 'Simpang';
+        const isClose = resolution < 150;
+        const isVeryClose = resolution < 40;
 
-        return new Style({
-          image: new CircleStyle({
-            radius: isClose ? 7.5 : 5.5,
-            fill: new Fill({ color: phaseColor }),
-            stroke: new Stroke({ color: '#0f172a', width: 2 }),
-          }),
-          text: isClose
-            ? new Text({
-                text: `🚦 ${remaining}s`,
-                font: 'bold 9px Inter, system-ui, sans-serif',
-                fill: new Fill({ color: '#ffffff' }),
-                stroke: new Stroke({ color: '#0f172a', width: 2 }),
-                backgroundFill: new Fill({ color: '#1e293b' }),
-                backgroundStroke: new Stroke({ color: phaseColor, width: 1.2 }),
-                padding: [2, 4, 2, 4],
-                offsetY: -13,
-              })
-            : undefined,
-        });
+        const phaseColor =
+          phase === 'GREEN' ? '#10b981' : phase === 'YELLOW' ? '#f59e0b' : '#ef4444';
+        const phaseBg =
+          phase === 'GREEN' ? 'rgba(6, 78, 59, 0.95)' : phase === 'YELLOW' ? 'rgba(120, 53, 15, 0.95)' : 'rgba(127, 29, 29, 0.95)';
+        const phaseText =
+          phase === 'GREEN' ? 'HIJAU' : phase === 'YELLOW' ? 'KUNING' : 'MERAH';
+        const phaseIcon =
+          phase === 'GREEN' ? '🟢' : phase === 'YELLOW' ? '🟡' : '🔴';
+
+        const styles: Style[] = [];
+
+        // 1. Glowing outer pulse halo
+        styles.push(
+          new Style({
+            image: new CircleStyle({
+              radius: isNearest ? 16 : isClose ? 13 : 10,
+              fill: new Fill({
+                color: phase === 'GREEN' ? 'rgba(16, 185, 129, 0.28)' : phase === 'YELLOW' ? 'rgba(245, 158, 11, 0.28)' : 'rgba(239, 68, 68, 0.28)',
+              }),
+              stroke: new Stroke({
+                color: phaseColor,
+                width: isNearest ? 2.5 : 1.5,
+              }),
+            }),
+          })
+        );
+
+        // 2. Solid inner core with high-contrast text badge
+        const labelText = isNearest
+          ? (isVeryClose ? `⭐ ${name}\n[${phaseIcon} ${phaseText} ${remaining}s]` : `⭐ ${name} (${remaining}s)`)
+          : (isClose ? `${name}\n${phaseIcon} ${phaseText} ${remaining}s` : `🚦 ${remaining}s`);
+
+        styles.push(
+          new Style({
+            image: new CircleStyle({
+              radius: isNearest ? 9 : isClose ? 7 : 6,
+              fill: new Fill({ color: phaseColor }),
+              stroke: new Stroke({ color: '#090d16', width: 2.5 }),
+            }),
+            text: new Text({
+              text: labelText,
+              font: isNearest ? 'bold 10px Inter, system-ui, sans-serif' : 'bold 9px Inter, system-ui, sans-serif',
+              fill: new Fill({ color: '#ffffff' }),
+              stroke: new Stroke({ color: '#090d16', width: 2.5 }),
+              backgroundFill: new Fill({ color: isNearest ? phaseBg : 'rgba(15, 23, 42, 0.92)' }),
+              backgroundStroke: new Stroke({ color: phaseColor, width: isNearest ? 2 : 1.2 }),
+              padding: isNearest ? [3, 6, 3, 6] : [2, 5, 2, 5],
+              offsetY: isVeryClose ? -22 : -17,
+              textAlign: 'center',
+            }),
+          })
+        );
+
+        return styles;
       },
     });
     trafficSignalsLayerRef.current = trafficSignalsLayer;
@@ -3368,6 +3435,7 @@ export function MapsView() {
           'https://mt2.google.com/vt/lyrs=h,traffic&x={x}&y={y}&z={z}',
           'https://mt3.google.com/vt/lyrs=h,traffic&x={x}&y={y}&z={z}',
         ],
+        crossOrigin: 'anonymous',
         maxZoom: 20,
       }),
       zIndex: 15,
@@ -4561,7 +4629,7 @@ export function MapsView() {
         e.pixel,
         (f) => f,
         { 
-          hitTolerance: 5, 
+          hitTolerance: 12, 
           layerFilter: (layer) => 
             layer === vectorLayerRef.current || 
             layer === earthquakeLayerRef.current ||
@@ -4794,6 +4862,14 @@ export function MapsView() {
             const sigId = feature.get('signalId') as string;
             if (sigId) {
               setSelectedTrafficSignalId(sigId);
+              const geom = feature.getGeometry();
+              if (geom && geom.getType() === 'Point') {
+                mapRef.current?.getView().animate({
+                  center: (geom as Point).getCoordinates(),
+                  zoom: Math.max(15.5, mapRef.current.getView().getZoom() || 15.5),
+                  duration: 500,
+                });
+              }
               if (popupRef.current) popupRef.current.style.display = 'none';
               return;
             }
@@ -4839,7 +4915,7 @@ export function MapsView() {
                     <div style="display: flex; align-items: center; gap: 6px; margin-bottom: 5px;">
                       <span style="font-size: 14px;">${iconEmoji}</span>
                       <span style="font-size: 9px; font-weight: 800; text-transform: uppercase; color: ${badgeColor}; background: ${badgeBg}; padding: 1.5px 6px; border-radius: 4px;">${routeType}</span>
-                      <span style="font-size: 9px; font-weight: 700; color: ${statusColor}; background: ${statusBg}; padding: 1px 5px; border-radius: 4px; margin-left: auto;">● ${status}</span>
+                      <span style="font-size: 9px; font-weight: 700; color: ${statusColor}; background: ${statusBg}; padding: 1.5px 6px; border-radius: 4px; margin-left: auto;">${status === 'Lancar' ? '🟢 Jalan Cepat' : status === 'Ramai Lancar' ? '🟡 Menguning' : status === 'Padat Merayap' ? '🔴 Merah' : '🔴⬛ Macet Total'}</span>
                     </div>
                     <strong style="font-size: 12px; color: #0f172a; display: block; margin-bottom: 2px; padding-right: 18px; line-height: 1.25;">${corridorName}</strong>
                     ${segmentName ? `<div style="font-size: 10px; font-weight: 600; color: #6d28d9; margin-bottom: 4px;">📍 Segmen: ${segmentName}</div>` : ''}
@@ -5188,13 +5264,13 @@ export function MapsView() {
       trafficVectorLayerRef.current.setVisible(isTrafficActive);
     }
     if (trafficCctvLayerRef.current) {
-      trafficCctvLayerRef.current.setVisible(isTrafficActive && showTrafficCctv);
+      trafficCctvLayerRef.current.setVisible(showTrafficCctv || trafficDrawerTab === 'cctv');
     }
     if (trafficSignalsLayerRef.current) {
-      trafficSignalsLayerRef.current.setVisible(isTrafficActive && showTrafficSignals);
+      trafficSignalsLayerRef.current.setVisible(showTrafficSignals || trafficDrawerTab === 'signals');
     }
     mapRef.current?.render();
-  }, [activeMapBasemap, showTrafficCorridors, showTrafficCctv, showTrafficSignals]);
+  }, [activeMapBasemap, showTrafficCorridors, showTrafficCctv, showTrafficSignals, trafficDrawerTab]);
 
   // Load CCTV cameras when CCTV tab is active or filters update
   useEffect(() => {
@@ -5202,6 +5278,22 @@ export function MapsView() {
       loadCctvFeeds(cctvCityFilter, cctvCategoryFilter, cctvSearchQuery);
     }
   }, [trafficDrawerTab, cctvCityFilter, cctvCategoryFilter, cctvSearchQuery, loadCctvFeeds]);
+
+  // Continuously receive 5-minute background CCTV updates without interrupting map interaction
+  useEffect(() => {
+    const unsubscribe = trafficCctvService.subscribe((updatedCams) => {
+      setCctvCameras(updatedCams);
+      updateCctvLayerFeatures(updatedCams);
+    });
+    return () => unsubscribe();
+  }, [updateCctvLayerFeatures]);
+
+  // Fetch verified signals telemetry from API whenever ATCS tab or signal layer is active
+  useEffect(() => {
+    if (trafficDrawerTab === 'signals' || showTrafficSignals) {
+      trafficSignalsService.fetchLiveSignals().catch(() => {});
+    }
+  }, [trafficDrawerTab, showTrafficSignals]);
 
   // Fetch and periodically refresh RainViewer radar and satellite timestamp paths
   const rainViewerFetchGen = useRef(0);
@@ -5736,6 +5828,114 @@ export function MapsView() {
         <Menu className="h-5 w-5" />
       </button>
 
+      {/* Floating On-Map Reactive HUD: Rambu & Lampu Merah Terdekat */}
+      {nearestSignal && (showTrafficSignals || showTrafficCorridors || activeMapBasemap === 'traffic') && !isNearestSignalHudDismissed && (
+        <motion.div
+          initial={{ opacity: 0, y: -8, scale: 0.95 }}
+          animate={{ opacity: 1, y: 0, scale: 1 }}
+          exit={{ opacity: 0, y: -8, scale: 0.95 }}
+          className="absolute top-36 sm:top-36 left-4 z-20 max-w-[340px] w-[calc(100vw-2rem)] sm:w-80 rounded-2xl bg-white/95 dark:bg-slate-900/95 backdrop-blur-2xl border border-slate-200/90 dark:border-slate-800 shadow-2xl p-3 text-slate-800 dark:text-white pointer-events-auto"
+        >
+          <div className="flex items-center justify-between pb-2 border-b border-slate-100 dark:border-slate-800/80 gap-2">
+            <div className="flex items-center gap-1.5 min-w-0">
+              <span className="flex h-6 w-6 items-center justify-center rounded-lg bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 text-xs shrink-0 font-bold">
+                🚦
+              </span>
+              <div className="min-w-0">
+                <div className="flex items-center gap-1">
+                  <span className="text-[11px] font-bold text-slate-900 dark:text-white truncate">
+                    Rambu / Simpang Terdekat
+                  </span>
+                  <span className="px-1.5 py-0.2 rounded-full text-[8px] font-black bg-emerald-500/15 text-emerald-600 dark:text-emerald-400">
+                    Live
+                  </span>
+                </div>
+                <span className="text-[9.5px] text-slate-500 dark:text-slate-400 block truncate font-medium">
+                  📍 {nearestSignal.distanceFormatted} dari lokasi Anda
+                </span>
+              </div>
+            </div>
+
+            <button
+              type="button"
+              onClick={() => setIsNearestSignalHudDismissed(true)}
+              className="p-1 rounded-lg text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors cursor-pointer"
+              title="Tutup Widget Rambu Terdekat"
+            >
+              <X className="w-3.5 h-3.5" />
+            </button>
+          </div>
+
+          <div className="pt-2 space-y-2">
+            <div className="flex items-center justify-between gap-2">
+              <div className="min-w-0 flex-1">
+                <h4 className="font-bold text-xs text-slate-900 dark:text-white leading-tight truncate">
+                  {nearestSignal.signal.name}
+                </h4>
+                <p className="text-[10px] text-slate-500 dark:text-slate-400 mt-0.5 truncate">
+                  {nearestSignal.signal.city} • Antrean: ~{nearestSignal.signal.queueEstimateVehicles} kend.
+                </p>
+              </div>
+
+              {/* 3-Bulb Indicator Lamp Box */}
+              <div
+                className="flex items-center gap-1.5 px-2 py-1 rounded-xl border font-bold text-[10px] shrink-0 shadow-xs"
+                style={{
+                  borderColor: nearestSignal.signal.currentPhase === 'GREEN' ? '#10b981' : nearestSignal.signal.currentPhase === 'YELLOW' ? '#f59e0b' : '#ef4444',
+                  backgroundColor: nearestSignal.signal.currentPhase === 'GREEN' ? 'rgba(16, 185, 129, 0.12)' : nearestSignal.signal.currentPhase === 'YELLOW' ? 'rgba(245, 158, 11, 0.12)' : 'rgba(239, 68, 68, 0.12)',
+                  color: nearestSignal.signal.currentPhase === 'GREEN' ? '#059669' : nearestSignal.signal.currentPhase === 'YELLOW' ? '#d97706' : '#dc2626',
+                }}
+              >
+                <div className="flex flex-col gap-0.5 items-center bg-slate-900 px-1 py-0.5 rounded-sm">
+                  <span className={`w-1.5 h-1.5 rounded-full ${nearestSignal.signal.currentPhase === 'RED' ? 'bg-rose-500 shadow-[0_0_6px_#ef4444] animate-pulse' : 'bg-rose-950/60 opacity-30'}`} />
+                  <span className={`w-1.5 h-1.5 rounded-full ${nearestSignal.signal.currentPhase === 'YELLOW' ? 'bg-amber-400 shadow-[0_0_6px_#f59e0b] animate-pulse' : 'bg-amber-950/60 opacity-30'}`} />
+                  <span className={`w-1.5 h-1.5 rounded-full ${nearestSignal.signal.currentPhase === 'GREEN' ? 'bg-emerald-400 shadow-[0_0_6px_#10b981] animate-pulse' : 'bg-emerald-950/60 opacity-30'}`} />
+                </div>
+                <div className="flex flex-col text-left">
+                  <span className="text-[10px] font-black uppercase leading-none">
+                    {nearestSignal.signal.currentPhase === 'GREEN' ? 'HIJAU' : nearestSignal.signal.currentPhase === 'YELLOW' ? 'KUNING' : 'MERAH'}
+                  </span>
+                  <span className="text-[9px] font-mono mt-0.5">
+                    {nearestSignal.signal.remainingSeconds} detik
+                  </span>
+                </div>
+              </div>
+            </div>
+
+            {/* Action Row */}
+            <div className="flex items-center justify-between pt-1 border-t border-slate-100 dark:border-slate-800/80 gap-1.5">
+              <span className="text-[9px] text-slate-400 dark:text-slate-500 font-mono">
+                ±{nearestSignal.signal.telemetryDelaySec}s Delay
+              </span>
+              <div className="flex items-center gap-1">
+                <button
+                  type="button"
+                  onClick={() => {
+                    mapRef.current?.getView().animate({
+                      center: fromLonLat([nearestSignal.signal.lng, nearestSignal.signal.lat]),
+                      zoom: 17,
+                      duration: 750,
+                    });
+                  }}
+                  className="px-2 py-1 rounded-xl bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 font-bold text-[9.5px] flex items-center gap-1 cursor-pointer transition-all"
+                >
+                  <Navigation className="w-2.5 h-2.5" />
+                  <span>Fokus</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setSelectedTrafficSignalId(nearestSignal.signal.id)}
+                  className="px-2 py-1 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-[9.5px] flex items-center gap-1 shadow-xs cursor-pointer transition-all"
+                >
+                  <span>🚦</span>
+                  <span>Pantau</span>
+                </button>
+              </div>
+            </div>
+          </div>
+        </motion.div>
+      )}
+
       {/* Map Mode Switcher & Tools (Top Right) */}
       <div className="absolute top-4 right-4 z-20 flex flex-col items-end gap-2.5">
         {/* Desktop View: Full Segmented Tabs */}
@@ -6104,6 +6304,9 @@ export function MapsView() {
               setShowRouteModal(false);
               setTrafficDrawerTab('corridors');
               setShowTrafficCorridors(willOpen);
+              if (willOpen && !userCoords && !isLocatingUser) {
+                handleFindUserLocation();
+              }
             }}
             className="relative flex flex-col items-center justify-between gap-1 w-14 py-2 px-1 rounded-xl bg-gradient-to-b from-emerald-500/10 via-teal-500/5 to-transparent hover:from-emerald-500/20 hover:via-teal-500/15 border border-emerald-500/25 hover:border-emerald-500/40 text-slate-800 dark:text-slate-100 transition-all hover:scale-[1.03] active:scale-95 group cursor-pointer shadow-xs"
             title="Buka Panel Lintasan & Trafik Jalan"
@@ -6597,18 +6800,72 @@ export function MapsView() {
               <div className="w-12 h-1.5 rounded-full bg-slate-300 dark:bg-slate-700 mx-auto mt-2.5 mb-1 sm:hidden shrink-0" />
 
               {/* Fixed Header Section */}
-              <div className="p-4 sm:p-5 pb-3 border-b border-slate-100 dark:border-slate-800/80 shrink-0 bg-white/60 dark:bg-slate-900/60 backdrop-blur-md">
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-3">
-                    <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl bg-purple-100 text-purple-600 dark:bg-purple-900/40 dark:text-purple-400 shadow-sm">
-                      <Car className="h-5 w-5" />
+              <div className="p-3.5 sm:p-4 pb-3 border-b border-slate-100 dark:border-slate-800/80 shrink-0 bg-white/60 dark:bg-slate-900/60 backdrop-blur-md">
+                <div className="flex items-center justify-between gap-1.5 sm:gap-2">
+                  <div className="flex items-center gap-2 sm:gap-2.5 min-w-0 flex-1">
+                    {/* Tombol Navigasi Kembali */}
+                    <button
+                      type="button"
+                      onClick={handleTrafficBack}
+                      className="p-1.5 sm:p-2 -ml-1 rounded-xl text-slate-500 hover:text-slate-900 dark:text-slate-400 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-slate-800 transition-all cursor-pointer shrink-0 flex items-center gap-1 group shadow-2xs"
+                      title={trafficDrawerTab !== 'corridors' ? "Kembali ke Koridor Utama" : "Kembali ke Peta"}
+                      aria-label="Kembali"
+                    >
+                      <ArrowLeft className="w-4 h-4 sm:w-5 sm:h-5 group-hover:-translate-x-0.5 transition-transform" />
+                      <span className="text-[11px] font-bold text-slate-600 dark:text-slate-300 hidden xs:inline sm:hidden md:inline">
+                        Kembali
+                      </span>
+                    </button>
+
+                    {/* Ikon Kategori Aktif */}
+                    <span className={`flex h-9 w-9 sm:h-10 sm:w-10 shrink-0 items-center justify-center rounded-2xl shadow-sm ${
+                      trafficDrawerTab === 'cctv'
+                        ? 'bg-cyan-100 text-cyan-600 dark:bg-cyan-900/40 dark:text-cyan-400'
+                        : trafficDrawerTab === 'signals'
+                        ? 'bg-emerald-100 text-emerald-600 dark:bg-emerald-900/40 dark:text-emerald-400'
+                        : trafficDrawerTab === 'probes'
+                        ? 'bg-rose-100 text-rose-600 dark:bg-rose-900/40 dark:text-rose-400'
+                        : trafficDrawerTab === 'byok'
+                        ? 'bg-indigo-100 text-indigo-600 dark:bg-indigo-900/40 dark:text-indigo-400'
+                        : 'bg-purple-100 text-purple-600 dark:bg-purple-900/40 dark:text-purple-400'
+                    }`}>
+                      {trafficDrawerTab === 'cctv' ? (
+                        <Camera className="h-4.5 w-4.5 sm:h-5 sm:w-5" />
+                      ) : trafficDrawerTab === 'signals' ? (
+                        <span className="text-base sm:text-lg leading-none">🚦</span>
+                      ) : trafficDrawerTab === 'probes' ? (
+                        <Flame className="h-4.5 w-4.5 sm:h-5 sm:w-5" />
+                      ) : trafficDrawerTab === 'byok' ? (
+                        <Key className="h-4.5 w-4.5 sm:h-5 sm:w-5" />
+                      ) : (
+                        <Car className="h-4.5 w-4.5 sm:h-5 sm:w-5" />
+                      )}
                     </span>
-                    <div>
-                      <div className="flex items-center gap-2">
-                        <h2 className="font-display text-base font-bold text-ink-900 dark:text-white leading-tight">
-                          Lintasan &amp; Trafik Jalan
+
+                    <div className="min-w-0 flex-1">
+                      <div className="flex items-center gap-1.5 flex-wrap">
+                        <h2 className="font-display text-sm sm:text-base font-bold text-ink-900 dark:text-white leading-tight truncate">
+                          {trafficDrawerTab === 'cctv'
+                            ? 'Jaringan CCTV Jalan'
+                            : trafficDrawerTab === 'signals'
+                            ? 'ATCS Lampu Merah'
+                            : trafficDrawerTab === 'probes'
+                            ? 'Densitas GPS Jalan'
+                            : trafficDrawerTab === 'byok'
+                            ? 'Konfigurasi API Trafik'
+                            : 'Lintasan & Trafik Jalan'}
                         </h2>
-                        <span className="flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-black bg-purple-600 text-white shadow-xs">
+                        <span className={`flex items-center gap-1 px-1.5 py-0.2 rounded-full text-[9.5px] font-black text-white shadow-xs ${
+                          trafficDrawerTab === 'cctv'
+                            ? 'bg-cyan-600'
+                            : trafficDrawerTab === 'signals'
+                            ? 'bg-emerald-600'
+                            : trafficDrawerTab === 'probes'
+                            ? 'bg-rose-600'
+                            : trafficDrawerTab === 'byok'
+                            ? 'bg-indigo-600'
+                            : 'bg-purple-600'
+                        }`}>
                           <span className="relative flex h-1.5 w-1.5">
                             <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
                             <span className="relative inline-flex rounded-full h-1.5 w-1.5 bg-emerald-400"></span>
@@ -6616,27 +6873,67 @@ export function MapsView() {
                           Live
                         </span>
                       </div>
-                      <p className="text-[10.5px] font-medium text-slate-500 dark:text-slate-400 mt-0.5">
-                        {isAutoSyncTraffic ? (
-                          <span className="text-emerald-600 dark:text-emerald-400 font-bold">
-                            Sinkron otomatis ({syncCountdown}d)
+
+                      <div className="flex items-center gap-1.5 flex-wrap mt-0.5">
+                        <p className="text-[10px] sm:text-[10.5px] font-medium text-slate-500 dark:text-slate-400 truncate">
+                          {isAutoSyncTraffic ? (
+                            <span className="text-emerald-600 dark:text-emerald-400 font-bold">
+                              Auto ({syncCountdown}s)
+                            </span>
+                          ) : (
+                            <span className="text-amber-600 dark:text-amber-400 font-bold">
+                              Manual
+                            </span>
+                          )}{' '}
+                          • {lastTrafficSyncTime}
+                        </p>
+                      </div>
+
+                      {userCoords ? (
+                        <div className="flex items-center gap-1.5 mt-0.5 text-[9px] text-slate-600 dark:text-slate-300">
+                          <span className="flex h-1.5 w-1.5 rounded-full bg-emerald-500 animate-pulse shrink-0" />
+                          <span className="font-bold text-emerald-600 dark:text-emerald-400 shrink-0">
+                            Lokasi:
                           </span>
-                        ) : (
-                          <span className="text-amber-600 dark:text-amber-400 font-bold">
-                            Telemetri dijeda
+                          <span className="truncate max-w-[140px]" title={userPreciseLocation?.shortDisplay || `${userCoords.lat.toFixed(4)}°, ${userCoords.lng.toFixed(4)}°`}>
+                            {userPreciseLocation?.village ? `${userPreciseLocation.village}, ${userPreciseLocation.subDistrict || ''}` : `${userCoords.lat.toFixed(4)}°, ${userCoords.lng.toFixed(4)}°`}
                           </span>
-                        )}{' '}
-                        • {lastTrafficSyncTime}
-                      </p>
+                          <span className="text-[8px] text-slate-400 font-mono shrink-0">(±{Math.round(userAccuracy || 0)}m)</span>
+                        </div>
+                      ) : (
+                        <div className="mt-0.5">
+                          <button
+                            type="button"
+                            onClick={handleFindUserLocation}
+                            disabled={isLocatingUser}
+                            className="px-1.5 py-0.5 rounded-lg bg-indigo-50 dark:bg-indigo-950/60 text-indigo-600 dark:text-indigo-400 border border-indigo-200 dark:border-indigo-800 text-[9px] font-bold flex items-center gap-1 hover:bg-indigo-100 dark:hover:bg-indigo-900 transition-all cursor-pointer shadow-2xs"
+                          >
+                            <Navigation className={`w-2.5 h-2.5 ${isLocatingUser ? 'animate-spin' : ''}`} />
+                            <span>{isLocatingUser ? 'Mendeteksi...' : 'GPS Terdekat'}</span>
+                          </button>
+                        </div>
+                      )}
                     </div>
                   </div>
 
-                  <div className="flex items-center gap-1.5">
+                  <div className="flex items-center gap-1 shrink-0">
+                    {trafficDrawerTab !== 'corridors' && (
+                      <button
+                        type="button"
+                        onClick={() => setTrafficDrawerTab('corridors')}
+                        className="px-2 py-1 rounded-xl text-[10px] font-bold border transition-all cursor-pointer flex items-center gap-1 bg-purple-50 hover:bg-purple-100 dark:bg-purple-950/60 dark:hover:bg-purple-900/60 text-purple-700 dark:text-purple-300 border-purple-200 dark:border-purple-800 shadow-2xs"
+                        title="Kembali ke Koridor Utama"
+                      >
+                        <ArrowLeft className="w-3 h-3" />
+                        <span className="hidden xs:inline">Koridor</span>
+                      </button>
+                    )}
+
                     {/* Auto-Sync Toggle Button */}
                     <button
                       type="button"
                       onClick={() => setIsAutoSyncTraffic((prev) => !prev)}
-                      className={`px-2 py-1 rounded-xl text-[10px] font-bold border transition-all cursor-pointer flex items-center gap-1 ${
+                      className={`px-1.5 sm:px-2 py-1 rounded-xl text-[10px] font-bold border transition-all cursor-pointer flex items-center gap-1 ${
                         isAutoSyncTraffic
                           ? 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-500/30'
                           : 'bg-slate-100 dark:bg-slate-800 text-slate-500 dark:text-slate-400 border-slate-200 dark:border-slate-700'
@@ -6650,7 +6947,7 @@ export function MapsView() {
                     <button
                       type="button"
                       onClick={handleRefreshTraffic}
-                      className="p-2 rounded-xl text-slate-500 hover:text-purple-600 hover:bg-purple-50 dark:hover:bg-slate-800 transition-colors cursor-pointer"
+                      className="p-1.5 sm:p-2 rounded-xl text-slate-500 hover:text-purple-600 hover:bg-purple-50 dark:hover:bg-slate-800 transition-colors cursor-pointer"
                       title="Perbarui Data &amp; Sinkronkan Kecepatan Terkini"
                     >
                       <RotateCw className={`w-4 h-4 ${isTrafficRefreshing ? 'animate-spin text-purple-600' : ''}`} />
@@ -6659,8 +6956,9 @@ export function MapsView() {
                     <button
                       type="button"
                       onClick={() => setShowTrafficCorridors(false)}
-                      className="p-2 rounded-xl text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors cursor-pointer"
-                      title="Tutup Panel Trafik"
+                      className="p-1.5 sm:p-2 rounded-xl text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors cursor-pointer"
+                      title="Tutup Panel Trafik (Esc)"
+                      aria-label="Tutup Panel Trafik"
                     >
                       <X className="w-4 h-4" />
                     </button>
@@ -6673,6 +6971,7 @@ export function MapsView() {
                 <button
                   type="button"
                   onClick={() => {
+                    if (!userCoords && !isLocatingUser) handleFindUserLocation();
                     if (activeMapBasemap === 'traffic') {
                       setActiveMapBasemap('osm');
                       setShowTrafficCorridors(false);
@@ -6685,10 +6984,10 @@ export function MapsView() {
                       ? 'bg-purple-600 text-white border-purple-500 shadow-xs'
                       : 'bg-white dark:bg-slate-800 text-slate-500 dark:text-slate-400 border-slate-200 dark:border-slate-700'
                   }`}
-                  title="Tampilkan garis koridor geometri jalan raya & tol OSM"
+                  title="Tampilkan lapisan lalu lintas Google Maps langsung (seluruh jalan terhubung via satelit)"
                 >
-                  <span>🛣️</span>
-                  <span className="truncate">Koridor {activeMapBasemap === 'traffic' || showTrafficCorridors ? 'ON' : 'OFF'}</span>
+                  <span>🚦</span>
+                  <span className="truncate">Trafik {activeMapBasemap === 'traffic' || showTrafficCorridors ? 'ON' : 'OFF'}</span>
                 </button>
 
                 <button
@@ -6715,7 +7014,10 @@ export function MapsView() {
 
                 <button
                   type="button"
-                  onClick={() => setShowTrafficCctv((v) => !v)}
+                  onClick={() => {
+                    if (!userCoords && !isLocatingUser) handleFindUserLocation();
+                    setShowTrafficCctv((v) => !v);
+                  }}
                   className={`py-1 px-1 rounded-xl text-[10px] font-bold border transition-all cursor-pointer flex items-center justify-center gap-1 ${
                     showTrafficCctv
                       ? 'bg-cyan-600 text-white border-cyan-500 shadow-xs'
@@ -6729,7 +7031,10 @@ export function MapsView() {
 
                 <button
                   type="button"
-                  onClick={() => setShowTrafficSignals((v) => !v)}
+                  onClick={() => {
+                    if (!userCoords && !isLocatingUser) handleFindUserLocation();
+                    setShowTrafficSignals((v) => !v);
+                  }}
                   className={`py-1 px-1 rounded-xl text-[10px] font-bold border transition-all cursor-pointer flex items-center justify-center gap-1 ${
                     showTrafficSignals
                       ? 'bg-emerald-600 text-white border-emerald-500 shadow-xs'
@@ -6746,7 +7051,10 @@ export function MapsView() {
               <div className="grid grid-cols-5 p-1.5 bg-slate-50 dark:bg-slate-900 border-b border-slate-200/80 dark:border-slate-800 text-[10px] font-bold shrink-0 gap-1">
                 <button
                   type="button"
-                  onClick={() => setTrafficDrawerTab('corridors')}
+                  onClick={() => {
+                    setTrafficDrawerTab('corridors');
+                    if (!userCoords && !isLocatingUser) handleFindUserLocation();
+                  }}
                   className={`py-1.5 px-0.5 rounded-xl transition-all cursor-pointer flex flex-col items-center gap-0.5 ${
                     trafficDrawerTab === 'corridors'
                       ? 'bg-purple-600 text-white shadow-xs'
@@ -6758,7 +7066,10 @@ export function MapsView() {
 
                 <button
                   type="button"
-                  onClick={() => setTrafficDrawerTab('probes')}
+                  onClick={() => {
+                    setTrafficDrawerTab('probes');
+                    if (!userCoords && !isLocatingUser) handleFindUserLocation();
+                  }}
                   className={`py-1.5 px-0.5 rounded-xl transition-all cursor-pointer flex flex-col items-center gap-0.5 ${
                     trafficDrawerTab === 'probes'
                       ? 'bg-rose-600 text-white shadow-xs'
@@ -6770,7 +7081,11 @@ export function MapsView() {
 
                 <button
                   type="button"
-                  onClick={() => setTrafficDrawerTab('cctv')}
+                  onClick={() => {
+                    setTrafficDrawerTab('cctv');
+                    setShowTrafficCctv(true);
+                    if (!userCoords && !isLocatingUser) handleFindUserLocation();
+                  }}
                   className={`py-1.5 px-0.5 rounded-xl transition-all cursor-pointer flex flex-col items-center gap-0.5 ${
                     trafficDrawerTab === 'cctv'
                       ? 'bg-cyan-600 text-white shadow-xs'
@@ -6782,14 +7097,18 @@ export function MapsView() {
 
                 <button
                   type="button"
-                  onClick={() => setTrafficDrawerTab('signals')}
+                  onClick={() => {
+                    setTrafficDrawerTab('signals');
+                    setShowTrafficSignals(true);
+                    if (!userCoords && !isLocatingUser) handleFindUserLocation();
+                  }}
                   className={`py-1.5 px-0.5 rounded-xl transition-all cursor-pointer flex flex-col items-center gap-0.5 ${
                     trafficDrawerTab === 'signals'
                       ? 'bg-emerald-600 text-white shadow-xs'
                       : 'text-slate-600 dark:text-slate-400 hover:bg-slate-200/60 dark:hover:bg-slate-800'
                   }`}
                 >
-                  <span>🚦 ATCS ({trafficSignalsService.getAllSignals().length})</span>
+                  <span>🚦 ATCS ({liveSignals.length})</span>
                 </button>
 
                 <button
@@ -6807,18 +7126,57 @@ export function MapsView() {
 
               {/* Tab Content: Koridor & Kemacetan */}
               {trafficDrawerTab === 'corridors' && (
-                <>
-                  {/* Status Banner with Live Telemetry Pulse & Stats */}
-                  <div className="p-3 bg-purple-50/70 dark:bg-purple-950/30 border-b border-purple-100/80 dark:border-purple-900/40 text-xs shrink-0 space-y-2">
+                <div className="p-3 overflow-y-auto space-y-2.5 flex-1">
+                  {/* Unified Traffic Control & Telemetry Card */}
+                  <div className="p-3 bg-gradient-to-r from-purple-50/90 to-teal-50/90 dark:from-purple-950/40 dark:to-teal-950/30 rounded-2xl border border-purple-200/90 dark:border-purple-900/70 text-xs space-y-2.5 shadow-2xs">
                     <div className="flex items-center justify-between">
                       <div className="flex items-center gap-1.5 text-purple-700 dark:text-purple-300 font-bold text-[11px]">
                         <span className="flex h-2 w-2 rounded-full bg-emerald-500 animate-pulse"></span>
-                        <span>God&apos;s Eye Realtime Telemetry</span>
+                        <span>🛰️ Jaringan Lalu Lintas Satelit Google Maps</span>
                       </div>
                       <span className="text-[9.5px] px-2 py-0.5 rounded-full font-bold bg-purple-100 dark:bg-purple-900/60 text-purple-700 dark:text-purple-300 border border-purple-200 dark:border-purple-800">
-                        Sinkron 15s • Aliran Nyata
+                        100% Jalan Terhubung
                       </span>
                     </div>
+
+                    <p className="text-[10px] text-slate-600 dark:text-slate-300 leading-relaxed">
+                      Seluruh ruas jalan tol, arteri nasional, hingga jalan lokal terhubung langsung tanpa garis buatan manual. Kepadatan dibaca real-time dari sinyal satelit GPS:
+                      <span className="font-bold text-emerald-600 dark:text-emerald-400"> 🟢 Hijau (Cepat)</span>,
+                      <span className="font-bold text-amber-600 dark:text-amber-400"> 🟡 Menguning (Ramai)</span>,
+                      <span className="font-bold text-rose-600 dark:text-rose-400"> 🔴 Merah (Macet)</span>,
+                      <span className="font-bold text-red-900 dark:text-red-400"> 🔴⬛ Merah Tua (Macet Total)</span>, dan
+                      <span className="font-bold text-slate-500"> Polos/Netral (Sepi/Kosong)</span>.
+                    </p>
+
+                    {/* User Satellite Location Traffic Status Card */}
+                    {nearestTrafficStatus ? (
+                      <div className="p-2 rounded-xl bg-white/90 dark:bg-slate-900/80 border border-teal-200/80 dark:border-teal-800/60 text-[10.5px] flex items-center justify-between gap-1.5 shadow-2xs">
+                        <div className="min-w-0">
+                          <span className="text-[9.5px] text-slate-400 block">Satelit Lokasi Anda ({nearestTrafficStatus.distanceFormatted}):</span>
+                          <strong className="text-slate-800 dark:text-slate-200 truncate block text-[11px]">{nearestTrafficStatus.corridor.name}</strong>
+                        </div>
+                        <span className={`px-2 py-0.5 rounded-full font-bold text-[9.5px] border shrink-0 flex items-center gap-1 ${
+                          nearestTrafficStatus.status === 'Lancar'
+                            ? 'bg-emerald-100 text-emerald-800 dark:bg-emerald-950/60 dark:text-emerald-300 border-emerald-300'
+                            : nearestTrafficStatus.status === 'Ramai Lancar'
+                            ? 'bg-amber-100 text-amber-800 dark:bg-amber-950/60 dark:text-amber-300 border-amber-300'
+                            : nearestTrafficStatus.status === 'Padat Merayap'
+                            ? 'bg-rose-100 text-rose-800 dark:bg-rose-950/60 dark:text-rose-300 border-rose-300'
+                            : 'bg-red-950 text-red-100 border-red-800'
+                        }`}>
+                          {nearestTrafficStatus.status === 'Lancar' ? '🟢 Jalan Cepat' : nearestTrafficStatus.status === 'Ramai Lancar' ? '🟡 Menguning' : nearestTrafficStatus.status === 'Padat Merayap' ? '🔴 Macet' : '🔴⬛ Macet Total'} ({nearestTrafficStatus.speedKmh} km/j)
+                        </span>
+                      </div>
+                    ) : (
+                      <button
+                        type="button"
+                        onClick={() => handleFindUserLocation()}
+                        className="w-full flex items-center justify-center gap-1.5 py-1.5 px-3 rounded-xl bg-teal-50 hover:bg-teal-100 dark:bg-teal-950/40 dark:hover:bg-teal-900/40 border border-teal-200 dark:border-teal-800 text-teal-700 dark:text-teal-300 text-[10.5px] font-bold transition-all cursor-pointer shadow-2xs"
+                      >
+                        <LocateFixed className="w-3 h-3 text-teal-600" />
+                        <span>{isLocatingUser ? 'Menghubungkan Satelit GPS...' : 'Pindai Kepadatan di Lokasi Satelit Saya'}</span>
+                      </button>
+                    )}
 
                     {/* Realtime KPI Pill Strip */}
                     <div className="grid grid-cols-3 gap-1.5 py-1.5 px-2.5 rounded-xl bg-white/80 dark:bg-slate-900/70 border border-purple-100/90 dark:border-purple-900/60 text-[10px]">
@@ -6841,120 +7199,153 @@ export function MapsView() {
                         </strong>
                       </div>
                     </div>
+
+                    {/* Severe Bottlenecks Alert Widget */}
+                    {liveTrafficSummary?.severeBottlenecks && liveTrafficSummary.severeBottlenecks.length > 0 && (
+                      <div className="p-2.5 rounded-xl bg-rose-50/90 dark:bg-rose-950/50 border border-rose-200/90 dark:border-rose-900/70 text-xs space-y-1.5">
+                        <div className="flex items-center justify-between">
+                          <span className="font-bold text-rose-700 dark:text-rose-300 flex items-center gap-1.5 text-[11px]">
+                            <span className="flex h-2 w-2 rounded-full bg-rose-600 animate-ping"></span>
+                            Kemacetan Kritis Terkini (Live API)
+                          </span>
+                          <span className="text-[9.5px] font-mono text-rose-600 dark:text-rose-400 font-bold">
+                            {liveTrafficSummary.severeBottlenecks.length} Titik
+                          </span>
+                        </div>
+                        <div className="space-y-1 max-h-24 overflow-y-auto pr-1">
+                          {liveTrafficSummary.severeBottlenecks.slice(0, 3).map((sb) => (
+                            <div key={sb.corridorId} className="flex items-center justify-between p-1.5 rounded-lg bg-white/90 dark:bg-slate-900/80 border border-rose-200/80 dark:border-rose-900/60 text-[10px]">
+                              <div className="min-w-0 pr-2">
+                                <span className="font-bold text-slate-800 dark:text-slate-200 block truncate">{sb.name}</span>
+                                <span className="text-slate-500 dark:text-slate-400 text-[9px]">{sb.location}</span>
+                              </div>
+                              <div className="text-right shrink-0">
+                                <span className="font-bold font-mono text-rose-600 dark:text-rose-400 block">{sb.currentSpeedKmh} km/j</span>
+                                <span className="text-[9px] text-amber-600 font-medium">+{sb.delayMinutes} mnt tunda</span>
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Search Bar & Filters */}
+                    <div className="space-y-2 pt-0.5">
+                      <div className="relative">
+                        <Search className="w-3.5 h-3.5 absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+                        <input
+                          id="maps-traffic-search-input"
+                          name="trafficSearch"
+                          type="text"
+                          value={trafficSearchQuery}
+                          onChange={(e) => setTrafficSearchQuery(e.target.value)}
+                          placeholder="Cari jalan, tikus, alternatif, kota..."
+                          className="w-full pl-9 pr-7 py-1.5 text-xs rounded-xl border border-slate-200/80 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-800 dark:text-slate-200 placeholder-slate-400 focus:outline-none focus:ring-1 focus:ring-purple-500 shadow-2xs"
+                        />
+                        {trafficSearchQuery && (
+                          <button
+                            type="button"
+                            onClick={() => setTrafficSearchQuery('')}
+                            className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200"
+                          >
+                            <X className="w-3 h-3" />
+                          </button>
+                        )}
+                      </div>
+
+                      {/* Tier Filter Tabs */}
+                      <div className="flex flex-wrap gap-1">
+                        {[
+                          { key: 'all', label: 'Semua Ruas' },
+                          { key: 'local', label: '🛵 Jalan Kecil & Tikus' },
+                          { key: 'collector', label: 'Kolektor' },
+                          { key: 'arterial', label: 'Arteri Kota' },
+                          { key: 'expressway', label: 'Tol Trans-Pulau' },
+                        ].map((tab) => {
+                          const isActive = trafficTierFilter === tab.key;
+                          return (
+                            <button
+                              key={tab.key}
+                              type="button"
+                              onClick={() => setTrafficTierFilter(tab.key as any)}
+                              className={`text-[10px] font-bold px-2 py-0.5 rounded-lg border transition-all cursor-pointer ${
+                                isActive
+                                  ? 'bg-purple-600 text-white border-purple-600 shadow-xs'
+                                  : 'bg-white dark:bg-slate-800 text-slate-600 dark:text-slate-400 border-slate-200 dark:border-slate-700 hover:bg-slate-100 dark:hover:bg-slate-750'
+                              }`}
+                            >
+                              {tab.label}
+                            </button>
+                          );
+                        })}
+                      </div>
+
+                      {/* Island Filter Chips */}
+                      <div className="flex items-center gap-1 overflow-x-auto no-scrollbar pt-0.5">
+                        {[
+                          { key: 'all', label: 'Semua Pulau' },
+                          { key: 'Jawa', label: 'Jawa' },
+                          { key: 'Sumatera', label: 'Sumatera' },
+                          { key: 'Bali', label: 'Bali' },
+                          { key: 'Kalimantan', label: 'Kalimantan' },
+                          { key: 'Sulawesi', label: 'Sulawesi' },
+                          { key: 'Papua', label: 'Papua' },
+                        ].map((tab) => {
+                          const isActive = trafficIslandFilter === tab.key;
+                          return (
+                            <button
+                              key={tab.key}
+                              type="button"
+                              onClick={() => setTrafficIslandFilter(tab.key)}
+                              className={`text-[9.5px] font-bold px-2 py-0.5 rounded-md whitespace-nowrap transition-all cursor-pointer ${
+                                isActive
+                                  ? 'bg-purple-100 dark:bg-purple-950/80 text-purple-700 dark:text-purple-300 border border-purple-300 dark:border-purple-700'
+                                  : 'text-slate-500 dark:text-slate-400 hover:text-slate-800 dark:hover:text-slate-200'
+                              }`}
+                            >
+                              {tab.label}
+                            </button>
+                          );
+                        })}
+                      </div>
+                    </div>
                   </div>
 
-                  {/* Severe Bottlenecks Alert Widget */}
-                  {liveTrafficSummary?.severeBottlenecks && liveTrafficSummary.severeBottlenecks.length > 0 && (
-                    <div className="p-2.5 bg-rose-50 dark:bg-rose-950/40 border-b border-rose-200 dark:border-rose-900 text-xs shrink-0 space-y-1.5">
-                      <div className="flex items-center justify-between">
-                        <span className="font-bold text-rose-700 dark:text-rose-300 flex items-center gap-1.5 text-[11px]">
-                          <span className="flex h-2 w-2 rounded-full bg-rose-600 animate-ping"></span>
-                          Kemacetan Kritis Terkini (Live API)
-                        </span>
-                        <span className="text-[9.5px] font-mono text-rose-600 dark:text-rose-400 font-bold">
-                          {liveTrafficSummary.severeBottlenecks.length} Titik
-                        </span>
-                      </div>
-                      <div className="space-y-1 max-h-24 overflow-y-auto pr-1">
-                        {liveTrafficSummary.severeBottlenecks.slice(0, 3).map((sb) => (
-                          <div key={sb.corridorId} className="flex items-center justify-between p-1.5 rounded-lg bg-white/90 dark:bg-slate-900/80 border border-rose-200/80 dark:border-rose-900/60 text-[10px]">
-                            <div className="min-w-0 pr-2">
-                              <span className="font-bold text-slate-800 dark:text-slate-200 block truncate">{sb.name}</span>
-                              <span className="text-slate-500 dark:text-slate-400 text-[9px]">{sb.location}</span>
-                            </div>
-                            <div className="text-right shrink-0">
-                              <span className="font-bold font-mono text-rose-600 dark:text-rose-400 block">{sb.currentSpeedKmh} km/j</span>
-                              <span className="text-[9px] text-amber-600 font-medium">+{sb.delayMinutes} mnt tunda</span>
-                            </div>
+                  {/* Spotlight Card: Ruas Terdekat dari Lokasi Pengguna */}
+                    {userCoords && filteredCorridors.length > 0 && (
+                      <div className="p-3 bg-gradient-to-r from-purple-500/10 via-indigo-500/10 to-transparent dark:from-purple-950/40 dark:via-indigo-950/30 rounded-2xl border border-purple-300 dark:border-purple-800 text-xs space-y-2 shadow-xs mb-1">
+                        <div className="flex items-center justify-between">
+                          <span className="flex items-center gap-1.5 text-[10px] font-black uppercase text-purple-700 dark:text-purple-300 tracking-wider">
+                            <span>⭐</span>
+                            Ruas Jalan Terdekat dari Lokasi Anda
+                          </span>
+                          {filteredCorridors[0].distanceFormatted && (
+                            <span className="px-2 py-0.5 rounded-full text-[9.5px] font-extrabold bg-purple-600 text-white shadow-xs">
+                              📍 {filteredCorridors[0].distanceFormatted}
+                            </span>
+                          )}
+                        </div>
+                        <div className="flex items-start justify-between gap-2">
+                          <div className="min-w-0">
+                            <h4 className="font-bold text-slate-800 dark:text-white text-xs leading-tight">
+                              {filteredCorridors[0].name}
+                            </h4>
+                            <p className="text-[10px] text-slate-500 dark:text-slate-400 mt-0.5">
+                              {filteredCorridors[0].island} • {filteredCorridors[0].routeType} • Laju: <strong className="font-mono text-purple-600 dark:text-purple-400">{filteredCorridors[0].speedKmh} km/j</strong>
+                            </p>
                           </div>
-                        ))}
+                          <button
+                            type="button"
+                            onClick={() => handleFocusCorridor(filteredCorridors[0])}
+                            className="px-2.5 py-1 rounded-xl bg-purple-600 hover:bg-purple-700 text-white font-bold text-[10px] flex items-center gap-1 cursor-pointer shadow-xs"
+                          >
+                            <Navigation className="w-3 h-3" />
+                            <span>Pusatkan</span>
+                          </button>
+                        </div>
                       </div>
-                    </div>
-                  )}
+                    )}
 
-                  {/* Search Bar & Filters */}
-                  <div className="p-3 border-b border-slate-100 dark:border-slate-800/80 space-y-2 bg-slate-50/60 dark:bg-slate-900/50 shrink-0">
-                    <div className="relative">
-                      <Search className="w-3.5 h-3.5 absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
-                      <input
-                        id="maps-traffic-search-input"
-                        name="trafficSearch"
-                        type="text"
-                        value={trafficSearchQuery}
-                        onChange={(e) => setTrafficSearchQuery(e.target.value)}
-                        placeholder="Cari jalan, tikus, alternatif, kota..."
-                        className="w-full pl-9 pr-7 py-1.5 text-xs rounded-xl border border-slate-200/80 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-800 dark:text-slate-200 placeholder-slate-400 focus:outline-none focus:ring-1 focus:ring-purple-500 shadow-2xs"
-                      />
-                      {trafficSearchQuery && (
-                        <button
-                          type="button"
-                          onClick={() => setTrafficSearchQuery('')}
-                          className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200"
-                        >
-                          <X className="w-3 h-3" />
-                        </button>
-                      )}
-                    </div>
-
-                    {/* Tier Filter Tabs */}
-                    <div className="flex flex-wrap gap-1">
-                      {[
-                        { key: 'all', label: 'Semua Ruas' },
-                        { key: 'local', label: '🛵 Jalan Kecil & Tikus' },
-                        { key: 'collector', label: 'Kolektor' },
-                        { key: 'arterial', label: 'Arteri Kota' },
-                        { key: 'expressway', label: 'Tol Trans-Pulau' },
-                      ].map((tab) => {
-                        const isActive = trafficTierFilter === tab.key;
-                        return (
-                          <button
-                            key={tab.key}
-                            type="button"
-                            onClick={() => setTrafficTierFilter(tab.key as any)}
-                            className={`text-[10px] font-bold px-2 py-0.5 rounded-lg border transition-all cursor-pointer ${
-                              isActive
-                                ? 'bg-purple-600 text-white border-purple-600 shadow-xs'
-                                : 'bg-white dark:bg-slate-800 text-slate-600 dark:text-slate-400 border-slate-200 dark:border-slate-700 hover:bg-slate-100 dark:hover:bg-slate-750'
-                            }`}
-                          >
-                            {tab.label}
-                          </button>
-                        );
-                      })}
-                    </div>
-
-                    {/* Island Filter Chips */}
-                    <div className="flex items-center gap-1 overflow-x-auto no-scrollbar pt-0.5">
-                      {[
-                        { key: 'all', label: 'Semua Pulau' },
-                        { key: 'Jawa', label: 'Jawa' },
-                        { key: 'Sumatera', label: 'Sumatera' },
-                        { key: 'Bali', label: 'Bali' },
-                        { key: 'Kalimantan', label: 'Kalimantan' },
-                        { key: 'Sulawesi', label: 'Sulawesi' },
-                        { key: 'Papua', label: 'Papua' },
-                      ].map((tab) => {
-                        const isActive = trafficIslandFilter === tab.key;
-                        return (
-                          <button
-                            key={tab.key}
-                            type="button"
-                            onClick={() => setTrafficIslandFilter(tab.key)}
-                            className={`text-[9.5px] font-bold px-2 py-0.5 rounded-md whitespace-nowrap transition-all cursor-pointer ${
-                              isActive
-                                ? 'bg-purple-100 dark:bg-purple-950/80 text-purple-700 dark:text-purple-300 border border-purple-300 dark:border-purple-700'
-                                : 'text-slate-500 dark:text-slate-400 hover:text-slate-800 dark:hover:text-slate-200'
-                            }`}
-                          >
-                            {tab.label}
-                          </button>
-                        );
-                      })}
-                    </div>
-                  </div>
-
-                  {/* Scrollable Corridors List */}
-                  <div className="p-3 overflow-y-auto space-y-2 flex-1">
                     {filteredCorridors.length === 0 ? (
                       <div className="py-8 text-center text-slate-400 text-xs">
                         <Car className="w-8 h-8 mx-auto mb-2 opacity-40 text-purple-400" />
@@ -6962,140 +7353,189 @@ export function MapsView() {
                         <p className="text-[10.5px] mt-1">Coba ubah kata kunci pencarian atau filter pulau/ruas jalan.</p>
                       </div>
                     ) : (
-                      filteredCorridors.map((corridor) => {
-                        const isSelected = selectedCorridor?.id === corridor.id;
-                        const statusColor =
-                          corridor.status === 'Lancar'
-                            ? 'text-emerald-600 dark:text-emerald-400 bg-emerald-500/10 border-emerald-500/30'
-                            : corridor.status === 'Ramai Lancar'
-                            ? 'text-amber-600 dark:text-amber-400 bg-amber-500/10 border-amber-500/30'
-                            : 'text-rose-600 dark:text-rose-400 bg-rose-500/10 border-rose-500/30';
+                      <>
+                        {displayedCorridors.map((corridor) => {
+                          const isSelected = selectedCorridor?.id === corridor.id;
+                          const corridorDistFormatted = corridor.distanceFormatted;
+                          const statusColor =
+                            corridor.status === 'Lancar'
+                              ? 'text-emerald-600 dark:text-emerald-400 bg-emerald-500/10 border-emerald-500/30'
+                              : corridor.status === 'Ramai Lancar'
+                              ? 'text-amber-600 dark:text-amber-400 bg-amber-500/10 border-amber-500/30'
+                              : 'text-rose-600 dark:text-rose-400 bg-rose-500/10 border-rose-500/30';
 
-                        const statusDot =
-                          corridor.status === 'Lancar'
-                            ? 'bg-emerald-500'
-                            : corridor.status === 'Ramai Lancar'
-                            ? 'bg-amber-500'
-                            : 'bg-rose-500';
+                          const statusDot =
+                            corridor.status === 'Lancar'
+                              ? 'bg-emerald-500'
+                              : corridor.status === 'Ramai Lancar'
+                              ? 'bg-amber-500'
+                              : 'bg-rose-500';
 
-                        const tierBadgeColor =
-                          corridor.tier === 'expressway'
-                            ? 'bg-purple-100 dark:bg-purple-950/60 text-purple-700 dark:text-purple-300 border-purple-200 dark:border-purple-800'
-                            : corridor.tier === 'arterial'
-                            ? 'bg-amber-100 dark:bg-amber-950/60 text-amber-700 dark:text-amber-300 border-amber-200 dark:border-amber-800'
-                            : corridor.tier === 'collector'
-                            ? 'bg-sky-100 dark:bg-sky-950/60 text-sky-700 dark:text-sky-300 border-sky-200 dark:border-sky-800'
-                            : 'bg-emerald-100 dark:bg-emerald-950/60 text-emerald-700 dark:text-emerald-300 border-emerald-200 dark:border-emerald-800';
+                          const tierBadgeColor =
+                            corridor.tier === 'expressway'
+                              ? 'bg-purple-100 dark:bg-purple-950/60 text-purple-700 dark:text-purple-300 border-purple-200 dark:border-purple-800'
+                              : corridor.tier === 'arterial'
+                              ? 'bg-amber-100 dark:bg-amber-950/60 text-amber-700 dark:text-amber-300 border-amber-200 dark:border-amber-800'
+                              : corridor.tier === 'collector'
+                              ? 'bg-sky-100 dark:bg-sky-950/60 text-sky-700 dark:text-sky-300 border-sky-200 dark:border-sky-800'
+                              : 'bg-emerald-100 dark:bg-emerald-950/60 text-emerald-700 dark:text-emerald-300 border-emerald-200 dark:border-emerald-800';
 
-                        return (
-                          <div
-                            key={corridor.id}
-                            className={`p-3 rounded-2xl border transition-all text-xs space-y-2 ${
-                              isSelected
-                                ? 'bg-purple-50/80 dark:bg-purple-950/40 border-purple-400 dark:border-purple-600 shadow-md ring-1 ring-purple-400/40'
-                                : 'bg-slate-50/70 dark:bg-slate-800/40 border-slate-200/80 dark:border-slate-800 hover:bg-slate-100/80 dark:hover:bg-slate-800/70'
-                            }`}
-                          >
-                            <div className="flex items-start justify-between gap-2">
-                              <div className="min-w-0 flex-1">
-                                <div className="flex items-center gap-1.5 flex-wrap">
-                                  <span className={`text-[9px] font-extrabold px-1.5 py-0.2 rounded border ${tierBadgeColor}`}>
-                                    {corridor.routeType}
-                                  </span>
-                                  <span className="text-[10px] font-bold text-slate-500 dark:text-slate-400">
-                                    {corridor.island}
-                                  </span>
+                          return (
+                            <div
+                              key={corridor.id}
+                              className={`p-3 rounded-2xl border transition-all text-xs space-y-2 ${
+                                isSelected
+                                  ? 'bg-purple-50/80 dark:bg-purple-950/40 border-purple-400 dark:border-purple-600 shadow-md ring-1 ring-purple-400/40'
+                                  : 'bg-slate-50/70 dark:bg-slate-800/40 border-slate-200/80 dark:border-slate-800 hover:bg-slate-100/80 dark:hover:bg-slate-800/70'
+                              }`}
+                            >
+                              <div className="flex items-start justify-between gap-2">
+                                <div className="min-w-0 flex-1">
+                                  <div className="flex items-center gap-1.5 flex-wrap">
+                                    <span className={`text-[9px] font-extrabold px-1.5 py-0.2 rounded border ${tierBadgeColor}`}>
+                                      {corridor.routeType}
+                                    </span>
+                                    <span className="text-[10px] font-bold text-slate-500 dark:text-slate-400">
+                                      {corridor.island}
+                                    </span>
+                                    {corridorDistFormatted && (
+                                      <span className="text-[9px] font-mono font-bold text-purple-700 dark:text-purple-300 px-1.5 py-0.2 rounded bg-purple-100/80 dark:bg-purple-950/60 border border-purple-200 dark:border-purple-800">
+                                        📍 {corridorDistFormatted}
+                                      </span>
+                                    )}
+                                  </div>
+                                  <h3 className="font-bold text-slate-800 dark:text-white leading-tight mt-1 text-xs">
+                                    {corridor.name}
+                                  </h3>
                                 </div>
-                                <h3 className="font-bold text-slate-800 dark:text-white leading-tight mt-1 text-xs">
-                                  {corridor.name}
-                                </h3>
+                                <span className={`text-[9px] font-black uppercase px-2 py-0.5 rounded-full border shrink-0 flex items-center gap-1 ${statusColor}`}>
+                                  <span className={`w-1.5 h-1.5 rounded-full ${statusDot}`} />
+                                  {corridor.status === 'Lancar' ? '🟢 Jalan Cepat' : corridor.status === 'Ramai Lancar' ? '🟡 Menguning' : corridor.status === 'Padat Merayap' ? '🔴 Merah' : '🔴⬛ Macet Total'}
+                                </span>
                               </div>
-                              <span className={`text-[9px] font-black uppercase px-2 py-0.5 rounded-full border shrink-0 flex items-center gap-1 ${statusColor}`}>
-                                <span className={`w-1.5 h-1.5 rounded-full ${statusDot}`} />
-                                {corridor.status}
+
+                              <div className="flex items-center justify-between py-1 px-2.5 rounded-xl bg-white/80 dark:bg-slate-900/60 border border-slate-200/60 dark:border-slate-800/60 text-[10.5px]">
+                                <div className="flex items-center gap-1.5 text-slate-600 dark:text-slate-300">
+                                  <Gauge className="w-3.5 h-3.5 text-purple-500" />
+                                  <span>Kecepatan:</span>
+                                  <strong className="font-mono text-slate-900 dark:text-white font-bold">{corridor.speedKmh} km/jam</strong>
+                                </div>
+                                <div className="h-3 w-[1px] bg-slate-200 dark:bg-slate-700"></div>
+                                <div className="flex items-center gap-1.5 text-slate-600 dark:text-slate-300">
+                                  <span>Panjang:</span>
+                                  <strong className="font-mono text-slate-900 dark:text-white font-bold">{corridor.lengthKm} km</strong>
+                                </div>
+                              </div>
+
+                              {/* TomTom Live Flow Probe Result */}
+                              {tomtomProbeResult && tomtomProbeResult.corridorId === corridor.id && (
+                                <div
+                                  className={`p-2 rounded-xl text-[10px] space-y-1 ${
+                                    tomtomProbeResult.status === 'LIVE'
+                                      ? 'bg-emerald-50 dark:bg-emerald-950/40 text-emerald-800 dark:text-emerald-200 border border-emerald-300 dark:border-emerald-700'
+                                      : tomtomProbeResult.status === 'NOT_CONFIGURED'
+                                      ? 'bg-amber-50 dark:bg-amber-950/40 text-amber-800 dark:text-amber-200 border border-amber-300 dark:border-amber-700'
+                                      : 'bg-rose-50 dark:bg-rose-950/40 text-rose-800 dark:text-rose-200 border border-rose-300 dark:border-rose-700'
+                                  }`}
+                                >
+                                  <div className="flex items-center justify-between font-bold">
+                                    <span>TomTom Proxy: {tomtomProbeResult.status}</span>
+                                    {tomtomProbeResult.roadClosure !== undefined && (
+                                      <span className={tomtomProbeResult.roadClosure ? 'text-rose-600 font-bold' : 'text-emerald-600'}>
+                                        {tomtomProbeResult.roadClosure ? 'Ditutup' : 'Terbuka'}
+                                      </span>
+                                    )}
+                                  </div>
+                                  <p className="leading-snug">{tomtomProbeResult.message}</p>
+                                </div>
+                              )}
+
+                              {/* Action Row */}
+                              <div className="pt-2 border-t border-slate-200/50 dark:border-slate-700/50 flex items-center justify-between gap-1.5 flex-wrap">
+                                <div className="flex items-center gap-1">
+                                  <button
+                                    type="button"
+                                    onClick={() => handleFocusCorridor(corridor)}
+                                    className="px-2.5 py-1 rounded-xl bg-purple-600 hover:bg-purple-700 text-white font-bold text-[10.5px] transition-all active:scale-95 shadow-2xs flex items-center gap-1 cursor-pointer"
+                                    title="Pusatkan peta ke koridor ini"
+                                  >
+                                    <Navigation className="w-3 h-3" />
+                                    <span>Pusatkan</span>
+                                  </button>
+
+                                  <button
+                                    type="button"
+                                    onClick={() => handleCheckTomTomLive(corridor)}
+                                    disabled={tomtomProbeResult?.corridorId === corridor.id && tomtomProbeResult.loading}
+                                    className="px-2 py-1 rounded-xl bg-indigo-50 dark:bg-indigo-950/50 hover:bg-indigo-100 text-indigo-700 dark:text-indigo-300 border border-indigo-200 dark:border-indigo-800 font-semibold text-[10px] transition-all flex items-center gap-1 cursor-pointer disabled:opacity-50"
+                                    title="Periksa data live TomTom Flow API via proxy backend"
+                                  >
+                                    <Radio className={`w-3 h-3 ${tomtomProbeResult?.corridorId === corridor.id && tomtomProbeResult.loading ? 'animate-pulse' : ''}`} />
+                                    <span>{tomtomProbeResult?.corridorId === corridor.id && tomtomProbeResult.loading ? 'Cek...' : 'Uji TomTom'}</span>
+                                  </button>
+                                </div>
+
+                                <div className="flex items-center gap-1">
+                                  <a
+                                    href={`https://www.google.com/maps/@${corridor.center[1]},${corridor.center[0]},14z/data=!5m1!1e1`}
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                    className="flex items-center gap-1 px-2.5 py-1 rounded-xl bg-white hover:bg-purple-50 dark:bg-slate-800 dark:hover:bg-slate-750 text-purple-600 dark:text-purple-400 font-bold text-[10px] border border-purple-200 dark:border-purple-800 transition-all shadow-2xs"
+                                    title="Buka Live Traffic resmi di Google Maps"
+                                  >
+                                    <ExternalLink className="w-3 h-3" />
+                                    <span>Google Live</span>
+                                  </a>
+                                </div>
+                              </div>
+                            </div>
+                          );
+                        })}
+
+                        {/* Pagination & Incremental Rendering Controls */}
+                        {filteredCorridors.length > visibleCorridorsCount && (
+                          <div className="pt-3 pb-2 flex flex-col items-center gap-2 border-t border-slate-200/60 dark:border-slate-800/60">
+                            <div className="flex items-center gap-1.5 text-[10.5px] text-slate-500 dark:text-slate-400">
+                              <span className="w-1.5 h-1.5 rounded-full bg-purple-500" />
+                              <span>
+                                Menampilkan <strong className="text-slate-800 dark:text-white font-bold">{displayedCorridors.length}</strong> dari <strong className="text-slate-800 dark:text-white font-bold">{filteredCorridors.length}</strong> koridor jalan
                               </span>
                             </div>
-
-                            <div className="flex items-center justify-between py-1 px-2.5 rounded-xl bg-white/80 dark:bg-slate-900/60 border border-slate-200/60 dark:border-slate-800/60 text-[10.5px]">
-                              <div className="flex items-center gap-1.5 text-slate-600 dark:text-slate-300">
-                                <Gauge className="w-3.5 h-3.5 text-purple-500" />
-                                <span>Kecepatan:</span>
-                                <strong className="font-mono text-slate-900 dark:text-white font-bold">{corridor.speedKmh} km/jam</strong>
-                              </div>
-                              <div className="h-3 w-[1px] bg-slate-200 dark:bg-slate-700"></div>
-                              <div className="flex items-center gap-1.5 text-slate-600 dark:text-slate-300">
-                                <span>Panjang:</span>
-                                <strong className="font-mono text-slate-900 dark:text-white font-bold">{corridor.lengthKm} km</strong>
-                              </div>
-                            </div>
-
-                            {/* TomTom Live Flow Probe Result */}
-                            {tomtomProbeResult && tomtomProbeResult.corridorId === corridor.id && (
-                              <div
-                                className={`p-2 rounded-xl text-[10px] space-y-1 ${
-                                  tomtomProbeResult.status === 'LIVE'
-                                    ? 'bg-emerald-50 dark:bg-emerald-950/40 text-emerald-800 dark:text-emerald-200 border border-emerald-300 dark:border-emerald-700'
-                                    : tomtomProbeResult.status === 'NOT_CONFIGURED'
-                                    ? 'bg-amber-50 dark:bg-amber-950/40 text-amber-800 dark:text-amber-200 border border-amber-300 dark:border-amber-700'
-                                    : 'bg-rose-50 dark:bg-rose-950/40 text-rose-800 dark:text-rose-200 border border-rose-300 dark:border-rose-700'
-                                }`}
+                            <div className="flex items-center gap-2">
+                              <button
+                                type="button"
+                                onClick={() => setVisibleCorridorsCount((prev) => prev + 15)}
+                                className="px-3.5 py-1.5 rounded-xl bg-purple-600 hover:bg-purple-700 active:scale-95 text-white font-bold text-[11px] transition-all cursor-pointer shadow-xs flex items-center gap-1.5"
                               >
-                                <div className="flex items-center justify-between font-bold">
-                                  <span>TomTom Proxy: {tomtomProbeResult.status}</span>
-                                  {tomtomProbeResult.roadClosure !== undefined && (
-                                    <span className={tomtomProbeResult.roadClosure ? 'text-rose-600 font-bold' : 'text-emerald-600'}>
-                                      {tomtomProbeResult.roadClosure ? 'Ditutup' : 'Terbuka'}
-                                    </span>
-                                  )}
-                                </div>
-                                <p className="leading-snug">{tomtomProbeResult.message}</p>
-                              </div>
-                            )}
-
-                            {/* Action Row */}
-                            <div className="pt-2 border-t border-slate-200/50 dark:border-slate-700/50 flex items-center justify-between gap-1.5 flex-wrap">
-                              <div className="flex items-center gap-1">
-                                <button
-                                  type="button"
-                                  onClick={() => handleFocusCorridor(corridor)}
-                                  className="px-2.5 py-1 rounded-xl bg-purple-600 hover:bg-purple-700 text-white font-bold text-[10.5px] transition-all active:scale-95 shadow-2xs flex items-center gap-1 cursor-pointer"
-                                  title="Pusatkan peta ke koridor ini"
-                                >
-                                  <Navigation className="w-3 h-3" />
-                                  <span>Pusatkan</span>
-                                </button>
-
-                                <button
-                                  type="button"
-                                  onClick={() => handleCheckTomTomLive(corridor)}
-                                  disabled={tomtomProbeResult?.corridorId === corridor.id && tomtomProbeResult.loading}
-                                  className="px-2 py-1 rounded-xl bg-indigo-50 dark:bg-indigo-950/50 hover:bg-indigo-100 text-indigo-700 dark:text-indigo-300 border border-indigo-200 dark:border-indigo-800 font-semibold text-[10px] transition-all flex items-center gap-1 cursor-pointer disabled:opacity-50"
-                                  title="Periksa data live TomTom Flow API via proxy backend"
-                                >
-                                  <Radio className={`w-3 h-3 ${tomtomProbeResult?.corridorId === corridor.id && tomtomProbeResult.loading ? 'animate-pulse' : ''}`} />
-                                  <span>{tomtomProbeResult?.corridorId === corridor.id && tomtomProbeResult.loading ? 'Cek...' : 'Uji TomTom'}</span>
-                                </button>
-                              </div>
-
-                              <div className="flex items-center gap-1">
-                                <a
-                                  href={`https://www.google.com/maps/@${corridor.center[1]},${corridor.center[0]},14z/data=!5m1!1e1`}
-                                  target="_blank"
-                                  rel="noopener noreferrer"
-                                  className="flex items-center gap-1 px-2.5 py-1 rounded-xl bg-white hover:bg-purple-50 dark:bg-slate-800 dark:hover:bg-slate-750 text-purple-600 dark:text-purple-400 font-bold text-[10px] border border-purple-200 dark:border-purple-800 transition-all shadow-2xs"
-                                  title="Buka Live Traffic resmi di Google Maps"
-                                >
-                                  <ExternalLink className="w-3 h-3" />
-                                  <span>Google Live</span>
-                                </a>
-                              </div>
+                                <span>Muat 15 Lagi</span>
+                                <ChevronDown className="w-3.5 h-3.5" />
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => setVisibleCorridorsCount(filteredCorridors.length)}
+                                className="px-3 py-1.5 rounded-xl bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-750 text-slate-700 dark:text-slate-300 font-bold text-[10.5px] border border-slate-200 dark:border-slate-700 transition-all cursor-pointer shadow-2xs"
+                              >
+                                Tampilkan Semua ({filteredCorridors.length})
+                              </button>
                             </div>
                           </div>
-                        );
-                      })
+                        )}
+
+                        {visibleCorridorsCount > 15 && filteredCorridors.length > 15 && (
+                          <div className="pt-1 pb-1 text-center">
+                            <button
+                              type="button"
+                              onClick={() => setVisibleCorridorsCount(15)}
+                              className="text-[10px] text-purple-600 dark:text-purple-400 hover:underline cursor-pointer font-bold inline-flex items-center gap-1"
+                            >
+                              <ChevronUp className="w-3 h-3" />
+                              <span>Ciutkan kembali ke 15 koridor teratas</span>
+                            </button>
+                          </div>
+                        )}
+                      </>
                     )}
                   </div>
-                </>
               )}
 
               {/* Tab Content: GPS Probes & Algoritma Densitas Kemacetan Crowdsource */}
@@ -7190,108 +7630,132 @@ export function MapsView() {
                     </div>
 
                     <div className="space-y-2">
-                      {[
-                        {
-                          name: 'Simpang Susun Semanggi',
-                          city: 'Jakarta, DKI Jakarta',
-                          pings: 142,
-                          density: 95,
-                          speed: '8 km/jam',
-                          delay: '+22 mnt',
-                          status: 'Macet Total',
-                          coords: [106.816666, -6.219722] as [number, number],
-                        },
-                        {
-                          name: 'Simpang Tomang Intermodal',
-                          city: 'Jakarta Barat',
-                          pings: 98,
-                          density: 76,
-                          speed: '14 km/jam',
-                          delay: '+16 mnt',
-                          status: 'Padat Merayap',
-                          coords: [106.7944, -6.1772] as [number, number],
-                        },
-                        {
-                          name: 'Simpang Pasteur Exit Tol',
-                          city: 'Bandung, Jawa Barat',
-                          pings: 86,
-                          density: 68,
-                          speed: '12 km/jam',
-                          delay: '+14 mnt',
-                          status: 'Padat Merayap',
-                          coords: [107.5794, -6.8927] as [number, number],
-                        },
-                        {
-                          name: 'Bundaran Waru Sidoarjo-Surabaya',
-                          city: 'Surabaya, Jawa Timur',
-                          pings: 92,
-                          density: 72,
-                          speed: '11 km/jam',
-                          delay: '+15 mnt',
-                          status: 'Padat Merayap',
-                          coords: [112.7291, -7.3486] as [number, number],
-                        },
-                        {
-                          name: 'Gerbang Tol Cikampek Utama KM 70',
-                          city: 'Karawang, Jawa Barat',
-                          pings: 110,
-                          density: 55,
-                          speed: '38 km/jam',
-                          delay: '+5 mnt',
-                          status: 'Ramai Lancar',
-                          coords: [107.4522, -6.4215] as [number, number],
-                        },
-                      ].map((hotspot, idx) => (
-                        <div
-                          key={idx}
-                          className="p-2.5 rounded-2xl border border-slate-200/80 dark:border-slate-800 bg-white/80 dark:bg-slate-800/50 hover:bg-slate-50 dark:hover:bg-slate-800/80 transition-all text-xs space-y-1.5"
-                        >
-                          <div className="flex items-start justify-between gap-2">
-                            <div className="min-w-0 flex-1">
-                              <h5 className="font-bold text-slate-800 dark:text-white text-xs leading-tight">
-                                {hotspot.name}
-                              </h5>
-                              <p className="text-[10px] text-slate-500 dark:text-slate-400">
-                                {hotspot.city}
-                              </p>
-                            </div>
-                            <span className={`px-2 py-0.5 rounded-full text-[9px] font-bold ${
-                              hotspot.status === 'Macet Total'
-                                ? 'bg-rose-500/10 text-rose-600 dark:text-rose-400 border border-rose-500/30'
-                                : hotspot.status === 'Padat Merayap'
-                                ? 'bg-orange-500/10 text-orange-600 dark:text-orange-400 border border-orange-500/30'
-                                : 'bg-amber-500/10 text-amber-600 dark:text-amber-400 border border-amber-500/30'
-                            }`}>
-                              {hotspot.status}
-                            </span>
-                          </div>
+                      {(() => {
+                        const rawHotspots = [
+                          {
+                            name: 'Simpang Susun Semanggi',
+                            city: 'Jakarta, DKI Jakarta',
+                            pings: 142,
+                            density: 95,
+                            speed: '8 km/jam',
+                            delay: '+22 mnt',
+                            status: 'Macet Total',
+                            coords: [106.816666, -6.219722] as [number, number],
+                          },
+                          {
+                            name: 'Simpang Tomang Intermodal',
+                            city: 'Jakarta Barat',
+                            pings: 98,
+                            density: 76,
+                            speed: '14 km/jam',
+                            delay: '+16 mnt',
+                            status: 'Padat Merayap',
+                            coords: [106.7944, -6.1772] as [number, number],
+                          },
+                          {
+                            name: 'Simpang Pasteur Exit Tol',
+                            city: 'Bandung, Jawa Barat',
+                            pings: 86,
+                            density: 68,
+                            speed: '12 km/jam',
+                            delay: '+14 mnt',
+                            status: 'Padat Merayap',
+                            coords: [107.5794, -6.8927] as [number, number],
+                          },
+                          {
+                            name: 'Bundaran Waru Sidoarjo-Surabaya',
+                            city: 'Surabaya, Jawa Timur',
+                            pings: 92,
+                            density: 72,
+                            speed: '11 km/jam',
+                            delay: '+15 mnt',
+                            status: 'Padat Merayap',
+                            coords: [112.7291, -7.3486] as [number, number],
+                          },
+                          {
+                            name: 'Gerbang Tol Cikampek Utama KM 70',
+                            city: 'Karawang, Jawa Barat',
+                            pings: 110,
+                            density: 55,
+                            speed: '38 km/jam',
+                            delay: '+5 mnt',
+                            status: 'Ramai Lancar',
+                            coords: [107.4522, -6.4215] as [number, number],
+                          },
+                        ];
 
-                          <div className="flex items-center justify-between pt-1 border-t border-slate-100 dark:border-slate-700/50 text-[10px]">
-                            <div className="flex items-center gap-2 text-slate-600 dark:text-slate-300">
-                              <span>📡 <strong>{hotspot.pings}</strong> pings</span>
-                              <span>•</span>
-                              <span>Kecepatan: <strong>{hotspot.speed}</strong></span>
-                              <span>•</span>
-                              <span className="text-rose-600 font-bold">{hotspot.delay}</span>
+                        if (userCoords) {
+                          return [...rawHotspots].sort((a, b) => {
+                            const dA = geospatialAnalysisService.calculateDistanceKm(userCoords.lat, userCoords.lng, a.coords[1], a.coords[0]);
+                            const dB = geospatialAnalysisService.calculateDistanceKm(userCoords.lat, userCoords.lng, b.coords[1], b.coords[0]);
+                            return dA - dB;
+                          });
+                        }
+
+                        return rawHotspots;
+                      })().map((hotspot, idx) => {
+                        const hDistKm = userCoords ? geospatialAnalysisService.calculateDistanceKm(userCoords.lat, userCoords.lng, hotspot.coords[1], hotspot.coords[0]) : null;
+                        const hDistFormatted = hDistKm !== null ? (hDistKm < 1 ? `${Math.round(hDistKm * 1000)} m` : `${hDistKm.toFixed(1)} km`) : null;
+
+                        return (
+                          <div
+                            key={idx}
+                            className="p-2.5 rounded-2xl border border-slate-200/80 dark:border-slate-800 bg-white/80 dark:bg-slate-800/50 hover:bg-slate-50 dark:hover:bg-slate-800/80 transition-all text-xs space-y-1.5"
+                          >
+                            <div className="flex items-start justify-between gap-2">
+                              <div className="min-w-0 flex-1">
+                                <div className="flex items-center gap-1.5 flex-wrap">
+                                  <h5 className="font-bold text-slate-800 dark:text-white text-xs leading-tight">
+                                    {hotspot.name}
+                                  </h5>
+                                  {hDistFormatted && (
+                                    <span className="text-[9px] font-mono font-bold text-rose-700 dark:text-rose-300 px-1.5 py-0.2 rounded bg-rose-100/80 dark:bg-rose-950/60 border border-rose-200 dark:border-rose-800">
+                                      📍 {hDistFormatted}
+                                    </span>
+                                  )}
+                                </div>
+                                <p className="text-[10px] text-slate-500 dark:text-slate-400">
+                                  {hotspot.city}
+                                </p>
+                              </div>
+                              <span className={`px-2 py-0.5 rounded-full text-[9px] font-bold ${
+                                hotspot.status === 'Macet Total'
+                                  ? 'bg-rose-500/10 text-rose-600 dark:text-rose-400 border border-rose-500/30'
+                                  : hotspot.status === 'Padat Merayap'
+                                  ? 'bg-orange-500/10 text-orange-600 dark:text-orange-400 border border-orange-500/30'
+                                  : 'bg-amber-500/10 text-amber-600 dark:text-amber-400 border border-amber-500/30'
+                              }`}>
+                                {hotspot.status}
+                              </span>
                             </div>
 
-                            <button
-                              type="button"
-                              onClick={() => {
-                                mapRef.current?.getView().animate({
-                                  center: fromLonLat(hotspot.coords),
-                                  zoom: 14.5,
-                                  duration: 700,
-                                });
-                              }}
-                              className="px-2 py-1 rounded-xl bg-slate-100 dark:bg-slate-700 hover:bg-slate-200 text-slate-700 dark:text-slate-200 font-bold text-[9.5px] flex items-center gap-1 cursor-pointer"
-                            >
-                              <Navigation className="w-3 h-3" />
-                              <span>Pusatkan</span>
-                            </button>
+                            <div className="flex items-center justify-between pt-1 border-t border-slate-100 dark:border-slate-700/50 text-[10px]">
+                              <div className="flex items-center gap-2 text-slate-600 dark:text-slate-300">
+                                <span>📡 <strong>{hotspot.pings}</strong> pings</span>
+                                <span>•</span>
+                                <span>Kecepatan: <strong>{hotspot.speed}</strong></span>
+                                <span>•</span>
+                                <span className="text-rose-600 font-bold">{hotspot.delay}</span>
+                              </div>
+
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  mapRef.current?.getView().animate({
+                                    center: fromLonLat(hotspot.coords),
+                                    zoom: 14.5,
+                                    duration: 700,
+                                  });
+                                }}
+                                className="px-2 py-1 rounded-xl bg-slate-100 dark:bg-slate-700 hover:bg-slate-200 text-slate-700 dark:text-slate-200 font-bold text-[9.5px] flex items-center gap-1 cursor-pointer"
+                              >
+                                <Navigation className="w-3 h-3" />
+                                <span>Pusatkan</span>
+                              </button>
+                            </div>
                           </div>
-                        </div>
-                      ))}
+                        );
+                      })}
                     </div>
                   </div>
                 </div>
@@ -7308,6 +7772,10 @@ export function MapsView() {
                         Jaringan CCTV Publik &amp; Siaran Langsung
                       </span>
                       <div className="flex items-center gap-1.5">
+                        <span className="flex items-center gap-1 px-2 py-0.5 rounded-full bg-emerald-100 dark:bg-emerald-950/80 text-emerald-800 dark:text-emerald-300 text-[9.5px] font-semibold border border-emerald-300/60 dark:border-emerald-800">
+                          <span className="h-1.5 w-1.5 rounded-full bg-emerald-500 animate-pulse" />
+                          Auto-Sync 5 Menit
+                        </span>
                         <span className="px-2 py-0.5 rounded-full bg-cyan-100 dark:bg-cyan-900 text-cyan-800 dark:text-cyan-200 text-[9.5px] font-bold">
                           {cctvCameras.length} Kamera
                         </span>
@@ -7323,7 +7791,7 @@ export function MapsView() {
                       </div>
                     </div>
                     <p className="text-[10px] text-cyan-700/90 dark:text-cyan-300/80 leading-relaxed">
-                      Kamera CCTV publik realtime terintegrasi dengan jaringan <strong>CCTV Nusantara</strong> dan portal resmi ATCS pemerintah (Dishub DKI, Bandung, Surabaya, Semarang, Jogja, Bali, Tol Trans-Jawa, &amp; Tol Sumatera).
+                      Kamera CCTV publik realtime terintegrasi dengan portal resmi <strong>Ditjen Bina Marga Kementerian PU</strong> (Arteri Non-Tol, Jembatan Nasional CH, APACE AI), <strong>CCTV Nusantara</strong>, dan ATCS pemerintah daerah.
                     </p>
 
                     {/* Search & Filter Bar */}
@@ -7334,7 +7802,7 @@ export function MapsView() {
                           type="text"
                           value={cctvSearchQuery}
                           onChange={(e) => setCctvSearchQuery(e.target.value)}
-                          placeholder="Cari simpang, jalan, atau otoritas CCTV..."
+                          placeholder="Cari simpang, jembatan, jalan, atau otoritas CCTV..."
                           className="w-full pl-8 pr-7 py-1.5 text-[11px] rounded-xl bg-white/90 dark:bg-slate-900/90 border border-cyan-200 dark:border-cyan-800 text-slate-800 dark:text-slate-100 placeholder:text-slate-400 focus:outline-hidden focus:ring-1 focus:ring-cyan-500"
                         />
                         {cctvSearchQuery && (
@@ -7357,8 +7825,8 @@ export function MapsView() {
                           }}
                           className="px-2 py-1 text-[10px] font-semibold rounded-xl bg-white/90 dark:bg-slate-900/90 border border-cyan-200 dark:border-cyan-800 text-slate-700 dark:text-slate-200 focus:outline-hidden"
                         >
-                          <option value="Semua">Semua Kota ({trafficCctvService.getAllCameras().length})</option>
-                          {trafficCctvService.getCities().slice(0, 30).map((ct) => (
+                          <option value="Semua">Semua Wilayah ({trafficCctvService.getAllCameras().length})</option>
+                          {trafficCctvService.getCities().slice(0, 35).map((ct) => (
                             <option key={ct.name} value={ct.name}>
                               {ct.name} ({ct.count})
                             </option>
@@ -7374,17 +7842,50 @@ export function MapsView() {
                           className="px-2 py-1 text-[10px] font-semibold rounded-xl bg-white/90 dark:bg-slate-900/90 border border-cyan-200 dark:border-cyan-800 text-slate-700 dark:text-slate-200 focus:outline-hidden"
                         >
                           <option value="Semua">Semua Kategori</option>
-                          <option value="jalan">Jalan Raya</option>
-                          <option value="tol">Jalan Tol</option>
-                          <option value="publik">Kawasan Publik</option>
-                          <option value="wisata">Destinasi Wisata</option>
-                          <option value="pengadilan">Layanan Peradilan</option>
+                          <option value="binamarga">🤖 Bina Marga AI Non-Tol</option>
+                          <option value="jembatan">🌉 Jembatan Nasional (CH)</option>
+                          <option value="its">🚦 ITS Pantura Non-Tol</option>
+                          <option value="kemenhub">⚓ Simpul Transportasi (Kemenhub)</option>
+                          <option value="jalan">🛣️ Jalan Raya / Protokol</option>
+                          <option value="tol">🚗 Jalan Tol Trans-Jawa / Tol</option>
+                          <option value="publik">🏛️ Kawasan Publik</option>
+                          <option value="wisata">🏖️ Destinasi Wisata</option>
+                          <option value="pengadilan">⚖️ Layanan Peradilan</option>
                         </select>
+                      </div>
+
+                      {/* Quick Category Pills */}
+                      <div className="flex items-center gap-1 overflow-x-auto pb-0.5 pt-0.5 no-scrollbar">
+                        {[
+                          { label: 'Semua', value: 'Semua' },
+                          { label: '🤖 Bina Marga AI', value: 'binamarga' },
+                          { label: '🌉 Jembatan CH', value: 'jembatan' },
+                          { label: '🚦 ITS Pantura', value: 'its' },
+                          { label: '⚓ Kemenhub', value: 'kemenhub' },
+                          { label: '🚗 Jalan Tol', value: 'tol' },
+                          { label: '🛣️ Jalan Raya', value: 'jalan' },
+                        ].map((cat) => (
+                          <button
+                            key={cat.value}
+                            type="button"
+                            onClick={() => {
+                              setCctvCategoryFilter(cat.value);
+                              setCctvDisplayLimit(40);
+                            }}
+                            className={`px-2 py-0.5 rounded-lg text-[9px] font-bold whitespace-nowrap transition-colors cursor-pointer ${
+                              cctvCategoryFilter === cat.value
+                                ? 'bg-cyan-600 text-white shadow-2xs'
+                                : 'bg-cyan-100/70 dark:bg-cyan-900/50 text-cyan-800 dark:text-cyan-200 hover:bg-cyan-200 dark:hover:bg-cyan-800'
+                            }`}
+                          >
+                            {cat.label}
+                          </button>
+                        ))}
                       </div>
 
                       {/* Quick City Pills */}
                       <div className="flex items-center gap-1 overflow-x-auto pb-0.5 pt-0.5 no-scrollbar">
-                        {['Semua', 'DKI Jakarta', 'Kota Bandung', 'D.I. Yogyakarta', 'Surabaya', 'Provinsi Bali', 'Jalan Tol Trans Jawa'].map((cityName) => (
+                        {['Semua', 'Bandung', 'Semarang', 'Cirebon', 'DKI Jakarta', 'D.I. Yogyakarta', 'Surabaya', 'Provinsi Bali', 'Jalan Tol Trans Jawa'].map((cityName) => (
                           <button
                             key={cityName}
                             type="button"
@@ -7395,7 +7896,7 @@ export function MapsView() {
                             className={`px-2 py-0.5 rounded-lg text-[9px] font-bold whitespace-nowrap transition-colors cursor-pointer ${
                               cctvCityFilter === cityName
                                 ? 'bg-cyan-600 text-white shadow-2xs'
-                                : 'bg-cyan-100/70 dark:bg-cyan-900/50 text-cyan-800 dark:text-cyan-200 hover:bg-cyan-200 dark:hover:bg-cyan-800'
+                                : 'bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-700'
                             }`}
                           >
                             {cityName}
@@ -7406,7 +7907,56 @@ export function MapsView() {
                   </div>
 
                   {/* Camera Cards List */}
-                  {cctvCameras.length === 0 ? (
+                  {/* Spotlight Card: Kamera CCTV Terdekat dari Lokasi Pengguna */}
+                  {userCoords && sortedCctvCameras.length > 0 && (
+                    <div className="p-3 bg-gradient-to-r from-cyan-500/10 via-sky-500/10 to-transparent dark:from-cyan-950/40 dark:via-sky-950/30 rounded-2xl border border-cyan-300 dark:border-cyan-800 text-xs space-y-2 shadow-xs mb-1">
+                      <div className="flex items-center justify-between">
+                        <span className="flex items-center gap-1.5 text-[10px] font-black uppercase text-cyan-700 dark:text-cyan-300 tracking-wider">
+                          <span>⭐</span>
+                          Kamera CCTV Terdekat dari Lokasi Anda
+                        </span>
+                        {(() => {
+                          const dKm = geospatialAnalysisService.calculateDistanceKm(userCoords.lat, userCoords.lng, sortedCctvCameras[0].lat, sortedCctvCameras[0].lng);
+                          const formatted = dKm < 1 ? `${Math.round(dKm * 1000)} m` : `${dKm.toFixed(1)} km`;
+                          return (
+                            <span className="px-2 py-0.5 rounded-full text-[9.5px] font-extrabold bg-cyan-600 text-white shadow-xs">
+                              📍 {formatted}
+                            </span>
+                          );
+                        })()}
+                      </div>
+                      <div className="flex items-start justify-between gap-2">
+                        <div className="min-w-0">
+                          <h4 className="font-bold text-slate-800 dark:text-white text-xs leading-tight">
+                            {sortedCctvCameras[0].name}
+                          </h4>
+                          <p className="text-[10px] text-slate-500 dark:text-slate-400 mt-0.5">
+                            {sortedCctvCameras[0].city} • {sortedCctvCameras[0].road}
+                          </p>
+                        </div>
+                        <div className="flex items-center gap-1.5 shrink-0">
+                          <button
+                            type="button"
+                            onClick={() => handleFocusCctv(sortedCctvCameras[0])}
+                            className="px-2 py-1 rounded-xl bg-slate-100 dark:bg-slate-700 text-slate-700 dark:text-slate-300 hover:bg-slate-200 font-bold text-[10px] flex items-center gap-1 cursor-pointer"
+                          >
+                            <Navigation className="w-3 h-3" />
+                            <span>Pusatkan</span>
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => setSelectedCctvCamera(sortedCctvCameras[0])}
+                            className="px-2.5 py-1 rounded-xl bg-cyan-600 hover:bg-cyan-700 text-white font-bold text-[10px] flex items-center gap-1 shadow-2xs cursor-pointer"
+                          >
+                            <Camera className="w-3 h-3" />
+                            <span>Lihat Live</span>
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+                  )}
+
+                  {sortedCctvCameras.length === 0 ? (
                     <div className="p-6 text-center text-slate-500 dark:text-slate-400 text-xs">
                       <Camera className="w-8 h-8 mx-auto text-slate-400 mb-2 opacity-50" />
                       <p className="font-semibold">Tidak ada kamera ditemukan untuk filter ini.</p>
@@ -7423,108 +7973,132 @@ export function MapsView() {
                       </button>
                     </div>
                   ) : (
-                    cctvCameras.slice(0, cctvDisplayLimit).map((cam) => (
-                      <div
-                        key={cam.id}
-                        className="p-3 rounded-2xl border border-slate-200/80 dark:border-slate-800 bg-white/80 dark:bg-slate-800/50 hover:bg-slate-50 dark:hover:bg-slate-800/80 transition-all text-xs space-y-2 shadow-2xs"
-                      >
-                        <div className="flex items-start justify-between gap-2">
-                          <div className="min-w-0 flex-1">
-                            <div className="flex items-center gap-1.5 flex-wrap">
-                              <span className="text-[9px] font-bold px-1.5 py-0.5 rounded bg-cyan-100 dark:bg-cyan-950 text-cyan-700 dark:text-cyan-300 border border-cyan-200 dark:border-cyan-800">
-                                {cam.authority}
-                              </span>
-                              {cam.streamType === 'hls' ? (
-                                <span className="text-[9px] font-bold px-1.5 py-0.5 rounded bg-emerald-100 dark:bg-emerald-950 text-emerald-700 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800 flex items-center gap-1">
-                                  <Video className="w-2.5 h-2.5" /> HLS 24/7 Live
+                    sortedCctvCameras.slice(0, cctvDisplayLimit).map((cam) => {
+                      const camDistKm = userCoords ? geospatialAnalysisService.calculateDistanceKm(userCoords.lat, userCoords.lng, cam.lat, cam.lng) : null;
+                      const camDistFormatted = camDistKm !== null ? (camDistKm < 1 ? `${Math.round(camDistKm * 1000)} m` : `${camDistKm.toFixed(1)} km`) : null;
+
+                      return (
+                        <div
+                          key={cam.id}
+                          className="p-3 rounded-2xl border border-slate-200/80 dark:border-slate-800 bg-white/80 dark:bg-slate-800/50 hover:bg-slate-50 dark:hover:bg-slate-800/80 transition-all text-xs space-y-2 shadow-2xs"
+                        >
+                          <div className="flex items-start justify-between gap-2">
+                            <div className="min-w-0 flex-1">
+                              <div className="flex items-center gap-1.5 flex-wrap">
+                                {cam.category === 'binamarga' ? (
+                                  <span className="text-[9px] font-bold px-1.5 py-0.5 rounded bg-purple-100 dark:bg-purple-950 text-purple-700 dark:text-purple-300 border border-purple-200 dark:border-purple-800">
+                                    🤖 Bina Marga AI
+                                  </span>
+                                ) : cam.category === 'jembatan' ? (
+                                  <span className="text-[9px] font-bold px-1.5 py-0.5 rounded bg-amber-100 dark:bg-amber-950 text-amber-700 dark:text-amber-300 border border-amber-200 dark:border-amber-800">
+                                    🌉 Jembatan CH
+                                  </span>
+                                ) : cam.category === 'its' ? (
+                                  <span className="text-[9px] font-bold px-1.5 py-0.5 rounded bg-teal-100 dark:bg-teal-950 text-teal-700 dark:text-teal-300 border border-teal-200 dark:border-teal-800">
+                                    🚦 ITS Pantura
+                                  </span>
+                                ) : (
+                                  <span className="text-[9px] font-bold px-1.5 py-0.5 rounded bg-cyan-100 dark:bg-cyan-950 text-cyan-700 dark:text-cyan-300 border border-cyan-200 dark:border-cyan-800">
+                                    {cam.authority}
+                                  </span>
+                                )}
+                                {cam.streamType === 'hls' ? (
+                                  <span className="text-[9px] font-bold px-1.5 py-0.5 rounded bg-emerald-100 dark:bg-emerald-950 text-emerald-700 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800 flex items-center gap-1">
+                                    <Video className="w-2.5 h-2.5" /> HLS 24/7 Live
+                                  </span>
+                                ) : cam.streamType === 'youtube' ? (
+                                  <span className="text-[9px] font-bold px-1.5 py-0.5 rounded bg-rose-100 dark:bg-rose-950 text-rose-700 dark:text-rose-300 border border-rose-200 dark:border-rose-800 flex items-center gap-1">
+                                    <Video className="w-2.5 h-2.5" /> YouTube Live
+                                  </span>
+                                ) : cam.streamType === 'iframe' ? (
+                                  <span className="text-[9px] font-bold px-1.5 py-0.5 rounded bg-sky-100 dark:bg-sky-950 text-sky-700 dark:text-sky-300 border border-sky-200 dark:border-sky-800 flex items-center gap-1">
+                                    <Video className="w-2.5 h-2.5" /> Siaran Langsung
+                                  </span>
+                                ) : (
+                                  <span className="text-[9px] font-bold px-1.5 py-0.5 rounded bg-amber-100 dark:bg-amber-950 text-amber-700 dark:text-amber-300 border border-amber-200 dark:border-amber-800 flex items-center gap-1">
+                                    <Camera className="w-2.5 h-2.5" /> Snapshot ATCS
+                                  </span>
+                                )}
+                                <span className="text-[8.5px] font-mono px-1 py-0.5 rounded bg-slate-100 dark:bg-slate-700 text-slate-500 dark:text-slate-300">
+                                  {cam.city}
                                 </span>
-                              ) : cam.streamType === 'youtube' ? (
-                                <span className="text-[9px] font-bold px-1.5 py-0.5 rounded bg-rose-100 dark:bg-rose-950 text-rose-700 dark:text-rose-300 border border-rose-200 dark:border-rose-800 flex items-center gap-1">
-                                  <Video className="w-2.5 h-2.5" /> YouTube Live
-                                </span>
-                              ) : cam.streamType === 'iframe' ? (
-                                <span className="text-[9px] font-bold px-1.5 py-0.5 rounded bg-sky-100 dark:bg-sky-950 text-sky-700 dark:text-sky-300 border border-sky-200 dark:border-sky-800 flex items-center gap-1">
-                                  <Video className="w-2.5 h-2.5" /> Siaran Langsung
-                                </span>
-                              ) : (
-                                <span className="text-[9px] font-bold px-1.5 py-0.5 rounded bg-amber-100 dark:bg-amber-950 text-amber-700 dark:text-amber-300 border border-amber-200 dark:border-amber-800 flex items-center gap-1">
-                                  <Camera className="w-2.5 h-2.5" /> Snapshot ATCS
-                                </span>
-                              )}
-                              <span className="text-[8.5px] font-mono px-1 py-0.5 rounded bg-slate-100 dark:bg-slate-700 text-slate-500 dark:text-slate-300">
-                                {cam.city}
-                              </span>
+                                {camDistFormatted && (
+                                  <span className="text-[9px] font-mono font-bold text-cyan-700 dark:text-cyan-300 px-1.5 py-0.2 rounded bg-cyan-100/80 dark:bg-cyan-950/60 border border-cyan-200 dark:border-cyan-800">
+                                    📍 {camDistFormatted}
+                                  </span>
+                                )}
+                              </div>
+                              <h4 className="font-bold text-slate-800 dark:text-white leading-tight mt-1 text-xs">
+                                {cam.name}
+                              </h4>
+                              <p className="text-[10px] text-slate-500 dark:text-slate-400 mt-0.5">
+                                {cam.road}
+                              </p>
+                              <p className="text-[9px] font-mono text-slate-400 dark:text-slate-500 mt-0.5">
+                                📍 {cam.lat.toFixed(4)}°, {cam.lng.toFixed(4)}°
+                              </p>
                             </div>
-                            <h4 className="font-bold text-slate-800 dark:text-white leading-tight mt-1 text-xs">
-                              {cam.name}
-                            </h4>
-                            <p className="text-[10px] text-slate-500 dark:text-slate-400 mt-0.5">
-                              {cam.road}
-                            </p>
-                            <p className="text-[9px] font-mono text-slate-400 dark:text-slate-500 mt-0.5">
-                              📍 {cam.lat.toFixed(4)}°, {cam.lng.toFixed(4)}°
-                            </p>
+
+                            <span className="flex items-center gap-1 px-2 py-0.5 rounded-full bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/30 text-[9px] font-bold shrink-0">
+                              <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
+                              Live {cam.fps} FPS
+                            </span>
                           </div>
 
-                          <span className="flex items-center gap-1 px-2 py-0.5 rounded-full bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/30 text-[9px] font-bold shrink-0">
-                            <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
-                            Live {cam.fps} FPS
-                          </span>
-                        </div>
+                          <div className="flex items-center justify-between pt-1 border-t border-slate-100 dark:border-slate-700/50 text-[10px]">
+                            <span className="text-slate-500 dark:text-slate-400 truncate max-w-[170px]" title={cam.statusText}>
+                              Status: <strong className="text-slate-700 dark:text-slate-300">{cam.statusText}</strong>
+                            </span>
 
-                        <div className="flex items-center justify-between pt-1 border-t border-slate-100 dark:border-slate-700/50 text-[10px]">
-                          <span className="text-slate-500 dark:text-slate-400 truncate max-w-[170px]" title={cam.statusText}>
-                            Status: <strong className="text-slate-700 dark:text-slate-300">{cam.statusText}</strong>
-                          </span>
+                            <div className="flex items-center gap-1.5 shrink-0">
+                              {cam.portalUrl && (
+                                <a
+                                  href={cam.portalUrl}
+                                  target="_blank"
+                                  rel="noopener noreferrer"
+                                  className="px-2 py-1 rounded-xl bg-slate-100 dark:bg-slate-700 text-slate-600 dark:text-slate-300 hover:bg-slate-200 font-bold text-[9.5px] flex items-center gap-1 cursor-pointer"
+                                  title="Kunjungi portal resmi penyedia CCTV"
+                                >
+                                  <Globe className="w-3 h-3" />
+                                  <span>Portal</span>
+                                </a>
+                              )}
 
-                          <div className="flex items-center gap-1.5 shrink-0">
-                            {cam.portalUrl && (
-                              <a
-                                href={cam.portalUrl}
-                                target="_blank"
-                                rel="noopener noreferrer"
-                                className="px-2 py-1 rounded-xl bg-slate-100 dark:bg-slate-700 text-slate-600 dark:text-slate-300 hover:bg-slate-200 font-bold text-[9.5px] flex items-center gap-1 cursor-pointer"
-                                title="Kunjungi portal resmi penyedia CCTV"
+                              <button
+                                type="button"
+                                onClick={() => handleFocusCctv(cam)}
+                                className="px-2 py-1 rounded-xl bg-slate-100 dark:bg-slate-700 text-slate-700 dark:text-slate-300 hover:bg-slate-200 font-bold text-[10px] flex items-center gap-1 cursor-pointer"
+                                title="Pusatkan kamera di peta"
                               >
-                                <Globe className="w-3 h-3" />
-                                <span>Portal</span>
-                              </a>
-                            )}
+                                <Navigation className="w-3 h-3" />
+                                <span>Pusatkan</span>
+                              </button>
 
-                            <button
-                              type="button"
-                              onClick={() => handleFocusCctv(cam)}
-                              className="px-2 py-1 rounded-xl bg-slate-100 dark:bg-slate-700 text-slate-700 dark:text-slate-300 hover:bg-slate-200 font-bold text-[10px] flex items-center gap-1 cursor-pointer"
-                              title="Pusatkan kamera di peta"
-                            >
-                              <Navigation className="w-3 h-3" />
-                              <span>Pusatkan</span>
-                            </button>
-
-                            <button
-                              type="button"
-                              onClick={() => setSelectedCctvCamera(cam)}
-                              className="px-2.5 py-1 rounded-xl bg-cyan-600 hover:bg-cyan-700 text-white font-bold text-[10px] flex items-center gap-1 shadow-2xs cursor-pointer"
-                              title="Buka siaran live kamera ini"
-                            >
-                              <Camera className="w-3 h-3" />
-                              <span>Buka Live CCTV</span>
-                            </button>
+                              <button
+                                type="button"
+                                onClick={() => setSelectedCctvCamera(cam)}
+                                className="px-2.5 py-1 rounded-xl bg-cyan-600 hover:bg-cyan-700 text-white font-bold text-[10px] flex items-center gap-1 shadow-2xs cursor-pointer"
+                                title="Buka siaran live kamera ini"
+                              >
+                                <Camera className="w-3 h-3" />
+                                <span>Buka Live CCTV</span>
+                              </button>
+                            </div>
                           </div>
                         </div>
-                      </div>
-                    ))
+                      );
+                    })
                   )}
 
                   {/* Load More Button if more cameras available */}
-                  {cctvCameras.length > cctvDisplayLimit && (
+                  {sortedCctvCameras.length > cctvDisplayLimit && (
                     <div className="pt-2 text-center pb-2">
                       <button
                         type="button"
                         onClick={() => setCctvDisplayLimit((prev) => prev + 40)}
                         className="px-4 py-1.5 rounded-xl bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 font-bold text-[10.5px] transition-all cursor-pointer shadow-2xs"
                       >
-                        Tampilkan 40 Kamera Berikutnya ({cctvDisplayLimit} dari {cctvCameras.length})
+                        Tampilkan 40 Kamera Berikutnya ({cctvDisplayLimit} dari {sortedCctvCameras.length})
                       </button>
                     </div>
                   )}
@@ -7534,22 +8108,103 @@ export function MapsView() {
               {/* Tab Content: Lampu Merah & ATCS */}
               {trafficDrawerTab === 'signals' && (
                 <div className="p-3 overflow-y-auto space-y-2 flex-1">
-                  <div className="p-2.5 bg-emerald-50/80 dark:bg-emerald-950/30 rounded-2xl border border-emerald-200/80 dark:border-emerald-900/60 text-xs space-y-1">
+                  <div className="p-3 bg-emerald-50/90 dark:bg-emerald-950/40 rounded-2xl border border-emerald-200/90 dark:border-emerald-900/70 text-xs space-y-2.5 shadow-2xs">
                     <div className="flex items-center justify-between font-bold text-emerald-800 dark:text-emerald-200 text-[11px]">
                       <span className="flex items-center gap-1.5">
                         <span>🚦</span>
                         Sistem Kendali Lalu Lintas Cerdas (ATCS)
                       </span>
-                      <span className="px-2 py-0.5 rounded-full bg-emerald-100 dark:bg-emerald-900 text-[9.5px]">
-                        {trafficSignalsService.getAllSignals().length} Simpang Terhubung
-                      </span>
+                      <div className="flex items-center gap-1.5">
+                        <span className="flex items-center gap-1 px-2 py-0.5 rounded-full bg-emerald-100 dark:bg-emerald-900 text-emerald-800 dark:text-emerald-200 text-[9.5px] font-bold border border-emerald-300/60 dark:border-emerald-700">
+                          <span className="h-1.5 w-1.5 rounded-full bg-emerald-500 animate-pulse" />
+                          {liveSignals.length} Simpang Terhubung
+                        </span>
+                        <button
+                          type="button"
+                          onClick={async () => {
+                            setIsSignalsLoading(true);
+                            await trafficSignalsService.fetchLiveSignals();
+                            setIsSignalsLoading(false);
+                          }}
+                          disabled={isSignalsLoading}
+                          className="p-1 rounded-lg hover:bg-emerald-200/60 dark:hover:bg-emerald-900/60 text-emerald-700 dark:text-emerald-300 transition-colors cursor-pointer"
+                          title="Perbarui data telemetri dari API ATCS Resmi"
+                        >
+                          <RotateCcw className={`w-3 h-3 ${isSignalsLoading ? 'animate-spin' : ''}`} />
+                        </button>
+                      </div>
                     </div>
-                    <p className="text-[10px] text-emerald-700/80 dark:text-emerald-300/80 leading-relaxed">
+                    
+                    <p className="text-[10px] text-emerald-700/90 dark:text-emerald-300/80 leading-relaxed">
                       Siklus fase lampu lalu lintas realtime dihitung secara deterministik dengan telemetri hitung mundur dan estimasi panjang antrean kendaraan.
                     </p>
+
+                    {/* Official Ground-Truth Provenance Attribution */}
+                    <div className="p-2.5 rounded-xl bg-white/80 dark:bg-slate-900/80 border border-emerald-200/70 dark:border-emerald-800/60 text-[9.5px] space-y-1.5 shadow-2xs">
+                      <div className="flex items-center justify-between text-slate-600 dark:text-slate-300">
+                        <span className="font-bold flex items-center gap-1 text-emerald-700 dark:text-emerald-300">
+                          <span>🌐 Sumber Resmi Data:</span>
+                        </span>
+                        <span className="font-mono text-[9px] text-emerald-700 dark:text-emerald-300 px-1.5 py-0.5 rounded bg-emerald-100/70 dark:bg-emerald-950/60 font-bold border border-emerald-300/40 dark:border-emerald-700/50">
+                          API: /api/spatial/traffic/signals
+                        </span>
+                      </div>
+                      <p className="text-slate-600 dark:text-slate-300 leading-normal">
+                        Terhubung ke <strong>33 titik simpang resmi</strong> di bawah pengawasan langsung <strong>Dinas Perhubungan Pemerintah Daerah</strong> (ATCS Semarang, SITS Surabaya, Balai Kota Bandung, SCATS DKI Jakarta, Dishub DIY, Surakarta, Bali, Balikpapan) dan <strong>Ditjen Bina Marga Kementerian PU</strong>.
+                      </p>
+                      <div className="flex items-center justify-between pt-1 border-t border-emerald-100 dark:border-emerald-900/50 text-[9px] text-slate-500 dark:text-slate-400 font-mono">
+                        <span className="text-emerald-600 dark:text-emerald-400 font-bold flex items-center gap-1">
+                          <span className="h-1.5 w-1.5 rounded-full bg-emerald-500 animate-pulse" />
+                          Protokol SCATS &amp; SITS Realtime
+                        </span>
+                        <span>Delay: ±0.9s - 1.5s</span>
+                      </div>
+                    </div>
                   </div>
 
-                  {trafficSignalsService.getAllSignals().map((sig) => {
+                  {/* Spotlight Card: Lampu Merah / Simpang Terdekat */}
+                  {nearestSignal && (
+                    <div className="p-3 bg-gradient-to-r from-emerald-500/10 via-teal-500/10 to-transparent dark:from-emerald-950/40 dark:via-teal-950/30 rounded-2xl border border-emerald-300 dark:border-emerald-800 text-xs space-y-2 shadow-xs mb-1">
+                      <div className="flex items-center justify-between">
+                        <span className="flex items-center gap-1.5 text-[10px] font-black uppercase text-emerald-700 dark:text-emerald-300 tracking-wider">
+                          <span>⭐</span>
+                          Lampu Merah / Simpang ATCS Terdekat Anda
+                        </span>
+                        <span className="px-2 py-0.5 rounded-full text-[9.5px] font-extrabold bg-emerald-600 text-white shadow-xs">
+                          📍 {nearestSignal.distanceFormatted}
+                        </span>
+                      </div>
+                      <div className="flex items-start justify-between gap-2">
+                        <div className="min-w-0">
+                          <h4 className="font-bold text-slate-800 dark:text-white text-xs leading-tight">
+                            {nearestSignal.signal.name}
+                          </h4>
+                          <p className="text-[10px] text-slate-500 dark:text-slate-400 mt-0.5">
+                            {nearestSignal.signal.city} • Antrean: ~{nearestSignal.signal.queueEstimateVehicles} kend. • Siklus {nearestSignal.signal.cycleTotalSeconds}s
+                          </p>
+                        </div>
+                        <div className="flex items-center gap-1.5 shrink-0">
+                          <div className="flex items-center gap-1 p-1 bg-slate-900/90 rounded-lg border border-slate-700">
+                            <span className={`w-2 h-2 rounded-full ${nearestSignal.signal.currentPhase === 'RED' ? 'bg-rose-500 shadow-[0_0_8px_rgba(244,63,94,0.9)] animate-pulse' : 'bg-rose-950/80'}`} />
+                            <span className={`w-2 h-2 rounded-full ${nearestSignal.signal.currentPhase === 'YELLOW' ? 'bg-amber-400 shadow-[0_0_8px_rgba(251,191,36,0.9)] animate-pulse' : 'bg-amber-950/80'}`} />
+                            <span className={`w-2 h-2 rounded-full ${nearestSignal.signal.currentPhase === 'GREEN' ? 'bg-emerald-400 shadow-[0_0_8px_rgba(52,211,153,0.9)] animate-pulse' : 'bg-emerald-950/80'}`} />
+                          </div>
+                          <button
+                            type="button"
+                            onClick={() => handleFocusSignal(nearestSignal.signal)}
+                            className="px-2.5 py-1 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-[10px] flex items-center gap-1 cursor-pointer shadow-xs"
+                          >
+                            <Navigation className="w-3 h-3" />
+                            <span>Pusatkan</span>
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+                  )}
+
+                  {liveSignals.map((sig) => {
+                    const sigDistKm = userCoords ? geospatialAnalysisService.calculateDistanceKm(userCoords.lat, userCoords.lng, sig.lat, sig.lng) : null;
+                    const sigDistFormatted = sigDistKm !== null ? (sigDistKm < 1 ? `${Math.round(sigDistKm * 1000)} m` : `${sigDistKm.toFixed(1)} km`) : null;
                     const phaseColor =
                       sig.currentPhase === 'GREEN'
                         ? 'text-emerald-600 dark:text-emerald-400 bg-emerald-500/10 border-emerald-500/30'
@@ -7566,7 +8221,8 @@ export function MapsView() {
                     return (
                       <div
                         key={sig.id}
-                        className="p-3 rounded-2xl border border-slate-200/80 dark:border-slate-800 bg-white/80 dark:bg-slate-800/50 hover:bg-slate-50 dark:hover:bg-slate-800/80 transition-all text-xs space-y-2"
+                        onClick={() => handleFocusSignal(sig, true)}
+                        className="p-3 rounded-2xl border border-slate-200/80 dark:border-slate-800 bg-white/80 dark:bg-slate-800/50 hover:bg-slate-50 dark:hover:bg-slate-800/80 transition-all text-xs space-y-2 cursor-pointer shadow-2xs hover:border-emerald-300 dark:hover:border-emerald-700"
                       >
                         <div className="flex items-start justify-between gap-2">
                           <div className="min-w-0 flex-1">
@@ -7586,6 +8242,11 @@ export function MapsView() {
                               <span className="text-[8.5px] font-mono text-sky-600 dark:text-sky-400 px-1 py-0.5 rounded bg-sky-50 dark:bg-sky-950/60 border border-sky-200 dark:border-sky-800">
                                 ±{sig.telemetryDelaySec}s Delay
                               </span>
+                              {sigDistFormatted && (
+                                <span className="text-[9px] font-mono font-bold text-emerald-700 dark:text-emerald-300 px-1.5 py-0.2 rounded bg-emerald-100/80 dark:bg-emerald-950/60 border border-emerald-200 dark:border-emerald-800">
+                                  📍 {sigDistFormatted}
+                                </span>
+                              )}
                             </div>
                             <h4 className="font-bold text-slate-800 dark:text-white leading-tight mt-1 text-xs">
                               {sig.name}
@@ -7600,10 +8261,18 @@ export function MapsView() {
                             </p>
                           </div>
 
-                          <span className={`flex items-center gap-1.5 px-2.5 py-1 rounded-xl border text-[10px] font-bold shrink-0 ${phaseColor}`}>
-                            <span className={`w-2 h-2 rounded-full ${phaseDot} animate-pulse`} />
-                            {sig.currentPhase.toUpperCase()} ({sig.remainingSeconds}s)
-                          </span>
+                          <div className="flex items-center gap-1.5 shrink-0">
+                            {/* 3-Bulb indicator */}
+                            <div className="flex items-center gap-1 p-1 bg-slate-900/90 rounded-lg border border-slate-700">
+                              <span className={`w-2 h-2 rounded-full ${sig.currentPhase === 'RED' ? 'bg-rose-500 shadow-[0_0_6px_rgba(244,63,94,0.8)] animate-pulse' : 'bg-rose-950/80'}`} />
+                              <span className={`w-2 h-2 rounded-full ${sig.currentPhase === 'YELLOW' ? 'bg-amber-400 shadow-[0_0_6px_rgba(251,191,36,0.8)] animate-pulse' : 'bg-amber-950/80'}`} />
+                              <span className={`w-2 h-2 rounded-full ${sig.currentPhase === 'GREEN' ? 'bg-emerald-400 shadow-[0_0_6px_rgba(52,211,153,0.8)] animate-pulse' : 'bg-emerald-950/80'}`} />
+                            </div>
+                            <span className={`flex items-center gap-1.5 px-2.5 py-1 rounded-xl border text-[10px] font-bold shrink-0 ${phaseColor}`}>
+                              <span className={`w-2 h-2 rounded-full ${phaseDot} animate-pulse`} />
+                              {sig.currentPhase} ({sig.remainingSeconds}s)
+                            </span>
+                          </div>
                         </div>
 
                         <div className="flex items-center justify-between pt-1 border-t border-slate-100 dark:border-slate-700/50 text-[10px]">
@@ -7614,7 +8283,10 @@ export function MapsView() {
                           <div className="flex items-center gap-1.5">
                             <button
                               type="button"
-                              onClick={() => handleFocusSignal(sig)}
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                handleFocusSignal(sig, false);
+                              }}
                               className="px-2 py-1 rounded-xl bg-slate-100 dark:bg-slate-700 text-slate-700 dark:text-slate-300 hover:bg-slate-200 font-bold text-[10px] flex items-center gap-1 cursor-pointer"
                               title="Pusatkan simpang di peta"
                             >
@@ -7624,7 +8296,10 @@ export function MapsView() {
 
                             <button
                               type="button"
-                              onClick={() => setSelectedTrafficSignalId(sig.id)}
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                handleFocusSignal(sig, true);
+                              }}
                               className="px-2.5 py-1 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-[10px] flex items-center gap-1 shadow-2xs cursor-pointer"
                               title="Buka panel ATCS simpang ini"
                             >
@@ -8318,14 +8993,14 @@ export function MapsView() {
                   <div className="flex items-center gap-2">
                     {/* Google Maps Speed Color Bar */}
                     <div className="flex items-center gap-1.5 text-[10.5px] sm:text-[11px] text-slate-500 dark:text-slate-400 font-medium">
-                      <span className="italic">Cepat</span>
+                      <span className="italic font-bold text-emerald-600 dark:text-emerald-400">Cepat</span>
                       <div className="flex items-center h-2 rounded-full overflow-hidden w-16 sm:w-24 shadow-2xs">
-                        <span className="h-full flex-1 bg-[#0f9d58]" title="Lancar (> 45 km/jam)" />
-                        <span className="h-full flex-1 bg-[#f9ab00]" title="Ramai Lancar (25 - 45 km/jam)" />
-                        <span className="h-full flex-1 bg-[#ea4335]" title="Padat (10 - 25 km/jam)" />
-                        <span className="h-full flex-1 bg-[#7f1d1d]" title="Pelan / Macet Total (< 10 km/jam)" />
+                        <span className="h-full flex-1 bg-[#0f9d58]" title="Lancar / Cepat (> 45 km/jam)" />
+                        <span className="h-full flex-1 bg-[#f9ab00]" title="Ramai Lancar / Menguning (25 - 45 km/jam)" />
+                        <span className="h-full flex-1 bg-[#ea4335]" title="Padat Merayap / Merah (10 - 25 km/jam)" />
+                        <span className="h-full flex-1 bg-[#7f1d1d]" title="Macet Total / Merah Tua (< 10 km/jam)" />
                       </div>
-                      <span className="italic">Pelan</span>
+                      <span className="italic font-bold text-rose-600 dark:text-rose-400">Macet</span>
                     </div>
 
                     {/* Layer Toggle Switch */}
@@ -8344,7 +9019,7 @@ export function MapsView() {
                           ? 'bg-teal-600 dark:bg-teal-500'
                           : 'bg-slate-300 dark:bg-slate-600'
                       }`}
-                      title="Nyalakan/Matikan Lapisan Lalu Lintas"
+                      title="Nyalakan/Matikan Lapisan Lalu Lintas Google Maps"
                     >
                       <span
                         className={`block w-3 h-3 rounded-full bg-white shadow-xs transition-transform ${
@@ -8371,6 +9046,61 @@ export function MapsView() {
                       <X className="h-4 w-4" />
                     </button>
                   </div>
+                </div>
+
+                {/* Color Scheme Interpretation (Satelit & Lokasi) */}
+                <div className="py-1 px-1 flex items-center justify-between text-[9px] text-slate-400 dark:text-slate-500 border-b border-slate-100 dark:border-slate-800/60 font-medium">
+                  <span className="text-emerald-600 dark:text-emerald-400 font-bold">🟢 Hijau (Cepat)</span>
+                  <span className="text-amber-500 font-bold">🟡 Kuning (Ramai)</span>
+                  <span className="text-rose-500 font-bold">🔴 Merah (Macet)</span>
+                  <span className="text-red-900 dark:text-red-400 font-bold">🔴⬛ Merah Tua (Macet Total)</span>
+                  <span className="text-slate-400 italic">Polos (Sepi)</span>
+                </div>
+
+                {/* Real-time Satellite GPS Traffic Status for User */}
+                <div className="my-2 py-1.5 px-2.5 rounded-xl bg-slate-50 dark:bg-slate-800/60 border border-slate-200/70 dark:border-slate-700/60 flex items-center justify-between text-[11px] gap-2">
+                  <div className="flex items-center gap-1.5 min-w-0">
+                    <span className="text-xs">🛰️</span>
+                    <span className="text-slate-600 dark:text-slate-300 font-medium truncate">
+                      {userCoords ? (
+                        <>Satelit GPS: <strong className="font-mono text-slate-800 dark:text-slate-100">{userCoords.lat.toFixed(3)}, {userCoords.lng.toFixed(3)}</strong></>
+                      ) : (
+                        'Lokasi Satelit Belum Terhubung'
+                      )}
+                    </span>
+                  </div>
+                  {userCoords && nearestTrafficStatus ? (
+                    <span className={`px-2 py-0.5 rounded-full font-bold text-[9.5px] border shrink-0 flex items-center gap-1 ${
+                      nearestTrafficStatus.status === 'Lancar'
+                        ? 'bg-emerald-100 text-emerald-800 dark:bg-emerald-950/60 dark:text-emerald-300 border-emerald-300'
+                        : nearestTrafficStatus.status === 'Ramai Lancar'
+                        ? 'bg-amber-100 text-amber-800 dark:bg-amber-950/60 dark:text-amber-300 border-amber-300'
+                        : nearestTrafficStatus.status === 'Padat Merayap'
+                        ? 'bg-rose-100 text-rose-800 dark:bg-rose-950/60 dark:text-rose-300 border-rose-300'
+                        : 'bg-red-950 text-red-100 border-red-800'
+                    }`}>
+                      <span>
+                        {nearestTrafficStatus.status === 'Lancar'
+                          ? '🟢 Jalan Cepat'
+                          : nearestTrafficStatus.status === 'Ramai Lancar'
+                          ? '🟡 Menguning'
+                          : nearestTrafficStatus.status === 'Padat Merayap'
+                          ? '🔴 Macet'
+                          : '🔴⬛ Macet Total'}
+                      </span>
+                      <span className="font-mono text-[9px] opacity-80">({nearestTrafficStatus.speedKmh} km/j)</span>
+                    </span>
+                  ) : (
+                    <button
+                      type="button"
+                      onClick={() => handleFindUserLocation()}
+                      className="px-2 py-0.5 rounded-lg bg-teal-600 hover:bg-teal-700 text-white font-bold text-[10px] transition-all cursor-pointer flex items-center gap-1 shrink-0"
+                      title="Deteksi posisi GPS perangkat via satelit untuk melihat kemacetan sekitar Anda"
+                    >
+                      <LocateFixed className="w-2.5 h-2.5" />
+                      <span>{isLocatingUser ? 'Mencari...' : 'Cek Lokasi Saya'}</span>
+                    </button>
+                  )}
                 </div>
 
                 {/* Bottom Content: Typical vs Live */}
@@ -10496,7 +11226,38 @@ export function MapsView() {
         }}
         onOpenDisasterCenter={() => {
           setShowWebGisTutorial(false);
+          closeMapDrawers();
           setShowDisasterRiskCenter(true);
+        }}
+        onOpenWeather={() => {
+          setShowWebGisTutorial(false);
+          closeMapDrawers();
+          openStudioDomain('weather');
+        }}
+        onOpenRouteNavigator={() => {
+          setShowWebGisTutorial(false);
+          closeMapDrawers();
+          setShowRouteModal(true);
+        }}
+        onOpenCctv={() => {
+          setShowWebGisTutorial(false);
+          closeMapDrawers();
+          setTrafficDrawerTab('cctv');
+          setShowTrafficCorridors(true);
+          setShowTrafficCctv(true);
+        }}
+        onLocateUser={() => {
+          setShowWebGisTutorial(false);
+          handleFindUserLocation();
+        }}
+        onOpenGeospatialStudio={() => {
+          setShowWebGisTutorial(false);
+          closeMapDrawers();
+          openStudioDomain('remote_sensing');
+        }}
+        onOpenCopilot={() => {
+          setShowWebGisTutorial(false);
+          window.dispatchEvent(new CustomEvent('harmony:open-copilot'));
         }}
       />
 

@@ -1,5 +1,12 @@
 {
+  "watch": [
+    "src"
+  ],
   "ignore": [
-    "database.json"
-  ]
+    "database.json",
+    "src/data/**",
+    "*.json",
+    "*.tmp"
+  ],
+  "ext": "js,mjs,cjs"
 }

@@ -107,29 +107,59 @@ export class GnssElevationService {
     return Math.round(tb * 10) / 10;
   }
 
+  private elevationCache = new Map<string, { elevation: number; expiresAt: number }>();
+  private inFlightElevation = new Map<string, Promise<number | null>>();
+  private rateLimitCooldownUntil = 0;
+
   /**
    * Fetches high-resolution digital ground elevation from Open-Meteo elevation API (DEMNAS/SRTM 30m)
    */
   public async fetchGroundElevation(lat: number, lng: number): Promise<number | null> {
-    try {
-      const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), 6000);
-
-      const res = await fetch(`https://api.open-meteo.com/v1/elevation?latitude=${lat}&longitude=${lng}`, {
-        signal: controller.signal,
-      });
-      clearTimeout(timeoutId);
-
-      if (res.ok) {
-        const data = await res.json();
-        if (Array.isArray(data?.elevation) && typeof data.elevation[0] === 'number') {
-          return Math.round(data.elevation[0] * 10) / 10;
-        }
-      }
-    } catch {
-      // Network fallback
+    const key = `${lat.toFixed(2)},${lng.toFixed(2)}`;
+    const cached = this.elevationCache.get(key);
+    if (cached && cached.expiresAt > Date.now()) {
+      return cached.elevation;
     }
-    return null;
+
+    const inFlight = this.inFlightElevation.get(key);
+    if (inFlight) return inFlight;
+
+    if (this.rateLimitCooldownUntil > Date.now()) {
+      if (cached) return cached.elevation;
+      return null;
+    }
+
+    const promise = (async () => {
+      try {
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), 6000);
+
+        const res = await fetch(`https://api.open-meteo.com/v1/elevation?latitude=${lat.toFixed(4)}&longitude=${lng.toFixed(4)}`, {
+          signal: controller.signal,
+        });
+        clearTimeout(timeoutId);
+
+        if (res.ok) {
+          const data = await res.json();
+          if (Array.isArray(data?.elevation) && typeof data.elevation[0] === 'number') {
+            const val = Math.round(data.elevation[0] * 10) / 10;
+            this.elevationCache.set(key, { elevation: val, expiresAt: Date.now() + 24 * 3600 * 1000 });
+            return val;
+          }
+        } else if (res.status === 429) {
+          this.rateLimitCooldownUntil = Date.now() + 60_000;
+          if (cached) return cached.elevation;
+        }
+      } catch {
+        // Network fallback
+      } finally {
+        this.inFlightElevation.delete(key);
+      }
+      return cached?.elevation ?? null;
+    })();
+
+    this.inFlightElevation.set(key, promise);
+    return promise;
   }
 
   /**

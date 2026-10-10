@@ -557,6 +557,7 @@ class VolcanoService {
   private cache: Map<string, VolcanoLiveStatus> = new Map();
   private listeners: Set<VolcanoUpdateListener> = new Set();
   private pollIntervalMs = 60000; // 60s auto refresh loop
+  private consecutiveFailures = 0;
   private timer: any = null;
 
   constructor() {
@@ -586,11 +587,16 @@ class VolcanoService {
   }
 
   public async fetchLiveVolcanoUpdates(): Promise<VolcanoLiveStatus[]> {
+    if (typeof navigator !== 'undefined' && !navigator.onLine) {
+      return this.getAllMonitoredVolcanoes();
+    }
+
     try {
       const res = await fetch('/api/spatial/volcanoes/live');
       if (res.ok) {
         const json = await res.json();
         if (json.success && Array.isArray(json.data)) {
+          this.consecutiveFailures = 0;
           json.data.forEach((update: any) => {
             const key = this.normalizeName(update.name);
             const existing = this.cache.get(key);
@@ -611,8 +617,11 @@ class VolcanoService {
           this.notify();
           return this.getAllMonitoredVolcanoes();
         }
+      } else {
+        this.consecutiveFailures++;
       }
     } catch {
+      this.consecutiveFailures++;
       // Graceful local cache fallback
     }
     return this.getAllMonitoredVolcanoes();
@@ -662,12 +671,33 @@ class VolcanoService {
 
   private startPolling(): void {
     if (typeof window === 'undefined') return;
-    if (this.timer) clearInterval(this.timer);
-    this.timer = setInterval(() => {
-      void this.fetchLiveVolcanoUpdates();
-    }, this.pollIntervalMs);
-    if (this.timer && typeof this.timer.unref === 'function') {
-      this.timer.unref();
+    if (this.timer) clearTimeout(this.timer);
+
+    const scheduleNext = () => {
+      let delay = this.pollIntervalMs;
+      if (this.consecutiveFailures >= 5) {
+        delay = 300000;
+      } else if (this.consecutiveFailures >= 3) {
+        delay = 180000;
+      }
+
+      this.timer = setTimeout(async () => {
+        if (typeof document !== 'undefined' && document.hidden) {
+          scheduleNext();
+          return;
+        }
+        await this.fetchLiveVolcanoUpdates();
+        scheduleNext();
+      }, delay);
+    };
+
+    scheduleNext();
+  }
+
+  public stopPolling(): void {
+    if (this.timer) {
+      clearTimeout(this.timer);
+      this.timer = null;
     }
   }
 

@@ -23,6 +23,7 @@ import {
 import { useAuth } from "@/hooks/useAuth";
 import { buildAISummary } from "@/data/userProfiles";
 import { askChatbotAI } from "@/services/geminiService";
+import { copilotIntelligenceService } from "@/services/copilotIntelligenceService";
 
 interface NavigationAction {
   label: string;
@@ -248,8 +249,8 @@ export function FloatingAICopilot() {
       id: "welcome",
       role: "ai",
       text: currentUser
-        ? `Halo ${currentUser.name}! 👋 Saya Harmony AI Copilot. Saya bisa menjawab pertanyaan mitigasi bencana, geospasial, cuaca, dan membantu Anda membuka tab atau aplikasi secara otomatis!`
-        : "Halo! 👋 Saya Harmony AI Copilot. Tanya apa saja seputar mitigasi bencana, atau ketik 'buka cuaca' / 'buka peta' untuk langsung berpindah tab!",
+        ? `Halo ${currentUser.name}! 👋 Harmony AI Copilot siap membantu. Tanya cuaca real-time, pantau gempa & gunung api, cek elevasi lokasi, atau ketik navigasi fitur.`
+        : "Halo! 👋 Harmony AI Copilot siap membantu. Tanya cuaca real-time, pantau gempa & gunung api, cek elevasi lokasi, atau ketik navigasi fitur.",
       timestamp: new Date().toLocaleTimeString("id-ID", {
         hour: "2-digit",
         minute: "2-digit",
@@ -263,6 +264,16 @@ export function FloatingAICopilot() {
   >([]);
   const chatEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
+    const handleOpenCopilot = () => {
+      setIsOpen(true);
+    };
+    window.addEventListener("harmony:open-copilot", handleOpenCopilot);
+    return () => {
+      window.removeEventListener("harmony:open-copilot", handleOpenCopilot);
+    };
+  }, []);
 
   useEffect(() => {
     if (isOpen) {
@@ -282,14 +293,14 @@ export function FloatingAICopilot() {
         navigate(action.path);
       }
       if (action.event) {
-        // Dispatch custom event for real-time in-page actions (like weather modal, layer settings)
+        // Dispatch custom event for real-time in-page actions (like weather modal, layer settings, locate)
         setTimeout(() => {
           window.dispatchEvent(
             new CustomEvent(action.event!.name, {
               detail: action.event!.detail,
             }),
           );
-        }, 120);
+        }, 150);
       }
     },
     [navigate],
@@ -325,16 +336,48 @@ export function FloatingAICopilot() {
     setChatMessages((prev) => [...prev, userMsg, loadingMsg]);
     setChatLoading(true);
 
-    if (navIntent) {
-      // Auto execute navigation if intent is clear
-      executeNavigationAction(navIntent);
-    }
-
     chatHistory.current.push({ role: "user", parts: [{ text }] });
 
     try {
       let reply = "";
-      if (
+      let actionToAttach: NavigationAction | undefined = undefined;
+
+      // 1. Cek apakah pengguna menanyakan fitur yang BELUM ADA / TIDAK TERSEDIA di platform Harmony
+      if (copilotIntelligenceService.checkUnavailableFeature(text)) {
+        const unavail = copilotIntelligenceService.getUnavailableFeatureResponse();
+        reply = unavail.text;
+      }
+      // 2. Cek apakah pengguna meminta penjelasan arsitektur seluruh fitur Harmony
+      else if (copilotIntelligenceService.isAskingAllFeatures(text)) {
+        const summary = copilotIntelligenceService.getAllFeaturesSummary();
+        reply = summary.text;
+        actionToAttach = summary.action;
+      }
+      // 3. Cek apakah pengguna menanyakan daerah mana saja yang sedang hujan
+      else if (copilotIntelligenceService.isRainRegionsQuery(text)) {
+        const rainStatus = await copilotIntelligenceService.fetchIndonesianRainStatus();
+        reply = rainStatus.text;
+        actionToAttach = rainStatus.action;
+        executeNavigationAction(actionToAttach);
+      }
+      // 4. Cek apakah pengguna menanyakan lokasi dan ketinggian / elevasi tempat mereka
+      else if (copilotIntelligenceService.isLocationElevationQuery(text)) {
+        const locStatus = await copilotIntelligenceService.handleLocationAndElevation();
+        reply = locStatus.text;
+        actionToAttach = locStatus.action;
+        if (actionToAttach) {
+          executeNavigationAction(actionToAttach);
+        }
+      }
+      // 5. Cek apakah pengguna menanyakan cuaca hari ini / cuaca sekarang
+      else if (copilotIntelligenceService.isCurrentWeatherQuery(text)) {
+        const weatherStatus = await copilotIntelligenceService.fetchCurrentWeather(text);
+        reply = weatherStatus.text;
+        actionToAttach = weatherStatus.action;
+        executeNavigationAction(actionToAttach);
+      }
+      // 6. Cek perintah navigasi cepat ("buka ...", "ke ...", "lihat ...")
+      else if (
         navIntent &&
         (text.toLowerCase().startsWith("buka") ||
           text.toLowerCase().startsWith("ke ") ||
@@ -342,13 +385,21 @@ export function FloatingAICopilot() {
           text.toLowerCase() === "cuaca" ||
           text.toLowerCase() === "peta")
       ) {
-        reply = `Siap! Saya langsung membuka **${navIntent.label}** untuk Anda sekarang. ${navIntent.icon}\n\nAda hal lain yang ingin Anda ketahui atau navigasikan?`;
-      } else {
+        reply = `Membuka **${navIntent.label}** untuk Anda sekarang. ${navIntent.icon}`;
+        actionToAttach = navIntent;
+        executeNavigationAction(navIntent);
+      }
+      // 7. Dialog cerdas umum via Gemini AI
+      else {
         reply = await askChatbotAI(
           text,
           chatHistory.current,
           getProfileSummary(),
         );
+        if (navIntent) {
+          actionToAttach = navIntent;
+          executeNavigationAction(navIntent);
+        }
       }
 
       chatHistory.current.push({ role: "model", parts: [{ text: reply }] });
@@ -360,7 +411,7 @@ export function FloatingAICopilot() {
                 ...m,
                 text: reply,
                 loading: false,
-                action: navIntent || undefined,
+                action: actionToAttach,
               }
             : m,
         ),
@@ -368,7 +419,7 @@ export function FloatingAICopilot() {
     } catch {
       const fallbackReply = navIntent
         ? `Membuka **${navIntent.label}** untuk Anda. ${navIntent.icon}`
-        : "Maaf, terjadi kendala saat menghubungi asisten AI. Silakan coba lagi sebentar ya!";
+        : "Maaf, koneksi ke asisten AI sedang sibuk. Silakan gunakan perintah navigasi seperti 'buka peta' atau 'buka cuaca'.";
 
       setChatMessages((prev) =>
         prev.map((m) =>
@@ -388,10 +439,11 @@ export function FloatingAICopilot() {
   };
 
   const quickPrompts = [
-    { label: "Buka Cuaca ⛅", query: "buka cuaca" },
+    { label: "Cuaca Hari Ini ⛅", query: "gimana cuaca hari ini?" },
+    { label: "Daerah Hujan 🌧️", query: "daerah mana saja yang hujan saat ini?" },
+    { label: "Lokasi & Ketinggian 📍", query: "dimana lokasi saya dan ketinggian?" },
+    { label: "Semua Fitur 📋", query: "apa saja fiturnya?" },
     { label: "Buka Peta 🗺️", query: "buka peta" },
-    { label: "Studio Geospasial 🛰️", query: "buka studio geospasial" },
-    { label: "Dashboard 📊", query: "buka dashboard" },
     { label: "Tips Gempa 🚨", query: "bagaimana mitigasi saat gempa bumi?" },
   ];
 

@@ -57,7 +57,7 @@ export function Phase1MapEditor({
     null,
   );
   const [selectedItem, setSelectedItem] = useState<any>(null);
-  const [showRoomLabels, setShowRoomLabels] = useState(true);
+  const [showRoomLabels, setShowRoomLabels] = useState(false);
 
   const [exitConfirmOpen, setExitConfirmOpen] = useState(false);
   const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);

@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { X, Clock, ShieldCheck, Activity, Radio, Wrench, AlertTriangle, CheckCircle2, Building2 } from 'lucide-react';
-import { TrafficSignalIntersection, computeLiveSignalState } from '@/services/trafficSignalsService';
+import { TrafficSignalIntersection, trafficSignalsService } from '@/services/trafficSignalsService';
 
 interface TrafficSignalModalProps {
   signalId: string | null;
@@ -17,13 +17,8 @@ export const TrafficSignalModal: React.FC<TrafficSignalModalProps> = ({ signalId
     }
 
     const updateSignal = () => {
-      const all = computeLiveSignalState(Date.now());
-      const found = all.find((s) => s.id === signalId);
-      if (found) {
-        setSignal(found);
-      } else {
-        setSignal(null);
-      }
+      const found = trafficSignalsService.getSignalById(signalId);
+      setSignal(found || null);
     };
 
     updateSignal();

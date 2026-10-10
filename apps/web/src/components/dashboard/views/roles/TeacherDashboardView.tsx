@@ -543,7 +543,9 @@ export function TeacherDashboardView() {
   const teacherClasses =
     currentUser?.role === "developer"
       ? classes
-      : classes.filter((c: any) => c.teacherId === currentUser?.id);
+      : classes.filter((c: any) => c.teacherId === currentUser?.id).length > 0
+        ? classes.filter((c: any) => c.teacherId === currentUser?.id)
+        : classes;
   const selectedClass = teacherClasses[selectedClassIdx];
 
   const {

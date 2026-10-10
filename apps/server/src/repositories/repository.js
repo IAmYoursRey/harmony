@@ -455,6 +455,13 @@ export async function readDB() {
         db.events = [];
       }
 
+      try {
+        const qhRes = await timeoutQuery(pool.query("SELECT data FROM quiz_histories"));
+        db.quizHistories = qhRes.rows.map((r) => r.data);
+      } catch (_e) {
+        db.quizHistories = [];
+      }
+
       db.accounts = accountsRes.rows.map((r) => r.data);
       db.profiles = profilesRes.rows.map((r) => r.data);
       db.schools = schoolsRes.rows.map((r) => r.data);
@@ -751,6 +758,7 @@ export async function writeDB(db, tablesToUpdate = null) {
       insertArray("dt_results", "dtResults", fullDb.dtResults);
       insertArray("surveys", "surveys", fullDb.surveys);
       insertArray("events", "events", fullDb.events);
+      insertArray("quiz_histories", "quizHistories", fullDb.quizHistories);
 
       insertTwins(fullDb.digitalTwins);
       insertObject("grid_maps", "gridMaps", fullDb.gridMaps);

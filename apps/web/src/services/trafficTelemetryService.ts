@@ -34,6 +34,8 @@ export interface TrafficCorridor {
   segments: TrafficSegment[]; // Segmentasi multi-warna dinamis
   milestones?: TrafficMilestone[]; // Titik pantau gerbang tol / simpang susun
   incidentAlert?: string;
+  distanceKm?: number | null;
+  distanceFormatted?: string | null;
 }
 
 // Master Dataset Koridor Jalan Nyata Indonesia (OSRM-Snapped)

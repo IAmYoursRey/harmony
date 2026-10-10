@@ -20,6 +20,8 @@ import {
   calculateTransportEmissions,
   getTrafficFlowProxy,
   getTrafficCctvList,
+  getTrafficCctvHealth,
+  triggerTrafficCctvRefresh,
   streamTrafficCctv,
   proxyCctvStream,
   getTrafficCctvThumbnail,
@@ -31,6 +33,7 @@ import {
   getVolcanoesList,
   getLiveVolcanoUpdates,
   getLiveEarthquakesList,
+  handleDirectCctvStream,
 } from "../controllers/spatialController.js";
 
 const router = Router();
@@ -65,8 +68,11 @@ router.get("/hotspots/timeline/:id", getHotspotsSnapshotByIdEndpoint);
 router.post("/hotspots/snapshot", saveHotspotSnapshotEndpoint);
 router.get("/traffic/flow", getTrafficFlowProxy);
 router.get("/traffic/cctv", getTrafficCctvList);
+router.get("/traffic/cctv-health", getTrafficCctvHealth);
+router.post("/traffic/cctv-refresh", triggerTrafficCctvRefresh);
 router.get("/traffic/cctv-stream", streamTrafficCctv);
 router.get("/traffic/cctv-proxy", proxyCctvStream);
+router.all("/stream", handleDirectCctvStream);
 router.get("/traffic/cctv-thumbnail", getTrafficCctvThumbnail);
 router.get("/traffic/signals", getTrafficSignalsList);
 router.get("/traffic/live-network", getLiveTrafficNetwork);

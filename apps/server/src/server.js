@@ -23,6 +23,7 @@ import quizHistoryRoutes from "./routes/quizHistory.js";
 import spatialRoutes from "./routes/spatialRoutes.js";
 import eventsRoutes from "./routes/events.js";
 import bmkgRoutes from "./routes/bmkgRoutes.js";
+import { handleDirectCctvStream } from "./controllers/spatialController.js";
 
 const app = express();
 const PORT = process.env.PORT || 3001;
@@ -70,6 +71,9 @@ app.use("/api/quiz-history", quizHistoryRoutes);
 app.use("/api/spatial", spatialRoutes);
 app.use("/api/events", eventsRoutes);
 app.use("/api/bmkg", bmkgRoutes);
+
+// Direct Live CCTV HLS Playlist & Fragment Stream Gateway
+app.all("/api/stream", handleDirectCctvStream);
 
 app.get("/api/debug", async (req, res) => {
   const dbUrl = process.env.DATABASE_URL || process.env.POSTGRES_URL;
