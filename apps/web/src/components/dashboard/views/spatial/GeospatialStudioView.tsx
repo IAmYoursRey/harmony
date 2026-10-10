@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
-import { GeospatialWeatherModal } from './GeospatialWeatherModal';
+import { useNavigate, useSearchParams } from 'react-router-dom';
+import { GeospatialWeatherModal, StudioDomain } from './GeospatialWeatherModal';
 import { bmkgService } from '@/services/bmkgService';
 import { fetchSchools } from '@/services/schoolService';
 import { useAuth } from '@/hooks/useAuth';
@@ -9,6 +9,8 @@ import { preciseGeocodingService, PreciseLocationInfo } from '@/services/precise
 
 export const GeospatialStudioView: React.FC = () => {
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
+  const domainParam = (searchParams.get('tab') || searchParams.get('domain')) as StudioDomain | null;
   const { currentProfile, currentUser } = useAuth();
   const { selection } = useSchool();
   const [schools, setSchools] = useState<any[]>([]);
@@ -124,6 +126,7 @@ export const GeospatialStudioView: React.FC = () => {
       <GeospatialWeatherModal
         isOpen={true}
         asPage={true}
+        initialDomain={domainParam || undefined}
         onClose={() => navigate('/app/maps')}
         lat={activeLat}
         lng={activeLng}

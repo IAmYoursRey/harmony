@@ -7,8 +7,9 @@ import { useToast } from "@/hooks/useToast";
 import { ThemePicker } from "@/components/ThemePicker";
 import { SearchableDropdown } from "@/components/SchoolLocationSelector";
 import { useAuth } from "@/hooks/useAuth";
+import { useSchool } from "@/hooks/useSchool";
 import { GoogleLogin } from "@react-oauth/google";
-import { fetchProvinces, fetchRegencies, fetchSchools } from "@/services/schoolService";
+import { fetchProvinces, fetchRegencies, fetchSchools, getSchoolById, SMAN_1_NGORO_FALLBACK } from "@/services/schoolService";
 import type { School } from "@/data/schools";
 
 type AuthStatus = 
@@ -26,6 +27,7 @@ export default function LoginPage() {
   const redirectUrl = searchParams.get("redirect") || "/app/dashboard";
   const { show } = useToast();
   const { login, finalizeLogin, registerGoogle, currentUser } = useAuth();
+  const { setSelection } = useSchool();
 
   const [authStatus, setAuthStatus] = useState<AuthStatus>("initial");
   const [googleData, setGoogleData] = useState<any>(null);
@@ -132,7 +134,7 @@ export default function LoginPage() {
         ? "Menyiapkan sesi Demo Pengembang (Akses Penuh SMAN 1 Ngoro)..."
         : role === "teacher"
         ? "Menyiapkan sesi Guru SMAN 1 Ngoro (Siti Nurhaliza, S.Pd.)..."
-        : "Menyiapkan sesi Siswa SMAN 1 Ngoro (Dimas Pratama)..."
+        : "Menyiapkan sesi Siswa SMAN 1 Ngoro (Aditya Pratama)..."
     );
     try {
       const devPayload =
@@ -142,6 +144,7 @@ export default function LoginPage() {
               name: "Raihan Ansari",
               sub: "usr-1789435370447",
               picture: "https://lh3.googleusercontent.com/a/ACg8ocILCQOch6sL8tq_D5QC25Km3hcV9kb-m3kA0_5HBSnoie9Zjrg=s96-c",
+              isDemo: true,
             }
           : role === "teacher"
           ? {
@@ -149,18 +152,22 @@ export default function LoginPage() {
               name: "Siti Nurhaliza, S.Pd.",
               sub: "seed-siti.nurhaliza",
               picture: "https://api.dicebear.com/7.x/avataaars/svg?seed=SitiNurhaliza",
+              isDemo: true,
             }
           : {
               email: "aditya.pratama.01@sman1ngoro.sch.id",
               name: "Aditya Pratama",
               sub: "st-sman1ngoro-x1-01",
               picture: "https://api.dicebear.com/7.x/avataaars/svg?seed=AdityaPratama",
+              isDemo: true,
             };
 
       const result = await login(JSON.stringify(devPayload));
       if (result.success && result.account) {
         await finalizeLogin(result.account);
-        show(`Selamat datang kembali, ${result.account.name}!`, "success");
+        const ngoro = await getSchoolById("ffdcdf34-fc99-4209-913e-5a6042e957ad");
+        setSelection(ngoro || SMAN_1_NGORO_FALLBACK);
+        show(`Selamat datang di SMAN 1 Ngoro, ${result.account.name}!`, "success");
         navigate(redirectUrl);
       } else if (result.status === "not_registered") {
         setGoogleData({
@@ -324,7 +331,7 @@ export default function LoginPage() {
                         <div className="w-full border-t border-slate-200 dark:border-slate-800" />
                       </div>
                       <div className="relative bg-white dark:bg-slate-900 px-3 text-[11px] uppercase tracking-wider text-slate-400 dark:text-slate-500 font-semibold rounded-full">
-                        Akses Cepat Pengujian Lokal
+                        Akun Demo Online SMAN 1 Ngoro
                       </div>
                     </div>
 
@@ -335,7 +342,7 @@ export default function LoginPage() {
                         className="w-full flex items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-brand-600 to-indigo-600 px-4 py-2.5 text-xs sm:text-sm font-semibold text-white shadow-sm hover:from-brand-500 hover:to-indigo-500 transition-all hover:shadow-md active:scale-[0.99]"
                       >
                         <Sparkles className="h-4 w-4" />
-                        <span>Masuk Mode Presentasi (Akses Lengkap SMAN 1 Ngoro)</span>
+                        <span>Masuk Demo Pengembang (Akses Penuh SMAN 1 Ngoro)</span>
                       </button>
 
                       <div className="grid grid-cols-2 gap-2">
@@ -345,7 +352,7 @@ export default function LoginPage() {
                           className="flex items-center justify-center gap-1.5 rounded-xl border border-purple-200 dark:border-purple-800 bg-purple-50/80 dark:bg-purple-950/40 px-3 py-2 text-xs font-bold text-purple-700 dark:text-purple-300 hover:bg-purple-100 transition-all"
                         >
                           <span>👨‍🏫</span>
-                          <span>Demo Guru</span>
+                          <span>Demo Guru SMAN 1 Ngoro</span>
                         </button>
                         <button
                           type="button"
@@ -353,13 +360,13 @@ export default function LoginPage() {
                           className="flex items-center justify-center gap-1.5 rounded-xl border border-blue-200 dark:border-blue-800 bg-blue-50/80 dark:bg-blue-950/40 px-3 py-2 text-xs font-bold text-blue-700 dark:text-blue-300 hover:bg-blue-100 transition-all"
                         >
                           <span>🎒</span>
-                          <span>Demo Siswa</span>
+                          <span>Demo Siswa SMAN 1 Ngoro</span>
                         </button>
                       </div>
                     </div>
 
                     <p className="text-[11px] text-center text-slate-400 dark:text-slate-500 leading-relaxed max-w-sm mt-1">
-                      💡 <span className="font-semibold">Catatan Google OAuth:</span> Jika tombol Google memunculkan <em>origin not allowed</em>, daftarkan <code>http://localhost:5173</code> di Google Cloud Console Credentials Anda.
+                      💡 <span className="font-semibold">Akses Instan:</span> Gunakan tombol demo di atas untuk langsung masuk akun resmi SMAN 1 Ngoro tanpa perlu registrasi.
                     </p>
                   </div>
                 )}

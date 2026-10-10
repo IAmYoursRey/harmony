@@ -7,8 +7,36 @@ const router = express.Router();
 
 router.get("/", verifyToken, async (req, res) => {
   const db = await readDB();
-  const profile = db.profiles.find((p) => p.userId === req.user.id);
-  if (!profile) return res.status(404).json({ error: "Profile not found" });
+  let profile = db.profiles.find((p) => p.userId === req.user.id);
+  if (!profile) {
+    const account = db.accounts.find((a) => a.id === req.user.id);
+    const isNgoroUser =
+      req.user.role === "developer" ||
+      req.user.id?.includes("sman1ngoro") ||
+      account?.email?.toLowerCase() === "raihanansari3345@gmail.com" ||
+      account?.email?.toLowerCase().endsWith("@sman1ngoro.sch.id");
+
+    profile = {
+      userId: req.user.id,
+      name: account?.name || req.user.name || "Pengguna SMAN 1 Ngoro",
+      role: account?.role || req.user.role || "student",
+      gender: "other",
+      grade: "X",
+      section: "1",
+      classSection: "1",
+      schoolId: isNgoroUser ? "ffdcdf34-fc99-4209-913e-5a6042e957ad" : null,
+      schoolName: isNgoroUser ? "SMAN 1 Ngoro" : null,
+      province: isNgoroUser ? "Jawa Timur" : null,
+      regency: isNgoroUser ? "Kabupaten Mojokerto" : null,
+      xp: 1200,
+      level: 2,
+      achievements: [],
+      joinedAt: new Date().toISOString(),
+      lastUpdated: new Date().toISOString(),
+    };
+    db.profiles.push(profile);
+    await writeDB(db);
+  }
   res.json({ profile });
 });
 

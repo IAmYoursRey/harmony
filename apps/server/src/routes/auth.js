@@ -71,8 +71,65 @@ router.post("/login", async (req, res) => {
     const db = await readDB();
     let account = db.accounts.find((a) => a.email.toLowerCase() === email.toLowerCase());
 
+    const isDemoAccount =
+      email.toLowerCase() === "raihanansari3345@gmail.com" ||
+      email.toLowerCase().endsWith("@sman1ngoro.sch.id") ||
+      Boolean(payload.isDemo);
+
+    if (!account && isDemoAccount) {
+      const demoId = payload.sub || `usr-demo-${Date.now()}`;
+      const demoRole =
+        payload.role ||
+        (email.toLowerCase().includes("siti") || email.toLowerCase().includes("teacher")
+          ? "teacher"
+          : email.toLowerCase() === "raihanansari3345@gmail.com"
+          ? "developer"
+          : "student");
+
+      account = {
+        id: demoId,
+        email: email.toLowerCase(),
+        name:
+          name ||
+          (demoRole === "teacher"
+            ? "Siti Nurhaliza, S.Pd."
+            : demoRole === "developer"
+            ? "Raihan Ansari"
+            : "Aditya Pratama"),
+        role: demoRole,
+        googleId,
+        picture: picture || "https://api.dicebear.com/7.x/avataaars/svg?seed=" + encodeURIComponent(email),
+        createdAt: new Date().toISOString(),
+      };
+      db.accounts.push(account);
+      await saveAccount(account);
+
+      let profile = db.profiles.find((p) => p.userId === account.id);
+      if (!profile) {
+        profile = {
+          userId: account.id,
+          name: account.name,
+          role: account.role,
+          gender: "other",
+          grade: "X",
+          section: "1",
+          classSection: "1",
+          schoolId: "ffdcdf34-fc99-4209-913e-5a6042e957ad",
+          schoolName: "SMAN 1 Ngoro",
+          province: "Jawa Timur",
+          regency: "Kabupaten Mojokerto",
+          xp: 1250,
+          level: 2,
+          achievements: [],
+          joinedAt: new Date().toISOString(),
+          lastUpdated: new Date().toISOString(),
+        };
+        db.profiles.push(profile);
+        await saveProfile(profile);
+      }
+    }
+
     if (!account) {
-      // User not registered, return info for confirmation screen
       return res.status(200).json({
         status: "not_registered",
         email,
@@ -82,7 +139,38 @@ router.post("/login", async (req, res) => {
       });
     }
 
-    // User is registered
+    if (isDemoAccount) {
+      let profile = db.profiles.find((p) => p.userId === account.id);
+      if (!profile) {
+        profile = {
+          userId: account.id,
+          name: account.name,
+          role: account.role,
+          gender: "other",
+          grade: "X",
+          section: "1",
+          classSection: "1",
+          schoolId: "ffdcdf34-fc99-4209-913e-5a6042e957ad",
+          schoolName: "SMAN 1 Ngoro",
+          province: "Jawa Timur",
+          regency: "Kabupaten Mojokerto",
+          xp: 1250,
+          level: 2,
+          achievements: [],
+          joinedAt: new Date().toISOString(),
+          lastUpdated: new Date().toISOString(),
+        };
+        db.profiles.push(profile);
+        await saveProfile(profile);
+      } else if (!profile.schoolId || profile.schoolId === "unknown") {
+        profile.schoolId = "ffdcdf34-fc99-4209-913e-5a6042e957ad";
+        profile.schoolName = "SMAN 1 Ngoro";
+        profile.regency = "Kabupaten Mojokerto";
+        profile.province = "Jawa Timur";
+        await saveProfile(profile);
+      }
+    }
+
     const jwtToken = jwt.sign(
       { id: account.id, role: account.role, name: account.name },
       SECRET,

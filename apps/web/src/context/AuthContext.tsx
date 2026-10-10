@@ -6,7 +6,7 @@ import {
   type ReactNode,
 } from "react";
 import { useSchool } from "@/hooks/useSchool";
-import { getSchoolById } from "@/services/schoolService";
+import { getSchoolById, SMAN_1_NGORO_FALLBACK } from "@/services/schoolService";
 import { apiClient } from "@/services/apiClient";
 import {
   type UserAccount,
@@ -36,16 +36,28 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const { setSelection, clearSelection } = useSchool();
 
   useEffect(() => {
-    if (currentProfile?.schoolId && currentProfile.schoolId !== "unknown") {
-      getSchoolById(currentProfile.schoolId).then((foundSchool) => {
+    const schoolId = currentProfile?.schoolId;
+    if (schoolId && schoolId !== "unknown") {
+      getSchoolById(schoolId).then((foundSchool) => {
         if (foundSchool) {
           setSelection(foundSchool);
+        } else if (schoolId === "ffdcdf34-fc99-4209-913e-5a6042e957ad") {
+          setSelection(SMAN_1_NGORO_FALLBACK);
         }
+      });
+    } else if (
+      currentUser &&
+      (currentUser.email === "raihanansari3345@gmail.com" ||
+        currentUser.email.includes("sman1ngoro") ||
+        currentUser.role === "developer")
+    ) {
+      getSchoolById("ffdcdf34-fc99-4209-913e-5a6042e957ad").then((foundSchool) => {
+        setSelection(foundSchool || SMAN_1_NGORO_FALLBACK);
       });
     } else {
       clearSelection();
     }
-  }, [currentProfile?.schoolId, setSelection, clearSelection]);
+  }, [currentProfile?.schoolId, currentUser, setSelection, clearSelection]);
 
   useEffect(() => {
     async function loadUser() {
@@ -59,6 +71,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         setCurrentUser(data.account);
         const prof = await getProfile();
         setCurrentProfile(prof ?? null);
+        if (
+          data.account?.email === "raihanansari3345@gmail.com" ||
+          data.account?.email?.includes("sman1ngoro") ||
+          data.account?.role === "developer" ||
+          prof?.schoolId === "ffdcdf34-fc99-4209-913e-5a6042e957ad"
+        ) {
+          const ngoro = await getSchoolById("ffdcdf34-fc99-4209-913e-5a6042e957ad");
+          setSelection(ngoro || SMAN_1_NGORO_FALLBACK);
+        }
       } catch {
         clearSession();
       } finally {
@@ -66,7 +87,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       }
     }
     loadUser();
-  }, []);
+  }, [setSelection]);
 
   const login = async (token: string, role?: string) => {
     // Only verifies and returns status, DOES NOT set currentUser yet to allow confirmation screen
@@ -78,6 +99,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setCurrentUser(account);
     const prof = await getProfile();
     setCurrentProfile(prof ?? null);
+    if (
+      account.email === "raihanansari3345@gmail.com" ||
+      account.email?.includes("sman1ngoro") ||
+      account.role === "developer" ||
+      prof?.schoolId === "ffdcdf34-fc99-4209-913e-5a6042e957ad"
+    ) {
+      const ngoro = await getSchoolById("ffdcdf34-fc99-4209-913e-5a6042e957ad");
+      setSelection(ngoro || SMAN_1_NGORO_FALLBACK);
+    }
   };
 
   const registerGoogle = async (

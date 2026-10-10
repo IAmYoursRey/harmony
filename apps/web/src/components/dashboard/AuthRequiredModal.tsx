@@ -12,7 +12,9 @@ import {
   Map,
 } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
+import { useSchool } from "@/hooks/useSchool";
 import { useToast } from "@/hooks/useToast";
+import { getSchoolById, SMAN_1_NGORO_FALLBACK } from "@/services/schoolService";
 
 interface AuthRequiredModalProps {
   isOpen: boolean;
@@ -29,6 +31,7 @@ export function AuthRequiredModal({
 }: AuthRequiredModalProps) {
   const navigate = useNavigate();
   const { login, finalizeLogin } = useAuth();
+  const { setSelection } = useSchool();
   const { show } = useToast();
   const [isLoadingDemo, setIsLoadingDemo] = useState(false);
 
@@ -45,15 +48,18 @@ export function AuthRequiredModal({
       const devPayload = {
         email: "raihanansari3345@gmail.com",
         name: "Raihan Ansari",
-        sub: "116086836535518680376",
+        sub: "usr-1789435370447",
         picture:
           "https://lh3.googleusercontent.com/a/ACg8ocILCQOch6sL8tq_D5QC25Km3hcV9kb-m3kA0_5HBSnoie9Zjrg=s96-c",
+        isDemo: true,
       };
 
       const result = await login(JSON.stringify(devPayload));
       if (result.success && result.account) {
         await finalizeLogin(result.account);
-        show(`Selamat datang di Mode Demo! Akses penuh seluruh fitur terbuka.`, "success");
+        const ngoro = await getSchoolById("ffdcdf34-fc99-4209-913e-5a6042e957ad");
+        setSelection(ngoro || SMAN_1_NGORO_FALLBACK);
+        show(`Selamat datang di Mode Demo SMAN 1 Ngoro! Akses penuh seluruh fitur terbuka.`, "success");
         onClose();
         navigate(targetPath);
       } else {
@@ -161,7 +167,7 @@ export function AuthRequiredModal({
               ) : (
                 <Sparkles className="h-3.5 w-3.5 text-brand-500" />
               )}
-              <span>Masuk Mode Demo (Akses Penuh Semua Fitur)</span>
+              <span>Masuk Mode Demo SMAN 1 Ngoro (Akses Penuh)</span>
             </button>
 
             <button

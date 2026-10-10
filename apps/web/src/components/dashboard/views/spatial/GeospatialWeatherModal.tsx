@@ -549,6 +549,11 @@ export const GeospatialWeatherModal: React.FC<GeospatialWeatherModalProps> = ({
   const [domainPillarFilter, setDomainPillarFilter] = useState<'all' | 'observasi' | 'atmosfer' | 'analitik'>('all');
   const domainTabsScrollRef = useRef<HTMLDivElement>(null);
 
+  const isInitializedRef = useRef(false);
+  const prevIsOpenRef = useRef(false);
+  const prevInitialDomainRef = useRef<StudioDomain | undefined>(initialDomain);
+  const lastLoadedCoordsRef = useRef<{ lat: number; lng: number } | null>(null);
+
   const filteredDomains = useMemo(() => {
     if (domainPillarFilter === 'all') return STUDIO_DOMAINS;
     return STUDIO_DOMAINS.filter((d) => d.pillar === domainPillarFilter);
@@ -571,15 +576,6 @@ export const GeospatialWeatherModal: React.FC<GeospatialWeatherModalProps> = ({
     if (Math.abs(lat - (-6.2088)) < 0.05 && Math.abs(lng - 106.8456) < 0.05) return 'DKI Jakarta (Pusat)';
     return locationName || `Koordinat (${lat.toFixed(3)}°, ${lng.toFixed(3)})`;
   });
-
-  useEffect(() => {
-    setActiveLat(lat);
-    setActiveLng(lng);
-    const resolvedName = userPreciseLocation?.shortDisplay
-      || (locationName && locationName !== 'Wilayah Geospasial' ? locationName : null)
-      || `Koordinat (${lat.toFixed(3)}°, ${lng.toFixed(3)})`;
-    setActiveRegionName(resolvedName);
-  }, [lat, lng, locationName, userPreciseLocation]);
 
   // Weather states
   const [data, setData] = useState<WeatherConsensusData | null>(null);
@@ -1585,7 +1581,7 @@ export const GeospatialWeatherModal: React.FC<GeospatialWeatherModalProps> = ({
     const request = ++weatherRequestSequence.current;
     setLoading(true);
     setWeatherError(null);
-    if (!data || Math.abs(data.lat - targetLat) > 0.001 || Math.abs(data.lng - targetLng) > 0.001) {
+    if (!data || Math.abs(data.lat - targetLat) > 0.15 || Math.abs(data.lng - targetLng) > 0.15) {
       setData(null);
     }
     try {
@@ -1620,20 +1616,65 @@ export const GeospatialWeatherModal: React.FC<GeospatialWeatherModalProps> = ({
   };
 
   useEffect(() => {
-    if (isOpen) {
+    const isCurrentlyOpen = Boolean(isOpen || asPage);
+
+    if (!isCurrentlyOpen) {
+      prevIsOpenRef.current = false;
+      return;
+    }
+
+    const justOpened = !isInitializedRef.current || !prevIsOpenRef.current;
+    if (justOpened) {
+      isInitializedRef.current = true;
+      prevIsOpenRef.current = true;
+      prevInitialDomainRef.current = initialDomain;
+
       setActiveLat(lat);
       setActiveLng(lng);
-      const resolvedName = userPreciseLocation?.shortDisplay
-        || (locationName && locationName !== 'Wilayah Geospasial' ? locationName : null)
-        || (Math.abs(lat - (-6.2088)) < 0.05 && Math.abs(lng - 106.8456) < 0.05 ? 'DKI Jakarta (Pusat)' : (locationName || 'DKI Jakarta (Pusat)'));
+      const resolvedName =
+        userPreciseLocation?.shortDisplay ||
+        (locationName && locationName !== 'Wilayah Geospasial' ? locationName : null) ||
+        (Math.abs(lat - (-6.2088)) < 0.05 && Math.abs(lng - 106.8456) < 0.05
+          ? 'DKI Jakarta (Pusat)'
+          : locationName || 'DKI Jakarta (Pusat)');
       setActiveRegionName(resolvedName);
       setSelectedRegionId('user');
       setSelectedHour(new Date().getHours());
       setSelectedPointKey(null);
-      setActiveDomain(initialDomain || 'weather');
+      if (initialDomain) {
+        setActiveDomain(initialDomain);
+      }
+      lastLoadedCoordsRef.current = { lat, lng };
       loadWeather(lat, lng, resolvedName);
+      return;
     }
-  }, [isOpen, lat, lng, locationName, initialDomain]);
+
+    if (initialDomain && initialDomain !== prevInitialDomainRef.current) {
+      prevInitialDomainRef.current = initialDomain;
+      setActiveDomain(initialDomain);
+    }
+
+    if (selectedRegionId === 'user') {
+      const resolvedName =
+        userPreciseLocation?.shortDisplay ||
+        (locationName && locationName !== 'Wilayah Geospasial' ? locationName : null) ||
+        `Koordinat (${lat.toFixed(3)}°, ${lng.toFixed(3)})`;
+      setActiveRegionName(resolvedName);
+      setActiveLat(lat);
+      setActiveLng(lng);
+
+      const lastCoords = lastLoadedCoordsRef.current;
+      const movedSignificantly =
+        !lastCoords || Math.abs(lat - lastCoords.lat) > 0.01 || Math.abs(lng - lastCoords.lng) > 0.01;
+
+      if (movedSignificantly) {
+        lastLoadedCoordsRef.current = { lat, lng };
+        if (activeDomain === 'weather') {
+          loadWeather(lat, lng, resolvedName);
+        }
+      }
+    }
+  }, [isOpen, asPage, lat, lng, locationName, userPreciseLocation, initialDomain, activeDomain, selectedRegionId]);
 
   // If switched to weather tab and no data yet, load it
   useEffect(() => {
