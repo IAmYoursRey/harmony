@@ -388,6 +388,10 @@ export function GameGridSandbox({
                 ctx.fillStyle = "rgba(132, 204, 22, 0.32)";
                 ctx.fillRect(ox, oy, ow, oh);
                 ctx.strokeStyle = "rgba(163, 230, 53, 0.85)";
+              } else if (kind === "MUD_SLIDE") {
+                ctx.fillStyle = "rgba(120, 53, 15, 0.45)";
+                ctx.fillRect(ox, oy, ow, oh);
+                ctx.strokeStyle = "rgba(180, 83, 9, 0.9)";
               } else {
                 ctx.fillStyle = "rgba(34, 211, 238, 0.24)";
                 ctx.fillRect(ox, oy, ow, oh);
@@ -407,14 +411,31 @@ export function GameGridSandbox({
               const cx = ox + ow / 2;
               const cy = oy + oh / 2;
               const r = Math.min(ow, oh) * 0.42;
-              ctx.fillStyle = `rgba(250, 204, 21, ${0.4 + 0.3 * pulse})`;
-              ctx.beginPath();
-              ctx.arc(cx, cy, r * 1.2, 0, Math.PI * 2);
-              ctx.fill();
-              ctx.fillStyle = "#facc15";
-              ctx.beginPath();
-              ctx.arc(cx, cy, r * 0.55, 0, Math.PI * 2);
-              ctx.fill();
+              if (obj.properties?.pickupOnly) {
+                const badgeColor =
+                  obj.properties.itemKind === "MEDKIT"
+                    ? "#22c55e"
+                    : obj.properties.itemKind === "EXTINGUISHER"
+                      ? "#f97316"
+                      : obj.properties.itemKind === "MASK"
+                        ? "#14b8a6"
+                        : obj.properties.itemKind === "STAMINA_DRINK"
+                          ? "#06b6d4"
+                          : "#facc15";
+                ctx.fillStyle = badgeColor;
+                ctx.beginPath();
+                ctx.arc(cx, cy, r * 0.72, 0, Math.PI * 2);
+                ctx.fill();
+              } else {
+                ctx.fillStyle = `rgba(250, 204, 21, ${0.4 + 0.3 * pulse})`;
+                ctx.beginPath();
+                ctx.arc(cx, cy, r * 1.2, 0, Math.PI * 2);
+                ctx.fill();
+                ctx.fillStyle = "#facc15";
+                ctx.beginPath();
+                ctx.arc(cx, cy, r * 0.55, 0, Math.PI * 2);
+                ctx.fill();
+              }
               ctx.restore();
             } else if (obj.object_type === "FIRE") {
               const cx = ox + ow / 2;

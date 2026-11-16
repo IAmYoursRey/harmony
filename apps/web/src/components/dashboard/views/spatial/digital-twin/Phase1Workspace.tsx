@@ -257,6 +257,8 @@ export function Phase1Workspace() {
                   <option value="Banjir">Banjir</option>
                   <option value="Angin Puting Beliung">Angin Puting Beliung</option>
                   <option value="Bahaya Kimia">Bahaya Kimia</option>
+                  <option value="Badai Petir">Badai Petir</option>
+                  <option value="Tanah Longsor">Tanah Longsor</option>
                   <option value="Multi-Bencana">Multi-Bencana</option>
                   <option value="Tsunami">Tsunami</option>
                 </select>

@@ -525,6 +525,65 @@ export function DashboardView() {
         </div>
       </div>
 
+      {/* ── SMAN 1 Ngoro Digital Twin Scenarios Quick Launch ───────────────── */}
+      <Card>
+        <SectionTitle action="Semua 8 Skenario" to="/app/digital-twin">
+          Simulasi Evakuasi SMAN 1 Ngoro
+        </SectionTitle>
+        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+          {[
+            {
+              id: "scenario-sman1-gempa",
+              title: "Gempa Bumi & Susulan",
+              tag: "Sulit",
+              desc: "Runtuhan koridor & jebakan tersembunyi.",
+            },
+            {
+              id: "scenario-sman1-kebakaran",
+              title: "Kebakaran & Asap Tebal",
+              tag: "Ekstrem",
+              desc: "Api menjalar, perlu APAR & Masker.",
+            },
+            {
+              id: "scenario-sman1-banjir",
+              title: "Banjir & Korsleting",
+              tag: "Sulit",
+              desc: "Arus banjir meluas & bahaya listrik.",
+            },
+            {
+              id: "scenario-sman1-petir",
+              title: "Badai Petir Ekstrem",
+              tag: "Ekstrem",
+              desc: "Sambaran petir & penyelamatan warga.",
+            },
+          ].map((item) => (
+            <Link
+              key={item.id}
+              to={`/app/digital-twin/play/map-sman1-denah/${item.id}`}
+              className="group rounded-xl border border-slate-200/70 dark:border-slate-800 bg-white/60 dark:bg-slate-900/50 p-3.5 transition-all hover:border-brand-500 hover:shadow-md"
+            >
+              <div className="flex items-center justify-between gap-2">
+                <span className="font-display text-sm font-bold text-ink-900 dark:text-white group-hover:text-brand-600 truncate">
+                  {item.title}
+                </span>
+                <span
+                  className={`shrink-0 px-2 py-0.5 text-[10px] font-bold uppercase rounded ${
+                    item.tag === "Ekstrem"
+                      ? "bg-rose-100 text-rose-700 dark:bg-rose-900/40 dark:text-rose-300"
+                      : "bg-amber-100 text-amber-700 dark:bg-amber-900/40 dark:text-amber-300"
+                  }`}
+                >
+                  {item.tag}
+                </span>
+              </div>
+              <p className="mt-1.5 text-xs text-ink-500 dark:text-slate-400 line-clamp-2">
+                {item.desc}
+              </p>
+            </Link>
+          ))}
+        </div>
+      </Card>
+
       {/* ── Leaderboard ────────────────────────────────────────────────────── */}
       <LeaderboardView />
 

@@ -161,26 +161,34 @@ test("Room interiors do not unintentionally collide and doors open cleanly", () 
   }
 });
 
-test("All 6 disaster scenarios have valid obstacle-free evacuation paths to OBJECTIVE, SAFE_ZONE, and EXIT plus hidden traps", () => {
+test("All 8 disaster scenarios have valid obstacle-free evacuation paths to OBJECTIVE, NPC, SAFE_ZONE, and EXIT plus supplies & hidden traps", () => {
   const { grid, scenarios } = buildSman1NgoroPdfDigitalTwin();
-  assert.equal(scenarios.length, 6);
+  assert.equal(scenarios.length, 8);
 
   const disasterTypes = new Set(scenarios.map((s) => s.disaster_type));
-  assert.ok(disasterTypes.size >= 5, "Must include diverse disaster types");
+  assert.ok(disasterTypes.size >= 7, "Must include >= 7 diverse disaster types");
 
   for (const scenario of scenarios) {
     assert.equal(scenario.status, "published");
     const spawns = scenario.objects.filter((o) => o.object_type === "SPAWN");
-    const objectives = scenario.objects.filter((o) => o.object_type === "OBJECTIVE");
+    const requiredObjectives = scenario.objects.filter(
+      (o) => o.object_type === "OBJECTIVE" && !o.properties?.pickupOnly,
+    );
+    const supplies = scenario.objects.filter(
+      (o) => o.object_type === "OBJECTIVE" && o.properties?.pickupOnly === true,
+    );
     const safeZones = scenario.objects.filter((o) => o.object_type === "SAFE_ZONE");
     const exits = scenario.objects.filter((o) => o.object_type === "EXIT");
     const hiddenTraps = scenario.objects.filter((o) => o.properties?.hidden === true);
+    const npcs = scenario.config?.npcs || [];
 
     assert.ok(spawns.length > 0, `${scenario.id} must have SPAWN objects`);
-    assert.ok(objectives.length > 0, `${scenario.id} must have OBJECTIVE waypoints`);
+    assert.ok(requiredObjectives.length > 0, `${scenario.id} must have required OBJECTIVE waypoints`);
+    assert.ok(supplies.length >= 4, `${scenario.id} must have tactical survival supplies`);
     assert.ok(safeZones.length > 0, `${scenario.id} must have SAFE_ZONE objects`);
     assert.ok(exits.length > 0, `${scenario.id} must have EXIT objects`);
     assert.ok(hiddenTraps.length >= 5, `${scenario.id} must include >= 5 hidden hazards`);
+    assert.ok(npcs.length >= 3, `${scenario.id} must include >= 3 rescuable NPCs`);
 
     for (const trap of hiddenTraps) {
       assert.ok(
@@ -198,6 +206,20 @@ test("All 6 disaster scenarios have valid obstacle-free evacuation paths to OBJE
       if (BLOCKING_SCENARIO_OBJECTS.has(obj.object_type)) {
         for (const k of expandRect(obj)) blockedKeys.add(k);
       }
+    }
+    for (const ld of scenario.config?.lockedDoors || []) {
+      blockedKeys.add(`${ld.x},${ld.y}`);
+    }
+
+    for (const npc of npcs) {
+      assert.ok(
+        !BLOCKING_TILES.has(grid[npc.y][npc.x]),
+        `NPC ${npc.name} (${npc.x},${npc.y}) in ${scenario.id} placed on blocking tile`,
+      );
+      assert.ok(
+        !blockedKeys.has(`${npc.x},${npc.y}`),
+        `NPC ${npc.name} (${npc.x},${npc.y}) in ${scenario.id} placed on hazard`,
+      );
     }
 
     const safeKeys = new Set();
@@ -219,7 +241,7 @@ test("All 6 disaster scenarios have valid obstacle-free evacuation paths to OBJE
         `SPAWN (${spawn.x},${spawn.y}) in ${scenario.id} placed on hazard`,
       );
 
-      for (const objective of objectives) {
+      for (const objective of requiredObjectives) {
         const objKeys = new Set(expandRect(objective));
         const reachesObj = bfsReachable(grid, blockedKeys, spawn.x, spawn.y, objKeys);
         assert.ok(
@@ -252,7 +274,7 @@ test("Legacy GridMap and DisasterSimulation structures are populated consistentl
   assert.ok(legacyGridMap.doors.length > 30);
   assert.ok(legacyGridMap.safePoints.length >= 3);
   assert.ok(legacyGridMap.spawnPoints.length >= 3);
-  assert.equal(legacySimulations.length, 6);
+  assert.equal(legacySimulations.length, 8);
 });
 
 test("Hard mode physics enforce larger scale, slower running, and elevated hazard damage", () => {
@@ -276,7 +298,9 @@ test("Hard mode physics enforce larger scale, slower running, and elevated hazar
   const { scenarios } = buildSman1NgoroPdfDigitalTwin();
   for (const sc of scenarios) {
     const primarySpawn = sc.objects.find((o) => o.object_type === "SPAWN");
-    const firstObjective = sc.objects.find((o) => o.object_type === "OBJECTIVE");
+    const firstObjective = sc.objects.find(
+      (o) => o.object_type === "OBJECTIVE" && !o.properties?.pickupOnly,
+    );
     const exitObj = sc.objects.find((o) => o.object_type === "EXIT");
     const routeDist =
       Math.hypot(firstObjective.x - primarySpawn.x, firstObjective.y - primarySpawn.y) +

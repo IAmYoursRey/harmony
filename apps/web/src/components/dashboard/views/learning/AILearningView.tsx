@@ -171,9 +171,11 @@ export function AILearningView() {
         {chatMessages.length <= 1 && (
           <div className="px-4 pb-2 flex flex-wrap gap-2">
             {[
-              "Apa itu drop, cover, hold?",
-              "Bagaimana cara membuat tas siaga bencana?",
-              "Apa tanda-tanda akan terjadi tsunami?",
+              "Prosedur drop, cover, hold saat gempa susulan?",
+              "Cara menggunakan APAR saat kebakaran sekolah?",
+              "Tindakan aman menghadapi badai petir & korsleting?",
+              "Mitigasi kebocoran gas kimia di laboratorium?",
+              "Langkah mengevakuasi korban luka ringan dengan P3K?",
             ].map((p) => (
               <button
                 key={p}

@@ -2,9 +2,28 @@ import React, { useEffect, useRef, useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { phase1Api } from "./Phase1API";
 import { Phase1Map, Phase1Scenario } from "./Phase1Types";
-import { Phase3Engine, PlayerState, SimState } from "./Phase3Engine";
+import {
+  Phase3Engine,
+  PlayerState,
+  SimState,
+  DifficultyLevel,
+  SimulationReport,
+} from "./Phase3Engine";
+import { simulationAudio } from "./simulationAudio";
 import { useToast } from "@/hooks/useToast";
-import { ArrowLeft, Play, RotateCcw, Pause } from "lucide-react";
+import {
+  ArrowLeft,
+  Play,
+  RotateCcw,
+  Pause,
+  Volume2,
+  VolumeX,
+  KeyRound,
+  Flame,
+  Shield,
+  Flashlight,
+  Users,
+} from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
 import { io, Socket } from "socket.io-client";
 
@@ -99,6 +118,15 @@ export function Phase3Runtime({
   const [avatarColor, setAvatarColor] = useState("#3b82f6");
   const [avatarName, setAvatarName] = useState(user?.name || "Player");
   const [avatarSelected, setAvatarSelected] = useState(false);
+  const [difficulty, setDifficulty] = useState<DifficultyLevel>("sulit");
+  const [isMuted, setIsMuted] = useState(false);
+  const [report, setReport] = useState<SimulationReport | null>(null);
+
+  const toggleMute = () => {
+    const next = !isMuted;
+    setIsMuted(next);
+    simulationAudio.setMuted(next);
+  };
 
   const loadData = async () => {
     setLoading(true);
@@ -218,32 +246,42 @@ export function Phase3Runtime({
       engineRef.current.destroy();
     }
 
-    engineRef.current = new Phase3Engine(canvasRef.current, map, scenario, {
-      onStateChange: (state) => setSimState(state),
-      onPlayerUpdate: (player) => setPlayerState(player),
-      onTimeUpdate: (ms) => setTimeMs(ms),
-      onMessage: (msg) => {
-        setMessage(msg);
-        setTimeout(() => setMessage(""), 3000);
+    setReport(null);
+    simulationAudio.setMuted(isMuted);
+
+    engineRef.current = new Phase3Engine(
+      canvasRef.current,
+      map,
+      scenario,
+      {
+        onStateChange: (state) => setSimState(state),
+        onPlayerUpdate: (player) => setPlayerState(player),
+        onTimeUpdate: (ms) => setTimeMs(ms),
+        onMessage: (msg) => {
+          setMessage(msg);
+          setTimeout(() => setMessage(""), 3200);
+        },
+        onFloorChange: (fname) => setActiveFloorName(fname),
+        onDebugUpdate: (info) => setDebugInfo(info),
+        onReportReady: (rep) => setReport(rep),
+        onNetworkEmit: (state) => {
+          if (socketRef.current && socketRef.current.connected) {
+            socketRef.current.emit("player_update", state);
+          }
+        },
+        onDoorStateChange: (doorId, state) => {
+          if (socketRef.current && socketRef.current.connected) {
+            socketRef.current.emit("door_event", {
+              doorId,
+              state,
+              mapId,
+              scenarioId,
+            });
+          }
+        },
       },
-      onFloorChange: (fname) => setActiveFloorName(fname),
-      onDebugUpdate: (info) => setDebugInfo(info),
-      onNetworkEmit: (state) => {
-        if (socketRef.current && socketRef.current.connected) {
-          socketRef.current.emit("player_update", state);
-        }
-      },
-      onDoorStateChange: (doorId, state) => {
-        if (socketRef.current && socketRef.current.connected) {
-          socketRef.current.emit("door_event", {
-            doorId,
-            state,
-            mapId,
-            scenarioId,
-          });
-        }
-      },
-    });
+      { difficulty },
+    );
 
     engineRef.current.setPlayerAvatar(avatarColor, avatarName);
     engineRef.current.start();
@@ -377,6 +415,42 @@ export function Phase3Runtime({
               </span>{" "}
               {activeFloorName}
             </div>
+
+            {/* Compact Tactical Inventory, Buffs & NPC Status (no minimap) */}
+            {(playerState.inventory || (playerState.npcTotalCount || 0) > 0) && (
+              <div className="flex flex-wrap items-center gap-1.5 text-[10px] sm:text-xs font-bold">
+                {(playerState.npcTotalCount || 0) > 0 && (
+                  <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-slate-900/85 border border-slate-700 text-sky-300 shadow">
+                    <Users className="w-3 h-3" />
+                    NPC: {(playerState.npcRescuedCount || 0) + (playerState.npcFollowingCount || 0)}/{playerState.npcTotalCount}
+                  </span>
+                )}
+                {(playerState.inventory?.keys || 0) > 0 && (
+                  <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-amber-950/90 border border-amber-500/50 text-amber-300 shadow">
+                    <KeyRound className="w-3 h-3" />
+                    Kunci: {playerState.inventory?.keys}
+                  </span>
+                )}
+                {(playerState.inventory?.extinguishers || 0) > 0 && (
+                  <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-orange-950/90 border border-orange-500/50 text-orange-300 shadow">
+                    <Flame className="w-3 h-3" />
+                    APAR: {playerState.inventory?.extinguishers}
+                  </span>
+                )}
+                {(playerState.inventory?.maskSec || 0) > 0 && (
+                  <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-teal-950/90 border border-teal-500/50 text-teal-300 shadow">
+                    <Shield className="w-3 h-3" />
+                    Masker {Math.ceil(playerState.inventory?.maskSec || 0)}d
+                  </span>
+                )}
+                {(playerState.inventory?.flashlightSec || 0) > 0 && (
+                  <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-yellow-950/90 border border-yellow-500/50 text-yellow-300 shadow">
+                    <Flashlight className="w-3 h-3" />
+                    Senter {Math.ceil(playerState.inventory?.flashlightSec || 0)}d
+                  </span>
+                )}
+              </div>
+            )}
           </div>
 
           {/* Center HUD: Objective */}
@@ -395,6 +469,17 @@ export function Phase3Runtime({
               {formatTime(timeMs)}
             </div>
             <div className="flex gap-1.5 sm:gap-2 mt-1 sm:mt-2">
+              <button
+                onClick={toggleMute}
+                className="w-8 h-8 sm:w-10 sm:h-10 bg-slate-800 hover:bg-slate-700 text-white rounded-full flex items-center justify-center transition-colors shadow-lg"
+                title={isMuted ? "Aktifkan Suara" : "Bisukan Suara"}
+              >
+                {isMuted ? (
+                  <VolumeX className="h-3.5 w-3.5 sm:h-4 sm:w-4 text-slate-400" />
+                ) : (
+                  <Volume2 className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
+                )}
+              </button>
               <button
                 onClick={() => setShowDebug(!showDebug)}
                 className="w-8 h-8 sm:w-10 sm:h-10 bg-slate-800 hover:bg-slate-700 text-white rounded-full flex items-center justify-center transition-colors shadow-lg font-bold text-[9px] sm:text-xs"
@@ -457,41 +542,97 @@ export function Phase3Runtime({
           />
         )}
 
-      {/* GAME OVER / SUCCESS SCREENS */}
+      {/* GAME OVER / SUCCESS SCREENS WITH EVALUATION REPORT */}
       {(simState === "FAILED" || simState === "SUCCESS") && (
-        <div className="absolute inset-0 z-30 bg-black/80 backdrop-blur-sm flex items-center justify-center flex-col gap-6 p-4">
+        <div className="absolute inset-0 z-30 bg-black/85 backdrop-blur-sm flex items-center justify-center flex-col gap-5 p-4 overflow-y-auto">
           {simState === "SUCCESS" ? (
-            <div className="text-center space-y-2">
-              <h1 className="text-4xl sm:text-6xl font-black text-green-400 mb-4">
+            <div className="text-center space-y-1.5">
+              <h1 className="text-3xl sm:text-5xl font-black text-green-400">
                 BERHASIL DIEVAKUASI
               </h1>
-              <p className="text-lg sm:text-xl text-slate-300 font-medium">
-                Anda mencapai titik aman dalam {formatTime(timeMs)}.
+              <p className="text-sm sm:text-lg text-slate-300 font-medium">
+                Titik aman tercapai dalam waktu {formatTime(timeMs)}.
               </p>
             </div>
           ) : (
-            <div className="text-center space-y-2">
-              <h1 className="text-4xl sm:text-6xl font-black text-red-500 mb-4">
+            <div className="text-center space-y-1.5">
+              <h1 className="text-3xl sm:text-5xl font-black text-red-500">
                 EVAKUASI GAGAL
               </h1>
-              <p className="text-lg sm:text-xl text-slate-300 font-medium">
-                Skenario bahaya belum terlewati. Silakan coba lagi.
+              <p className="text-sm sm:text-lg text-slate-300 font-medium">
+                Skenario bahaya belum terlewati. Evaluasi jalur dan ulangi.
               </p>
             </div>
           )}
 
-          <div className="flex flex-wrap justify-center gap-4 mt-8">
+          {report && (
+            <div className="w-full max-w-md rounded-2xl bg-slate-900/95 border border-slate-700 p-5 shadow-2xl text-white space-y-4">
+              <div className="flex items-center justify-between border-b border-slate-800 pb-3">
+                <div>
+                  <p className="text-[11px] uppercase tracking-wider text-slate-400 font-bold">
+                    Rapor Evaluasi Evakuasi
+                  </p>
+                  <p className="text-sm font-bold text-slate-200 capitalize mt-0.5">
+                    Kesulitan: {report.difficulty} · Skor: {report.score}/100
+                  </p>
+                </div>
+                <div
+                  className={`w-12 h-12 rounded-xl flex items-center justify-center font-black text-2xl border ${
+                    report.grade === "S"
+                      ? "bg-amber-500/20 text-amber-300 border-amber-400"
+                      : report.grade === "A"
+                        ? "bg-emerald-500/20 text-emerald-300 border-emerald-400"
+                        : report.grade === "B"
+                          ? "bg-sky-500/20 text-sky-300 border-sky-400"
+                          : "bg-rose-500/20 text-rose-300 border-rose-500"
+                  }`}
+                >
+                  {report.grade}
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-2.5 text-xs">
+                <div className="rounded-xl bg-slate-800/80 p-3">
+                  <span className="text-slate-400 block">Sisa HP</span>
+                  <span className="text-base font-extrabold text-emerald-400">
+                    {report.healthRemaining} / 100
+                  </span>
+                </div>
+                <div className="rounded-xl bg-slate-800/80 p-3">
+                  <span className="text-slate-400 block">NPC Selamat</span>
+                  <span className="text-base font-extrabold text-sky-300">
+                    {report.npcsRescued} / {report.npcsTotal}
+                  </span>
+                </div>
+                <div className="rounded-xl bg-slate-800/80 p-3">
+                  <span className="text-slate-400 block">Jebakan Dihindari</span>
+                  <span className="text-base font-extrabold text-amber-300">
+                    {Math.max(0, report.totalTraps - report.trapsTriggered)} /{" "}
+                    {report.totalTraps}
+                  </span>
+                </div>
+                <div className="rounded-xl bg-slate-800/80 p-3">
+                  <span className="text-slate-400 block">Alat Diambil</span>
+                  <span className="text-base font-extrabold text-purple-300">
+                    {report.suppliesCollected} item
+                  </span>
+                </div>
+              </div>
+            </div>
+          )}
+
+          <div className="flex flex-wrap justify-center gap-3 mt-2">
             <button
               onClick={handleRestart}
-              className="px-8 py-3 bg-brand-600 hover:bg-brand-700 text-white rounded-xl font-bold shadow-lg transition-colors flex items-center gap-2 text-lg"
+              className="px-6 py-2.5 bg-brand-600 hover:bg-brand-700 text-white rounded-xl font-bold shadow-lg transition-colors flex items-center gap-2 text-base"
             >
-              <RotateCcw className="h-5 w-5" /> Ulangi Skenario
+              <RotateCcw className="h-4 w-4" /> Ulangi Skenario
             </button>
             <button
               onClick={onClose}
-              className="px-8 py-3 bg-slate-800 hover:bg-slate-700 text-white rounded-xl font-bold shadow-lg transition-colors flex items-center gap-2 text-lg"
+              className="px-6 py-2.5 bg-slate-800 hover:bg-slate-700 text-white rounded-xl font-bold shadow-lg transition-colors flex items-center gap-2 text-base"
             >
-              <ArrowLeft className="h-5 w-5" /> Kembali
+              <ArrowLeft className="h-4 w-4" /> Kembali
             </button>
           </div>
         </div>
@@ -627,7 +768,7 @@ export function Phase3Runtime({
               />
             </div>
 
-            <div className="w-full mb-8">
+            <div className="w-full mb-5">
               <label className="block text-xs font-bold text-slate-400 mb-2">
                 Warna
               </label>
@@ -649,6 +790,45 @@ export function Phase3Runtime({
                   />
                 ))}
               </div>
+            </div>
+
+            <div className="w-full mb-6">
+              <label className="block text-xs font-bold text-slate-400 mb-2">
+                Tingkat Kesulitan
+              </label>
+              <div className="grid grid-cols-3 gap-1.5 bg-slate-900 p-1 rounded-xl border border-slate-700">
+                {(
+                  [
+                    { id: "mudah", label: "Mudah" },
+                    { id: "sedang", label: "Sedang" },
+                    { id: "sulit", label: "Sulit" },
+                  ] as const
+                ).map((d) => (
+                  <button
+                    key={d.id}
+                    type="button"
+                    onClick={() => setDifficulty(d.id)}
+                    className={`py-2 rounded-lg text-xs font-bold transition-colors ${
+                      difficulty === d.id
+                        ? d.id === "sulit"
+                          ? "bg-rose-600 text-white"
+                          : d.id === "sedang"
+                            ? "bg-amber-600 text-white"
+                            : "bg-emerald-600 text-white"
+                        : "text-slate-400 hover:text-white"
+                    }`}
+                  >
+                    {d.label}
+                  </button>
+                ))}
+              </div>
+              <p className="text-[11px] text-slate-400 mt-1.5 text-center">
+                {difficulty === "sulit"
+                  ? "Lari lambat, damage penuh, jebakan tersembunyi rapat."
+                  : difficulty === "sedang"
+                    ? "Kecepatan sedang, damage & penyebaran bencana standar."
+                    : "Gerak lebih gesit, damage berkurang, jarak ungkap jebakan lebih jauh."}
+              </p>
             </div>
 
             <button

@@ -8,9 +8,48 @@ import {
   Phase1Stairs,
 } from "./Phase1Types";
 import { renderRoomOverlays } from "./Phase1RoomRenderer";
+import { simulationAudio } from "./simulationAudio";
 
 export type SimState =
   "LOADING" | "READY" | "RUNNING" | "PAUSED" | "SUCCESS" | "FAILED" | "EXITED";
+
+export type DifficultyLevel = "mudah" | "sedang" | "sulit";
+
+export interface PlayerInventoryState {
+  keys: number;
+  extinguishers: number;
+  maskSec: number;
+  flashlightSec: number;
+  pickupsCollected: number;
+  medkitsUsed: number;
+}
+
+export interface NpcRuntimeState {
+  id: string;
+  name: string;
+  role: "Siswa" | "Guru";
+  x: number;
+  y: number;
+  floorId: string;
+  status: "TRAPPED" | "FOLLOWING" | "RESCUED" | "LOST";
+  health: number;
+}
+
+export interface SimulationReport {
+  grade: "S" | "A" | "B" | "C" | "D";
+  score: number;
+  succeeded: boolean;
+  timeMs: number;
+  healthRemaining: number;
+  difficulty: DifficultyLevel;
+  npcsRescued: number;
+  npcsTotal: number;
+  trapsTriggered: number;
+  totalTraps: number;
+  suppliesCollected: number;
+  requiredCompleted: number;
+  requiredTotal: number;
+}
 
 export interface PlayerState {
   x: number;
@@ -28,6 +67,11 @@ export interface PlayerState {
   interactionPrompt: string | null;
   color?: string;
   displayName?: string;
+  inventory?: PlayerInventoryState;
+  npcRescuedCount?: number;
+  npcFollowingCount?: number;
+  npcTotalCount?: number;
+  difficulty?: DifficultyLevel;
 }
 
 export interface InputProvider {
@@ -89,6 +133,7 @@ export interface EngineCallbacks {
   onFloorChange: (floorName: string) => void;
   onDebugUpdate?: (debugInfo: any) => void;
   onNetworkEmit?: (state: any) => void;
+  onReportReady?: (report: SimulationReport) => void;
   onDoorStateChange?: (
     doorId: string,
     state: "open" | "closed" | "locked",
@@ -125,6 +170,53 @@ export const SIMULATION_PHYSICS = {
   DEFAULT_HIDDEN_REVEAL_TILES: 1.85,
 } as const;
 
+export const DIFFICULTY_PROFILES: Record<
+  DifficultyLevel,
+  {
+    walkSpeed: number;
+    runSpeed: number;
+    damageMultiplier: number;
+    revealMultiplier: number;
+    darknessMultiplier: number;
+    scoreMultiplier: number;
+  }
+> = {
+  mudah: {
+    walkSpeed: 104,
+    runSpeed: 166,
+    damageMultiplier: 0.7,
+    revealMultiplier: 1.3,
+    darknessMultiplier: 0.5,
+    scoreMultiplier: 0.85,
+  },
+  sedang: {
+    walkSpeed: 95,
+    runSpeed: 148,
+    damageMultiplier: 0.95,
+    revealMultiplier: 1.1,
+    darknessMultiplier: 0.82,
+    scoreMultiplier: 1.0,
+  },
+  sulit: {
+    walkSpeed: SIMULATION_PHYSICS.WALK_SPEED,
+    runSpeed: SIMULATION_PHYSICS.RUN_SPEED,
+    damageMultiplier: 1.1,
+    revealMultiplier: 1.0,
+    darknessMultiplier: 1.0,
+    scoreMultiplier: 1.25,
+  },
+};
+
+interface LightningStrike {
+  id: string;
+  x: number;
+  y: number;
+  radiusPx: number;
+  remainingWarningSec: number;
+  flashSec: number;
+  struck: boolean;
+}
+
 const TILE_SIZE = SIMULATION_PHYSICS.TILE_SIZE;
 const PLAYER_RADIUS = SIMULATION_PHYSICS.PLAYER_RADIUS;
 
@@ -138,6 +230,7 @@ export class Phase3Engine {
   private state: SimState = "READY";
   private player: PlayerState;
   private input: InputProvider;
+  private difficulty: DifficultyLevel = "sulit";
 
   public joystick: { dx: number; dy: number } = { dx: 0, dy: 0 };
   public virtualButtons: Record<string, boolean> = {};
@@ -167,8 +260,25 @@ export class Phase3Engine {
   private slowDebuffTimer: number = 0;
   private cameraShakeTime: number = 0;
   private lastAftershockMs: number = 0;
+  private lastLightningMs: number = 0;
+  private lastHitAudioMs: number = 0;
+  private fireExpansionTiles: number = 0;
+  private floodExpansionTiles: number = 0;
+  private activeLightningStrikes: LightningStrike[] = [];
   private revealedHazards: Set<string> = new Set();
   private triggeredHazards: Set<string> = new Set();
+  private extinguishedFires: Set<string> = new Set();
+  private inventory: PlayerInventoryState = {
+    keys: 0,
+    extinguishers: 0,
+    maskSec: 0,
+    flashlightSec: 0,
+    pickupsCollected: 0,
+    medkitsUsed: 0,
+  };
+  private npcs: NpcRuntimeState[] = [];
+  private playerTrail: { x: number; y: number }[] = [];
+  private reportEmitted: boolean = false;
 
   public doorStates: Map<string, "closed" | "open" | "locked"> = new Map();
 
@@ -177,12 +287,14 @@ export class Phase3Engine {
     map: Phase1Map,
     scenario: Phase1Scenario,
     callbacks: EngineCallbacks,
+    options?: { difficulty?: DifficultyLevel },
   ) {
     this.canvas = canvas;
     this.ctx = canvas.getContext("2d")!;
     this.map = map;
     this.scenario = scenario;
     this.callbacks = callbacks;
+    this.difficulty = options?.difficulty || "sulit";
 
     if (!map.floors || map.floors.length === 0) {
       throw new Error(
@@ -202,10 +314,25 @@ export class Phase3Engine {
       throw new Error("The map has no valid floors.");
     }
 
-    const totalObjectives = (scenario.objects || []).filter(
-      (o) => o.object_type === "OBJECTIVE",
+    const requiredObjectives = (scenario.objects || []).filter(
+      (o) => o.object_type === "OBJECTIVE" && !o.properties?.pickupOnly,
     ).length;
 
+    const rawNpcs = Array.isArray(scenario.config?.npcs)
+      ? scenario.config.npcs
+      : [];
+    this.npcs = rawNpcs.map((n: any, idx: number) => ({
+      id: n.id || `npc-${idx + 1}`,
+      name: n.name || `Siswa ${idx + 1}`,
+      role: n.role === "Guru" ? "Guru" : "Siswa",
+      x: n.x * TILE_SIZE + TILE_SIZE / 2,
+      y: n.y * TILE_SIZE + TILE_SIZE / 2,
+      floorId: startFloor.id,
+      status: "TRAPPED",
+      health: 100,
+    }));
+
+    const profile = DIFFICULTY_PROFILES[this.difficulty];
     this.player = {
       x: spawnObj.x * TILE_SIZE + TILE_SIZE / 2,
       y: spawnObj.y * TILE_SIZE + TILE_SIZE / 2,
@@ -214,23 +341,35 @@ export class Phase3Engine {
       maxHealth: 100,
       stamina: 100,
       maxStamina: 100,
-      speed: SIMULATION_PHYSICS.WALK_SPEED,
+      speed: profile.walkSpeed,
       alive: true,
       objectiveProgress:
-        totalObjectives > 0
-          ? `Ambil Item Darurat (0/${totalObjectives})`
+        requiredObjectives > 0
+          ? `Ambil Item Misi (0/${requiredObjectives})`
           : "Evakuasi ke Gerbang Utama (EXIT)",
       facing: "down",
       moving: false,
       interactionPrompt: null,
+      inventory: { ...this.inventory },
+      npcRescuedCount: 0,
+      npcFollowingCount: 0,
+      npcTotalCount: this.npcs.length,
+      difficulty: this.difficulty,
     };
+
+    const lockedCoords = new Set(
+      ((scenario.config?.lockedDoors as { x: number; y: number }[]) || []).map(
+        (d) => `${d.x},${d.y}`,
+      ),
+    );
 
     for (const floor of map.floors) {
       for (const tile of floor.tiles) {
-        if (tile.tile_type === "DOOR") {
-          this.doorStates.set(tile.id, "closed");
-        } else if (tile.tile_type === "DOOR_LOCKED") {
-          this.doorStates.set(tile.id, "locked");
+        if (tile.tile_type === "DOOR" || tile.tile_type === "DOOR_LOCKED") {
+          const isScenarioLocked =
+            tile.tile_type === "DOOR_LOCKED" ||
+            lockedCoords.has(`${tile.x},${tile.y}`);
+          this.doorStates.set(tile.id, isScenarioLocked ? "locked" : "closed");
         }
       }
     }
@@ -378,12 +517,112 @@ export class Phase3Engine {
     this.animationFrameId = requestAnimationFrame(this.loop);
   };
 
-  private update(dt: number) {
-    if (!this.player.alive) return;
+  private consumeInteract(): boolean {
+    const triggered =
+      this.input.isActionDown("interact") || this.virtualButtons["interact"];
+    if (!triggered) return false;
+    (this.input as any).keys["e"] = false;
+    this.virtualButtons["interact"] = false;
+    return true;
+  }
 
-    if (!this.isAuthoritative) {
-      this.simTimeMs += dt * 1000;
+  private getExpandedHazardRect(obj: Phase1ScenarioObject) {
+    let expandTiles = 0;
+    if (obj.object_type === "FIRE") {
+      expandTiles = this.fireExpansionTiles;
+    } else if (
+      obj.object_type === "DANGER_ZONE" &&
+      (obj.properties?.hazardKind === "FLOOD" ||
+        obj.properties?.hazardKind === "MUD_SLIDE")
+    ) {
+      expandTiles = this.floodExpansionTiles;
     }
+    const padPx = expandTiles * TILE_SIZE;
+    return {
+      ox: obj.x * TILE_SIZE - padPx,
+      oy: obj.y * TILE_SIZE - padPx,
+      ow: obj.width * TILE_SIZE + padPx * 2,
+      oh: obj.height * TILE_SIZE + padPx * 2,
+    };
+  }
+
+  private syncPlayerHudSnapshot() {
+    this.player.inventory = { ...this.inventory };
+    this.player.npcRescuedCount = this.npcs.filter(
+      (n) => n.status === "RESCUED",
+    ).length;
+    this.player.npcFollowingCount = this.npcs.filter(
+      (n) => n.status === "FOLLOWING",
+    ).length;
+    this.player.npcTotalCount = this.npcs.length;
+    this.player.difficulty = this.difficulty;
+  }
+
+  private emitFinalReport(succeeded: boolean) {
+    if (this.reportEmitted || !this.callbacks.onReportReady) return;
+    this.reportEmitted = true;
+
+    const totalTraps = (this.scenario.objects || []).filter(
+      (o) => o.properties?.hidden,
+    ).length;
+    const trapsTriggered = this.triggeredHazards.size;
+    const requiredObjs = (this.scenario.objects || []).filter(
+      (o) => o.object_type === "OBJECTIVE" && !o.properties?.pickupOnly,
+    );
+    const requiredCompleted = requiredObjs.filter((o) =>
+      this.collectedObjectives.has(o.id),
+    ).length;
+    const npcsRescued = this.npcs.filter(
+      (n) => n.status === "RESCUED",
+    ).length;
+    const profile = DIFFICULTY_PROFILES[this.difficulty];
+
+    let baseScore = succeeded ? 52 : 12;
+    baseScore += Math.round((this.player.health / this.player.maxHealth) * 20);
+    baseScore += Math.round(
+      ((totalTraps - trapsTriggered) / Math.max(1, totalTraps)) * 12,
+    );
+    baseScore += npcsRescued * 6;
+    baseScore += Math.min(8, this.inventory.pickupsCollected * 2);
+    const timeSec = this.simTimeMs / 1000;
+    if (succeeded && timeSec < 120) {
+      baseScore += Math.round(((120 - timeSec) / 120) * 10);
+    }
+
+    const finalScore = Math.max(
+      0,
+      Math.min(100, Math.round(baseScore * profile.scoreMultiplier)),
+    );
+
+    let grade: SimulationReport["grade"] = "D";
+    if (succeeded) {
+      if (finalScore >= 90) grade = "S";
+      else if (finalScore >= 76) grade = "A";
+      else if (finalScore >= 60) grade = "B";
+      else grade = "C";
+    }
+
+    this.callbacks.onReportReady({
+      grade,
+      score: finalScore,
+      succeeded,
+      timeMs: this.simTimeMs,
+      healthRemaining: Math.ceil(this.player.health),
+      difficulty: this.difficulty,
+      npcsRescued,
+      npcsTotal: this.npcs.length,
+      trapsTriggered,
+      totalTraps,
+      suppliesCollected: this.inventory.pickupsCollected,
+      requiredCompleted,
+      requiredTotal: requiredObjs.length,
+    });
+  }
+
+  private updateDynamicDisasters(dt: number) {
+    const profile = DIFFICULTY_PROFILES[this.difficulty];
+    const diffBoost =
+      this.difficulty === "sulit" ? 1.15 : this.difficulty === "mudah" ? 0.65 : 0.9;
 
     const aftershockInterval = Number(
       this.scenario.config?.aftershockIntervalMs || 0,
@@ -394,11 +633,220 @@ export class Phase3Engine {
     ) {
       this.lastAftershockMs = this.simTimeMs;
       this.cameraShakeTime = 1.1;
+      simulationAudio.playHit(false);
       this.callbacks.onMessage(
         "Gempa susulan terdeteksi! Waspada reruntuhan & kabel.",
       );
     }
 
+    const fireInterval = Number(
+      this.scenario.config?.fireSpreadIntervalMs || 0,
+    );
+    if (fireInterval > 0) {
+      const stages = Math.floor(this.simTimeMs / fireInterval);
+      this.fireExpansionTiles = Math.min(1.1, stages * 0.25 * diffBoost);
+    }
+
+    const floodInterval = Number(
+      this.scenario.config?.floodRiseIntervalMs || 0,
+    );
+    if (floodInterval > 0) {
+      const stages = Math.floor(this.simTimeMs / floodInterval);
+      this.floodExpansionTiles = Math.min(0.85, stages * 0.22 * diffBoost);
+    }
+
+    const lightningInterval = Number(
+      this.scenario.config?.lightningIntervalMs || 0,
+    );
+    if (
+      lightningInterval > 0 &&
+      this.simTimeMs - this.lastLightningMs >= lightningInterval / diffBoost
+    ) {
+      this.lastLightningMs = this.simTimeMs;
+      const offsetAngle = (this.simTimeMs * 0.017) % (Math.PI * 2);
+      const distTiles = 2.4 + ((this.simTimeMs % 30) / 15);
+      const sx = Math.max(
+        TILE_SIZE * 2,
+        Math.min(
+          (this.map.width - 2) * TILE_SIZE,
+          this.player.x + Math.cos(offsetAngle) * distTiles * TILE_SIZE,
+        ),
+      );
+      const sy = Math.max(
+        TILE_SIZE * 2,
+        Math.min(
+          (this.map.height - 2) * TILE_SIZE,
+          this.player.y + Math.sin(offsetAngle) * distTiles * TILE_SIZE,
+        ),
+      );
+      this.activeLightningStrikes.push({
+        id: `bolt-${Date.now()}-${Math.random()}`,
+        x: sx,
+        y: sy,
+        radiusPx: TILE_SIZE * 1.9,
+        remainingWarningSec: 2.2,
+        flashSec: 0,
+        struck: false,
+      });
+    }
+
+    for (const bolt of this.activeLightningStrikes) {
+      if (!bolt.struck) {
+        bolt.remainingWarningSec -= dt;
+        if (bolt.remainingWarningSec <= 0) {
+          bolt.struck = true;
+          bolt.flashSec = 0.45;
+          simulationAudio.playThunder();
+          this.cameraShakeTime = Math.max(this.cameraShakeTime, 0.5);
+          const dist = Math.hypot(this.player.x - bolt.x, this.player.y - bolt.y);
+          if (dist <= bolt.radiusPx && !this.isPlayerInSafeZone()) {
+            const dmg = Math.round(36 * profile.damageMultiplier);
+            this.player.health = Math.max(0, this.player.health - dmg);
+            this.slowDebuffTimer = Math.max(this.slowDebuffTimer, 1.2);
+            this.callbacks.onMessage(`Tersambar petir jarak dekat! (-${dmg} HP)`);
+          }
+        }
+      } else {
+        bolt.flashSec -= dt;
+      }
+    }
+    this.activeLightningStrikes = this.activeLightningStrikes.filter(
+      (b) => !b.struck || b.flashSec > 0,
+    );
+  }
+
+  private isPlayerInSafeZone(): boolean {
+    return (this.scenario.objects || []).some(
+      (obj) =>
+        obj.floor_id === this.player.floorId &&
+        obj.object_type === "SAFE_ZONE" &&
+        this.rectCircleCollide(
+          obj.x * TILE_SIZE,
+          obj.y * TILE_SIZE,
+          obj.width * TILE_SIZE,
+          obj.height * TILE_SIZE,
+          this.player.x,
+          this.player.y,
+          PLAYER_RADIUS,
+        ),
+    );
+  }
+
+  private updateNpcs(dt: number, inSafeZone: boolean) {
+    const lastPt = this.playerTrail[this.playerTrail.length - 1];
+    if (
+      !lastPt ||
+      Math.hypot(this.player.x - lastPt.x, this.player.y - lastPt.y) >= 26
+    ) {
+      this.playerTrail.push({ x: this.player.x, y: this.player.y });
+      if (this.playerTrail.length > 160) {
+        this.playerTrail.shift();
+      }
+    }
+
+    let followingIndex = 0;
+    let rescuedNow = 0;
+
+    for (const npc of this.npcs) {
+      if (npc.floorId !== this.player.floorId) continue;
+
+      if (npc.status === "TRAPPED") {
+        const dist = Math.hypot(this.player.x - npc.x, this.player.y - npc.y);
+        if (dist <= TILE_SIZE * 1.65) {
+          this.player.interactionPrompt = `Tekan E / ACT untuk Menyelamatkan ${npc.name}`;
+          if (this.consumeInteract()) {
+            npc.status = "FOLLOWING";
+            simulationAudio.playRescue();
+            this.callbacks.onMessage(
+              `${npc.name} bergabung! Antar ke Zona Aman atau Gerbang Keluar.`,
+            );
+          }
+        }
+      } else if (npc.status === "FOLLOWING") {
+        if (inSafeZone) {
+          npc.status = "RESCUED";
+          rescuedNow++;
+          continue;
+        }
+        followingIndex++;
+        const trailOffset = Math.min(
+          this.playerTrail.length - 1,
+          followingIndex * 2,
+        );
+        const target =
+          this.playerTrail[
+            Math.max(0, this.playerTrail.length - 1 - trailOffset)
+          ] || { x: this.player.x, y: this.player.y };
+
+        const dx = target.x - npc.x;
+        const dy = target.y - npc.y;
+        const d = Math.hypot(dx, dy);
+        if (d > 10) {
+          const step = Math.min(d, Math.max(96, this.player.speed * 1.15) * dt);
+          npc.x += (dx / d) * step;
+          npc.y += (dy / d) * step;
+        }
+      }
+    }
+
+    if (rescuedNow > 0) {
+      simulationAudio.playRescue();
+      this.callbacks.onMessage(
+        `${rescuedNow} warga sekolah berhasil mencapai Zona Aman!`,
+      );
+    }
+  }
+
+  private checkExtinguisherAction() {
+    if (this.inventory.extinguishers <= 0) return;
+    for (const obj of this.scenario.objects || []) {
+      if (
+        obj.floor_id !== this.player.floorId ||
+        obj.object_type !== "FIRE" ||
+        this.extinguishedFires.has(obj.id)
+      ) {
+        continue;
+      }
+      const { ox, oy, ow, oh } = this.getExpandedHazardRect(obj);
+      const isNearFire = this.rectCircleCollide(
+        ox,
+        oy,
+        ow,
+        oh,
+        this.player.x,
+        this.player.y,
+        TILE_SIZE * 1.4,
+      );
+      if (isNearFire) {
+        this.player.interactionPrompt = `Tekan E / ACT untuk Padamkan Api (APAR: ${this.inventory.extinguishers}x)`;
+        if (this.consumeInteract()) {
+          this.extinguishedFires.add(obj.id);
+          this.inventory.extinguishers -= 1;
+          simulationAudio.playExtinguish();
+          this.callbacks.onMessage("Kobaran api berhasil dipadamkan dengan APAR!");
+          return;
+        }
+      }
+    }
+  }
+
+  private update(dt: number) {
+    if (!this.player.alive) return;
+
+    if (!this.isAuthoritative) {
+      this.simTimeMs += dt * 1000;
+      this.updateDynamicDisasters(dt);
+    }
+
+    if (this.inventory.maskSec > 0) {
+      this.inventory.maskSec = Math.max(0, this.inventory.maskSec - dt);
+    }
+    if (this.inventory.flashlightSec > 0) {
+      this.inventory.flashlightSec = Math.max(
+        0,
+        this.inventory.flashlightSec - dt,
+      );
+    }
     if (this.cameraShakeTime > 0) {
       this.cameraShakeTime = Math.max(0, this.cameraShakeTime - dt);
     }
@@ -427,9 +875,10 @@ export class Phase3Engine {
       this.player.moving &&
       this.player.stamina > 0;
 
-    let currentSpeed: number = SIMULATION_PHYSICS.WALK_SPEED;
+    const profile = DIFFICULTY_PROFILES[this.difficulty];
+    let currentSpeed: number = profile.walkSpeed;
     if (canSprint) {
-      currentSpeed = SIMULATION_PHYSICS.RUN_SPEED;
+      currentSpeed = profile.runSpeed;
       this.player.stamina = Math.max(
         0,
         this.player.stamina - SIMULATION_PHYSICS.STAMINA_DRAIN_PER_SEC * dt,
@@ -470,11 +919,15 @@ export class Phase3Engine {
     }
 
     if (!this.isAuthoritative) {
+      const inSafeZone = this.isPlayerInSafeZone();
+      this.updateNpcs(dt, inSafeZone);
+      this.checkExtinguisherAction();
       this.checkHazards(dt);
       this.checkObjectives();
     }
     this.checkStairs();
     this.checkDoors();
+    this.syncPlayerHudSnapshot();
 
     let scale = 1;
     const targetWidth = 14 * TILE_SIZE;
@@ -634,24 +1087,31 @@ export class Phase3Engine {
     const floor = this.map.floors.find((f) => f.id === this.player.floorId);
     if (!floor) return;
 
+    const profile = DIFFICULTY_PROFILES[this.difficulty];
+    const flashlightRevealMult = this.inventory.flashlightSec > 0 ? 1.9 : 1;
+    const maskReduction = this.inventory.maskSec > 0 ? 0.25 : 1;
+
     let highestDps = 0;
     let inSafeZone = false;
     let slowFactor = 1;
 
     for (const obj of this.scenario.objects || []) {
       if (obj.floor_id !== floor.id) continue;
+      if (obj.object_type === "FIRE" && this.extinguishedFires.has(obj.id)) {
+        continue;
+      }
 
-      const ox = obj.x * TILE_SIZE;
-      const oy = obj.y * TILE_SIZE;
-      const ow = obj.width * TILE_SIZE;
-      const oh = obj.height * TILE_SIZE;
+      const { ox, oy, ow, oh } = this.getExpandedHazardRect(obj);
 
       if (obj.properties?.hidden) {
         const revealPx =
           Number(
             obj.properties.revealRadius ||
               SIMULATION_PHYSICS.DEFAULT_HIDDEN_REVEAL_TILES,
-          ) * TILE_SIZE;
+          ) *
+          TILE_SIZE *
+          profile.revealMultiplier *
+          flashlightRevealMult;
         const distToCenter = Math.hypot(
           this.player.x - (ox + ow / 2),
           this.player.y - (oy + oh / 2),
@@ -679,14 +1139,15 @@ export class Phase3Engine {
       }
 
       if (obj.object_type === "FIRE") {
-        const fireDps = Number(
-          obj.properties?.damagePerSec ?? SIMULATION_PHYSICS.FIRE_DPS,
-        );
+        const fireDps =
+          Number(obj.properties?.damagePerSec ?? SIMULATION_PHYSICS.FIRE_DPS) *
+          profile.damageMultiplier;
         highestDps = Math.max(highestDps, fireDps);
       } else if (obj.object_type === "SMOKE") {
-        const smokeDps = Number(
-          obj.properties?.damagePerSec ?? SIMULATION_PHYSICS.SMOKE_DPS,
-        );
+        const smokeDps =
+          Number(obj.properties?.damagePerSec ?? SIMULATION_PHYSICS.SMOKE_DPS) *
+          profile.damageMultiplier *
+          maskReduction;
         highestDps = Math.max(highestDps, smokeDps);
         slowFactor = Math.min(
           slowFactor,
@@ -696,9 +1157,13 @@ export class Phase3Engine {
         obj.object_type === "DAMAGE_ZONE" ||
         obj.object_type === "DANGER_ZONE"
       ) {
-        const zoneDps = Number(
-          obj.properties?.damagePerSec ?? SIMULATION_PHYSICS.DEFAULT_ZONE_DPS,
-        );
+        const isGas = obj.properties?.hazardKind === "GAS_CLOUD";
+        const zoneDps =
+          Number(
+            obj.properties?.damagePerSec ?? SIMULATION_PHYSICS.DEFAULT_ZONE_DPS,
+          ) *
+          profile.damageMultiplier *
+          (isGas ? maskReduction : 1);
         highestDps = Math.max(highestDps, zoneDps);
 
         if (obj.properties?.slowFactor) {
@@ -709,13 +1174,16 @@ export class Phase3Engine {
           this.revealedHazards.add(obj.id);
           if (!this.triggeredHazards.has(obj.id)) {
             this.triggeredHazards.add(obj.id);
-            const burst = Number(
-              obj.properties.burstDamage ??
-                SIMULATION_PHYSICS.DEFAULT_HIDDEN_BURST,
+            const burst = Math.round(
+              Number(
+                obj.properties.burstDamage ??
+                  SIMULATION_PHYSICS.DEFAULT_HIDDEN_BURST,
+              ) * profile.damageMultiplier,
             );
             this.player.health = Math.max(0, this.player.health - burst);
             this.slowDebuffTimer = Math.max(this.slowDebuffTimer, 1.4);
             this.cameraShakeTime = Math.max(this.cameraShakeTime, 0.45);
+            simulationAudio.playHit(true);
             const reason =
               obj.properties.reason || "Menginjak bahaya tersembunyi!";
             this.callbacks.onMessage(`${reason} (-${burst} HP)`);
@@ -732,33 +1200,108 @@ export class Phase3Engine {
 
     if (highestDps > 0 && !inSafeZone) {
       this.player.health = Math.max(0, this.player.health - highestDps * dt);
+      if (this.simTimeMs - this.lastHitAudioMs > 750) {
+        this.lastHitAudioMs = this.simTimeMs;
+        simulationAudio.playHit(false);
+      }
     }
 
     if (this.player.health <= 0 && this.player.alive) {
       this.player.health = 0;
       this.player.alive = false;
       this.state = "FAILED";
+      simulationAudio.playFail();
       this.callbacks.onStateChange(this.state);
       this.callbacks.onMessage("Evakuasi gagal akibat paparan bahaya.");
+      this.emitFinalReport(false);
     }
 
     if (highestDps > 0 || this.player.health <= 0) {
+      this.syncPlayerHudSnapshot();
       this.callbacks.onPlayerUpdate({ ...this.player });
     }
   }
 
   private collectedObjectives: Set<string> = new Set();
 
+  private applySupplyPickup(obj: Phase1ScenarioObject) {
+    const kind = obj.properties?.itemKind;
+    this.inventory.pickupsCollected += 1;
+    simulationAudio.playPickup();
+
+    switch (kind) {
+      case "MEDKIT": {
+        const heal = Number(obj.properties?.healAmount ?? 35);
+        this.player.health = Math.min(
+          this.player.maxHealth,
+          this.player.health + heal,
+        );
+        this.inventory.medkitsUsed += 1;
+        this.callbacks.onMessage(`Kotak P3K digunakan! (+${heal} HP)`);
+        break;
+      }
+      case "STAMINA_DRINK": {
+        const boost = Number(obj.properties?.staminaAmount ?? 55);
+        this.player.stamina = Math.min(
+          this.player.maxStamina,
+          this.player.stamina + boost,
+        );
+        this.staminaExhausted = false;
+        this.callbacks.onMessage(`Air energi diminum! (+${boost} Stamina)`);
+        break;
+      }
+      case "MASK": {
+        const dur = Number(obj.properties?.durationSec ?? 15);
+        this.inventory.maskSec = Math.max(this.inventory.maskSec, dur);
+        this.callbacks.onMessage(
+          `Masker Respirator aktif (${dur}s — kebal 75% asap & gas)!`,
+        );
+        break;
+      }
+      case "EXTINGUISHER": {
+        const charges = Number(obj.properties?.charges ?? 2);
+        this.inventory.extinguishers += charges;
+        this.callbacks.onMessage(
+          `Tabung APAR diperoleh (+${charges}x padamkan api dengan E/ACT)!`,
+        );
+        break;
+      }
+      case "KEY": {
+        this.inventory.keys += 1;
+        this.callbacks.onMessage(
+          "Kunci Darurat diambil! Dapat membuka pintu terkunci.",
+        );
+        break;
+      }
+      case "FLASHLIGHT": {
+        const dur = Number(obj.properties?.durationSec ?? 20);
+        this.inventory.flashlightSec = Math.max(
+          this.inventory.flashlightSec,
+          dur,
+        );
+        this.callbacks.onMessage(
+          `Senter aktif (${dur}s — pandang terang & deteksi jebakan lebih jauh)!`,
+        );
+        break;
+      }
+      default:
+        this.callbacks.onMessage(
+          `${obj.properties?.name || "Perlengkapan"} diambil!`,
+        );
+    }
+  }
+
   private checkObjectives() {
     const floor = this.map.floors.find((f) => f.id === this.player.floorId);
     if (!floor) return;
 
-    let totalObjectives = 0;
-    for (const obj of this.scenario.objects || []) {
-      if (obj.object_type === "OBJECTIVE") {
-        totalObjectives++;
-      }
-    }
+    const requiredObjectives = (this.scenario.objects || []).filter(
+      (o) => o.object_type === "OBJECTIVE" && !o.properties?.pickupOnly,
+    );
+    const totalRequired = requiredObjectives.length;
+    const completedRequired = requiredObjectives.filter((o) =>
+      this.collectedObjectives.has(o.id),
+    ).length;
 
     for (const obj of this.scenario.objects || []) {
       if (obj.floor_id !== floor.id) continue;
@@ -773,40 +1316,50 @@ export class Phase3Engine {
         PLAYER_RADIUS,
       );
 
-      if (isIntersecting) {
-        if (obj.object_type === "OBJECTIVE") {
-          if (!this.collectedObjectives.has(obj.id)) {
-            this.collectedObjectives.add(obj.id);
-            const itemName = obj.properties?.name || "Item Darurat";
+      if (!isIntersecting) continue;
+
+      if (obj.object_type === "OBJECTIVE") {
+        if (!this.collectedObjectives.has(obj.id)) {
+          this.collectedObjectives.add(obj.id);
+          if (obj.properties?.pickupOnly) {
+            this.applySupplyPickup(obj);
+          } else {
+            const newDone = completedRequired + 1;
+            const itemName = obj.properties?.name || "Item Misi";
+            simulationAudio.playPickup();
             this.callbacks.onMessage(
-              `${itemName} terambil! (${this.collectedObjectives.size}/${totalObjectives})`,
+              `${itemName} selesai! (${newDone}/${totalRequired})`,
             );
             this.player.objectiveProgress =
-              this.collectedObjectives.size >= totalObjectives
-                ? "Semua Misi Selesai -> Gerbang Utama (EXIT)"
-                : `Item Darurat (${this.collectedObjectives.size}/${totalObjectives})`;
-            this.callbacks.onPlayerUpdate({ ...this.player });
+              newDone >= totalRequired
+                ? "Misi Selesai -> Gerbang Utama (EXIT)"
+                : `Item Misi (${newDone}/${totalRequired})`;
           }
+          this.syncPlayerHudSnapshot();
+          this.callbacks.onPlayerUpdate({ ...this.player });
         }
+      }
 
-        if (obj.object_type === "EXIT") {
-          if (this.collectedObjectives.size >= totalObjectives) {
-            this.player.interactionPrompt = "Tekan E / ACT untuk Evakuasi";
-            if (
-              this.input.isActionDown("interact") ||
-              this.virtualButtons["interact"]
-            ) {
-              (this.input as any).keys["e"] = false;
-              this.virtualButtons["interact"] = false;
-              this.state = "SUCCESS";
-              this.callbacks.onStateChange(this.state);
-              this.callbacks.onMessage("Evakuasi Berhasil!");
-              this.player.objectiveProgress = "Berhasil Evakuasi!";
-              this.callbacks.onPlayerUpdate({ ...this.player });
+      if (obj.object_type === "EXIT") {
+        if (completedRequired >= totalRequired) {
+          this.player.interactionPrompt = "Tekan E / ACT untuk Evakuasi";
+          if (this.consumeInteract()) {
+            for (const npc of this.npcs) {
+              if (npc.status === "FOLLOWING") {
+                npc.status = "RESCUED";
+              }
             }
-          } else {
-            this.player.interactionPrompt = `Ambil Item Darurat (${this.collectedObjectives.size}/${totalObjectives})`;
+            this.state = "SUCCESS";
+            simulationAudio.playSuccess();
+            this.callbacks.onStateChange(this.state);
+            this.callbacks.onMessage("Evakuasi Berhasil!");
+            this.player.objectiveProgress = "Berhasil Evakuasi!";
+            this.syncPlayerHudSnapshot();
+            this.callbacks.onPlayerUpdate({ ...this.player });
+            this.emitFinalReport(true);
           }
+        } else {
+          this.player.interactionPrompt = `Ambil Item Misi (${completedRequired}/${totalRequired})`;
         }
       }
     }
@@ -876,16 +1429,24 @@ export class Phase3Engine {
         );
 
         if (isIntersecting) {
-          if (tile.tile_type === "DOOR_LOCKED" && state === "locked") {
-            this.player.interactionPrompt = "Pintu Terkunci";
+          if (state === "locked") {
+            if (this.inventory.keys > 0) {
+              this.player.interactionPrompt = `Pintu Terkunci — Tekan E / ACT Buka dengan Kunci (${this.inventory.keys})`;
+              if (this.consumeInteract()) {
+                this.inventory.keys -= 1;
+                this.updateDoorState(tile.id, "open");
+                simulationAudio.playUnlock();
+                this.callbacks.onMessage("Pintu darurat berhasil dibuka dengan kunci!");
+                if (this.callbacks.onDoorStateChange) {
+                  this.callbacks.onDoorStateChange(tile.id, "open");
+                }
+              }
+            } else {
+              this.player.interactionPrompt = "Pintu Terkunci (Butuh Kunci Darurat)";
+            }
           } else if (state === "closed") {
             this.player.interactionPrompt = "Tekan E / ACT untuk Buka Pintu";
-            if (
-              this.input.isActionDown("interact") ||
-              this.virtualButtons["interact"]
-            ) {
-              (this.input as any).keys["e"] = false;
-              this.virtualButtons["interact"] = false;
+            if (this.consumeInteract()) {
               this.updateDoorState(tile.id, "open");
               if (this.callbacks.onDoorStateChange) {
                 this.callbacks.onDoorStateChange(tile.id, "open");
@@ -1016,11 +1577,15 @@ export class Phase3Engine {
 
     for (const obj of this.scenario.objects || []) {
       if (obj.floor_id !== floor.id) continue;
+      if (obj.object_type === "FIRE" && this.extinguishedFires.has(obj.id)) {
+        continue;
+      }
 
-      const px = obj.x * TILE_SIZE;
-      const py = obj.y * TILE_SIZE;
-      const pw = obj.width * TILE_SIZE;
-      const ph = obj.height * TILE_SIZE;
+      const expanded = this.getExpandedHazardRect(obj);
+      const px = expanded.ox;
+      const py = expanded.oy;
+      const pw = expanded.ow;
+      const ph = expanded.oh;
 
       this.ctx.save();
       switch (obj.object_type) {
@@ -1161,6 +1726,13 @@ export class Phase3Engine {
             this.ctx.lineWidth = 2;
             this.ctx.setLineDash([10, 6]);
             this.ctx.strokeRect(px, py, pw, ph);
+          } else if (kind === "MUD_SLIDE") {
+            this.ctx.fillStyle = `rgba(120, 53, 15, ${0.52 * wave})`;
+            this.ctx.fillRect(px, py, pw, ph);
+            this.ctx.strokeStyle = "rgba(180, 83, 9, 0.85)";
+            this.ctx.lineWidth = 2;
+            this.ctx.setLineDash([12, 8]);
+            this.ctx.strokeRect(px, py, pw, ph);
           } else {
             this.ctx.fillStyle = `rgba(56, 189, 248, ${0.26 * wave})`;
             this.ctx.fillRect(px, py, pw, ph);
@@ -1258,20 +1830,52 @@ export class Phase3Engine {
         }
         case "OBJECTIVE": {
           if (this.collectedObjectives.has(obj.id)) break;
-          const oPulse = Math.sin(this.simTimeMs / 180) * 0.18 + 0.82;
+          const oPulse = Math.sin(this.simTimeMs / 180) * 0.16 + 0.84;
           const ox = px + pw / 2;
           const oy = py + ph / 2;
-          this.ctx.fillStyle = `rgba(250, 204, 21, ${0.35 * oPulse})`;
-          this.ctx.beginPath();
-          this.ctx.arc(ox, oy, Math.min(pw, ph) * 0.45 * oPulse, 0, Math.PI * 2);
-          this.ctx.fill();
-          this.ctx.fillStyle = "#facc15";
-          this.ctx.beginPath();
-          this.ctx.arc(ox, oy, Math.min(pw, ph) * 0.24, 0, Math.PI * 2);
-          this.ctx.fill();
-          this.ctx.strokeStyle = "#fef08a";
-          this.ctx.lineWidth = 2;
-          this.ctx.stroke();
+          const kind = obj.properties?.itemKind;
+          const r = Math.min(pw, ph) * 0.28;
+
+          if (obj.properties?.pickupOnly) {
+            const palette: Record<string, { bg: string; fg: string; tag: string }> = {
+              MEDKIT: { bg: "rgba(34, 197, 94, 0.35)", fg: "#22c55e", tag: "+" },
+              STAMINA_DRINK: { bg: "rgba(6, 182, 212, 0.35)", fg: "#06b6d4", tag: "E" },
+              MASK: { bg: "rgba(20, 184, 166, 0.35)", fg: "#2dd4bf", tag: "M" },
+              EXTINGUISHER: { bg: "rgba(249, 115, 22, 0.35)", fg: "#fb923c", tag: "A" },
+              KEY: { bg: "rgba(250, 204, 21, 0.35)", fg: "#facc15", tag: "K" },
+              FLASHLIGHT: { bg: "rgba(253, 224, 71, 0.35)", fg: "#fde047", tag: "S" },
+            };
+            const style = palette[kind] || {
+              bg: "rgba(59, 130, 246, 0.35)",
+              fg: "#60a5fa",
+              tag: "•",
+            };
+            this.ctx.fillStyle = style.bg;
+            this.ctx.beginPath();
+            this.ctx.arc(ox, oy, r * 1.45 * oPulse, 0, Math.PI * 2);
+            this.ctx.fill();
+            this.ctx.fillStyle = style.fg;
+            this.ctx.beginPath();
+            this.ctx.arc(ox, oy, r * 0.85, 0, Math.PI * 2);
+            this.ctx.fill();
+            this.ctx.fillStyle = "#0f172a";
+            this.ctx.font = "bold 14px sans-serif";
+            this.ctx.textAlign = "center";
+            this.ctx.textBaseline = "middle";
+            this.ctx.fillText(style.tag, ox, oy + 1);
+          } else {
+            this.ctx.fillStyle = `rgba(250, 204, 21, ${0.35 * oPulse})`;
+            this.ctx.beginPath();
+            this.ctx.arc(ox, oy, Math.min(pw, ph) * 0.45 * oPulse, 0, Math.PI * 2);
+            this.ctx.fill();
+            this.ctx.fillStyle = "#facc15";
+            this.ctx.beginPath();
+            this.ctx.arc(ox, oy, Math.min(pw, ph) * 0.24, 0, Math.PI * 2);
+            this.ctx.fill();
+            this.ctx.strokeStyle = "#fef08a";
+            this.ctx.lineWidth = 2;
+            this.ctx.stroke();
+          }
           break;
         }
       }
@@ -1437,16 +2041,86 @@ export class Phase3Engine {
       }
     }
 
+    // Draw Lightning warning rings & flashes
+    for (const bolt of this.activeLightningStrikes) {
+      this.ctx.save();
+      if (!bolt.struck) {
+        const urgency = 1 - Math.max(0, bolt.remainingWarningSec) / 2.2;
+        this.ctx.fillStyle = `rgba(250, 204, 21, ${0.14 + urgency * 0.28})`;
+        this.ctx.beginPath();
+        this.ctx.arc(bolt.x, bolt.y, bolt.radiusPx, 0, Math.PI * 2);
+        this.ctx.fill();
+        this.ctx.strokeStyle = `rgba(250, 204, 21, ${0.65 + urgency * 0.35})`;
+        this.ctx.lineWidth = 3;
+        this.ctx.setLineDash([8, 6]);
+        this.ctx.stroke();
+        this.ctx.strokeStyle = "#f43f5e";
+        this.ctx.setLineDash([]);
+        this.ctx.beginPath();
+        this.ctx.arc(bolt.x, bolt.y, bolt.radiusPx * urgency, 0, Math.PI * 2);
+        this.ctx.stroke();
+      } else {
+        this.ctx.fillStyle = `rgba(254, 240, 138, ${Math.min(0.85, bolt.flashSec * 2)})`;
+        this.ctx.beginPath();
+        this.ctx.arc(bolt.x, bolt.y, bolt.radiusPx * 1.1, 0, Math.PI * 2);
+        this.ctx.fill();
+      }
+      this.ctx.restore();
+    }
+
+    // Draw Trapped, Following & Rescued NPCs
+    for (const npc of this.npcs) {
+      if (npc.floorId !== floor.id || npc.status === "RESCUED") continue;
+      this.ctx.save();
+      this.ctx.fillStyle =
+        npc.status === "FOLLOWING"
+          ? "#10b981"
+          : npc.role === "Guru"
+            ? "#8b5cf6"
+            : "#0ea5e9";
+      this.ctx.beginPath();
+      this.ctx.arc(npc.x, npc.y, PLAYER_RADIUS * 0.9, 0, Math.PI * 2);
+      this.ctx.fill();
+      this.ctx.strokeStyle = "#ffffff";
+      this.ctx.lineWidth = 2;
+      this.ctx.stroke();
+
+      const tag =
+        npc.status === "FOLLOWING" ? `${npc.name} (Ikut)` : `TOLONG! ${npc.name}`;
+      this.ctx.font = "bold 10px sans-serif";
+      const tw = this.ctx.measureText(tag).width;
+      this.ctx.fillStyle =
+        npc.status === "FOLLOWING"
+          ? "rgba(6, 78, 59, 0.85)"
+          : "rgba(180, 83, 9, 0.9)";
+      this.ctx.fillRect(npc.x - tw / 2 - 4, npc.y - 30, tw + 8, 15);
+      this.ctx.fillStyle = "#ffffff";
+      this.ctx.textAlign = "center";
+      this.ctx.fillText(tag, npc.x, npc.y - 19);
+      this.ctx.restore();
+    }
+
     this.ctx.restore();
 
-    const ambientDarkness = Number(this.scenario.config?.ambientDarkness || 0);
-    if ((smokeOverlay || ambientDarkness > 0) && this.player.alive) {
+    const profile = DIFFICULTY_PROFILES[this.difficulty];
+    const baseDarkness =
+      Number(this.scenario.config?.ambientDarkness || 0) *
+      profile.darknessMultiplier;
+    const effectiveDarkness =
+      this.inventory.flashlightSec > 0 ? baseDarkness * 0.35 : baseDarkness;
+    if ((smokeOverlay || effectiveDarkness > 0) && this.player.alive) {
       const overlayAlpha = smokeOverlay
-        ? 0.86
-        : Math.min(0.75, ambientDarkness);
-      const sightRadiusPx = (smokeOverlay ? 145 : 270) * scale;
-      const screenPlayerX = (this.player.x - Math.floor(this.camera.x) + shakeX) * scale;
-      const screenPlayerY = (this.player.y - Math.floor(this.camera.y) + shakeY) * scale;
+        ? this.inventory.maskSec > 0
+          ? 0.56
+          : 0.86
+        : Math.min(0.75, effectiveDarkness);
+      const flashlightBonus = this.inventory.flashlightSec > 0 ? 1.55 : 1;
+      const sightRadiusPx =
+        (smokeOverlay ? 155 : 275) * flashlightBonus * scale;
+      const screenPlayerX =
+        (this.player.x - Math.floor(this.camera.x) + shakeX) * scale;
+      const screenPlayerY =
+        (this.player.y - Math.floor(this.camera.y) + shakeY) * scale;
 
       const grad = this.ctx.createRadialGradient(
         screenPlayerX,
