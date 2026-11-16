@@ -97,6 +97,9 @@ export async function initGameSession(roomId) {
 
   if (!sim || !map) return;
 
+  const tickTimer = setInterval(() => tickSession(roomId), TICK_RATE);
+  tickTimer.unref?.();
+
   activeSessions.set(roomId, {
     roomId,
     startedAt: Date.now(),
@@ -104,7 +107,7 @@ export async function initGameSession(roomId) {
     map,
     sim,
     players: new Map(), // participantId -> playerState
-    interval: setInterval(() => tickSession(roomId), TICK_RATE),
+    interval: tickTimer,
     lastTickTime: Date.now(),
     completed: false,
   });
@@ -168,7 +171,12 @@ async function handleSessionEnd(session, roomId) {
   session.completed = true;
   clearInterval(session.interval);
 
-  const io = getIO();
+  let io = null;
+  try {
+    io = getIO();
+  } catch {
+    io = null;
+  }
   if (io) {
     const playersObj = {};
     for (const [pId, pState] of session.players.entries()) {
@@ -339,7 +347,12 @@ function tickSession(roomId) {
     handleSessionEnd(session, roomId);
   }
 
-  const io = getIO();
+  let io = null;
+  try {
+    io = getIO();
+  } catch {
+    io = null;
+  }
   if (io) {
     const playersObj = {};
     for (const [pId, pState] of session.players.entries()) {

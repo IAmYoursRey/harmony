@@ -1,5 +1,6 @@
 import React, { useEffect, useRef, useState } from "react";
-import { useParams, useNavigate } from "react-router-dom";
+import { useParams, useNavigate, useSearchParams } from "react-router-dom";
+import { apiClient } from "@/services/apiClient";
 import { phase1Api } from "./Phase1API";
 import { Phase1Map, Phase1Scenario } from "./Phase1Types";
 import {
@@ -23,19 +24,60 @@ import {
   Pause,
   Volume2,
   VolumeX,
+  Trophy,
+  Users,
 } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
 import { io, Socket } from "socket.io-client";
+
+export interface OnlineLeaderboardEntry {
+  id: string;
+  studentId: string;
+  displayName: string;
+  avatarStyle?: AvatarStyle;
+  avatarColor?: string;
+  status: string;
+  finishedAt?: string | null;
+  finishTimeMs?: number | null;
+  score?: number;
+  grade?: string | null;
+  liveState?: {
+    x?: number;
+    y?: number;
+    floorId?: string;
+    direction?: "up" | "down" | "left" | "right";
+    hp?: number;
+    alive?: boolean;
+    moving?: boolean;
+    sprinting?: boolean;
+  };
+}
 
 export function Phase3Runtime({
   mapId,
   scenarioId,
   sessionId,
+  roomCode,
+  mode,
+  initialDifficulty,
+  initialAvatarStyle,
+  initialAvatarColor,
+  initialAvatarName,
+  autoStart = false,
+  onReturnToLobby,
   onClose,
 }: {
   mapId: string;
   scenarioId: string;
   sessionId?: string;
+  roomCode?: string;
+  mode?: "mabar" | "race";
+  initialDifficulty?: DifficultyLevel;
+  initialAvatarStyle?: AvatarStyle;
+  initialAvatarColor?: string;
+  initialAvatarName?: string;
+  autoStart?: boolean;
+  onReturnToLobby?: () => void;
   onClose: () => void;
 }) {
   const { show } = useToast();
@@ -115,13 +157,24 @@ export function Phase3Runtime({
     }
   };
 
-  const [avatarColor, setAvatarColor] = useState("#3b82f6");
-  const [avatarName, setAvatarName] = useState(user?.name || "Player");
-  const [avatarStyle, setAvatarStyle] = useState<AvatarStyle>("girl");
-  const [avatarSelected, setAvatarSelected] = useState(false);
-  const [difficulty, setDifficulty] = useState<DifficultyLevel>("sulit");
+  const [avatarColor, setAvatarColor] = useState(
+    initialAvatarColor || "#3b82f6",
+  );
+  const [avatarName, setAvatarName] = useState(
+    initialAvatarName || user?.name || "Player",
+  );
+  const [avatarStyle, setAvatarStyle] = useState<AvatarStyle>(
+    initialAvatarStyle || "girl",
+  );
+  const [avatarSelected, setAvatarSelected] = useState(Boolean(autoStart));
+  const [difficulty, setDifficulty] = useState<DifficultyLevel>(
+    initialDifficulty || "sulit",
+  );
   const [isMuted, setIsMuted] = useState(false);
   const [report, setReport] = useState<SimulationReport | null>(null);
+  const [leaderboard, setLeaderboard] = useState<OnlineLeaderboardEntry[]>([]);
+  const [showLeaderboard, setShowLeaderboard] = useState(true);
+  const isSyncingRef = useRef(false);
 
   useEffect(() => {
     preloadDigitalTwinAssets();
@@ -180,48 +233,45 @@ export function Phase3Runtime({
   const socketRef = useRef<Socket | null>(null);
 
   useEffect(() => {
-    if (sessionId && user) {
-      const url =
-        typeof import.meta !== "undefined" && import.meta.env
-          ? import.meta.env.VITE_API_URL
-          : "http://localhost:3001";
-      socketRef.current = io(url || "http://localhost:3001", {
+    if (!sessionId || !user) return;
+
+    const isLocalHost =
+      typeof window !== "undefined" &&
+      ["localhost", "127.0.0.1"].includes(window.location.hostname);
+    const socketUrl =
+      typeof import.meta !== "undefined" && import.meta.env
+        ? import.meta.env.VITE_API_URL
+        : undefined;
+
+    if (isLocalHost || socketUrl) {
+      socketRef.current = io(socketUrl || "http://localhost:3001", {
         withCredentials: true,
+        reconnectionAttempts: 2,
       });
       const handleConnect = () => {
-        console.log(
-          "[Phase3Runtime] Socket connected. Emitting join_session:",
-          sessionId,
-          user.id,
-        );
         socketRef.current?.emit("join_session", {
           sessionId,
           participantId: user.id,
           studentId: user.id,
-          displayName: user.name || user.email?.split("@")[0] || "Student",
+          displayName: avatarName || user.name || "Pemain",
         });
       };
 
       socketRef.current.on("connect", handleConnect);
-      if (socketRef.current.connected) {
-        handleConnect();
-      }
+      if (socketRef.current.connected) handleConnect();
 
       socketRef.current.on("remote_player_update", (data) => {
-        if (engineRef.current) {
-          engineRef.current.updateRemotePlayer(data.participantId, data);
+        if (engineRef.current && data.studentId !== user.id) {
+          engineRef.current.updateRemotePlayer(
+            data.studentId || data.participantId,
+            data,
+          );
         }
       });
 
       socketRef.current.on("remote_player_disconnect", (data) => {
         if (engineRef.current) {
           engineRef.current.removeRemotePlayer(data.participantId);
-        }
-      });
-
-      socketRef.current.on("game_state_update", (data) => {
-        if (engineRef.current && user) {
-          engineRef.current.syncAuthoritativeState(data, user.id);
         }
       });
 
@@ -241,7 +291,102 @@ export function Phase3Runtime({
         socketRef.current = null;
       }
     };
-  }, [sessionId, user]);
+  }, [sessionId, user?.id]);
+
+  // Serverless REST state sync (keeps multiplayer & race rankings live on Vercel too)
+  useEffect(() => {
+    if (!sessionId || !user) return;
+    if (simState !== "RUNNING" && simState !== "SUCCESS" && simState !== "FAILED") {
+      return;
+    }
+
+    let cancelled = false;
+    const syncOnce = async () => {
+      if (isSyncingRef.current || cancelled) return;
+      isSyncingRef.current = true;
+      try {
+        const snapshot = engineRef.current?.getSyncSnapshot();
+        const isFinished = simState === "SUCCESS" && Boolean(report?.succeeded);
+        const payload = {
+          x: snapshot?.x,
+          y: snapshot?.y,
+          floorId: snapshot?.floorId,
+          direction: snapshot?.direction || "down",
+          hp: snapshot?.hp ?? Math.ceil(playerState?.health ?? 100),
+          alive: snapshot?.alive ?? simState !== "FAILED",
+          moving: snapshot?.moving ?? false,
+          sprinting: snapshot?.sprinting ?? false,
+          displayName: avatarName || user.name || "Pemain",
+          avatarStyle,
+          avatarColor,
+          finished: isFinished,
+          finishTimeMs: isFinished ? report?.timeMs ?? timeMs : undefined,
+          score: report?.score ?? 0,
+          grade: report?.grade ?? undefined,
+          openedDoorIds: snapshot?.openDoorIds || [],
+        };
+
+        const res = await apiClient.post(
+          `/api/sessions/${sessionId}/sync`,
+          payload,
+          { timeoutMs: 8000 },
+        );
+        if (cancelled || !res) return;
+
+        if (Array.isArray(res.leaderboard)) {
+          setLeaderboard(res.leaderboard);
+        } else if (Array.isArray(res.players)) {
+          setLeaderboard(res.players);
+        }
+
+        if (engineRef.current && Array.isArray(res.settings?.openDoors)) {
+          engineRef.current.applyRemoteDoors(res.settings.openDoors);
+        }
+
+        if (engineRef.current && Array.isArray(res.players)) {
+          for (const p of res.players) {
+            if (!p || p.studentId === user.id) continue;
+            if (
+              p.liveState &&
+              typeof p.liveState.x === "number" &&
+              typeof p.liveState.y === "number"
+            ) {
+              engineRef.current.updateRemotePlayer(p.studentId, {
+                participantId: p.id,
+                studentId: p.studentId,
+                displayName: p.displayName,
+                avatarStyle: p.avatarStyle,
+                avatarColor: p.avatarColor,
+                finished: Boolean(p.finishedAt || p.finishTimeMs != null),
+                state: p.liveState,
+              });
+            }
+          }
+        }
+      } catch {
+        // Ignore transient network delays so game loop never stutters
+      } finally {
+        isSyncingRef.current = false;
+      }
+    };
+
+    syncOnce();
+    const intervalMs = simState === "RUNNING" ? 240 : 1400;
+    const timer = setInterval(syncOnce, intervalMs);
+    return () => {
+      cancelled = true;
+      clearInterval(timer);
+    };
+  }, [
+    sessionId,
+    user?.id,
+    simState,
+    report?.succeeded,
+    report?.score,
+    avatarName,
+    avatarStyle,
+    avatarColor,
+  ]);
 
   const initEngine = () => {
     if (!canvasRef.current || !map || !scenario) return;
@@ -415,12 +560,73 @@ export function Phase3Runtime({
                 </div>
               </div>
 
-              <div className="hidden sm:inline-flex bg-slate-900/80 backdrop-blur border border-slate-700 text-white rounded-xl px-4 py-1.5 font-bold shadow-xl w-max items-center gap-2 text-sm">
-                <span className="text-slate-400 text-xs uppercase">
-                  Lantai:
-                </span>{" "}
-                {activeFloorName}
+              <div className="flex flex-wrap items-center gap-1.5">
+                <div className="hidden sm:inline-flex bg-slate-900/80 backdrop-blur border border-slate-700 text-white rounded-xl px-4 py-1.5 font-bold shadow-xl w-max items-center gap-2 text-sm">
+                  <span className="text-slate-400 text-xs uppercase">
+                    Lantai:
+                  </span>{" "}
+                  {activeFloorName}
+                </div>
+                {sessionId && (
+                  <button
+                    type="button"
+                    onClick={() => setShowLeaderboard((v) => !v)}
+                    className="pointer-events-auto inline-flex items-center gap-1.5 bg-indigo-950/90 hover:bg-indigo-900/90 backdrop-blur border border-indigo-500/40 text-indigo-200 rounded-xl px-3 py-1.5 text-xs font-bold shadow-xl transition-colors"
+                  >
+                    <Users className="h-3.5 w-3.5 text-indigo-400" />
+                    <span>
+                      {roomCode ? `#${roomCode}` : "Mabar"} ({leaderboard.length || 1})
+                    </span>
+                  </button>
+                )}
               </div>
+
+              {sessionId && showLeaderboard && leaderboard.length > 0 && (
+                <div className="bg-slate-900/85 backdrop-blur border border-slate-700/90 rounded-xl p-2 sm:p-2.5 w-48 sm:w-64 shadow-xl space-y-1 text-[10px] sm:text-xs">
+                  <div className="flex items-center justify-between text-slate-400 font-bold uppercase tracking-wider px-1 pb-0.5 border-b border-slate-800">
+                    <span className="flex items-center gap-1">
+                      <Trophy className="h-3 w-3 text-amber-400" />
+                      {mode === "race" ? "Balap Evakuasi" : "Peringkat Live"}
+                    </span>
+                    <span className="text-[10px] text-indigo-300">ONLINE</span>
+                  </div>
+                  {leaderboard.slice(0, 4).map((entry, idx) => {
+                    const isMe = entry.studentId === user?.id;
+                    const done = Boolean(entry.finishedAt || entry.finishTimeMs != null);
+                    const dead = entry.liveState?.alive === false;
+                    return (
+                      <div
+                        key={entry.id || entry.studentId}
+                        className={`flex items-center justify-between gap-1.5 px-1.5 py-1 rounded-lg ${isMe ? "bg-indigo-600/25 border border-indigo-500/40" : ""}`}
+                      >
+                        <div className="flex items-center gap-1.5 min-w-0">
+                          <span className="font-black text-amber-300 w-4 shrink-0">
+                            #{idx + 1}
+                          </span>
+                          <span className="truncate font-semibold text-white">
+                            {entry.displayName}
+                          </span>
+                        </div>
+                        <span
+                          className={`shrink-0 font-bold ${
+                            done
+                              ? "text-emerald-400"
+                              : dead
+                                ? "text-rose-400"
+                                : "text-slate-300"
+                          }`}
+                        >
+                          {done && entry.finishTimeMs != null
+                            ? formatTime(entry.finishTimeMs)
+                            : dead
+                              ? "Gugur"
+                              : `${entry.liveState?.hp ?? 100} HP`}
+                        </span>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
             </div>
 
             {/* Center HUD (Desktop): Pure Escape Objective */}
@@ -598,13 +804,96 @@ export function Phase3Runtime({
             </div>
           )}
 
+          {sessionId && leaderboard.length > 0 && (
+            <div className="w-full max-w-md rounded-2xl bg-slate-900/95 border border-indigo-500/40 p-4 shadow-2xl text-white space-y-2.5">
+              <div className="flex items-center justify-between border-b border-slate-800 pb-2">
+                <span className="text-xs font-bold uppercase tracking-wider text-indigo-300 flex items-center gap-1.5">
+                  <Trophy className="h-4 w-4 text-amber-400" />
+                  Klasemen Mabar Online {roomCode ? `(#${roomCode})` : ""}
+                </span>
+                <span className="text-[11px] text-slate-400">
+                  {leaderboard.length} Pemain
+                </span>
+              </div>
+              <div className="space-y-1.5 max-h-48 overflow-y-auto pr-1">
+                {leaderboard.map((entry, idx) => {
+                  const done = Boolean(entry.finishedAt || entry.finishTimeMs != null);
+                  const dead = entry.liveState?.alive === false;
+                  const isMe = entry.studentId === user?.id;
+                  return (
+                    <div
+                      key={entry.id || entry.studentId}
+                      className={`flex items-center justify-between px-3 py-2 rounded-xl text-xs border ${
+                        isMe
+                          ? "bg-indigo-600/20 border-indigo-500/50"
+                          : "bg-slate-800/70 border-slate-700/70"
+                      }`}
+                    >
+                      <div className="flex items-center gap-2.5 min-w-0">
+                        <span
+                          className={`font-black w-5 text-center ${
+                            idx === 0
+                              ? "text-amber-300"
+                              : idx === 1
+                                ? "text-slate-200"
+                                : idx === 2
+                                  ? "text-orange-300"
+                                  : "text-slate-400"
+                          }`}
+                        >
+                          #{idx + 1}
+                        </span>
+                        <img
+                          src={getDigitalTwinAssetUrl(
+                            entry.avatarStyle === "boy"
+                              ? "characterBoy"
+                              : "characterGirl",
+                          )}
+                          alt={entry.displayName}
+                          className="w-6 h-6 object-contain shrink-0"
+                        />
+                        <span className="font-bold truncate">
+                          {entry.displayName}
+                          {isMe ? " (Kamu)" : ""}
+                        </span>
+                      </div>
+                      <div className="text-right shrink-0 ml-2">
+                        {done && entry.finishTimeMs != null ? (
+                          <span className="text-emerald-400 font-extrabold">
+                            Selesai · {formatTime(entry.finishTimeMs)}
+                            {entry.grade ? ` (${entry.grade})` : ""}
+                          </span>
+                        ) : dead ? (
+                          <span className="text-rose-400 font-bold">Gugur</span>
+                        ) : (
+                          <span className="text-sky-300 font-bold">
+                            Berlari ({entry.liveState?.hp ?? 100} HP)
+                          </span>
+                        )}
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          )}
+
           <div className="flex flex-wrap justify-center gap-3 mt-2">
-            <button
-              onClick={handleRestart}
-              className="px-6 py-2.5 bg-brand-600 hover:bg-brand-700 text-white rounded-xl font-bold shadow-lg transition-colors flex items-center gap-2 text-base"
-            >
-              <RotateCcw className="h-4 w-4" /> Ulangi Skenario
-            </button>
+            {onReturnToLobby ? (
+              <button
+                onClick={onReturnToLobby}
+                className="px-6 py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl font-bold shadow-lg transition-colors flex items-center gap-2 text-base"
+              >
+                <Users className="h-4 w-4" /> Kembali ke Lobi Mabar
+              </button>
+            ) : (
+              <button
+                onClick={handleRestart}
+                className="px-6 py-2.5 bg-brand-600 hover:bg-brand-700 text-white rounded-xl font-bold shadow-lg transition-colors flex items-center gap-2 text-base"
+              >
+                <RotateCcw className="h-4 w-4" /> Ulangi Skenario
+              </button>
+            )}
             <button
               onClick={onClose}
               className="px-6 py-2.5 bg-slate-800 hover:bg-slate-700 text-white rounded-xl font-bold shadow-lg transition-colors flex items-center gap-2 text-base"
@@ -874,12 +1163,15 @@ export function Phase3RuntimeRoute() {
     mapId: string;
     scenarioId: string;
   }>();
+  const [searchParams] = useSearchParams();
+  const sessionId = searchParams.get("session") || undefined;
   const navigate = useNavigate();
   if (!mapId || !scenarioId) return null;
   return (
     <Phase3Runtime
       mapId={mapId}
       scenarioId={scenarioId}
+      sessionId={sessionId}
       onClose={() => navigate("/app/digital-twin")}
     />
   );

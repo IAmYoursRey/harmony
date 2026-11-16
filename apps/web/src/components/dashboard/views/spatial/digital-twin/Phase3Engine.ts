@@ -134,6 +134,12 @@ export interface RemotePlayer {
   floorId: string;
   direction: "up" | "down" | "left" | "right";
   alive: boolean;
+  hp?: number;
+  moving?: boolean;
+  sprinting?: boolean;
+  avatarStyle?: AvatarStyle;
+  avatarColor?: string;
+  finished?: boolean;
   lastUpdate: number;
 }
 
@@ -380,37 +386,86 @@ export class Phase3Engine {
     }
   }
 
+  public getSyncSnapshot() {
+    const openDoorIds: string[] = [];
+    for (const [doorId, st] of this.doorStates.entries()) {
+      if (st === "open") openDoorIds.push(doorId);
+    }
+    return {
+      x: this.player.x,
+      y: this.player.y,
+      floorId: this.player.floorId,
+      direction: this.player.facing,
+      hp: Math.ceil(this.player.health),
+      alive: this.player.alive,
+      moving: this.player.moving,
+      sprinting: Boolean(this.player.sprinting),
+      avatarStyle: this.player.avatarStyle || "girl",
+      avatarColor: this.player.color || "#3b82f6",
+      displayName: this.player.displayName || "Pemain",
+      openDoorIds,
+    };
+  }
+
+  public applyRemoteDoors(openDoorIds: string[]) {
+    for (const id of openDoorIds) {
+      if (this.doorStates.has(id)) {
+        this.doorStates.set(id, "open");
+      }
+    }
+  }
+
   public updateRemotePlayer(id: string, data: any) {
     const existing = this.remotePlayers.get(id);
     const now = performance.now();
+    const state = data.state || {};
+    if (typeof state.x !== "number" || typeof state.y !== "number") return;
+
+    const floorId = state.floorId || this.player.floorId;
+    const direction = state.direction || "down";
+    const alive = state.alive !== false;
+    const hp = typeof state.hp === "number" ? state.hp : 100;
 
     if (existing) {
-      existing.targetX = data.state.x;
-      existing.targetY = data.state.y;
-      existing.floorId = data.state.floorId;
-      existing.direction = data.state.direction;
-      existing.alive = data.state.alive;
+      existing.targetX = state.x;
+      existing.targetY = state.y;
+      existing.floorId = floorId;
+      existing.direction = direction;
+      existing.alive = alive;
+      existing.hp = hp;
+      existing.moving = Boolean(state.moving);
+      existing.sprinting = Boolean(state.sprinting);
+      existing.avatarStyle = data.avatarStyle || state.avatarStyle || existing.avatarStyle || "girl";
+      existing.avatarColor = data.avatarColor || state.avatarColor || existing.avatarColor || "#38bdf8";
+      existing.finished = Boolean(data.finished || state.finished);
+      existing.displayName = data.displayName || existing.displayName;
       existing.lastUpdate = now;
       const dist = Math.hypot(
         existing.targetX - existing.x,
         existing.targetY - existing.y,
       );
-      if (dist > TILE_SIZE * 3 || existing.floorId !== data.state.floorId) {
+      if (dist > TILE_SIZE * 4 || existing.floorId !== floorId) {
         existing.x = existing.targetX;
         existing.y = existing.targetY;
       }
     } else {
       this.remotePlayers.set(id, {
-        participantId: data.participantId,
-        studentId: data.studentId,
-        displayName: data.displayName,
-        targetX: data.state.x,
-        targetY: data.state.y,
-        x: data.state.x,
-        y: data.state.y,
-        floorId: data.state.floorId,
-        direction: data.state.direction,
-        alive: data.state.alive,
+        participantId: data.participantId || id,
+        studentId: data.studentId || id,
+        displayName: data.displayName || "Pemain",
+        targetX: state.x,
+        targetY: state.y,
+        x: state.x,
+        y: state.y,
+        floorId,
+        direction,
+        alive,
+        hp,
+        moving: Boolean(state.moving),
+        sprinting: Boolean(state.sprinting),
+        avatarStyle: data.avatarStyle || state.avatarStyle || "girl",
+        avatarColor: data.avatarColor || state.avatarColor || "#38bdf8",
+        finished: Boolean(data.finished || state.finished),
         lastUpdate: now,
       });
     }
@@ -1614,34 +1669,49 @@ export class Phase3Engine {
     }
   }
 
-  private renderPlayerCharacter() {
+  private renderCharacterEntity(opts: {
+    x: number;
+    y: number;
+    facing: "up" | "down" | "left" | "right";
+    moving: boolean;
+    sprinting: boolean;
+    alive: boolean;
+    health: number;
+    maxHealth: number;
+    color?: string;
+    displayName?: string;
+    avatarStyle?: AvatarStyle;
+    isLocal: boolean;
+    finished?: boolean;
+  }) {
     const ctx = this.ctx;
-    const px = this.player.x;
-    const py = this.player.y;
-
     ctx.save();
-    ctx.translate(px, py);
+    ctx.translate(opts.x, opts.y);
+    if (!opts.isLocal) {
+      ctx.globalAlpha = opts.finished ? 0.55 : 0.92;
+    }
 
-    // Subtle directional guide chevron toward nearest EXIT on current floor
-    const exitObj = (this.scenario.objects || []).find(
-      (o) => o.floor_id === this.player.floorId && o.object_type === "EXIT",
-    );
-    if (exitObj && this.player.alive) {
-      const ex = (exitObj.x + (exitObj.width || 1) / 2) * TILE_SIZE;
-      const ey = (exitObj.y + (exitObj.height || 1) / 2) * TILE_SIZE;
-      const dist = Math.hypot(ex - px, ey - py);
-      if (dist > TILE_SIZE * 2) {
-        const dirAngle = Math.atan2(ey - py, ex - px);
-        ctx.save();
-        ctx.rotate(dirAngle);
-        ctx.fillStyle = "rgba(52, 211, 153, 0.9)";
-        ctx.beginPath();
-        ctx.moveTo(PLAYER_RADIUS + 13, 0);
-        ctx.lineTo(PLAYER_RADIUS + 6, -4.5);
-        ctx.lineTo(PLAYER_RADIUS + 6, 4.5);
-        ctx.closePath();
-        ctx.fill();
-        ctx.restore();
+    if (opts.isLocal && opts.alive) {
+      const exitObj = (this.scenario.objects || []).find(
+        (o) => o.floor_id === this.player.floorId && o.object_type === "EXIT",
+      );
+      if (exitObj) {
+        const ex = (exitObj.x + (exitObj.width || 1) / 2) * TILE_SIZE;
+        const ey = (exitObj.y + (exitObj.height || 1) / 2) * TILE_SIZE;
+        const dist = Math.hypot(ex - opts.x, ey - opts.y);
+        if (dist > TILE_SIZE * 2) {
+          const dirAngle = Math.atan2(ey - opts.y, ex - opts.x);
+          ctx.save();
+          ctx.rotate(dirAngle);
+          ctx.fillStyle = "rgba(52, 211, 153, 0.92)";
+          ctx.beginPath();
+          ctx.moveTo(PLAYER_RADIUS + 13, 0);
+          ctx.lineTo(PLAYER_RADIUS + 6, -4.5);
+          ctx.lineTo(PLAYER_RADIUS + 6, 4.5);
+          ctx.closePath();
+          ctx.fill();
+          ctx.restore();
+        }
       }
     }
 
@@ -1651,35 +1721,35 @@ export class Phase3Engine {
     ctx.ellipse(0, PLAYER_RADIUS * 0.72, PLAYER_RADIUS * 1.15, PLAYER_RADIUS * 0.55, 0, 0, Math.PI * 2);
     ctx.fill();
 
-    ctx.strokeStyle = this.player.color || "#3b82f6";
-    ctx.lineWidth = 2;
+    ctx.strokeStyle = opts.color || "#3b82f6";
+    ctx.lineWidth = opts.isLocal ? 2 : 1.6;
     ctx.beginPath();
     ctx.ellipse(0, PLAYER_RADIUS * 0.72, PLAYER_RADIUS * 1.28, PLAYER_RADIUS * 0.62, 0, 0, Math.PI * 2);
     ctx.stroke();
 
-    // Cute sprint dust puffs
-    if (this.player.alive && this.player.sprinting) {
-      const puffAlpha = ((this.simTimeMs / 180) % 1);
+    if (opts.alive && opts.sprinting) {
+      const puffAlpha = (this.simTimeMs / 180) % 1;
       ctx.fillStyle = `rgba(226, 232, 240, ${(1 - puffAlpha) * 0.55})`;
-      const backX = this.player.facing === "left" ? 10 : this.player.facing === "right" ? -10 : 0;
-      const backY = this.player.facing === "up" ? 10 : this.player.facing === "down" ? -8 : 8;
+      const backX = opts.facing === "left" ? 10 : opts.facing === "right" ? -10 : 0;
+      const backY = opts.facing === "up" ? 10 : opts.facing === "down" ? -8 : 8;
       ctx.beginPath();
       ctx.arc(backX, backY + puffAlpha * 4, 3.5 + puffAlpha * 3, 0, Math.PI * 2);
       ctx.fill();
     }
 
     const assetKey: DigitalTwinAssetKey =
-      this.player.avatarStyle === "boy" ? "characterBoy" : "characterGirl";
+      opts.avatarStyle === "boy" ? "characterBoy" : "characterGirl";
     const sprite = getDigitalTwinAssetImage(assetKey);
 
-    if (this.player.alive) {
-      const strideBob = this.player.moving
-        ? Math.abs(Math.sin(this.simTimeMs / 65)) * 3.5
-        : Math.sin(this.simTimeMs / 320) * 1.0;
-      const lean = this.player.moving
-        ? Math.sin(this.simTimeMs / 65) * 0.08
+    if (opts.alive) {
+      const phaseOffset = opts.isLocal ? 0 : 19;
+      const strideBob = opts.moving
+        ? Math.abs(Math.sin((this.simTimeMs + phaseOffset) / 65)) * 3.5
+        : Math.sin((this.simTimeMs + phaseOffset) / 320) * 1.0;
+      const lean = opts.moving
+        ? Math.sin((this.simTimeMs + phaseOffset) / 65) * 0.08
         : 0;
-      const flipX = this.player.facing === "left" ? -1 : 1;
+      const flipX = opts.facing === "left" ? -1 : 1;
 
       ctx.save();
       ctx.translate(0, -PLAYER_RADIUS * 0.45 - strideBob);
@@ -1696,7 +1766,7 @@ export class Phase3Engine {
           spriteSize,
         );
       } else {
-        ctx.fillStyle = this.player.color || "#3b82f6";
+        ctx.fillStyle = opts.color || "#3b82f6";
         ctx.beginPath();
         ctx.arc(0, 0, PLAYER_RADIUS, 0, Math.PI * 2);
         ctx.fill();
@@ -1706,26 +1776,26 @@ export class Phase3Engine {
       }
       ctx.restore();
 
-      // Overhead compact HP bar & nameplate
+      const hpRatio = Math.max(0, Math.min(1, opts.health / Math.max(1, opts.maxHealth)));
       ctx.fillStyle = "rgba(15, 23, 42, 0.72)";
       ctx.fillRect(-16, -TILE_SIZE * 0.78, 32, 5);
-      ctx.fillStyle = this.player.health < 30 ? "#ef4444" : "#22c55e";
-      ctx.fillRect(
-        -15,
-        -TILE_SIZE * 0.78 + 1,
-        30 * (this.player.health / this.player.maxHealth),
-        3,
-      );
+      ctx.fillStyle = opts.health < 30 ? "#ef4444" : "#22c55e";
+      ctx.fillRect(-15, -TILE_SIZE * 0.78 + 1, 30 * hpRatio, 3);
 
-      if (this.player.displayName) {
+      const labelText = opts.finished
+        ? `${opts.displayName || "Pemain"} (Selesai)`
+        : opts.displayName || "";
+      if (labelText) {
         ctx.font = "700 10px Inter, sans-serif";
-        const nameW = ctx.measureText(this.player.displayName).width;
-        ctx.fillStyle = "rgba(15, 23, 42, 0.78)";
+        const nameW = ctx.measureText(labelText).width;
+        ctx.fillStyle = opts.isLocal
+          ? "rgba(15, 23, 42, 0.82)"
+          : "rgba(30, 41, 59, 0.78)";
         ctx.fillRect(-nameW / 2 - 4, -TILE_SIZE * 0.78 - 17, nameW + 8, 14);
-        ctx.fillStyle = "#f8fafc";
+        ctx.fillStyle = opts.finished ? "#34d399" : "#f8fafc";
         ctx.textAlign = "center";
         ctx.textBaseline = "middle";
-        ctx.fillText(this.player.displayName, 0, -TILE_SIZE * 0.78 - 10);
+        ctx.fillText(labelText, 0, -TILE_SIZE * 0.78 - 10);
       }
     } else {
       ctx.fillStyle = "#64748b";
@@ -1743,6 +1813,23 @@ export class Phase3Engine {
     }
 
     ctx.restore();
+  }
+
+  private renderPlayerCharacter() {
+    this.renderCharacterEntity({
+      x: this.player.x,
+      y: this.player.y,
+      facing: this.player.facing,
+      moving: this.player.moving,
+      sprinting: Boolean(this.player.sprinting),
+      alive: this.player.alive,
+      health: this.player.health,
+      maxHealth: this.player.maxHealth,
+      color: this.player.color,
+      displayName: this.player.displayName,
+      avatarStyle: this.player.avatarStyle,
+      isLocal: true,
+    });
   }
 
   private render() {
@@ -1868,26 +1955,23 @@ export class Phase3Engine {
 
     for (const rp of this.remotePlayers.values()) {
       if (rp.floorId !== floor.id) continue;
-      if (performance.now() - rp.lastUpdate > 5000) continue;
+      if (performance.now() - rp.lastUpdate > 12000) continue;
 
-      ctx.save();
-      ctx.translate(rp.x, rp.y);
-      ctx.fillStyle = rp.alive ? "#38bdf8" : "#64748b";
-      ctx.beginPath();
-      ctx.arc(0, 0, PLAYER_RADIUS, 0, Math.PI * 2);
-      ctx.fill();
-      ctx.strokeStyle = "#ffffff";
-      ctx.lineWidth = 2;
-      ctx.stroke();
-
-      ctx.font = "700 10px Inter, sans-serif";
-      const nw = ctx.measureText(rp.displayName).width;
-      ctx.fillStyle = "rgba(15, 23, 42, 0.78)";
-      ctx.fillRect(-nw / 2 - 3, -PLAYER_RADIUS - 18, nw + 6, 14);
-      ctx.fillStyle = "#ffffff";
-      ctx.textAlign = "center";
-      ctx.fillText(rp.displayName, 0, -PLAYER_RADIUS - 8);
-      ctx.restore();
+      this.renderCharacterEntity({
+        x: rp.x,
+        y: rp.y,
+        facing: rp.direction,
+        moving: Boolean(rp.moving),
+        sprinting: Boolean(rp.sprinting),
+        alive: rp.alive,
+        health: rp.hp ?? 100,
+        maxHealth: 100,
+        color: rp.avatarColor || "#38bdf8",
+        displayName: rp.displayName,
+        avatarStyle: rp.avatarStyle || "girl",
+        isLocal: false,
+        finished: rp.finished,
+      });
     }
 
     this.renderPlayerCharacter();

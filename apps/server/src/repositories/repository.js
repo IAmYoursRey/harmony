@@ -285,6 +285,15 @@ async function initPg() {
       );
       CREATE INDEX IF NOT EXISTS idx_sim_participants_session ON simulation_participants(session_id);
 
+      ALTER TABLE simulation_participants ADD COLUMN IF NOT EXISTS avatar_style VARCHAR(20) DEFAULT 'girl';
+      ALTER TABLE simulation_participants ADD COLUMN IF NOT EXISTS avatar_color VARCHAR(20) DEFAULT '#3b82f6';
+      ALTER TABLE simulation_participants ADD COLUMN IF NOT EXISTS live_state JSONB DEFAULT '{}'::jsonb;
+      ALTER TABLE simulation_participants ADD COLUMN IF NOT EXISTS finish_time_ms INTEGER;
+      ALTER TABLE simulation_participants ADD COLUMN IF NOT EXISTS score INTEGER DEFAULT 0;
+      ALTER TABLE simulation_participants ADD COLUMN IF NOT EXISTS grade VARCHAR(8);
+      ALTER TABLE simulation_participants ADD COLUMN IF NOT EXISTS finished_at TIMESTAMP;
+      ALTER TABLE simulation_participants ADD COLUMN IF NOT EXISTS last_sync_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP;
+
       -- PostGIS Geospatial Core Architecture
       DO $$
       BEGIN

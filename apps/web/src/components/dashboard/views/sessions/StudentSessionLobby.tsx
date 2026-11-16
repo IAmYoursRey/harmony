@@ -1,18 +1,53 @@
 import { useState, useEffect } from "react";
 import { useParams, useNavigate } from "react-router-dom";
-import { Play, CheckCircle2, LogOut } from "lucide-react";
+import {
+  Play,
+  CheckCircle2,
+  LogOut,
+  Copy,
+  Check,
+  Users,
+  Link as LinkIcon,
+  Trophy,
+  XCircle,
+} from "lucide-react";
 import { apiClient } from "@/services/apiClient";
 import { useToast } from "@/hooks/useToast";
+import { useAuth } from "@/hooks/useAuth";
 import { Phase3Runtime } from "../spatial/digital-twin/Phase3Runtime";
+import type {
+  AvatarStyle,
+  DifficultyLevel,
+} from "../spatial/digital-twin/Phase3Engine";
+import {
+  getDigitalTwinAssetUrl,
+  preloadDigitalTwinAssets,
+} from "../spatial/digital-twin/digitalTwinTextures";
 import { useData } from "@/hooks/useData";
 import { LoadingState } from "@/components/ui/LoadingState";
 
+const COLOR_OPTIONS = [
+  "#ef4444",
+  "#f97316",
+  "#eab308",
+  "#22c55e",
+  "#3b82f6",
+  "#a855f7",
+  "#ec4899",
+];
+
 export function StudentSessionLobby() {
   const { id } = useParams<{ id: string }>();
+  const { currentUser } = useAuth();
   const [session, setSession] = useState<any>(null);
   const [participants, setParticipants] = useState<any[]>([]);
 
   const [ready, setReady] = useState(false);
+  const [avatarStyle, setAvatarStyle] = useState<AvatarStyle>("girl");
+  const [avatarColor, setAvatarColor] = useState("#3b82f6");
+  const [copiedCode, setCopiedCode] = useState(false);
+  const [copiedLink, setCopiedLink] = useState(false);
+  const [starting, setStarting] = useState(false);
   const [isPlaying, setIsPlaying] = useState(false);
   const { show } = useToast();
   const navigate = useNavigate();
@@ -21,8 +56,11 @@ export function StudentSessionLobby() {
     data: initialSession,
     isLoading: loading,
     error,
-    mutate: mutateSession,
   } = useData<any>(id ? `/api/sessions/${id}` : null);
+
+  useEffect(() => {
+    preloadDigitalTwinAssets();
+  }, []);
 
   useEffect(() => {
     if (initialSession) {
@@ -30,57 +68,163 @@ export function StudentSessionLobby() {
       if (initialSession.status === "RUNNING") {
         setIsPlaying(true);
       }
+      if (id && currentUser) {
+        apiClient
+          .post(`/api/sessions/${id}/join`, {
+            displayName: currentUser.name || "Pemain",
+            avatarStyle,
+            avatarColor,
+          })
+          .catch(() => {});
+      }
     }
     if (error) {
       show(error.message, "error");
-      navigate("/app");
+      navigate("/app/digital-twin");
     }
-  }, [initialSession, error, navigate, show]);
+  }, [initialSession, error, id, currentUser?.id]);
 
   useEffect(() => {
     if (!id || isPlaying || session?.status === "ENDED") return;
 
-    const interval = setInterval(async () => {
+    let cancelled = false;
+    const poll = async () => {
       try {
         const res = await apiClient.get(`/api/sessions/${id}/participants`, {
           ttl: 0,
         });
-        console.log("Polling result:", res);
-        setParticipants(res.participants);
+        if (cancelled) return;
+        setParticipants(res.participants || []);
+        const me = (res.participants || []).find(
+          (p: any) => p.studentId === currentUser?.id,
+        );
+        if (me) {
+          setReady(Boolean(me.readyState));
+        }
         if (res.sessionStatus === "RUNNING") {
-          setSession((s: any) => ({ ...s, status: "RUNNING" }));
+          setSession((s: any) => ({
+            ...s,
+            status: "RUNNING",
+            settings: res.settings || s?.settings,
+          }));
           setIsPlaying(true);
         } else if (res.sessionStatus === "ENDED") {
-          show("Session ended by teacher", "info");
-          navigate("/app");
+          show("Room telah diakhiri oleh host.", "info");
+          navigate("/app/digital-twin");
+        } else {
+          setSession((s: any) => ({
+            ...s,
+            status: res.sessionStatus,
+            settings: res.settings || s?.settings,
+            createdBy: res.createdBy || s?.createdBy,
+            code: res.code || s?.code,
+          }));
         }
-      } catch (err) {}
-    }, 2000);
+      } catch {}
+    };
 
-    return () => clearInterval(interval);
-  }, [id, isPlaying, session?.status]);
+    poll();
+    const interval = setInterval(poll, 1600);
+    return () => {
+      cancelled = true;
+      clearInterval(interval);
+    };
+  }, [id, isPlaying, session?.status, currentUser?.id]);
+
+  const syncReadyAndAvatar = async (
+    nextReady: boolean,
+    nextStyle: AvatarStyle,
+    nextColor: string,
+  ) => {
+    if (!id) return;
+    try {
+      await apiClient.post(`/api/sessions/${id}/ready`, {
+        ready: nextReady,
+        avatarStyle: nextStyle,
+        avatarColor: nextColor,
+        displayName: currentUser?.name || "Pemain",
+      });
+    } catch {}
+  };
 
   const handleToggleReady = async () => {
     const nextState = !ready;
     setReady(nextState);
+    await syncReadyAndAvatar(nextState, avatarStyle, avatarColor);
+  };
+
+  const handleSelectAvatar = async (
+    nextStyle: AvatarStyle,
+    nextColor: string,
+  ) => {
+    setAvatarStyle(nextStyle);
+    setAvatarColor(nextColor);
+    await syncReadyAndAvatar(ready, nextStyle, nextColor);
+  };
+
+  const handleStartGame = async () => {
+    if (!id) return;
+    setStarting(true);
     try {
-      await apiClient.post(`/api/sessions/${id}/ready`, { ready: nextState });
-    } catch (err) {
-      setReady(!nextState); // revert
+      await apiClient.post(`/api/sessions/${id}/start`, {});
+      setSession((s: any) => ({ ...s, status: "RUNNING" }));
+      setIsPlaying(true);
+    } catch (err: any) {
+      show(err.message || "Gagal memulai game", "error");
+    } finally {
+      setStarting(false);
+    }
+  };
+
+  const handleReturnToLobby = async () => {
+    setIsPlaying(false);
+    if (isHost && id) {
+      try {
+        await apiClient.post(`/api/sessions/${id}/restart`, {});
+      } catch {}
+    }
+  };
+
+  const handleEndSession = async () => {
+    if (!id) return;
+    try {
+      await apiClient.post(`/api/sessions/${id}/end`, {});
+      navigate("/app/digital-twin");
+    } catch (err: any) {
+      show(err.message || "Gagal mengakhiri room", "error");
     }
   };
 
   const handleLeave = async () => {
     try {
       await apiClient.post(`/api/sessions/${id}/leave`, {});
-      navigate("/app");
-    } catch (err) {
-      navigate("/app");
-    }
+    } catch {}
+    navigate("/app/digital-twin");
   };
 
+  const copyCode = () => {
+    if (!session?.code) return;
+    navigator.clipboard.writeText(session.code);
+    setCopiedCode(true);
+    setTimeout(() => setCopiedCode(false), 1800);
+    show(`Kode room ${session.code} disalin!`, "success");
+  };
+
+  const copyInviteLink = () => {
+    const url = `${window.location.origin}/app/simulation/lobby/${id}`;
+    navigator.clipboard.writeText(url);
+    setCopiedLink(true);
+    setTimeout(() => setCopiedLink(false), 1800);
+    show("Tautan undangan disalin!", "success");
+  };
+
+  const isHost =
+    Boolean(session?.createdBy && currentUser?.id === session.createdBy) ||
+    currentUser?.role === "developer" ||
+    currentUser?.role === "teacher";
+
   if (loading) {
-    return <LoadingState fullPage message="Connecting to session..." />;
+    return <LoadingState fullPage message="Menghubungkan ke lobi online..." />;
   }
 
   if (isPlaying && session) {
@@ -90,61 +234,271 @@ export function StudentSessionLobby() {
           mapId={session.mapId}
           scenarioId={session.scenarioId}
           sessionId={id}
-          onClose={() => {
-            navigate("/app");
-          }}
+          roomCode={session.code}
+          mode={session.settings?.mode || "race"}
+          initialDifficulty={
+            (session.settings?.difficulty as DifficultyLevel) || "sulit"
+          }
+          initialAvatarStyle={avatarStyle}
+          initialAvatarColor={avatarColor}
+          initialAvatarName={currentUser?.name || "Pemain"}
+          autoStart={true}
+          onReturnToLobby={handleReturnToLobby}
+          onClose={() => navigate("/app/digital-twin")}
         />
       </div>
     );
   }
 
   return (
-    <div className="flex min-h-[60vh] flex-col items-center justify-center p-4">
-      <div className="w-full max-w-lg p-8 glass rounded-3xl shadow-xl text-center space-y-8">
-        <div>
-          <div className="inline-flex px-3 py-1 bg-brand-100 text-brand-700 text-xs font-bold rounded-full mb-4">
-            SESSION CODE: {session?.code}
-          </div>
-          <h2 className="text-3xl font-display font-black text-ink-900 dark:text-white">
-            Waiting for Teacher...
-          </h2>
-          <p className="mt-2 text-slate-500">
-            The simulation will begin automatically when the teacher starts it.
-          </p>
-        </div>
-
-        <div className="py-6 border-y border-slate-100 dark:border-slate-800 flex justify-center">
-          <button
-            onClick={handleToggleReady}
-            className={`relative flex items-center justify-center h-48 w-48 rounded-full border-8 transition-all duration-300 shadow-xl ${
-              ready
-                ? "bg-emerald-500 border-emerald-400 text-white shadow-emerald-500/30"
-                : "bg-slate-100 border-slate-200 text-slate-400 dark:bg-slate-800 dark:border-slate-700"
-            }`}
-          >
-            <div className="flex flex-col items-center gap-2">
-              {ready ? (
-                <CheckCircle2 className="h-12 w-12" />
-              ) : (
-                <Play className="h-12 w-12 opacity-50" />
-              )}
-              <span className="font-display font-bold tracking-widest text-lg">
-                {ready ? "READY" : "PRESS TO READY"}
+    <div className="max-w-4xl mx-auto p-4 sm:p-6 space-y-6">
+      <div className="glass rounded-3xl p-6 sm:p-8 border border-slate-200/70 dark:border-slate-700/80 shadow-xl space-y-6">
+        {/* Header & Room Code */}
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-slate-100 dark:border-slate-800 pb-5">
+          <div>
+            <div className="flex items-center gap-2 flex-wrap mb-1.5">
+              <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full bg-indigo-100 text-indigo-700 dark:bg-indigo-900/40 dark:text-indigo-300 text-xs font-bold">
+                {session?.settings?.mode === "race" ? (
+                  <>
+                    <Trophy className="h-3 w-3" /> KOMPETISI ONLINE
+                  </>
+                ) : (
+                  <>
+                    <Users className="h-3 w-3" /> MABAR ONLINE
+                  </>
+                )}
+              </span>
+              <span className="px-2.5 py-0.5 rounded-full bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 text-xs font-bold uppercase">
+                {session?.settings?.difficulty || "sulit"}
               </span>
             </div>
+            <h2 className="text-2xl sm:text-3xl font-display font-black text-ink-900 dark:text-white">
+              {session?.settings?.roomName || "Lobi Mabar Online"}
+            </h2>
+            <p className="text-xs sm:text-sm text-slate-500 dark:text-slate-400 mt-1">
+              {isHost
+                ? "Bagikan kode ke teman lalu klik Mulai Game saat siap."
+                : "Pilih karakter chibi kamu dan tekan Siap sambil menunggu host memulai."}
+            </p>
+          </div>
+
+          <div className="flex flex-col items-start sm:items-end gap-2 bg-slate-50 dark:bg-slate-900/80 border border-slate-200 dark:border-slate-700 rounded-2xl px-4 py-3 shrink-0">
+            <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400">
+              Kode Room Online
+            </span>
+            <div className="text-3xl font-mono font-black tracking-[0.2em] text-indigo-600 dark:text-indigo-400">
+              {session?.code}
+            </div>
+            <div className="flex items-center gap-2">
+              <button
+                type="button"
+                onClick={copyCode}
+                className="px-2.5 py-1 rounded-lg bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-[11px] font-bold flex items-center gap-1 text-slate-700 dark:text-slate-200 hover:bg-slate-100"
+              >
+                {copiedCode ? (
+                  <Check className="h-3 w-3 text-emerald-500" />
+                ) : (
+                  <Copy className="h-3 w-3" />
+                )}
+                Salin Kode
+              </button>
+              <button
+                type="button"
+                onClick={copyInviteLink}
+                className="px-2.5 py-1 rounded-lg bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-[11px] font-bold flex items-center gap-1 text-slate-700 dark:text-slate-200 hover:bg-slate-100"
+              >
+                {copiedLink ? (
+                  <Check className="h-3 w-3 text-emerald-500" />
+                ) : (
+                  <LinkIcon className="h-3 w-3" />
+                )}
+                Salin Link
+              </button>
+            </div>
+          </div>
+        </div>
+
+        {/* Character Picker & Live Roster Grid */}
+        <div className="grid md:grid-cols-5 gap-6 items-start">
+          {/* Left 2 cols: Character Selector */}
+          <div className="md:col-span-2 rounded-2xl bg-slate-50 dark:bg-slate-900/70 border border-slate-200/80 dark:border-slate-700/80 p-4 space-y-4">
+            <h3 className="text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">
+              Karakter Kamu
+            </h3>
+            <div className="grid grid-cols-2 gap-2.5">
+              {(
+                [
+                  { id: "girl" as AvatarStyle, label: "Siswi SMA" },
+                  { id: "boy" as AvatarStyle, label: "Siswa SMA" },
+                ]
+              ).map((preset) => {
+                const selected = avatarStyle === preset.id;
+                const imgSrc = getDigitalTwinAssetUrl(
+                  preset.id === "boy" ? "characterBoy" : "characterGirl",
+                );
+                return (
+                  <button
+                    key={preset.id}
+                    type="button"
+                    onClick={() => handleSelectAvatar(preset.id, avatarColor)}
+                    className={`rounded-xl p-2.5 border-2 flex flex-col items-center gap-1.5 transition-all ${
+                      selected
+                        ? "bg-white dark:bg-slate-800 shadow-md"
+                        : "border-slate-200 dark:border-slate-700 opacity-75 hover:opacity-100"
+                    }`}
+                    style={selected ? { borderColor: avatarColor } : undefined}
+                  >
+                    <img
+                      src={imgSrc}
+                      alt={preset.label}
+                      className="w-14 h-14 object-contain"
+                    />
+                    <span className="text-xs font-bold text-slate-800 dark:text-slate-200">
+                      {preset.label}
+                    </span>
+                  </button>
+                );
+              })}
+            </div>
+
+            <div>
+              <span className="block text-[11px] font-bold text-slate-500 dark:text-slate-400 mb-2">
+                Warna Cincin
+              </span>
+              <div className="flex justify-between">
+                {COLOR_OPTIONS.map((c) => (
+                  <button
+                    key={c}
+                    type="button"
+                    onClick={() => handleSelectAvatar(avatarStyle, c)}
+                    className={`w-6 h-6 rounded-full border-2 transition-transform ${
+                      avatarColor === c
+                        ? "scale-125 border-slate-900 dark:border-white"
+                        : "border-transparent"
+                    }`}
+                    style={{ backgroundColor: c }}
+                  />
+                ))}
+              </div>
+            </div>
+          </div>
+
+          {/* Right 3 cols: Connected Players Roster */}
+          <div className="md:col-span-3 rounded-2xl bg-slate-50 dark:bg-slate-900/70 border border-slate-200/80 dark:border-slate-700/80 p-4 space-y-3">
+            <div className="flex items-center justify-between">
+              <h3 className="text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400 flex items-center gap-1.5">
+                <Users className="h-3.5 w-3.5 text-indigo-500" />
+                Pemain di Room ({participants.length})
+              </h3>
+            </div>
+
+            {participants.length === 0 ? (
+              <div className="py-10 text-center text-xs text-slate-500">
+                Memuat daftar pemain...
+              </div>
+            ) : (
+              <div className="grid sm:grid-cols-2 gap-2.5 max-h-64 overflow-y-auto pr-1">
+                {participants.map((p) => {
+                  const isMe = p.studentId === currentUser?.id;
+                  const spriteKey =
+                    p.avatarStyle === "boy" ? "characterBoy" : "characterGirl";
+                  return (
+                    <div
+                      key={p.id}
+                      className={`flex items-center justify-between p-2.5 rounded-xl border ${
+                        isMe
+                          ? "bg-indigo-50/70 dark:bg-indigo-950/40 border-indigo-400/50"
+                          : "bg-white dark:bg-slate-800 border-slate-200/80 dark:border-slate-700"
+                      }`}
+                    >
+                      <div className="flex items-center gap-2.5 min-w-0">
+                        <div
+                          className="w-9 h-9 rounded-full flex items-center justify-center bg-slate-100 dark:bg-slate-900 border-2 shrink-0"
+                          style={{ borderColor: p.avatarColor || "#3b82f6" }}
+                        >
+                          <img
+                            src={getDigitalTwinAssetUrl(spriteKey)}
+                            alt={p.displayName}
+                            className="w-7 h-7 object-contain"
+                          />
+                        </div>
+                        <div className="min-w-0">
+                          <div className="text-xs font-bold text-slate-900 dark:text-white truncate">
+                            {p.displayName}
+                            {isMe ? " (Kamu)" : ""}
+                          </div>
+                          <div className="text-[10px] text-slate-500 dark:text-slate-400">
+                            {p.studentId === session?.createdBy ? "Host" : "Pemain"}
+                          </div>
+                        </div>
+                      </div>
+                      <span
+                        className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${
+                          p.readyState || p.studentId === session?.createdBy
+                            ? "bg-emerald-100 text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-300"
+                            : "bg-amber-100 text-amber-700 dark:bg-amber-900/40 dark:text-amber-300"
+                        }`}
+                      >
+                        {p.readyState || p.studentId === session?.createdBy
+                          ? "Siap"
+                          : "Menunggu"}
+                      </span>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+        </div>
+
+        {/* Lobby Footer Controls */}
+        <div className="flex flex-wrap items-center justify-between gap-3 pt-4 border-t border-slate-100 dark:border-slate-800">
+          <button
+            type="button"
+            onClick={handleLeave}
+            className="inline-flex items-center gap-1.5 px-4 py-2.5 rounded-xl text-xs sm:text-sm font-bold text-rose-600 bg-rose-50 hover:bg-rose-100 dark:bg-rose-950/30 dark:text-rose-400 transition-colors"
+          >
+            <LogOut className="h-4 w-4" /> Keluar Lobi
           </button>
-        </div>
 
-        <div className="text-sm font-semibold text-slate-500">
-          {participants.length} players joined
-        </div>
+          <div className="flex flex-wrap items-center gap-2.5">
+            {!isHost && (
+              <button
+                type="button"
+                onClick={handleToggleReady}
+                className={`inline-flex items-center gap-2 px-5 py-2.5 rounded-xl text-sm font-bold shadow transition-all ${
+                  ready
+                    ? "bg-emerald-600 text-white"
+                    : "bg-slate-800 hover:bg-slate-700 text-white"
+                }`}
+              >
+                <CheckCircle2 className="h-4 w-4" />
+                {ready ? "Sudah Siap" : "Tandai Siap"}
+              </button>
+            )}
 
-        <button
-          onClick={handleLeave}
-          className="inline-flex items-center gap-2 text-sm font-semibold text-red-500 hover:text-red-700"
-        >
-          <LogOut className="h-4 w-4" /> Leave Session
-        </button>
+            {isHost && (
+              <>
+                <button
+                  type="button"
+                  onClick={handleEndSession}
+                  className="inline-flex items-center gap-1.5 px-4 py-2.5 rounded-xl text-xs sm:text-sm font-bold text-slate-600 dark:text-slate-300 bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 transition-colors"
+                >
+                  <XCircle className="h-4 w-4" /> Tutup Room
+                </button>
+                <button
+                  type="button"
+                  disabled={starting}
+                  onClick={handleStartGame}
+                  className="inline-flex items-center gap-2 px-6 py-2.5 rounded-xl text-sm font-bold text-white bg-indigo-600 hover:bg-indigo-700 shadow-lg disabled:opacity-50 transition-colors"
+                >
+                  <Play className="h-4 w-4 fill-white" />
+                  {starting ? "Memulai..." : "Mulai Game Sekarang"}
+                </button>
+              </>
+            )}
+          </div>
+        </div>
       </div>
     </div>
   );
