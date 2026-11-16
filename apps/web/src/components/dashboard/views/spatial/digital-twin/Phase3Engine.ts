@@ -12,6 +12,14 @@ import {
   getDigitalTwinAssetImage,
   DigitalTwinAssetKey,
 } from "./digitalTwinTextures";
+import { BuildingRubbleEngine } from "./buildingRubbleEngine";
+import {
+  getMicroPixelTileCanvas,
+  drawWallNeighborAO,
+  drawDynamicPixelRubbleCell,
+  drawScatteredRubblePieces,
+  drawPixelCampusProp,
+} from "./microPixelArtRenderer";
 
 export type SimState =
   | "LOADING"
@@ -259,6 +267,18 @@ export class Phase3Engine {
 
   private patternCache = new Map<string, CanvasPattern>();
   private floorTileIndex = new Map<string, Map<string, Phase1Tile>>();
+  private rubbleEngine: BuildingRubbleEngine;
+  private lastRubbleToastMs: number = -8000;
+  private pixelParticles: Array<{
+    x: number;
+    y: number;
+    vx: number;
+    vy: number;
+    size: number;
+    color: string;
+    life: number;
+    maxLife: number;
+  }> = [];
 
   public doorStates: Map<string, "closed" | "open" | "locked"> = new Map();
 
@@ -324,6 +344,12 @@ export class Phase3Engine {
       }
       this.floorTileIndex.set(floor.id, lookup);
     }
+
+    this.rubbleEngine = new BuildingRubbleEngine(
+      map,
+      scenario.objects || [],
+      scenario.disaster_type || scenario.name || "Gempa",
+    );
 
     this.input = new KeyboardInputProvider();
     this.input.bind();
@@ -632,16 +658,72 @@ export class Phase3Engine {
     const aftershockInterval = Number(
       this.scenario.config?.aftershockIntervalMs || 0,
     );
+    let aftershockTriggered = false;
     if (
       aftershockInterval > 0 &&
       this.simTimeMs - this.lastAftershockMs >= aftershockInterval
     ) {
       this.lastAftershockMs = this.simTimeMs;
+      aftershockTriggered = true;
       this.cameraShakeTime = 1.1;
       simulationAudio.playHit(false);
       this.callbacks.onMessage(
         "Gempa susulan! Waspada reruntuhan & kabel listrik.",
       );
+    }
+
+    const rubbleEvents = this.rubbleEngine.update(this.player.floorId, {
+      dt,
+      aftershockPulse: aftershockTriggered,
+      difficultyMultiplier: diffBoost,
+      hazardObjects: this.scenario.objects,
+      playerTile: {
+        x: Math.floor(this.player.x / TILE_SIZE),
+        y: Math.floor(this.player.y / TILE_SIZE),
+      },
+    });
+
+    if (rubbleEvents.newlyCollapsed.length > 0) {
+      this.cameraShakeTime = Math.max(this.cameraShakeTime, 0.32);
+      for (const collapsed of rubbleEvents.newlyCollapsed) {
+        const cx = collapsed.x * TILE_SIZE + TILE_SIZE * 0.5;
+        const cy = collapsed.y * TILE_SIZE + TILE_SIZE * 0.5;
+        for (let i = 0; i < 6 && this.pixelParticles.length < 64; i++) {
+          const ang = ((collapsed.seed + i * 53) % 360) * (Math.PI / 180);
+          const spd = 18 + ((collapsed.seed + i * 17) % 34);
+          this.pixelParticles.push({
+            x: cx,
+            y: cy,
+            vx: Math.cos(ang) * spd,
+            vy: Math.sin(ang) * spd - 14,
+            size: i % 2 === 0 ? 4 : 3,
+            color: i % 3 === 0 ? "#b45309" : "#94a3b8",
+            life: 0.75,
+            maxLife: 0.75,
+          });
+        }
+      }
+      if (
+        rubbleEvents.announcedRoomName &&
+        this.simTimeMs - this.lastRubbleToastMs > 8500
+      ) {
+        this.lastRubbleToastMs = this.simTimeMs;
+        this.callbacks.onMessage(
+          `Runtuhan bangunan menjalar di sekitar ${rubbleEvents.announcedRoomName}!`,
+        );
+      }
+    }
+
+    for (let i = this.pixelParticles.length - 1; i >= 0; i--) {
+      const p = this.pixelParticles[i];
+      p.life -= dt;
+      if (p.life <= 0) {
+        this.pixelParticles.splice(i, 1);
+      } else {
+        p.x += p.vx * dt;
+        p.y += p.vy * dt;
+        p.vy += 42 * dt;
+      }
     }
 
     const fireInterval = Number(
@@ -987,6 +1069,26 @@ export class Phase3Engine {
       }
     }
 
+    for (let ty = minTy; ty <= maxTy; ty++) {
+      for (let tx = minTx; tx <= maxTx; tx++) {
+        if (this.rubbleEngine.isHeavyBlockingTile(floor.id, tx, ty)) {
+          if (
+            this.rectCircleCollide(
+              tx * TILE_SIZE,
+              ty * TILE_SIZE,
+              TILE_SIZE,
+              TILE_SIZE,
+              x,
+              y,
+              PLAYER_RADIUS,
+            )
+          ) {
+            return true;
+          }
+        }
+      }
+    }
+
     return false;
   }
 
@@ -1086,6 +1188,14 @@ export class Phase3Engine {
           }
         }
       }
+    }
+
+    const ptx = Math.floor(this.player.x / TILE_SIZE);
+    const pty = Math.floor(this.player.y / TILE_SIZE);
+    const edgeDebris = this.rubbleEngine.getEdgeDebrisAt(floor.id, ptx, pty);
+    if (edgeDebris && !inSafeZone) {
+      slowFactor = Math.min(slowFactor, 0.64);
+      highestDps = Math.max(highestDps, 5 * profile.damageMultiplier);
     }
 
     this.terrainSlowFactor = slowFactor;
@@ -1283,69 +1393,56 @@ export class Phase3Engine {
     tile: Phase1Tile,
     px: number,
     py: number,
-    floorPattern: CanvasPattern | null,
-    pavingPattern: CanvasPattern | null,
-    grassPattern: CanvasPattern | null,
-    roadPattern: CanvasPattern | null,
+    tileMap: Map<string, Phase1Tile>,
   ) {
     const ctx = this.ctx;
-    if (tile.tile_type === "FLOOR" && floorPattern) {
-      ctx.fillStyle = floorPattern;
-      ctx.fillRect(px, py, TILE_SIZE, TILE_SIZE);
-      return;
-    }
-    if (tile.tile_type === "PAVING" && pavingPattern) {
-      ctx.fillStyle = pavingPattern;
-      ctx.fillRect(px, py, TILE_SIZE, TILE_SIZE);
-      return;
-    }
-    if (tile.tile_type === "GRASS" && grassPattern) {
-      ctx.fillStyle = grassPattern;
-      ctx.fillRect(px, py, TILE_SIZE, TILE_SIZE);
-      return;
-    }
-    if (tile.tile_type === "ROAD" && roadPattern) {
-      ctx.fillStyle = roadPattern;
-      ctx.fillRect(px, py, TILE_SIZE, TILE_SIZE);
-      ctx.fillStyle = "rgba(248, 250, 252, 0.35)";
-      ctx.fillRect(px + TILE_SIZE * 0.46, py + TILE_SIZE * 0.2, 4, TILE_SIZE * 0.6);
-      return;
-    }
+    const variantSeed = (tile.x * 13 + tile.y * 7) % 16;
+
     if (tile.tile_type === "DOOR" || tile.tile_type === "DOOR_LOCKED") {
-      if (floorPattern) {
-        ctx.fillStyle = floorPattern;
-        ctx.fillRect(px, py, TILE_SIZE, TILE_SIZE);
+      const floorBase = getMicroPixelTileCanvas("FLOOR", variantSeed);
+      if (floorBase) {
+        ctx.drawImage(floorBase, px, py, TILE_SIZE, TILE_SIZE);
       } else {
         ctx.fillStyle = "#f1f5f9";
         ctx.fillRect(px, py, TILE_SIZE, TILE_SIZE);
       }
       const doorState = this.doorStates.get(tile.id);
       if (doorState === "open") {
-        ctx.fillStyle = "rgba(251, 191, 36, 0.28)";
+        ctx.fillStyle = "rgba(251, 191, 36, 0.24)";
         ctx.fillRect(px + 2, py + 2, TILE_SIZE - 4, TILE_SIZE - 4);
         ctx.fillStyle = "#b45309";
         ctx.fillRect(px + 4, py + 4, TILE_SIZE * 0.16, TILE_SIZE - 8);
       } else {
-        const doorTex = AssetRenderer.getTexture(
-          "DOOR",
-          TILE_SIZE,
-          TILE_SIZE,
-          0,
-          0,
-        );
-        ctx.drawImage(doorTex, px, py, TILE_SIZE, TILE_SIZE);
+        const doorSprite = getMicroPixelTileCanvas(tile.tile_type, variantSeed);
+        if (doorSprite) {
+          ctx.drawImage(doorSprite, px, py, TILE_SIZE, TILE_SIZE);
+        }
       }
       return;
     }
 
-    const tex = AssetRenderer.getTexture(
+    const sprite = getMicroPixelTileCanvas(
       tile.tile_type,
-      TILE_SIZE,
-      TILE_SIZE,
-      (tile.x * 13 + tile.y * 7) % 16,
-      tile.variant || 0,
+      variantSeed + (tile.variant || 0),
     );
-    ctx.drawImage(tex, px, py, TILE_SIZE, TILE_SIZE);
+    if (sprite) {
+      ctx.drawImage(sprite, px, py, TILE_SIZE, TILE_SIZE);
+    } else {
+      const tex = AssetRenderer.getTexture(
+        tile.tile_type,
+        TILE_SIZE,
+        TILE_SIZE,
+        variantSeed,
+        tile.variant || 0,
+      );
+      ctx.drawImage(tex, px, py, TILE_SIZE, TILE_SIZE);
+    }
+
+    if (tile.tile_type !== "WALL" && tile.tile_type !== "BORDER") {
+      const wallNorth = tileMap.get(`${tile.x},${tile.y - 1}`)?.tile_type === "WALL";
+      const wallWest = tileMap.get(`${tile.x - 1},${tile.y}`)?.tile_type === "WALL";
+      drawWallNeighborAO(ctx, px, py, TILE_SIZE, wallNorth, wallWest);
+    }
   }
 
   private renderScenarioHazard(obj: Phase1ScenarioObject) {
@@ -1548,35 +1645,24 @@ export class Phase3Engine {
       }
 
       case "BLOCKED_AREA": {
-        ctx.fillStyle = "rgba(15, 23, 42, 0.36)";
-        ctx.fillRect(px, py, pw, ph);
-
-        const rubbleImg = getDigitalTwinAssetImage("hazardRubble");
-        if (rubbleImg) {
-          const cols = Math.max(1, Math.round(pw / TILE_SIZE));
-          const rows = Math.max(1, Math.round(ph / TILE_SIZE));
-          const cw = pw / cols;
-          const ch = ph / rows;
-          for (let ry = 0; ry < rows; ry++) {
-            for (let rx = 0; rx < cols; rx++) {
-              const cx = px + (rx + 0.5) * cw;
-              const cy = py + (ry + 0.5) * ch;
-              const rot = (((rx * 5 + ry * 11) % 4) * Math.PI) / 2;
-              const sw = cw * 1.14;
-              const sh = ch * 1.14;
-              ctx.save();
-              ctx.translate(cx, cy);
-              ctx.rotate(rot);
-              ctx.drawImage(rubbleImg, -sw / 2, -sh / 2, sw, sh);
-              ctx.restore();
-            }
+        const cols = Math.max(1, Math.round(pw / TILE_SIZE));
+        const rows = Math.max(1, Math.round(ph / TILE_SIZE));
+        const cw = pw / cols;
+        const ch = ph / rows;
+        for (let ry = 0; ry < rows; ry++) {
+          for (let rx = 0; rx < cols; rx++) {
+            drawScatteredRubblePieces(
+              ctx,
+              px + rx * cw,
+              py + ry * ch,
+              Math.min(cw, ch),
+              ((obj.x + rx) * 31 + (obj.y + ry) * 17) | 0,
+              1,
+              true,
+            );
           }
-        } else {
-          ctx.fillStyle = "#334155";
-          ctx.fillRect(px + 3, py + 3, pw - 6, ph - 6);
         }
-
-        ctx.strokeStyle = "rgba(245, 158, 11, 0.75)";
+        ctx.strokeStyle = "rgba(245, 158, 11, 0.72)";
         ctx.lineWidth = 1.5;
         ctx.strokeRect(px + 1, py + 1, pw - 2, ph - 2);
         break;
@@ -1864,12 +1950,6 @@ export class Phase3Engine {
       return;
     }
 
-    const patternRepeat = TILE_SIZE * 2;
-    const floorPattern = this.getTiledPattern("floorCampus", patternRepeat);
-    const pavingPattern = this.getTiledPattern("pavingCampus", patternRepeat);
-    const grassPattern = this.getTiledPattern("grassCampus", patternRepeat);
-    const roadPattern = this.getTiledPattern("roadCampus", patternRepeat);
-
     const startTx = Math.max(0, Math.floor(this.camera.x / TILE_SIZE) - 1);
     const endTx = Math.min(
       this.map.width - 1,
@@ -1881,6 +1961,8 @@ export class Phase3Engine {
       Math.ceil((this.camera.y + visibleHeight) / TILE_SIZE) + 1,
     );
 
+    // Disable smoothing while blitting micro-pixel ground tiles & masonry
+    ctx.imageSmoothingEnabled = false;
     const tileMap = this.floorTileIndex.get(floor.id);
     if (tileMap) {
       for (let ty = startTy; ty <= endTy; ty++) {
@@ -1891,10 +1973,7 @@ export class Phase3Engine {
             tile,
             tx * TILE_SIZE,
             ty * TILE_SIZE,
-            floorPattern,
-            pavingPattern,
-            grassPattern,
-            roadPattern,
+            tileMap,
           );
         }
       }
@@ -1913,21 +1992,45 @@ export class Phase3Engine {
       }
     }
 
+    ctx.imageSmoothingEnabled = true;
     renderRoomOverlays(ctx, this.map.rooms, TILE_SIZE, {
       showZoneTint: true,
       showLabels: true,
       currentFloorId: floor.id,
     });
 
+    ctx.imageSmoothingEnabled = false;
     for (const obj of floor.objects) {
-      ctx.fillStyle = "rgba(100, 116, 139, 0.8)";
-      ctx.fillRect(
-        obj.x * TILE_SIZE + 2,
-        obj.y * TILE_SIZE + 2,
-        obj.width * TILE_SIZE - 4,
-        obj.height * TILE_SIZE - 4,
+      drawPixelCampusProp(
+        ctx,
+        obj.x * TILE_SIZE,
+        obj.y * TILE_SIZE,
+        obj.width * TILE_SIZE,
+        obj.height * TILE_SIZE,
+        String(obj.object_type || (obj as any).name || ""),
       );
     }
+
+    // Dynamic building-aware creeping rubble cells
+    for (const rCell of this.rubbleEngine.getCellsForFloor(floor.id)) {
+      if (
+        rCell.x < startTx ||
+        rCell.x > endTx ||
+        rCell.y < startTy ||
+        rCell.y > endTy
+      ) {
+        continue;
+      }
+      drawDynamicPixelRubbleCell(
+        ctx,
+        rCell.x * TILE_SIZE,
+        rCell.y * TILE_SIZE,
+        TILE_SIZE,
+        rCell,
+        this.simTimeMs,
+      );
+    }
+    ctx.imageSmoothingEnabled = true;
 
     let smokeOverlay = false;
 
@@ -2000,6 +2103,16 @@ export class Phase3Engine {
         ctx.fill();
       }
       ctx.restore();
+    }
+
+    if (this.pixelParticles.length > 0) {
+      for (const p of this.pixelParticles) {
+        const alpha = Math.max(0, Math.min(1, p.life / p.maxLife));
+        ctx.globalAlpha = alpha;
+        ctx.fillStyle = p.color;
+        ctx.fillRect(Math.round(p.x), Math.round(p.y), p.size, p.size);
+      }
+      ctx.globalAlpha = 1;
     }
 
     ctx.restore();

@@ -2,6 +2,10 @@ import {
   getDigitalTwinAssetImage,
   onDigitalTwinAssetsLoaded,
 } from "./digitalTwinTextures";
+import {
+  getMicroPixelTileCanvas,
+  drawScatteredRubblePieces,
+} from "./microPixelArtRenderer";
 
 export class AssetRenderer {
   private static canvasCache: Record<string, HTMLCanvasElement> = {};
@@ -23,7 +27,8 @@ export class AssetRenderer {
     variant: number = 0,
   ): HTMLCanvasElement {
     this.ensureAssetHook();
-    const loadedKey = `${type}_${w}_${h}_${variant}`;
+    const variantIdx = ((seed + variant) % 4 + 4) % 4;
+    const loadedKey = `${type}_${w}_${h}_${variantIdx}`;
     if (this.canvasCache[loadedKey]) {
       return this.canvasCache[loadedKey];
     }
@@ -32,8 +37,7 @@ export class AssetRenderer {
     canvas.height = h;
     const ctx = canvas.getContext("2d");
     if (ctx) {
-      ctx.imageSmoothingEnabled = true;
-      ctx.imageSmoothingQuality = "high";
+      ctx.imageSmoothingEnabled = false;
       this.drawAsset(ctx, type, w, h, seed, variant);
     }
     this.canvasCache[loadedKey] = canvas;
@@ -49,10 +53,16 @@ export class AssetRenderer {
     type: string,
     w: number,
     h: number,
-    _seed: number,
-    _variant: number,
+    seed: number,
+    variant: number,
   ) {
     ctx.clearRect(0, 0, w, h);
+    const sprite = getMicroPixelTileCanvas(type, seed + variant);
+    if (sprite) {
+      ctx.imageSmoothingEnabled = false;
+      ctx.drawImage(sprite, 0, 0, w, h);
+      return;
+    }
 
     switch (type) {
       case "WALL": {
@@ -374,27 +384,26 @@ export class AssetRenderer {
       }
 
       case "BLOCKED_AREA": {
-        const rubbleImg = getDigitalTwinAssetImage("hazardRubble");
-        ctx.fillStyle = "rgba(30, 41, 59, 0.55)";
-        ctx.fillRect(0, 0, w, h);
-        if (rubbleImg) {
-          const cell = Math.min(w, h);
-          const cols = Math.max(1, Math.round(w / cell));
-          const rows = Math.max(1, Math.round(h / cell));
-          for (let ry = 0; ry < rows; ry++) {
-            for (let rx = 0; rx < cols; rx++) {
-              ctx.drawImage(
-                rubbleImg,
-                rx * (w / cols) + 2,
-                ry * (h / rows) + 2,
-                w / cols - 4,
-                h / rows - 4,
-              );
-            }
+        const cell = Math.min(w, h);
+        const cols = Math.max(1, Math.round(w / Math.max(16, cell)));
+        const rows = Math.max(1, Math.round(h / Math.max(16, cell)));
+        const cw = w / cols;
+        const ch = h / rows;
+        for (let ry = 0; ry < rows; ry++) {
+          for (let rx = 0; rx < cols; rx++) {
+            drawScatteredRubblePieces(
+              ctx,
+              rx * cw,
+              ry * ch,
+              Math.min(cw, ch),
+              (rx * 17 + ry * 31 + 7) | 0,
+              1,
+              true,
+            );
           }
         }
-        ctx.strokeStyle = "rgba(245, 158, 11, 0.85)";
-        ctx.lineWidth = 2;
+        ctx.strokeStyle = "rgba(245, 158, 11, 0.72)";
+        ctx.lineWidth = 1.5;
         ctx.strokeRect(1, 1, w - 2, h - 2);
         break;
       }

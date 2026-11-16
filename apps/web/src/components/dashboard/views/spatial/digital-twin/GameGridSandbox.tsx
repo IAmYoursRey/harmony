@@ -4,6 +4,10 @@ import { Phase1Map, Phase1Scenario, Phase1Tile } from "./Phase1Types";
 import { AssetRenderer } from "./Phase1AssetRenderer";
 import { renderRoomOverlays } from "./Phase1RoomRenderer";
 import {
+  drawWallNeighborAO,
+  drawPixelCampusProp,
+} from "./microPixelArtRenderer";
+import {
   Play,
   Maximize2,
   Minimize2,
@@ -218,7 +222,14 @@ export function GameGridSandbox({
         ctx.fillStyle = "#0f172a";
         ctx.fillRect(0, 0, map.width * TILE_SIZE, map.height * TILE_SIZE);
 
-        // Draw tiles
+        const wallSet = new Set<string>();
+        floor.tiles?.forEach((t: Phase1Tile) => {
+          if (t.tile_type === "WALL") wallSet.add(`${t.x},${t.y}`);
+        });
+
+        // Crisp nearest-neighbor scaling so sub-blocks read like sharp pixel bricks
+        ctx.save();
+        ctx.imageSmoothingEnabled = false;
         floor.tiles?.forEach((tile: Phase1Tile) => {
           const tpx = tile.x * TILE_SIZE;
           const tpy = tile.y * TILE_SIZE;
@@ -226,11 +237,33 @@ export function GameGridSandbox({
             tile.tile_type,
             TILE_SIZE,
             TILE_SIZE,
+            (tile.x * 13 + tile.y * 7) % 16,
             tile.variant || 0,
-            0
           );
           ctx.drawImage(tex, tpx, tpy, TILE_SIZE, TILE_SIZE);
+
+          if (tile.tile_type !== "WALL" && tile.tile_type !== "BORDER") {
+            drawWallNeighborAO(
+              ctx,
+              tpx,
+              tpy,
+              TILE_SIZE,
+              wallSet.has(`${tile.x},${tile.y - 1}`),
+              wallSet.has(`${tile.x - 1},${tile.y}`),
+            );
+          }
         });
+        floor.objects?.forEach((obj: any) => {
+          drawPixelCampusProp(
+            ctx,
+            obj.x * TILE_SIZE,
+            obj.y * TILE_SIZE,
+            (obj.width || 1) * TILE_SIZE,
+            (obj.height || 1) * TILE_SIZE,
+            String(obj.object_type || obj.name || ""),
+          );
+        });
+        ctx.restore();
 
         // Draw grid overlay lines if enabled
         if (showGrid) {

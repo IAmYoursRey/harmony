@@ -397,6 +397,7 @@ export function Phase1Canvas({
         const tpx = tile.x * TILE_SIZE;
         const tpy = tile.y * TILE_SIZE;
         ctx.save();
+        ctx.imageSmoothingEnabled = false;
         ctx.translate(tpx + TILE_SIZE / 2, tpy + TILE_SIZE / 2);
         ctx.rotate(((tile.rotation || 0) * Math.PI) / 180);
         ctx.translate(-TILE_SIZE / 2, -TILE_SIZE / 2);
@@ -404,8 +405,8 @@ export function Phase1Canvas({
           def.id,
           TILE_SIZE,
           TILE_SIZE,
+          (tile.x * 13 + tile.y * 7) % 16,
           tile.variant || 0,
-          0,
         );
         ctx.drawImage(tex, 0, 0);
         ctx.restore();
