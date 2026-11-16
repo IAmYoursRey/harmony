@@ -701,7 +701,7 @@ export function Phase3Runtime({
 
           {/* Live Indoor Hazard Alert Banner */}
           {playerState.indoorDanger && (
-            <div className="self-center max-w-xl bg-rose-950/92 border border-rose-500/80 text-rose-100 rounded-xl px-4 py-1.5 shadow-xl text-center animate-pulse">
+            <div className="self-center max-w-xl bg-rose-950/95 border border-rose-500/80 text-rose-100 rounded-xl px-4 py-1.5 shadow-xl text-center animate-pulse">
               <span className="text-[11px] sm:text-xs font-extrabold tracking-wide">
                 {playerState.indoorDanger}
               </span>
