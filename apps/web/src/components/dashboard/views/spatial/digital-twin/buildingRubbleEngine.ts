@@ -7,6 +7,13 @@ import type {
 
 export type RubblePhase = "cracking" | "collapsed";
 export type RubbleSeverity = "edge" | "heavy";
+export type RubbleMaterialKind =
+  | "brick_plaster"
+  | "timber_tree"
+  | "steel_truss"
+  | "lab_glass"
+  | "mud_rock"
+  | "fence_iron";
 
 export interface DynamicRubbleCell {
   key: string;
@@ -15,6 +22,7 @@ export interface DynamicRubbleCell {
   y: number;
   phase: RubblePhase;
   severity: RubbleSeverity;
+  materialKind: RubbleMaterialKind;
   crackTimerSec: number;
   crackDurationSec: number;
   growth: number;
@@ -31,7 +39,12 @@ export interface BuildingSeedZone {
   roomName: string;
   roomCategory: string;
   vulnerability: number;
-  candidateCoords: Array<{ x: number; y: number; severity: RubbleSeverity }>;
+  candidateCoords: Array<{
+    x: number;
+    y: number;
+    severity: RubbleSeverity;
+    materialKind: RubbleMaterialKind;
+  }>;
 }
 
 export interface RubbleStepEvents {
@@ -97,11 +110,18 @@ export class BuildingRubbleEngine {
   private readonly spawnCells = new Map<string, Array<{ x: number; y: number }>>();
   private readonly exitCells = new Map<string, Array<{ x: number; y: number }>>();
   private readonly buildingZones = new Map<string, BuildingSeedZone[]>();
+  private readonly treeCoords = new Map<string, Set<string>>();
   private readonly cellBuildingMeta = new Map<
     string,
     Map<
       string,
-      { roomId: string; roomName: string; roomCategory: string; vulnerability: number }
+      {
+        roomId: string;
+        roomName: string;
+        roomCategory: string;
+        vulnerability: number;
+        materialKind: RubbleMaterialKind;
+      }
     >
   >();
   private readonly activeRubble = new Map<string, Map<string, DynamicRubbleCell>>();
@@ -127,7 +147,15 @@ export class BuildingRubbleEngine {
       for (const t of floor.tiles || []) {
         tileMap.set(coordKey(t.x, t.y), t);
       }
+      const treeSet = new Set<string>();
+      for (const prop of floor.objects || []) {
+        const pt = String(prop.object_type || "").toUpperCase();
+        if (pt.includes("TREE") || pt.includes("POHON")) {
+          treeSet.add(coordKey(Math.floor(prop.x), Math.floor(prop.y)));
+        }
+      }
       this.floorTiles.set(floor.id, tileMap);
+      this.treeCoords.set(floor.id, treeSet);
       this.staticBlocked.set(floor.id, new Set());
       this.immuneCells.set(floor.id, new Set());
       this.safeZoneCells.set(floor.id, new Set());
@@ -178,8 +206,20 @@ export class BuildingRubbleEngine {
         continue;
       }
 
-      if (obj.object_type === "SAFE_ZONE" || obj.object_type === "EXIT" || obj.object_type === "SPAWN") {
-        const pad = obj.object_type === "EXIT" ? 2 : obj.object_type === "SPAWN" ? 2 : 0;
+      if (
+        obj.object_type === "SAFE_ZONE" ||
+        obj.object_type === "EXIT" ||
+        obj.object_type === "HIGH_GROUND" ||
+        obj.object_type === "SHELTER_SAFE" ||
+        obj.object_type === "SPAWN"
+      ) {
+        const pad =
+          obj.object_type === "EXIT" ||
+          obj.object_type === "HIGH_GROUND" ||
+          obj.object_type === "SHELTER_SAFE" ||
+          obj.object_type === "SPAWN"
+            ? 2
+            : 0;
         for (let y = oy - pad; y < oy + oh + pad; y++) {
           for (let x = ox - pad; x < ox + ow + pad; x++) {
             if (x < 0 || y < 0 || x >= this.mapWidth || y >= this.mapHeight) continue;
@@ -191,7 +231,11 @@ export class BuildingRubbleEngine {
         }
         if (obj.object_type === "SPAWN") {
           floorSpawns.push({ x: ox, y: oy });
-        } else if (obj.object_type === "EXIT") {
+        } else if (
+          obj.object_type === "EXIT" ||
+          obj.object_type === "HIGH_GROUND" ||
+          obj.object_type === "SHELTER_SAFE"
+        ) {
           floorExits.push({ x: ox, y: oy });
         }
       }
@@ -205,6 +249,36 @@ export class BuildingRubbleEngine {
       tile.tile_type !== "BORDER" &&
       tile.tile_type !== "DOOR_LOCKED"
     );
+  }
+
+  private resolveMaterialKind(
+    floorId: string,
+    x: number,
+    y: number,
+    category: string,
+  ): RubbleMaterialKind {
+    const trees = this.treeCoords.get(floorId);
+    if (trees) {
+      for (let dy = -1; dy <= 1; dy++) {
+        for (let dx = -1; dx <= 1; dx++) {
+          if (trees.has(coordKey(x + dx, y + dy))) return "timber_tree";
+        }
+      }
+    }
+    const tileMap = this.floorTiles.get(floorId);
+    const touchesBorder =
+      tileMap?.get(coordKey(x - 1, y))?.tile_type === "BORDER" ||
+      tileMap?.get(coordKey(x + 1, y))?.tile_type === "BORDER" ||
+      tileMap?.get(coordKey(x, y - 1))?.tile_type === "BORDER" ||
+      tileMap?.get(coordKey(x, y + 1))?.tile_type === "BORDER";
+    if (touchesBorder) return "fence_iron";
+    if (this.disasterType.toLowerCase().includes("longsor") && y >= Math.floor(this.mapHeight * 0.6)) {
+      return "mud_rock";
+    }
+    if (category === "lab") return "lab_glass";
+    if (category === "sports") return "steel_truss";
+    if (category === "outdoor") return "timber_tree";
+    return "brick_plaster";
   }
 
   private indexBuildings(rooms: Phase1Room[], scenarioObjects: Phase1ScenarioObject[]) {
@@ -238,7 +312,12 @@ export class BuildingRubbleEngine {
         }
       }
 
-      const candidates: Array<{ x: number; y: number; severity: RubbleSeverity }> = [];
+      const candidates: Array<{
+        x: number;
+        y: number;
+        severity: RubbleSeverity;
+        materialKind: RubbleMaterialKind;
+      }> = [];
       const minX = Math.max(1, room.x - 1);
       const maxX = Math.min(this.mapWidth - 2, room.x + room.width);
       const minY = Math.max(1, room.y - 1);
@@ -251,7 +330,12 @@ export class BuildingRubbleEngine {
           const tile = tileMap.get(k);
           if (!this.isWalkableGroundTile(tile)) continue;
 
-          // Prioritize tiles adjacent to a structural wall (crumbling walls & eaves)
+          // Prioritize indoor room floor cells and perimeter eaves next to structural walls
+          const isInsideRoom =
+            x > room.x &&
+            x < room.x + room.width - 1 &&
+            y > room.y &&
+            y < room.y + room.height - 1;
           const touchesWall =
             tileMap.get(coordKey(x - 1, y))?.tile_type === "WALL" ||
             tileMap.get(coordKey(x + 1, y))?.tile_type === "WALL" ||
@@ -261,19 +345,23 @@ export class BuildingRubbleEngine {
           const isOuterEave =
             x === minX || x === maxX || y === minY || y === maxY;
 
-          if (!touchesWall && !isOuterEave) continue;
+          if (!touchesWall && !isOuterEave && !isInsideRoom) continue;
 
           const severity: RubbleSeverity =
-            touchesWall && tile?.tile_type !== "DOOR" && hash2d(x, y, 7) % 3 !== 0
+            (isInsideRoom || touchesWall) &&
+            tile?.tile_type !== "DOOR" &&
+            hash2d(x, y, 7) % 3 !== 0
               ? "heavy"
               : "edge";
+          const materialKind = this.resolveMaterialKind(floorId, x, y, category);
 
-          candidates.push({ x, y, severity });
+          candidates.push({ x, y, severity, materialKind });
           metaMap.set(k, {
             roomId: room.id,
             roomName: room.metadata?.shortName || room.name || "Gedung Sekolah",
             roomCategory: category,
-            vulnerability: vuln,
+            vulnerability: vuln + (isInsideRoom ? 0.35 : 0),
+            materialKind,
           });
         }
       }
@@ -285,6 +373,61 @@ export class BuildingRubbleEngine {
           roomCategory: category,
           vulnerability: vuln,
           candidateCoords: candidates,
+        });
+      }
+    }
+
+    // Also index outdoor campus trees so wind/earthquake breaks tree branches specifically
+    for (const [floorId, treeSet] of this.treeCoords.entries()) {
+      const tileMap = this.floorTiles.get(floorId);
+      const immune = this.immuneCells.get(floorId);
+      const blocked = this.staticBlocked.get(floorId);
+      const zones = this.buildingZones.get(floorId);
+      const metaMap = this.cellBuildingMeta.get(floorId);
+      if (!tileMap || !immune || !blocked || !zones || !metaMap || treeSet.size === 0) continue;
+
+      const treeCoordsList: Array<{
+        x: number;
+        y: number;
+        severity: RubbleSeverity;
+        materialKind: RubbleMaterialKind;
+      }> = [];
+      for (const tk of treeSet) {
+        const [txStr, tyStr] = tk.split(",");
+        const tx = Number(txStr);
+        const ty = Number(tyStr);
+        for (const [dx, dy] of [
+          [0, 1],
+          [1, 0],
+          [-1, 0],
+        ]) {
+          const nx = tx + dx;
+          const ny = ty + dy;
+          const nk = coordKey(nx, ny);
+          if (immune.has(nk) || blocked.has(nk)) continue;
+          if (!this.isWalkableGroundTile(tileMap.get(nk))) continue;
+          treeCoordsList.push({
+            x: nx,
+            y: ny,
+            severity: "edge",
+            materialKind: "timber_tree",
+          });
+          metaMap.set(nk, {
+            roomId: `tree-${nx}-${ny}`,
+            roomName: "Pohon Kampus",
+            roomCategory: "outdoor",
+            vulnerability: this.disasterType.toLowerCase().includes("angin") ? 1.55 : 0.95,
+            materialKind: "timber_tree",
+          });
+        }
+      }
+      if (treeCoordsList.length > 0) {
+        zones.push({
+          roomId: "campus-trees",
+          roomName: "Pohon Peneduh Kampus",
+          roomCategory: "outdoor",
+          vulnerability: this.disasterType.toLowerCase().includes("angin") ? 1.55 : 0.9,
+          candidateCoords: treeCoordsList,
         });
       }
     }
@@ -322,6 +465,7 @@ export class BuildingRubbleEngine {
             y: ny,
             phase: "cracking",
             severity: "edge",
+            materialKind: meta.materialKind,
             crackTimerSec: 1.4,
             crackDurationSec: 1.4,
             growth: 0.08,
@@ -344,7 +488,17 @@ export class BuildingRubbleEngine {
           const z = sorted[i];
           const c = z.candidateCoords[Math.floor(z.candidateCoords.length / 2)];
           if (c) {
-            this.trySpawnCrackAt(floorId, c.x, c.y, z.roomId, z.roomName, z.roomCategory, c.severity, 0);
+            this.trySpawnCrackAt(
+              floorId,
+              c.x,
+              c.y,
+              z.roomId,
+              z.roomName,
+              z.roomCategory,
+              c.severity,
+              c.materialKind,
+              0,
+            );
           }
         }
       }
@@ -427,6 +581,7 @@ export class BuildingRubbleEngine {
     roomName: string | undefined,
     roomCategory: string | undefined,
     requestedSeverity: RubbleSeverity,
+    materialKind: RubbleMaterialKind | undefined,
     generation: number,
     playerTile?: { x: number; y: number } | null,
   ): DynamicRubbleCell | null {
@@ -457,6 +612,9 @@ export class BuildingRubbleEngine {
       y,
       phase: "cracking",
       severity: safeHeavy ? "heavy" : "edge",
+      materialKind:
+        materialKind ||
+        this.resolveMaterialKind(floorId, x, y, roomCategory || "classroom"),
       crackTimerSec: this.baseCrackDurationSec,
       crackDurationSec: this.baseCrackDurationSec,
       growth: 0.05,
@@ -547,7 +705,8 @@ export class BuildingRubbleEngine {
           neighborMeta?.roomId || src.roomId,
           neighborMeta?.roomName || src.roomName,
           neighborMeta?.roomCategory || src.roomCategory,
-          src.generation === 0 ? "edge" : "edge",
+          "edge",
+          neighborMeta?.materialKind || src.materialKind,
           src.generation + 1,
           opts.playerTile,
         );
@@ -593,6 +752,7 @@ export class BuildingRubbleEngine {
           chosen.roomName,
           chosen.roomCategory,
           coord.severity,
+          coord.materialKind,
           0,
           opts.playerTile,
         );

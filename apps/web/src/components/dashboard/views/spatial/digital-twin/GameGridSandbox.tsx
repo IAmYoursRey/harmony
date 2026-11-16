@@ -253,7 +253,7 @@ export function GameGridSandbox({
             );
           }
         });
-        floor.objects?.forEach((obj: any) => {
+        floor.objects?.forEach((obj: any, idx: number) => {
           drawPixelCampusProp(
             ctx,
             obj.x * TILE_SIZE,
@@ -261,6 +261,8 @@ export function GameGridSandbox({
             (obj.width || 1) * TILE_SIZE,
             (obj.height || 1) * TILE_SIZE,
             String(obj.object_type || obj.name || ""),
+            elapsed,
+            idx + 1,
           );
         });
         ctx.restore();
@@ -347,6 +349,22 @@ export function GameGridSandbox({
               ctx.moveTo(cx, cy - r * 0.7); ctx.lineTo(cx, cy + r * 0.7);
               ctx.stroke();
 
+              ctx.restore();
+            } else if (obj.object_type === "HIGH_GROUND") {
+              ctx.save();
+              ctx.fillStyle = "rgba(6, 182, 212, 0.28)";
+              ctx.fillRect(ox, oy, ow, oh);
+              ctx.strokeStyle = "#22d3ee";
+              ctx.lineWidth = 2.5;
+              ctx.strokeRect(ox, oy, ow, oh);
+              ctx.restore();
+            } else if (obj.object_type === "SHELTER_SAFE") {
+              ctx.save();
+              ctx.fillStyle = "rgba(99, 102, 241, 0.28)";
+              ctx.fillRect(ox, oy, ow, oh);
+              ctx.strokeStyle = "#818cf8";
+              ctx.lineWidth = 2.5;
+              ctx.strokeRect(ox, oy, ow, oh);
               ctx.restore();
             } else if (obj.object_type === "EXIT" && showExits) {
               // Gate Exit marker with animated chevrons

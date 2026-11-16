@@ -119,6 +119,8 @@ export interface Phase1ScenarioObject {
     | "DAMAGE_ZONE"
     | "BLOCKED_AREA"
     | "SAFE_ZONE"
+    | "HIGH_GROUND"
+    | "SHELTER_SAFE"
     | "EXIT"
     | "OBJECTIVE"
     | "SPAWN";

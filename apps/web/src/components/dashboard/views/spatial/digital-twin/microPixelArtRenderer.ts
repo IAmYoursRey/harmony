@@ -1,5 +1,13 @@
 import type { DynamicRubbleCell } from "./buildingRubbleEngine";
 
+export type RubbleMaterialKind =
+  | "brick_plaster"
+  | "timber_tree"
+  | "steel_truss"
+  | "lab_glass"
+  | "mud_rock"
+  | "fence_iron";
+
 const VOXEL_RES = 16;
 const TILE_SPRITE_CACHE = new Map<string, HTMLCanvasElement>();
 
@@ -22,33 +30,49 @@ function pxPlot(
 }
 
 function paintBrickWallVoxels(ctx: CanvasRenderingContext2D, variant: number) {
-  // Deep mortar background
-  pxPlot(ctx, 0, 0, 16, 16, "#1e293b");
+  // Indonesian school architecture: plastered cream/ivory wall over terracotta red bricks
+  pxPlot(ctx, 0, 0, 16, 16, "#cbd5e1");
 
-  const palette = ["#334155", "#3f4f66", "#475569", "#2b3748"];
-  const warmAccent = "#526075";
+  // Concrete structural lintel & roof-eave cornice highlight at top
+  pxPlot(ctx, 0, 0, 16, 2, "#94a3b8");
+  pxPlot(ctx, 0, 0, 16, 1, "#f8fafc");
 
-  // 4 staggered brick courses per single block so every wall reads as miniature masonry
-  for (let row = 0; row < 4; row++) {
-    const py = row * 4;
-    const stagger = (row + variant) % 2 === 1 ? 2 : 0;
-    for (let bx = -stagger; bx < 16; bx += 4) {
-      const startX = Math.max(0, bx);
-      const endX = Math.min(16, bx + 3);
-      if (endX <= startX) continue;
-      const bw = endX - startX;
-      const toneIdx = hashPixel(bx, row, variant + 11) % palette.length;
-      const baseCol = toneIdx === 2 && hashPixel(row, bx, 3) % 4 === 0 ? warmAccent : palette[toneIdx];
-
-      pxPlot(ctx, startX, py, bw, 3, baseCol);
-      // Top brick highlight for miniature 2.5D bevel
-      pxPlot(ctx, startX, py, bw, 1, row === 0 ? "#94a3b8" : "#64748b");
-      // Subtle lower brick shadow seam
-      if (row === 3) {
-        pxPlot(ctx, startX, py + 2, bw, 1, "#0f172a");
-      }
+  // Plastered cream/ivory wall body (acian semen berplester cat gading)
+  const plasterShades = ["#f3efe6", "#ece5d5", "#e6decb", "#f1ece1"];
+  for (let y = 2; y < 11; y++) {
+    for (let x = 0; x < 16; x += 2) {
+      const h = hashPixel(x, y, variant + 11);
+      pxPlot(ctx, x, y, 2, 1, plasterShades[h % plasterShades.length]);
     }
   }
+
+  // Vertical concrete column pilaster edge on every 4th variant
+  if (variant === 0) {
+    pxPlot(ctx, 0, 1, 3, 14, "#cbd5e1");
+    pxPlot(ctx, 0, 1, 1, 14, "#f1f5f9");
+  }
+
+  // Exposed Mojokerto terracotta red brick lower plinth courses (bata merah + mortar)
+  pxPlot(ctx, 0, 11, 16, 5, "#78716c");
+  const brickTones = ["#b94a2c", "#9a3412", "#c2410c", "#a13619"];
+  for (let row = 0; row < 2; row++) {
+    const py = 11 + row * 2;
+    const stagger = (row + variant) % 2 === 1 ? 2 : 0;
+    for (let bx = -stagger; bx < 16; bx += 4) {
+      const sx = Math.max(0, bx);
+      const ex = Math.min(16, bx + 3);
+      if (ex <= sx) continue;
+      const h = hashPixel(bx, row, variant + 19);
+      pxPlot(ctx, sx, py, ex - sx, 2, brickTones[h % brickTones.length]);
+      pxPlot(ctx, sx, py, ex - sx, 1, "#d96b43");
+    }
+  }
+  // Occasional weathered plaster chip showing underlying red clay brick
+  if (variant === 2) {
+    pxPlot(ctx, 6, 6, 3, 2, "#b94a2c");
+    pxPlot(ctx, 7, 6, 1, 1, "#d96b43");
+  }
+  pxPlot(ctx, 0, 15, 16, 1, "#44403c");
 }
 
 function paintFenceBorderVoxels(ctx: CanvasRenderingContext2D, variant: number) {
@@ -363,12 +387,62 @@ export function drawDynamicPixelRubbleCell(
     cell.seed,
     cell.growth,
     cell.severity === "heavy",
+    cell.materialKind || "brick_plaster",
   );
 }
 
+const RUBBLE_PALETTES: Record<
+  RubbleMaterialKind,
+  { bed: string; darkBed: string; chunks: string[]; trim?: string; beam?: string }
+> = {
+  brick_plaster: {
+    bed: "rgba(120, 113, 108, 0.34)",
+    darkBed: "rgba(68, 64, 60, 0.56)",
+    chunks: ["#b94a2c", "#9a3412", "#f3efe6", "#d6cfc2", "#67e8f9", "#78716c"],
+    trim: "rgba(255, 255, 255, 0.55)",
+    beam: "#92400e",
+  },
+  timber_tree: {
+    bed: "rgba(21, 128, 61, 0.25)",
+    darkBed: "rgba(69, 39, 18, 0.48)",
+    chunks: ["#78350f", "#92400e", "#a16207", "#22c55e", "#15803d", "#eab308"],
+    trim: "rgba(187, 247, 208, 0.45)",
+    beam: "#78350f",
+  },
+  steel_truss: {
+    bed: "rgba(51, 65, 85, 0.36)",
+    darkBed: "rgba(15, 23, 42, 0.6)",
+    chunks: ["#64748b", "#94a3b8", "#cbd5e1", "#334155", "#f97316"],
+    trim: "rgba(226, 232, 240, 0.65)",
+    beam: "#475569",
+  },
+  lab_glass: {
+    bed: "rgba(14, 116, 144, 0.26)",
+    darkBed: "rgba(30, 41, 59, 0.52)",
+    chunks: ["#22d3ee", "#67e8f9", "#a3e635", "#f1f5f9", "#475569", "#94a3b8"],
+    trim: "rgba(207, 250, 254, 0.78)",
+    beam: "#334155",
+  },
+  mud_rock: {
+    bed: "rgba(113, 63, 18, 0.45)",
+    darkBed: "rgba(69, 26, 3, 0.65)",
+    chunks: ["#78350f", "#713f12", "#57534e", "#78716c", "#a16207"],
+    trim: "rgba(217, 119, 6, 0.4)",
+    beam: "#57534e",
+  },
+  fence_iron: {
+    bed: "rgba(51, 65, 85, 0.32)",
+    darkBed: "rgba(15, 23, 42, 0.56)",
+    chunks: ["#1e293b", "#475569", "#64748b", "#94a3b8", "#b94a2c"],
+    trim: "rgba(248, 250, 252, 0.45)",
+    beam: "#0f172a",
+  },
+};
+
 /**
- * Renders dense fine pixelated stone, terracotta brick chips, timber splinters,
- * and dust clusters inside one grid cell (shared by static & dynamic rubble).
+ * Renders dense material-specific pixel debris chunks (terracotta bricks + plaster,
+ * snapped tree branches + leaves, steel roof beams, lab glass, mud rocks, or iron fence)
+ * inside one grid cell.
  */
 export function drawScatteredRubblePieces(
   ctx: CanvasRenderingContext2D,
@@ -378,14 +452,15 @@ export function drawScatteredRubblePieces(
   seed: number,
   growth = 1,
   heavy = true,
+  material: RubbleMaterialKind = "brick_plaster",
 ) {
   const unit = Math.max(2, tileSize / 16);
   const scale = 0.4 + 0.6 * Math.min(1, growth);
-  const pieceCount = heavy ? 14 : 9;
+  const pieceCount = heavy ? 15 : 9;
+  const palette = RUBBLE_PALETTES[material] || RUBBLE_PALETTES.brick_plaster;
 
   ctx.save();
-  // Dust & scorch crater bed
-  ctx.fillStyle = heavy ? "rgba(30, 41, 59, 0.56)" : "rgba(51, 65, 85, 0.32)";
+  ctx.fillStyle = heavy ? palette.darkBed : palette.bed;
   ctx.fillRect(
     px + unit * (heavy ? 1 : 2),
     py + unit * (heavy ? 1 : 2),
@@ -393,19 +468,9 @@ export function drawScatteredRubblePieces(
     tileSize - unit * (heavy ? 2 : 4),
   );
 
-  // Fine crack spokes at edges
-  ctx.fillStyle = "rgba(15, 23, 42, 0.72)";
+  ctx.fillStyle = "rgba(15, 23, 42, 0.68)";
   ctx.fillRect(px + unit * 2, py + unit * 7, unit * 5, unit);
   ctx.fillRect(px + unit * 8, py + unit * 3, unit, unit * 6);
-
-  const stoneColors = [
-    "#94a3b8",
-    "#64748b",
-    "#475569",
-    "#b45309",
-    "#c2410c",
-    "#cbd5e1",
-  ];
 
   for (let i = 0; i < pieceCount; i++) {
     const h = hashPixel(i, pieceCount, seed);
@@ -416,32 +481,29 @@ export function drawScatteredRubblePieces(
     const sx = px + gx * unit;
     const sy = py + gy * unit;
 
-    // Ground drop shadow under each tiny stone chunk
-    ctx.fillStyle = "rgba(15, 23, 42, 0.55)";
-    ctx.fillRect(sx + unit * 0.5, sy + unit * 0.5, pw, ph);
+    ctx.fillStyle = "rgba(15, 23, 42, 0.5)";
+    ctx.fillRect(sx + unit * 0.45, sy + unit * 0.45, pw, ph);
 
-    const col = stoneColors[(h >>> 8) % stoneColors.length];
-    ctx.fillStyle = col;
+    ctx.fillStyle = palette.chunks[(h >>> 8) % palette.chunks.length];
     ctx.fillRect(sx, sy, pw, ph);
 
-    // Highlight edge on top of stone pixel chunk
-    ctx.fillStyle = "rgba(248, 250, 252, 0.45)";
-    ctx.fillRect(sx, sy, pw, Math.max(1, unit * 0.6));
+    ctx.fillStyle = palette.trim || "rgba(248, 250, 252, 0.45)";
+    ctx.fillRect(sx, sy, pw, Math.max(1, unit * 0.55));
   }
 
-  // Timber beam splinter accent on heavy structural collapses
-  if (heavy) {
-    ctx.fillStyle = "#78350f";
+  if (heavy && palette.beam) {
+    ctx.fillStyle = palette.beam;
     ctx.fillRect(px + unit * 3, py + unit * 10, unit * 9, unit * 2);
-    ctx.fillStyle = "#d97706";
-    ctx.fillRect(px + unit * 3, py + unit * 10, unit * 9, Math.max(1, unit * 0.6));
+    ctx.fillStyle = material === "timber_tree" ? "#4ade80" : "rgba(255,255,255,0.28)";
+    ctx.fillRect(px + unit * 3, py + unit * 10, material === "timber_tree" ? unit * 3 : unit * 9, Math.max(1, unit * 0.6));
   }
 
   ctx.restore();
 }
 
 /**
- * Renders pixelated micro-furniture and outdoor campus props instead of flat boxes.
+ * Renders pixelated micro-furniture, campus shade trees, ornamental pots,
+ * emergency signs, and parked vehicles instead of flat boxes.
  */
 export function drawPixelCampusProp(
   ctx: CanvasRenderingContext2D,
@@ -450,28 +512,91 @@ export function drawPixelCampusProp(
   pw: number,
   ph: number,
   rawType = "",
+  simTimeMs = 0,
+  propSeed = 0,
 ) {
   const kind = rawType.toLowerCase();
   const unit = Math.max(2, Math.min(pw, ph) / 10);
 
   ctx.save();
-  // Ground shadow
-  ctx.fillStyle = "rgba(15, 23, 42, 0.25)";
-  ctx.fillRect(px + unit * 0.8, py + unit * 0.8, pw - unit * 0.5, ph - unit * 0.5);
+
+  if (kind === "emergency_sign" || kind.includes("sign") || kind.includes("jalur")) {
+    ctx.fillStyle = "rgba(15, 23, 42, 0.35)";
+    ctx.fillRect(px + unit * 1.5, py + unit * 1.5, pw - unit * 2, ph - unit * 2);
+    ctx.fillStyle = "#059669";
+    ctx.fillRect(px + unit, py + unit, pw - unit * 2, ph - unit * 2);
+    ctx.strokeStyle = "#ecfdf5";
+    ctx.lineWidth = Math.max(1.5, unit * 0.5);
+    ctx.strokeRect(px + unit, py + unit, pw - unit * 2, ph - unit * 2);
+    ctx.fillStyle = "#ffffff";
+    const cx = px + pw * 0.5;
+    const cy = py + ph * 0.5;
+    ctx.fillRect(cx - unit * 1.6, cy - unit * 0.5, unit * 2.2, unit);
+    ctx.fillRect(cx + unit * 0.4, cy - unit * 1.3, unit, unit * 2.6);
+    ctx.restore();
+    return;
+  }
+
+  if (kind.includes("ornamental") || kind.includes("hiasan") || kind.includes("flower")) {
+    const cx = px + pw * 0.5;
+    const cy = py + ph * 0.5;
+    const r = Math.min(pw, ph) * 0.36;
+    ctx.fillStyle = "rgba(15, 23, 42, 0.28)";
+    ctx.fillRect(cx - r * 0.9, cy + r * 0.3, r * 1.8, r * 0.7);
+    // Terracotta school planter pot
+    ctx.fillStyle = "#9a3412";
+    ctx.fillRect(cx - r * 0.68, cy + r * 0.1, r * 1.36, r * 0.68);
+    ctx.fillStyle = "#c2410c";
+    ctx.fillRect(cx - r * 0.78, cy - r * 0.02, r * 1.56, r * 0.25);
+    // Trimmed ornamental foliage (Pucuk Merah / Bunga Taman)
+    ctx.fillStyle = "#15803d";
+    ctx.fillRect(cx - r * 0.85, cy - r * 0.85, r * 1.7, r * 0.98);
+    ctx.fillStyle = "#22c55e";
+    ctx.fillRect(cx - r * 0.65, cy - r * 0.95, r * 1.3, r * 0.75);
+    if (kind.includes("flower") || propSeed % 2 === 0) {
+      ctx.fillStyle = "#f43f5e";
+      ctx.fillRect(cx - r * 0.4, cy - r * 0.92, unit * 1.4, unit * 1.2);
+      ctx.fillStyle = "#facc15";
+      ctx.fillRect(cx + r * 0.15, cy - r * 0.6, unit * 1.1, unit * 1.1);
+    } else {
+      ctx.fillStyle = "#dc2626";
+      ctx.fillRect(cx - r * 0.35, cy - r * 1.05, r * 0.7, r * 0.38);
+    }
+    ctx.restore();
+    return;
+  }
 
   if (kind.includes("tree") || kind.includes("pohon")) {
-    const cx = px + pw / 2;
+    const sway = Math.sin(simTimeMs * 0.002 + propSeed) * unit * 0.35;
+    const cx = px + pw / 2 + sway;
     const cy = py + ph / 2;
-    const s = Math.min(pw, ph) * 0.44;
+    const s = Math.min(pw, ph) * 0.46;
+    // Soft canopy ground shadow
+    ctx.fillStyle = "rgba(15, 23, 42, 0.28)";
+    ctx.fillRect(cx - s * 0.85 + unit, cy - s * 0.35 + unit * 1.2, s * 1.75, s * 1.45);
+    // Brown wood trunk
     ctx.fillStyle = "#78350f";
-    ctx.fillRect(cx - unit, cy + s * 0.2, unit * 2, unit * 2);
+    ctx.fillRect(cx - unit * 1.1, cy + s * 0.1, unit * 2.2, unit * 2.5);
+    ctx.fillStyle = "#92400e";
+    ctx.fillRect(cx - unit * 0.6, cy + s * 0.15, unit * 0.8, unit * 2.2);
+    // Layered pixel leaf crown
+    ctx.fillStyle = "#14532d";
+    ctx.fillRect(cx - s, cy - s * 0.82, s * 2, s * 1.45);
     ctx.fillStyle = "#15803d";
-    ctx.fillRect(cx - s, cy - s * 0.8, s * 2, s * 1.5);
+    ctx.fillRect(cx - s * 0.88, cy - s * 0.95, s * 1.76, s * 1.26);
     ctx.fillStyle = "#22c55e";
-    ctx.fillRect(cx - s * 0.72, cy - s * 0.95, s * 1.44, s * 1.1);
+    ctx.fillRect(cx - s * 0.62, cy - s * 0.88, s * 1.24, s * 0.85);
     ctx.fillStyle = "#4ade80";
-    ctx.fillRect(cx - s * 0.4, cy - s * 0.75, s * 0.7, s * 0.5);
-  } else if (kind.includes("lab")) {
+    ctx.fillRect(cx - s * 0.36, cy - s * 0.76, s * 0.65, s * 0.44);
+    ctx.restore();
+    return;
+  }
+
+  // Ground shadow for solid indoor/outdoor props
+  ctx.fillStyle = "rgba(15, 23, 42, 0.24)";
+  ctx.fillRect(px + unit * 0.8, py + unit * 0.8, pw - unit * 0.5, ph - unit * 0.5);
+
+  if (kind.includes("lab")) {
     ctx.fillStyle = "#334155";
     ctx.fillRect(px + 2, py + 2, pw - 4, ph - 4);
     ctx.fillStyle = "#94a3b8";
@@ -480,6 +605,14 @@ export function drawPixelCampusProp(
     ctx.fillRect(px + unit * 2, py + ph * 0.5, unit, unit * 1.4);
     ctx.fillStyle = "#a3e635";
     ctx.fillRect(px + unit * 4, py + ph * 0.5, unit, unit * 1.4);
+  } else if (kind.includes("book")) {
+    ctx.fillStyle = "#78350f";
+    ctx.fillRect(px + 2, py + 2, pw - 4, ph - 4);
+    const spines = ["#ef4444", "#3b82f6", "#facc15", "#22c55e"];
+    for (let i = 0; i < 4; i++) {
+      ctx.fillStyle = spines[i];
+      ctx.fillRect(px + 4 + i * unit * 1.5, py + 4, unit, ph * 0.55);
+    }
   } else if (kind.includes("uks") || kind.includes("bed")) {
     ctx.fillStyle = "#f8fafc";
     ctx.fillRect(px + 2, py + 2, pw - 4, ph - 4);
@@ -487,12 +620,11 @@ export function drawPixelCampusProp(
     ctx.fillRect(px + pw * 0.42, py + ph * 0.28, pw * 0.16, ph * 0.44);
     ctx.fillRect(px + pw * 0.28, py + ph * 0.42, pw * 0.44, ph * 0.16);
   } else if (kind.includes("car") || kind.includes("mobil") || kind.includes("motor")) {
-    ctx.fillStyle = kind.includes("motor") ? "#38bdf8" : "#e11d48";
+    ctx.fillStyle = kind.includes("motor") ? "#0ea5e9" : "#e11d48";
     ctx.fillRect(px + 3, py + 4, pw - 6, ph - 8);
     ctx.fillStyle = "#bae6fd";
     ctx.fillRect(px + 5, py + 6, pw - 10, (ph - 12) * 0.4);
   } else {
-    // Classic school oak desk & chair pixel sprite
     ctx.fillStyle = "#78350f";
     ctx.fillRect(px + 2, py + 2, pw - 4, ph - 4);
     ctx.fillStyle = "#d97706";

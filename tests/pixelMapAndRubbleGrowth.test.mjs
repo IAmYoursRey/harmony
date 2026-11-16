@@ -6,6 +6,12 @@ import path from "node:path";
 const { BuildingRubbleEngine } = await import(
   "../apps/web/src/components/dashboard/views/spatial/digital-twin/buildingRubbleEngine.ts"
 );
+const { resolveDisasterStrategy } = await import(
+  "../apps/web/src/components/dashboard/views/spatial/digital-twin/disasterStrategyRules.ts"
+);
+const { buildSman1NgoroPdfDigitalTwin } = await import(
+  "../apps/server/src/data/sman1NgoroPdfMapBuilder.js"
+);
 
 function buildMockSchoolMap() {
   const tiles = [];
@@ -184,5 +190,53 @@ test("Digital Twin renderers enforce crisp 16x16 micro-pixel architecture, wall 
   assert.match(engineSrc, /BuildingRubbleEngine/);
   assert.match(engineSrc, /drawDynamicPixelRubbleCell/);
   assert.match(engineSrc, /isHeavyBlockingTile/);
+  assert.match(engineSrc, /getRiskyEnclosedRoomAt/);
+});
+
+test("Disaster strategies differentiate safe refuge destinations and flag dangerous indoor rooms / unsafe gates", () => {
+  const quake = resolveDisasterStrategy("Gempa", "Gempa Bumi Tektonik");
+  assert.deepEqual(quake.goalTypes, ["SAFE_ASSEMBLY_GOAL"]);
+  assert.match(quake.headlineTarget, /Lapangan Upacara/);
+  assert.match(quake.wrongExitWarning, /JALAN LUAR TIDAK AMAN/);
+
+  const tsunami = resolveDisasterStrategy("Tsunami", "Gelombang Tsunami & Banjir");
+  assert.deepEqual(tsunami.goalTypes, ["HIGH_GROUND"]);
+  assert.match(tsunami.headlineTarget, /Lantai 2|Titik.*Tinggi/i);
+
+  const wind = resolveDisasterStrategy("Angin Puting Beliung", "Badai Angin");
+  assert.deepEqual(wind.goalTypes, ["SHELTER_SAFE"]);
+  assert.match(wind.headlineTarget, /Shelter Beton/);
+
+  const fire = resolveDisasterStrategy("Kebakaran", "Kebakaran Hebat Kantin");
+  assert.deepEqual(fire.goalTypes, ["EXIT"]);
+  assert.ok(fire.indoorDpsPerSec >= 8);
+});
+
+test("SMAN 1 Ngoro Twin includes trees, ornamental plants, emergency signs, material-specific rubble, and adaptive scenarios", () => {
+  const twin = buildSman1NgoroPdfDigitalTwin();
+  assert.equal(twin.map.version, 6);
+  assert.ok(twin.objects.some((o) => o.object_type === "SHADE_TREE"));
+  assert.ok(twin.objects.some((o) => o.object_type === "ORNAMENTAL_TREE"));
+  assert.ok(twin.objects.some((o) => o.object_type === "FLOWER_POT"));
+  assert.ok(twin.objects.some((o) => o.object_type === "EMERGENCY_SIGN"));
+
+  const tsunamiScen = twin.scenarios.find((s) => s.id === "scenario-sman1-tsunami");
+  assert.ok(tsunamiScen, "Expected Tsunami vertical evacuation scenario");
+  assert.ok(tsunamiScen.objects.some((o) => o.object_type === "HIGH_GROUND"));
+  assert.ok(tsunamiScen.objects.some((o) => o.object_type === "SHELTER_SAFE"));
+  assert.ok(tsunamiScen.objects.some((o) => o.object_type === "EXIT" && o.properties?.isEmergencyGate));
+
+  const mapForEngine = {
+    ...twin.map,
+    rooms: twin.rooms,
+    stairs: [],
+    floors: twin.floors.map((f) => ({ ...f, tiles: twin.tiles, objects: twin.objects })),
+  };
+  const engine = new BuildingRubbleEngine(mapForEngine, twin.scenarios[0].objects, "Angin Puting Beliung");
+  for (let t = 0; t < 40; t++) {
+    engine.update(mapForEngine.floors[0].id, { dt: 0.25, aftershockPulse: t % 10 === 0 });
+  }
+  const materials = new Set(engine.getCellsForFloor(mapForEngine.floors[0].id).map((c) => c.materialKind));
+  assert.ok(materials.size >= 2, `Expected multiple specific debris materials, got: ${[...materials].join(",")}`);
 });
 

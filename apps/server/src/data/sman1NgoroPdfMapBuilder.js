@@ -15,6 +15,7 @@ export const SCENARIO_IDS = {
   GEMPA: "scenario-sman1-gempa",
   KEBAKARAN: "scenario-sman1-kebakaran",
   BANJIR: "scenario-sman1-banjir",
+  TSUNAMI: "scenario-sman1-tsunami",
   ANGIN: "scenario-sman1-angin",
   KIMIA: "scenario-sman1-kimia",
   PETIR: "scenario-sman1-petir",
@@ -935,6 +936,63 @@ function buildSman1NgoroTileAndRoomLayout() {
     category: "utility",
   });
 
+  const campusDecorProps = [
+    // Pohon peneduh di jalur hijau utara, halaman & taman selatan
+    ...[5, 13, 23, 33, 44, 65, 76, 87, 94].map((x) => ({ type: "SHADE_TREE", x, y: 2 })),
+    ...[19, 31, 45, 59, 73, 86, 93].map((x) => ({ type: "SHADE_TREE", x, y: 54 })),
+    { type: "SHADE_TREE", x: 11, y: 22 },
+    { type: "SHADE_TREE", x: 52, y: 22 },
+    { type: "SHADE_TREE", x: 11, y: 37 },
+    { type: "SHADE_TREE", x: 52, y: 37 },
+
+    // Pohon hiasan pucuk merah & pot taman bunga di depan Lobi, Kasek, Masjid & Lapangan
+    ...[32, 37, 51, 61, 65, 71].map((x) => ({ type: "ORNAMENTAL_TREE", x, y: 19 })),
+    ...[16, 22, 30, 42, 48].map((x) => ({ type: "FLOWER_POT", x, y: 22 })),
+    ...[25, 39, 49, 58].map((x) => ({ type: "FLOWER_POT", x, y: 37 })),
+    ...[24, 42, 68, 82].map((x) => ({ type: "ORNAMENTAL_TREE", x, y: 51 })),
+
+    // Kendaraan terparkir rapi di Parkir Guru Utara & Timur
+    { type: "CAR", x: 68, y: 4 },
+    { type: "CAR", x: 75, y: 4 },
+    { type: "MOTORBIKE", x: 83, y: 4 },
+    { type: "MOTORBIKE", x: 86, y: 4 },
+
+    // Perabot kelas, lab, perpustakaan & UKS di tepi ruangan agar koridor tetap lega
+    { type: "LAB_BENCH", x: 2, y: 24 },
+    { type: "LAB_BENCH", x: 2, y: 28 },
+    { type: "BOOKSHELF", x: 31, y: 43 },
+    { type: "BOOKSHELF", x: 34, y: 43 },
+    { type: "UKS_BED", x: 53, y: 38 },
+    { type: "DESK_SET", x: 3, y: 43 },
+    { type: "DESK_SET", x: 12, y: 43 },
+    { type: "DESK_SET", x: 18, y: 43 },
+    { type: "DESK_SET", x: 12, y: 10 },
+    { type: "DESK_SET", x: 18, y: 10 },
+    { type: "DESK_SET", x: 64, y: 22 },
+    { type: "DESK_SET", x: 70, y: 22 },
+
+    // Papan Jalur Darurat Evakuasi di persimpangan utama koridor SMAN 1 Ngoro
+    { type: "EMERGENCY_SIGN", x: 9, y: 20 },
+    { type: "EMERGENCY_SIGN", x: 56, y: 20 },
+    { type: "EMERGENCY_SIGN", x: 9, y: 39 },
+    { type: "EMERGENCY_SIGN", x: 56, y: 39 },
+    { type: "EMERGENCY_SIGN", x: 63, y: 28 },
+  ];
+
+  campusDecorProps.forEach((prop, idx) => {
+    floorObjects.push({
+      id: `prop-sman1-${idx + 1}`,
+      floor_id: SMAN1_NGORO_FLOOR_ID,
+      object_type: prop.type,
+      x: prop.x,
+      y: prop.y,
+      width: 1,
+      height: 1,
+      rotation: 0,
+      properties: { name: prop.type },
+    });
+  });
+
   const tiles = [];
   for (let y = 0; y < MAP_HEIGHT; y++) {
     for (let x = 0; x < MAP_WIDTH; x++) {
@@ -964,6 +1022,7 @@ function buildScenarioObjects() {
       height: 8,
       properties: {
         name: "Titik Kumpul Utama (Lapangan Upacara)",
+        isAssemblyGoal: true,
         capacity: 600,
       },
     },
@@ -990,6 +1049,46 @@ function buildScenarioObjects() {
       },
     },
     {
+      object_type: "HIGH_GROUND",
+      x: 52,
+      y: 8,
+      width: 4,
+      height: 3,
+      properties: {
+        name: "Evakuasi Vertikal: Tangga Lantai 2 (Gedung Utara)",
+      },
+    },
+    {
+      object_type: "HIGH_GROUND",
+      x: 26,
+      y: 8,
+      width: 4,
+      height: 3,
+      properties: {
+        name: "Evakuasi Vertikal: Lantai 2 Gedung Guru",
+      },
+    },
+    {
+      object_type: "SHELTER_SAFE",
+      x: 65,
+      y: 10,
+      width: 5,
+      height: 4,
+      properties: {
+        name: "Shelter Beton Aman Bebas Kaca (Masjid Dalam)",
+      },
+    },
+    {
+      object_type: "SHELTER_SAFE",
+      x: 58,
+      y: 10,
+      width: 3,
+      height: 3,
+      properties: {
+        name: "Shelter Beton Ruang BK Dalam",
+      },
+    },
+    {
       object_type: "EXIT",
       x: 54,
       y: 1,
@@ -998,6 +1097,28 @@ function buildScenarioObjects() {
       properties: {
         name: "Gerbang Utama (Jl. Candi Jolotundo)",
         destination: "Jl. Candi Jolotundo",
+      },
+    },
+    {
+      object_type: "EXIT",
+      x: 1,
+      y: 35,
+      width: 2,
+      height: 2,
+      properties: {
+        name: "Pintu Darurat Barat (Samping Lab)",
+        isEmergencyGate: true,
+      },
+    },
+    {
+      object_type: "EXIT",
+      x: 99,
+      y: 30,
+      width: 2,
+      height: 2,
+      properties: {
+        name: "Pintu Darurat Timur",
+        isEmergencyGate: true,
       },
     },
   ];
@@ -2365,19 +2486,19 @@ function buildScenarioObjects() {
     {
       id: SCENARIO_IDS.GEMPA,
       map_id: SMAN1_NGORO_MAP_ID,
-      name: "Gempa Bumi Tektonik & Runtuhan Susulan (SMAN 1 Ngoro)",
+      name: "Gempa Bumi Tektonik & Bahaya Dalam Ruangan (SMAN 1 Ngoro)",
       disaster_type: "Gempa",
       status: "published",
-      version: 5,
+      version: 6,
       config: {
         sourceDocument: "DENAH LOKASI DAN RUANG PAS GASAL 2023/2024 SMAN 1 NGORO",
         address: "Jl. Candi Jolotundo, Kutogirang, Ngoro, Mojokerto 61385",
         difficulty: "Sulit",
-        summary: "Selamatkan diri secepat mungkin dari pojok barat daya menuju Gerbang Utama dengan menghindari reruntuhan, gempa susulan, dan jebakan kaca/kabel tersembunyi.",
+        summary: "Jangan berlama-lama di dalam kelas dan hindari jalan raya sempit luar gerbang yang rawan kabel/tembok roboh. Segera keluar melalui koridor aman menuju tengah Lapangan Upacara (Area Terbuka)!",
         hazardSpeed: 1.35,
         aftershockIntervalMs: 11000,
         ambientDarkness: 0.22,
-        evacuationTarget: "Hindari Bahaya → Gerbang Utama (EXIT)",
+        evacuationTarget: "Keluar Kelas → Lapangan Upacara (Titik Kumpul Terbuka)",
       },
       objects: buildObjects(SCENARIO_IDS.GEMPA, [
         ...safeZonesAndExits,
@@ -2386,21 +2507,44 @@ function buildScenarioObjects() {
       ]),
     },
     {
+      id: SCENARIO_IDS.TSUNAMI,
+      map_id: SMAN1_NGORO_MAP_ID,
+      name: "Gelombang Tsunami & Banjir Naik Lantai Dasar (Evakuasi Vertikal)",
+      disaster_type: "Tsunami",
+      status: "published",
+      version: 6,
+      config: {
+        sourceDocument: "DENAH LOKASI DAN RUANG PAS GASAL 2023/2024 SMAN 1 NGORO",
+        address: "Jl. Candi Jolotundo, Kutogirang, Ngoro, Mojokerto 61385",
+        difficulty: "Ekstrem",
+        summary: "Air pasang bah menggenangi jalan raya gerbang dan lantai bawah! Jangan keluar ke jalan rendah — naiklah ke Tangga Lantai 2 / Titik Evakuasi Tinggi!",
+        hazardSpeed: 1.4,
+        floodRiseIntervalMs: 11000,
+        ambientDarkness: 0.26,
+        evacuationTarget: "Jangan Lewat Gerbang Bawah → Naik ke Tangga Lantai 2 / Titik Tinggi",
+      },
+      objects: buildObjects(SCENARIO_IDS.TSUNAMI, [
+        ...safeZonesAndExits,
+        ...banjirSpawns,
+        ...banjirHazards,
+      ]),
+    },
+    {
       id: SCENARIO_IDS.KEBAKARAN,
       map_id: SMAN1_NGORO_MAP_ID,
       name: "Kebakaran Hebat Kantin, Gudang & Asap Tebal",
       disaster_type: "Kebakaran",
       status: "published",
-      version: 5,
+      version: 6,
       config: {
         sourceDocument: "DENAH LOKASI DAN RUANG PAS GASAL 2023/2024 SMAN 1 NGORO",
         address: "Jl. Candi Jolotundo, Kutogirang, Ngoro, Mojokerto 61385",
         difficulty: "Ekstrem",
-        summary: "Api menjalar dinamis disertai asap pekat dan bara tersembunyi — tembus koridor teraman menuju Gerbang Utama secepat mungkin.",
+        summary: "Asap pekat memenuhi ruangan tertutup — hindari memotong jalan lewat kelas dan cari Gerbang Utama atau Pintu Darurat yang bebas api!",
         hazardSpeed: 1.4,
         fireSpreadIntervalMs: 14000,
         ambientDarkness: 0.42,
-        evacuationTarget: "Hindari Api & Asap → Gerbang Utama (EXIT)",
+        evacuationTarget: "Hindari Ruang Berasap → Keluar Gerbang Aman / Pintu Darurat",
       },
       objects: buildObjects(SCENARIO_IDS.KEBAKARAN, [
         ...safeZonesAndExits,
@@ -2414,16 +2558,16 @@ function buildScenarioObjects() {
       name: "Banjir Bandang & Bahaya Listrik Terendam",
       disaster_type: "Banjir",
       status: "published",
-      version: 5,
+      version: 6,
       config: {
         sourceDocument: "DENAH LOKASI DAN RUANG PAS GASAL 2023/2024 SMAN 1 NGORO",
         address: "Jl. Candi Jolotundo, Kutogirang, Ngoro, Mojokerto 61385",
         difficulty: "Sulit",
-        summary: "Air banjir perlahan meluas dan memperlambat lari serta menyembunyikan arus listrik bawah air — evakuasi segera ke Gerbang Utama.",
+        summary: "Air banjir meluas merendam jalan luar dan kelas bawah — hindari korsleting air dan naik ke Tangga Lantai 2 / Titik Tinggi Aman!",
         hazardSpeed: 1.25,
-        floodRiseIntervalMs: 15000,
+        floodRiseIntervalMs: 14000,
         ambientDarkness: 0.25,
-        evacuationTarget: "Hindari Banjir & Sengatan Listrik → Gerbang Utama (EXIT)",
+        evacuationTarget: "Hindari Gerbang Terendam → Naik ke Lantai 2 / Titik Tinggi",
       },
       objects: buildObjects(SCENARIO_IDS.BANJIR, [
         ...safeZonesAndExits,
@@ -2434,19 +2578,19 @@ function buildScenarioObjects() {
     {
       id: SCENARIO_IDS.ANGIN,
       map_id: SMAN1_NGORO_MAP_ID,
-      name: "Angin Puting Beliung & Puing Atap Terbang",
+      name: "Angin Puting Beliung & Dahan Pohon Tumbang",
       disaster_type: "Angin Puting Beliung",
       status: "published",
-      version: 5,
+      version: 6,
       config: {
         sourceDocument: "DENAH LOKASI DAN RUANG PAS GASAL 2023/2024 SMAN 1 NGORO",
         address: "Jl. Candi Jolotundo, Kutogirang, Ngoro, Mojokerto 61385",
         difficulty: "Ekstrem",
-        summary: "Pusaran angin di lapangan terbuka, puing atap tajam, dan sambaran petir mengancam rute utara — cari celah aman tercepat menuju Gerbang Utama.",
+        summary: "Pohon peneduh tumbang & seng atap beterbangan di area terbuka! Berlindung ke Shelter Beton Kokoh Bebas Kaca (Masjid Dalam / R. BK Dalam).",
         hazardSpeed: 1.45,
         lightningIntervalMs: 13000,
         ambientDarkness: 0.3,
-        evacuationTarget: "Hindari Angin & Petir → Gerbang Utama (EXIT)",
+        evacuationTarget: "Jauhi Pohon & Lapangan Terbuka → Masuk Shelter Beton Aman",
       },
       objects: buildObjects(SCENARIO_IDS.ANGIN, [
         ...safeZonesAndExits,
@@ -2460,15 +2604,15 @@ function buildScenarioObjects() {
       name: "Kebocoran Gas Kimia Lab. Fisika & Cairan Korosif",
       disaster_type: "Bahaya Kimia",
       status: "published",
-      version: 5,
+      version: 6,
       config: {
         sourceDocument: "DENAH LOKASI DAN RUANG PAS GASAL 2023/2024 SMAN 1 NGORO",
         address: "Jl. Candi Jolotundo, Kutogirang, Ngoro, Mojokerto 61385",
         difficulty: "Ekstrem",
-        summary: "Awan gas beracun mengisolasi sayap barat disertai tumpahan asam korosif tersembunyi — larilah keluar menuju Gerbang Utama secepat mungkin.",
+        summary: "Uap kimia mengisolasi sayap barat — jangan melintas di dalam ruang kelas beracun, keluar lewat Gerbang Utama atau Pintu Darurat Timur!",
         hazardSpeed: 1.35,
         ambientDarkness: 0.34,
-        evacuationTarget: "Hindari Gas Beracun & Asam → Gerbang Utama (EXIT)",
+        evacuationTarget: "Hindari Ruang Tertutup & Gas → Keluar Gerbang / Pintu Darurat",
       },
       objects: buildObjects(SCENARIO_IDS.KIMIA, [
         ...safeZonesAndExits,
@@ -2482,16 +2626,16 @@ function buildScenarioObjects() {
       name: "Badai Petir Ekstrem & Korsleting Panel Massal",
       disaster_type: "Badai Petir",
       status: "published",
-      version: 5,
+      version: 6,
       config: {
         sourceDocument: "DENAH LOKASI DAN RUANG PAS GASAL 2023/2024 SMAN 1 NGORO",
         address: "Jl. Candi Jolotundo, Kutogirang, Ngoro, Mojokerto 61385",
         difficulty: "Ekstrem",
-        summary: "Sambaran petir berkala di area terbuka disertai kobaran panel listrik dan genangan beraliran tinggi — hindari zona kilat & capai Gerbang Utama.",
+        summary: "Sambaran petir berkala di area terbuka disertai korsleting kabel — ikuti rambu jalur darurat menuju Gerbang Utama atau Titik Berlindung Aman!",
         hazardSpeed: 1.45,
         lightningIntervalMs: 8500,
         ambientDarkness: 0.44,
-        evacuationTarget: "Hindari Petir & Arus Listrik → Gerbang Utama (EXIT)",
+        evacuationTarget: "Hindari Zona Kilat & Arus Listrik → Capai Gerbang Aman",
       },
       objects: buildObjects(SCENARIO_IDS.PETIR, [
         ...safeZonesAndExits,
@@ -2505,17 +2649,17 @@ function buildScenarioObjects() {
       name: "Tanah Longsor Tebing Selatan & Aliran Lumpur",
       disaster_type: "Tanah Longsor",
       status: "published",
-      version: 5,
+      version: 6,
       config: {
         sourceDocument: "DENAH LOKASI DAN RUANG PAS GASAL 2023/2024 SMAN 1 NGORO",
         address: "Jl. Candi Jolotundo, Kutogirang, Ngoro, Mojokerto 61385",
         difficulty: "Sulit",
-        summary: "Longsoran tebing menimbun koridor tenggara dengan lumpur meluas yang memperlambat gerak — hindari timbunan & keluar melalui Gerbang Utama.",
+        summary: "Longsoran tebing menimbun bangunan tepi selatan dengan lumpur & batu — hindari lereng selatan dan menuju zona stabil sisi utara!",
         hazardSpeed: 1.3,
         floodRiseIntervalMs: 16000,
         aftershockIntervalMs: 14000,
         ambientDarkness: 0.28,
-        evacuationTarget: "Hindari Longsor & Lumpur → Gerbang Utama (EXIT)",
+        evacuationTarget: "Jauhi Bangunan Tebing Selatan → Zona Aman Utara",
       },
       objects: buildObjects(SCENARIO_IDS.LONGSOR, [
         ...safeZonesAndExits,
@@ -2529,17 +2673,17 @@ function buildScenarioObjects() {
       name: "Krisis Ganda Ujian PAS (Pemadaman Total 1–26)",
       disaster_type: "Multi-Bencana",
       status: "published",
-      version: 5,
+      version: 6,
       config: {
         sourceDocument: "DENAH LOKASI DAN RUANG PAS GASAL 2023/2024 SMAN 1 NGORO",
         address: "Jl. Candi Jolotundo, Kutogirang, Ngoro, Mojokerto 61385",
         difficulty: "Ekstrem",
-        summary: "Mode bertahan hidup tersulit: pemadaman gelap, api menjalar, genangan meluas, gempa susulan, dan jebakan tersembunyi — selamatkan diri ke Gerbang Utama secepatnya.",
+        summary: "Mode bertahan hidup tersulit: pemadaman gelap, api menjalar, gempa susulan, dan bahaya dalam ruangan — selamatkan diri lewat jalur darurat aman!",
         hazardSpeed: 1.5,
         aftershockIntervalMs: 12000,
         fireSpreadIntervalMs: 15000,
         ambientDarkness: 0.54,
-        evacuationTarget: "Bertahan & Capai Gerbang Utama (EXIT) Secepatnya",
+        evacuationTarget: "Hindari Ruangan Tertutup → Gerbang Aman / Lapangan Upacara",
       },
       objects: buildObjects(SCENARIO_IDS.PAS_DRILL, [
         ...safeZonesAndExits,
@@ -2696,7 +2840,7 @@ export function buildSman1NgoroPdfDigitalTwin() {
     height: MAP_HEIGHT,
     active_floor_id: SMAN1_NGORO_FLOOR_ID,
     status: "published",
-    version: 5,
+    version: 6,
     border: {
       minX: 0,
       minY: 0,

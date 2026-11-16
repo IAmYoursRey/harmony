@@ -11,6 +11,7 @@ import {
   SimulationReport,
   AvatarStyle,
 } from "./Phase3Engine";
+import { resolveDisasterStrategy } from "./disasterStrategyRules";
 import {
   getDigitalTwinAssetUrl,
   preloadDigitalTwinAssets,
@@ -697,6 +698,15 @@ export function Phase3Runtime({
               {playerState.objectiveProgress}
             </span>
           </div>
+
+          {/* Live Indoor Hazard Alert Banner */}
+          {playerState.indoorDanger && (
+            <div className="self-center max-w-xl bg-rose-950/92 border border-rose-500/80 text-rose-100 rounded-xl px-4 py-1.5 shadow-xl text-center animate-pulse">
+              <span className="text-[11px] sm:text-xs font-extrabold tracking-wide">
+                {playerState.indoorDanger}
+              </span>
+            </div>
+          )}
         </div>
       )}
 
@@ -801,6 +811,15 @@ export function Phase3Runtime({
                   </span>
                 </div>
               </div>
+
+              {report.winTakeaway && (
+                <div className="rounded-xl bg-indigo-950/70 border border-indigo-500/40 p-3 text-xs text-indigo-100 leading-relaxed">
+                  <span className="font-bold text-indigo-300 block mb-0.5">
+                    Analisis Adaptasi Bencana
+                  </span>
+                  {report.winTakeaway}
+                </div>
+              )}
             </div>
           )}
 
@@ -1014,9 +1033,12 @@ export function Phase3Runtime({
             <h2 className="text-xl sm:text-2xl font-black mb-1">
               Pilih Karakter
             </h2>
-            <p className="text-xs text-slate-400 mb-5 text-center">
-              Hindari seluruh bahaya dan capai Gerbang Utama secepat mungkin.
+            <p className="text-xs text-slate-300 mb-3 text-center leading-relaxed">
+              {resolveDisasterStrategy(scenario?.disaster_type, scenario?.name).briefingWarning}
             </p>
+            <div className="w-full rounded-xl bg-emerald-500/15 border border-emerald-500/35 px-3 py-2 text-[11px] font-bold text-emerald-300 text-center mb-4">
+              Target Aman: {resolveDisasterStrategy(scenario?.disaster_type, scenario?.name).headlineTarget}
+            </div>
 
             <div className="grid grid-cols-2 gap-3 w-full mb-5">
               {(

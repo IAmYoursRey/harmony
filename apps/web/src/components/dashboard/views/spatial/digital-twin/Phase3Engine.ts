@@ -20,6 +20,10 @@ import {
   drawScatteredRubblePieces,
   drawPixelCampusProp,
 } from "./microPixelArtRenderer";
+import {
+  resolveDisasterStrategy,
+  type DisasterStrategyProfile,
+} from "./disasterStrategyRules";
 
 export type SimState =
   | "LOADING"
@@ -42,6 +46,9 @@ export interface SimulationReport {
   difficulty: DifficultyLevel;
   trapsTriggered: number;
   totalTraps: number;
+  strategyKey?: string;
+  winTakeaway?: string;
+  indoorsTimeSec?: number;
 }
 
 export interface PlayerState {
@@ -55,6 +62,7 @@ export interface PlayerState {
   speed: number;
   alive: boolean;
   objectiveProgress: string;
+  indoorDanger?: string | null;
   facing: "up" | "down" | "left" | "right";
   moving: boolean;
   sprinting?: boolean;
@@ -268,6 +276,12 @@ export class Phase3Engine {
   private patternCache = new Map<string, CanvasPattern>();
   private floorTileIndex = new Map<string, Map<string, Phase1Tile>>();
   private rubbleEngine: BuildingRubbleEngine;
+  private strategy: DisasterStrategyProfile;
+  private jammedDoorIds = new Set<string>();
+  private forcedDoorIds = new Set<string>();
+  private indoorExposureSec: number = 0;
+  private indoorsTimeSec: number = 0;
+  private lastWrongExitToastMs: number = -6000;
   private lastRubbleToastMs: number = -8000;
   private pixelParticles: Array<{
     x: number;
@@ -314,6 +328,10 @@ export class Phase3Engine {
       throw new Error("Lantai peta tidak valid.");
     }
 
+    this.strategy = resolveDisasterStrategy(
+      scenario.disaster_type,
+      scenario.name,
+    );
     const profile = DIFFICULTY_PROFILES[this.difficulty];
     this.player = {
       x: spawnObj.x * TILE_SIZE + TILE_SIZE / 2,
@@ -325,7 +343,8 @@ export class Phase3Engine {
       maxStamina: 100,
       speed: profile.walkSpeed,
       alive: true,
-      objectiveProgress: "Hindari Bahaya → Gerbang Utama (EXIT)",
+      objectiveProgress: this.strategy.headlineTarget,
+      indoorDanger: null,
       facing: "down",
       moving: false,
       sprinting: false,
@@ -340,6 +359,13 @@ export class Phase3Engine {
         lookup.set(`${tile.x},${tile.y}`, tile);
         if (tile.tile_type === "DOOR" || tile.tile_type === "DOOR_LOCKED") {
           this.doorStates.set(tile.id, "closed");
+          if (
+            this.strategy.allowIndoorDoorJam &&
+            tile.tile_type === "DOOR" &&
+            (tile.x * 7 + tile.y * 13) % 4 === 0
+          ) {
+            this.jammedDoorIds.add(tile.id);
+          }
         }
       }
       this.floorTileIndex.set(floor.id, lookup);
@@ -643,6 +669,9 @@ export class Phase3Engine {
       difficulty: this.difficulty,
       trapsTriggered,
       totalTraps,
+      strategyKey: this.strategy.key,
+      winTakeaway: this.strategy.winTakeaway,
+      indoorsTimeSec: Math.round(this.indoorsTimeSec),
     });
   }
 
@@ -1198,10 +1227,72 @@ export class Phase3Engine {
       highestDps = Math.max(highestDps, 5 * profile.damageMultiplier);
     }
 
+    const insideEnclosedRoom = this.getRiskyEnclosedRoomAt(
+      floor.id,
+      this.player.x,
+      this.player.y,
+    );
+    const inShelterSafe = (this.scenario.objects || []).some(
+      (obj) =>
+        obj.floor_id === floor.id &&
+        obj.object_type === "SHELTER_SAFE" &&
+        this.rectCircleCollide(
+          obj.x * TILE_SIZE,
+          obj.y * TILE_SIZE,
+          obj.width * TILE_SIZE,
+          obj.height * TILE_SIZE,
+          this.player.x,
+          this.player.y,
+          PLAYER_RADIUS,
+        ),
+    );
+    const inHighGround = (this.scenario.objects || []).some(
+      (obj) =>
+        obj.floor_id === floor.id &&
+        obj.object_type === "HIGH_GROUND" &&
+        this.rectCircleCollide(
+          obj.x * TILE_SIZE,
+          obj.y * TILE_SIZE,
+          obj.width * TILE_SIZE,
+          obj.height * TILE_SIZE,
+          this.player.x,
+          this.player.y,
+          PLAYER_RADIUS,
+        ),
+    );
+
+    if (insideEnclosedRoom && !inShelterSafe && !inHighGround) {
+      this.indoorsTimeSec += dt;
+      this.indoorExposureSec += dt;
+      if (this.indoorExposureSec >= 1.1) {
+        this.player.indoorDanger = this.strategy.indoorDangerWarning;
+        highestDps = Math.max(
+          highestDps,
+          this.strategy.indoorDpsPerSec * profile.damageMultiplier,
+        );
+      } else {
+        this.player.indoorDanger = "Peringatan: Segera keluar dari dalam ruangan!";
+      }
+    } else if (
+      this.strategy.key === "STORM_WIND" &&
+      !insideEnclosedRoom &&
+      !inShelterSafe
+    ) {
+      this.player.indoorDanger =
+        "AREA TERBUKA BERBAHAYA SAAT PUTING BELIUNG! Cari Shelter Beton Aman!";
+      highestDps = Math.max(highestDps, 4.5 * profile.damageMultiplier);
+    } else {
+      this.indoorExposureSec = Math.max(0, this.indoorExposureSec - dt * 2);
+      this.player.indoorDanger = null;
+    }
+
     this.terrainSlowFactor = slowFactor;
 
     if (inSafeZone && !this.player.interactionPrompt) {
-      this.player.interactionPrompt = "Zona Aman — Lanjutkan ke Gerbang Utama";
+      this.player.interactionPrompt =
+        this.strategy.key === "EARTHQUAKE"
+          ? "Area Terbuka Aman — Capai Tengah Lapangan Upacara"
+          : this.strategy.headlineTarget;
     }
 
     if (highestDps > 0 && !inSafeZone) {
@@ -1227,12 +1318,45 @@ export class Phase3Engine {
     }
   }
 
+  private getRiskyEnclosedRoomAt(
+    floorId: string,
+    px: number,
+    py: number,
+  ) {
+    const tx = px / TILE_SIZE;
+    const ty = py / TILE_SIZE;
+    return (this.map.rooms || []).find((room) => {
+      if (room.floor_id && room.floor_id !== floorId) return false;
+      const t = String(room.type || "").toLowerCase();
+      if (["assembly", "parking", "gate", "garden", "corridor"].includes(t)) {
+        return false;
+      }
+      return (
+        tx > room.x + 0.8 &&
+        tx < room.x + room.width - 0.8 &&
+        ty > room.y + 0.8 &&
+        ty < room.y + room.height - 0.8
+      );
+    });
+  }
+
+  private triggerVictory(messageText: string) {
+    this.state = "SUCCESS";
+    simulationAudio.playSuccess();
+    this.callbacks.onStateChange(this.state);
+    this.callbacks.onMessage(messageText);
+    this.player.objectiveProgress = this.strategy.winTitle;
+    this.player.indoorDanger = null;
+    this.callbacks.onPlayerUpdate({ ...this.player });
+    this.emitFinalReport(true);
+  }
+
   private checkEscapeExit() {
     const floor = this.map.floors.find((f) => f.id === this.player.floorId);
     if (!floor || this.state !== "RUNNING") return;
 
     for (const obj of this.scenario.objects || []) {
-      if (obj.floor_id !== floor.id || obj.object_type !== "EXIT") continue;
+      if (obj.floor_id !== floor.id) continue;
 
       const isReached = this.rectCircleCollide(
         obj.x * TILE_SIZE,
@@ -1243,16 +1367,50 @@ export class Phase3Engine {
         this.player.y,
         PLAYER_RADIUS + 4,
       );
+      if (!isReached) continue;
 
-      if (isReached) {
-        this.state = "SUCCESS";
-        simulationAudio.playSuccess();
-        this.callbacks.onStateChange(this.state);
-        this.callbacks.onMessage("Evakuasi Berhasil!");
-        this.player.objectiveProgress = "Selamat Mencapai Gerbang Utama!";
-        this.callbacks.onPlayerUpdate({ ...this.player });
-        this.emitFinalReport(true);
+      if (
+        obj.object_type === "HIGH_GROUND" &&
+        this.strategy.goalTypes.includes("HIGH_GROUND")
+      ) {
+        this.triggerVictory(this.strategy.winTitle);
         return;
+      }
+
+      if (
+        obj.object_type === "SHELTER_SAFE" &&
+        this.strategy.goalTypes.includes("SHELTER_SAFE")
+      ) {
+        this.triggerVictory(this.strategy.winTitle);
+        return;
+      }
+
+      if (
+        obj.object_type === "SAFE_ZONE" &&
+        obj.properties?.isAssemblyGoal &&
+        this.strategy.goalTypes.includes("SAFE_ASSEMBLY_GOAL")
+      ) {
+        this.triggerVictory(this.strategy.winTitle);
+        return;
+      }
+
+      if (obj.object_type === "EXIT") {
+        if (this.strategy.goalTypes.includes("EXIT")) {
+          this.triggerVictory(this.strategy.winTitle);
+          return;
+        }
+        // Attempting a dangerous street gate during Earthquake / Tsunami / Storm Wind warns & penalizes
+        if (this.simTimeMs - this.lastWrongExitToastMs > 4200) {
+          this.lastWrongExitToastMs = this.simTimeMs;
+          this.cameraShakeTime = Math.max(this.cameraShakeTime, 0.35);
+          simulationAudio.playHit(false);
+          this.callbacks.onMessage(this.strategy.wrongExitWarning);
+        }
+        const profile = DIFFICULTY_PROFILES[this.difficulty];
+        this.player.health = Math.max(
+          0,
+          this.player.health - 16 * profile.damageMultiplier * 0.016,
+        );
       }
     }
   }
@@ -1340,11 +1498,22 @@ export class Phase3Engine {
           )
         ) {
           if (state === "closed" || state === "locked") {
-            this.player.interactionPrompt = "Tekan E / ACT untuk Buka Pintu";
+            const isJammed =
+              this.jammedDoorIds.has(tile.id) &&
+              !this.forcedDoorIds.has(tile.id);
+            this.player.interactionPrompt = isJammed
+              ? "Pintu macet akibat getaran! Tekan E 2x untuk Dobrak"
+              : "Tekan E / ACT untuk Buka Pintu";
             if (this.consumeInteract()) {
-              this.updateDoorState(tile.id, "open");
-              if (this.callbacks.onDoorStateChange) {
-                this.callbacks.onDoorStateChange(tile.id, "open");
+              if (isJammed) {
+                this.forcedDoorIds.add(tile.id);
+                this.cameraShakeTime = Math.max(this.cameraShakeTime, 0.16);
+                this.callbacks.onMessage("Pintu terjepit — tekan E sekali lagi untuk mendobrak!");
+              } else {
+                this.updateDoorState(tile.id, "open");
+                if (this.callbacks.onDoorStateChange) {
+                  this.callbacks.onDoorStateChange(tile.id, "open");
+                }
               }
             }
           } else {
@@ -1670,34 +1839,84 @@ export class Phase3Engine {
 
       case "SAFE_ZONE": {
         const sPulse = Math.sin(this.simTimeMs / 250) * 0.15 + 0.85;
-        ctx.fillStyle = "rgba(34, 197, 94, 0.22)";
+        const isPrimaryGoal =
+          Boolean(obj.properties?.isAssemblyGoal) &&
+          this.strategy.goalTypes.includes("SAFE_ASSEMBLY_GOAL");
+        ctx.fillStyle = isPrimaryGoal
+          ? "rgba(34, 197, 94, 0.30)"
+          : "rgba(34, 197, 94, 0.18)";
         ctx.fillRect(px, py, pw, ph);
-        ctx.strokeStyle = `rgba(34, 197, 94, ${0.72 * sPulse})`;
-        ctx.lineWidth = 2;
+        ctx.strokeStyle = `rgba(34, 197, 94, ${0.78 * sPulse})`;
+        ctx.lineWidth = isPrimaryGoal ? 3 : 2;
         ctx.strokeRect(px, py, pw, ph);
 
         const cx = px + pw / 2;
         const cy = py + ph / 2;
         const r = Math.min(pw, ph) * 0.25;
-        ctx.fillStyle = `rgba(34, 197, 94, ${0.35 * sPulse})`;
+        ctx.fillStyle = `rgba(34, 197, 94, ${0.38 * sPulse})`;
         ctx.beginPath();
         ctx.arc(cx, cy, r * sPulse, 0, Math.PI * 2);
         ctx.fill();
+        if (isPrimaryGoal) {
+          ctx.fillStyle = "#ecfdf5";
+          ctx.font = "bold 11px Inter, sans-serif";
+          ctx.textAlign = "center";
+          ctx.fillText("TITIK KUMPUL AMAN", cx, cy + 4);
+        }
+        break;
+      }
+
+      case "HIGH_GROUND": {
+        const hPulse = Math.sin(this.simTimeMs / 220) * 0.15 + 0.85;
+        const activeTarget = this.strategy.goalTypes.includes("HIGH_GROUND");
+        ctx.fillStyle = activeTarget
+          ? `rgba(6, 182, 212, ${0.34 * hPulse})`
+          : "rgba(6, 182, 212, 0.14)";
+        ctx.fillRect(px, py, pw, ph);
+        ctx.strokeStyle = activeTarget ? "#22d3ee" : "rgba(34, 211, 238, 0.45)";
+        ctx.lineWidth = activeTarget ? 3 : 1.5;
+        ctx.strokeRect(px + 1, py + 1, pw - 2, ph - 2);
+        ctx.fillStyle = "#ecfeff";
+        ctx.font = "bold 10px Inter, sans-serif";
+        ctx.textAlign = "center";
+        ctx.fillText("LANTAI 2 / TINGGI", px + pw / 2, py + ph / 2 + 3);
+        break;
+      }
+
+      case "SHELTER_SAFE": {
+        const wPulse = Math.sin(this.simTimeMs / 230) * 0.15 + 0.85;
+        const activeTarget = this.strategy.goalTypes.includes("SHELTER_SAFE");
+        ctx.fillStyle = activeTarget
+          ? `rgba(99, 102, 241, ${0.34 * wPulse})`
+          : "rgba(99, 102, 241, 0.14)";
+        ctx.fillRect(px, py, pw, ph);
+        ctx.strokeStyle = activeTarget ? "#818cf8" : "rgba(129, 140, 248, 0.45)";
+        ctx.lineWidth = activeTarget ? 3 : 1.5;
+        ctx.strokeRect(px + 1, py + 1, pw - 2, ph - 2);
+        ctx.fillStyle = "#eef2ff";
+        ctx.font = "bold 10px Inter, sans-serif";
+        ctx.textAlign = "center";
+        ctx.fillText("SHELTER BETON", px + pw / 2, py + ph / 2 + 3);
         break;
       }
 
       case "EXIT": {
+        const isSafeExit = this.strategy.goalTypes.includes("EXIT");
         const ePulse = Math.sin(this.simTimeMs / 200) * 0.15 + 0.85;
-        ctx.fillStyle = `rgba(16, 185, 129, ${0.38 * ePulse})`;
+        ctx.fillStyle = isSafeExit
+          ? `rgba(16, 185, 129, ${0.38 * ePulse})`
+          : `rgba(239, 68, 68, ${0.28 * ePulse})`;
         ctx.fillRect(px, py, pw, ph);
-        ctx.strokeStyle = `rgba(52, 211, 153, ${0.92 * ePulse})`;
+        ctx.strokeStyle = isSafeExit
+          ? `rgba(52, 211, 153, ${0.92 * ePulse})`
+          : `rgba(248, 113, 113, ${0.9 * ePulse})`;
         ctx.lineWidth = 2.5;
         ctx.strokeRect(px + 1, py + 1, pw - 2, ph - 2);
 
         const cx = px + pw / 2;
         const cy = py + ph / 2;
         const arrowOffset = ((this.simTimeMs / 180) % 8) - 4;
-        ctx.strokeStyle = "#5eead4";
+        ctx.strokeStyle = isSafeExit ? "#5eead4" : "#fca5a5";
         ctx.lineWidth = 3;
         ctx.lineCap = "round";
         ctx.beginPath();
@@ -1706,10 +1925,18 @@ export class Phase3Engine {
         ctx.lineTo(cx - 5, cy + 5 - arrowOffset * 0.5);
         ctx.stroke();
 
-        ctx.fillStyle = "#ecfdf5";
-        ctx.font = "bold 10px Inter, sans-serif";
+        ctx.fillStyle = isSafeExit ? "#ecfdf5" : "#fee2e2";
+        ctx.font = "bold 9.5px Inter, sans-serif";
         ctx.textAlign = "center";
-        ctx.fillText("KELUAR", cx, py + ph - 5);
+        ctx.fillText(
+          isSafeExit
+            ? obj.properties?.isEmergencyGate
+              ? "DARURAT"
+              : "KELUAR"
+            : "TIDAK AMAN",
+          cx,
+          py + ph - 5,
+        );
         break;
       }
     }
@@ -2000,7 +2227,7 @@ export class Phase3Engine {
     });
 
     ctx.imageSmoothingEnabled = false;
-    for (const obj of floor.objects) {
+    floor.objects.forEach((obj, idx) => {
       drawPixelCampusProp(
         ctx,
         obj.x * TILE_SIZE,
@@ -2008,8 +2235,10 @@ export class Phase3Engine {
         obj.width * TILE_SIZE,
         obj.height * TILE_SIZE,
         String(obj.object_type || (obj as any).name || ""),
+        this.simTimeMs,
+        idx + 1,
       );
-    }
+    });
 
     // Dynamic building-aware creeping rubble cells
     for (const rCell of this.rubbleEngine.getCellsForFloor(floor.id)) {
