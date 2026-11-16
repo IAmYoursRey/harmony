@@ -356,12 +356,65 @@ export function GameGridSandbox({
               ctx.restore();
             } else if (obj.object_type === "DAMAGE_ZONE") {
               ctx.save();
-              ctx.fillStyle = "rgba(220, 38, 38, 0.25)";
-              ctx.fillRect(ox, oy, ow, oh);
-              ctx.strokeStyle = "rgba(239, 68, 68, 0.85)";
+              if (obj.properties?.hidden) {
+                ctx.fillStyle = "rgba(168, 85, 247, 0.28)";
+                ctx.fillRect(ox, oy, ow, oh);
+                ctx.strokeStyle = "rgba(192, 132, 252, 0.9)";
+                ctx.lineWidth = 2;
+                ctx.setLineDash([4, 4]);
+                ctx.strokeRect(ox, oy, ow, oh);
+                ctx.fillStyle = "#f5d0fe";
+                ctx.font = "bold 14px sans-serif";
+                ctx.textAlign = "center";
+                ctx.textBaseline = "middle";
+                ctx.fillText("!", ox + ow / 2, oy + oh / 2);
+              } else {
+                ctx.fillStyle = "rgba(220, 38, 38, 0.28)";
+                ctx.fillRect(ox, oy, ow, oh);
+                ctx.strokeStyle = "rgba(239, 68, 68, 0.85)";
+                ctx.lineWidth = 2;
+                ctx.setLineDash([6, 6]);
+                ctx.strokeRect(ox, oy, ow, oh);
+              }
+              ctx.restore();
+            } else if (obj.object_type === "DANGER_ZONE") {
+              const kind = obj.properties?.hazardKind;
+              ctx.save();
+              if (kind === "FLOOD") {
+                ctx.fillStyle = "rgba(14, 165, 233, 0.35)";
+                ctx.fillRect(ox, oy, ow, oh);
+                ctx.strokeStyle = "rgba(56, 189, 248, 0.85)";
+              } else if (kind === "GAS_CLOUD") {
+                ctx.fillStyle = "rgba(132, 204, 22, 0.32)";
+                ctx.fillRect(ox, oy, ow, oh);
+                ctx.strokeStyle = "rgba(163, 230, 53, 0.85)";
+              } else {
+                ctx.fillStyle = "rgba(34, 211, 238, 0.24)";
+                ctx.fillRect(ox, oy, ow, oh);
+                ctx.strokeStyle = "rgba(103, 232, 249, 0.85)";
+              }
               ctx.lineWidth = 2;
-              ctx.setLineDash([6, 6]);
+              ctx.setLineDash([8, 4]);
               ctx.strokeRect(ox, oy, ow, oh);
+              ctx.restore();
+            } else if (obj.object_type === "SMOKE") {
+              ctx.save();
+              ctx.fillStyle = "rgba(100, 116, 139, 0.55)";
+              ctx.fillRect(ox, oy, ow, oh);
+              ctx.restore();
+            } else if (obj.object_type === "OBJECTIVE") {
+              ctx.save();
+              const cx = ox + ow / 2;
+              const cy = oy + oh / 2;
+              const r = Math.min(ow, oh) * 0.42;
+              ctx.fillStyle = `rgba(250, 204, 21, ${0.4 + 0.3 * pulse})`;
+              ctx.beginPath();
+              ctx.arc(cx, cy, r * 1.2, 0, Math.PI * 2);
+              ctx.fill();
+              ctx.fillStyle = "#facc15";
+              ctx.beginPath();
+              ctx.arc(cx, cy, r * 0.55, 0, Math.PI * 2);
+              ctx.fill();
               ctx.restore();
             } else if (obj.object_type === "FIRE") {
               const cx = ox + ow / 2;

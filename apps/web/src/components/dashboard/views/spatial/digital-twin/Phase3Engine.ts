@@ -109,8 +109,24 @@ export interface RemotePlayer {
   lastUpdate: number;
 }
 
-const TILE_SIZE = 40;
-const PLAYER_RADIUS = 12;
+export const SIMULATION_PHYSICS = {
+  TILE_SIZE: 72,
+  PLAYER_RADIUS: 13,
+  WALK_SPEED: 86,
+  RUN_SPEED: 132,
+  STAMINA_DRAIN_PER_SEC: 38,
+  STAMINA_RECOVER_WALK: 5,
+  STAMINA_RECOVER_IDLE: 14,
+  EXHAUSTION_RECOVERY_THRESHOLD: 22,
+  FIRE_DPS: 32,
+  SMOKE_DPS: 14,
+  DEFAULT_ZONE_DPS: 25,
+  DEFAULT_HIDDEN_BURST: 30,
+  DEFAULT_HIDDEN_REVEAL_TILES: 1.85,
+} as const;
+
+const TILE_SIZE = SIMULATION_PHYSICS.TILE_SIZE;
+const PLAYER_RADIUS = SIMULATION_PHYSICS.PLAYER_RADIUS;
 
 export class Phase3Engine {
   private canvas: HTMLCanvasElement;
@@ -146,7 +162,13 @@ export class Phase3Engine {
 
   private isAuthoritative: boolean = false;
 
-  private lastDamageTime: number = 0;
+  private staminaExhausted: boolean = false;
+  private terrainSlowFactor: number = 1;
+  private slowDebuffTimer: number = 0;
+  private cameraShakeTime: number = 0;
+  private lastAftershockMs: number = 0;
+  private revealedHazards: Set<string> = new Set();
+  private triggeredHazards: Set<string> = new Set();
 
   public doorStates: Map<string, "closed" | "open" | "locked"> = new Map();
 
@@ -180,6 +202,10 @@ export class Phase3Engine {
       throw new Error("The map has no valid floors.");
     }
 
+    const totalObjectives = (scenario.objects || []).filter(
+      (o) => o.object_type === "OBJECTIVE",
+    ).length;
+
     this.player = {
       x: spawnObj.x * TILE_SIZE + TILE_SIZE / 2,
       y: spawnObj.y * TILE_SIZE + TILE_SIZE / 2,
@@ -188,9 +214,12 @@ export class Phase3Engine {
       maxHealth: 100,
       stamina: 100,
       maxStamina: 100,
-      speed: 150, // px per second base walking speed
+      speed: SIMULATION_PHYSICS.WALK_SPEED,
       alive: true,
-      objectiveProgress: "Evacuate to Exit",
+      objectiveProgress:
+        totalObjectives > 0
+          ? `Ambil Item Darurat (0/${totalObjectives})`
+          : "Evakuasi ke Gerbang Utama (EXIT)",
       facing: "down",
       moving: false,
       interactionPrompt: null,
@@ -340,7 +369,7 @@ export class Phase3Engine {
   private loop = (time: number) => {
     if (this.state !== "RUNNING") return;
 
-    const dt = (time - this.lastTime) / 1000; // in seconds
+    const dt = Math.min(0.08, Math.max(0.001, (time - this.lastTime) / 1000));
     this.lastTime = time;
 
     this.update(dt);
@@ -356,6 +385,27 @@ export class Phase3Engine {
       this.simTimeMs += dt * 1000;
     }
 
+    const aftershockInterval = Number(
+      this.scenario.config?.aftershockIntervalMs || 0,
+    );
+    if (
+      aftershockInterval > 0 &&
+      this.simTimeMs - this.lastAftershockMs >= aftershockInterval
+    ) {
+      this.lastAftershockMs = this.simTimeMs;
+      this.cameraShakeTime = 1.1;
+      this.callbacks.onMessage(
+        "Gempa susulan terdeteksi! Waspada reruntuhan & kabel.",
+      );
+    }
+
+    if (this.cameraShakeTime > 0) {
+      this.cameraShakeTime = Math.max(0, this.cameraShakeTime - dt);
+    }
+    if (this.slowDebuffTimer > 0) {
+      this.slowDebuffTimer = Math.max(0, this.slowDebuffTimer - dt);
+    }
+
     this.player.interactionPrompt = null;
 
     const kVec = this.input.getMovementVector();
@@ -369,22 +419,42 @@ export class Phase3Engine {
 
     this.player.moving = dx !== 0 || dy !== 0;
 
-    const isRunning =
+    const wantsToRun =
       this.input.isActionDown("run") || this.virtualButtons["run"];
-    let currentSpeed = 150; // base walking speed
+    const canSprint =
+      wantsToRun &&
+      !this.staminaExhausted &&
+      this.player.moving &&
+      this.player.stamina > 0;
 
-    if (isRunning && this.player.moving && this.player.stamina > 0) {
-      currentSpeed = 300; // run speed
-      this.player.stamina -= 30 * dt; // Consume 30 stamina per second
-      if (this.player.stamina < 0) this.player.stamina = 0;
+    let currentSpeed: number = SIMULATION_PHYSICS.WALK_SPEED;
+    if (canSprint) {
+      currentSpeed = SIMULATION_PHYSICS.RUN_SPEED;
+      this.player.stamina = Math.max(
+        0,
+        this.player.stamina - SIMULATION_PHYSICS.STAMINA_DRAIN_PER_SEC * dt,
+      );
+      if (this.player.stamina <= 0) {
+        this.staminaExhausted = true;
+      }
     } else {
-      if (this.player.stamina < this.player.maxStamina) {
-        this.player.stamina += 15 * dt; // Recover 15 stamina per second
-        if (this.player.stamina > this.player.maxStamina)
-          this.player.stamina = this.player.maxStamina;
+      const recoveryRate = this.player.moving
+        ? SIMULATION_PHYSICS.STAMINA_RECOVER_WALK
+        : SIMULATION_PHYSICS.STAMINA_RECOVER_IDLE;
+      this.player.stamina = Math.min(
+        this.player.maxStamina,
+        this.player.stamina + recoveryRate * dt,
+      );
+      if (
+        this.staminaExhausted &&
+        this.player.stamina >= SIMULATION_PHYSICS.EXHAUSTION_RECOVERY_THRESHOLD
+      ) {
+        this.staminaExhausted = false;
       }
     }
 
+    const trapMultiplier = this.slowDebuffTimer > 0 ? 0.55 : 1;
+    currentSpeed *= this.terrainSlowFactor * trapMultiplier;
     this.player.speed = currentSpeed;
 
     if (dx !== 0 || dy !== 0) {
@@ -407,7 +477,7 @@ export class Phase3Engine {
     this.checkDoors();
 
     let scale = 1;
-    const targetWidth = 15 * TILE_SIZE; // 600px virtual width min
+    const targetWidth = 14 * TILE_SIZE;
     if (this.canvas.width < targetWidth) {
       scale = this.canvas.width / targetWidth;
     }
@@ -564,49 +634,116 @@ export class Phase3Engine {
     const floor = this.map.floors.find((f) => f.id === this.player.floorId);
     if (!floor) return;
 
-    let takingDamage = false;
+    let highestDps = 0;
     let inSafeZone = false;
+    let slowFactor = 1;
 
     for (const obj of this.scenario.objects || []) {
       if (obj.floor_id !== floor.id) continue;
 
+      const ox = obj.x * TILE_SIZE;
+      const oy = obj.y * TILE_SIZE;
+      const ow = obj.width * TILE_SIZE;
+      const oh = obj.height * TILE_SIZE;
+
+      if (obj.properties?.hidden) {
+        const revealPx =
+          Number(
+            obj.properties.revealRadius ||
+              SIMULATION_PHYSICS.DEFAULT_HIDDEN_REVEAL_TILES,
+          ) * TILE_SIZE;
+        const distToCenter = Math.hypot(
+          this.player.x - (ox + ow / 2),
+          this.player.y - (oy + oh / 2),
+        );
+        if (distToCenter <= revealPx) {
+          this.revealedHazards.add(obj.id);
+        }
+      }
+
       const isIntersecting = this.rectCircleCollide(
-        obj.x * TILE_SIZE,
-        obj.y * TILE_SIZE,
-        obj.width * TILE_SIZE,
-        obj.height * TILE_SIZE,
+        ox,
+        oy,
+        ow,
+        oh,
         this.player.x,
         this.player.y,
         PLAYER_RADIUS,
       );
 
-      if (isIntersecting) {
-        if (obj.object_type === "FIRE" || obj.object_type === "DAMAGE_ZONE") {
-          takingDamage = true;
+      if (!isIntersecting) continue;
+
+      if (obj.object_type === "SAFE_ZONE") {
+        inSafeZone = true;
+        continue;
+      }
+
+      if (obj.object_type === "FIRE") {
+        const fireDps = Number(
+          obj.properties?.damagePerSec ?? SIMULATION_PHYSICS.FIRE_DPS,
+        );
+        highestDps = Math.max(highestDps, fireDps);
+      } else if (obj.object_type === "SMOKE") {
+        const smokeDps = Number(
+          obj.properties?.damagePerSec ?? SIMULATION_PHYSICS.SMOKE_DPS,
+        );
+        highestDps = Math.max(highestDps, smokeDps);
+        slowFactor = Math.min(
+          slowFactor,
+          Number(obj.properties?.slowFactor ?? 0.74),
+        );
+      } else if (
+        obj.object_type === "DAMAGE_ZONE" ||
+        obj.object_type === "DANGER_ZONE"
+      ) {
+        const zoneDps = Number(
+          obj.properties?.damagePerSec ?? SIMULATION_PHYSICS.DEFAULT_ZONE_DPS,
+        );
+        highestDps = Math.max(highestDps, zoneDps);
+
+        if (obj.properties?.slowFactor) {
+          slowFactor = Math.min(slowFactor, Number(obj.properties.slowFactor));
         }
-        if (obj.object_type === "SAFE_ZONE") {
-          inSafeZone = true;
+
+        if (obj.properties?.hidden) {
+          this.revealedHazards.add(obj.id);
+          if (!this.triggeredHazards.has(obj.id)) {
+            this.triggeredHazards.add(obj.id);
+            const burst = Number(
+              obj.properties.burstDamage ??
+                SIMULATION_PHYSICS.DEFAULT_HIDDEN_BURST,
+            );
+            this.player.health = Math.max(0, this.player.health - burst);
+            this.slowDebuffTimer = Math.max(this.slowDebuffTimer, 1.4);
+            this.cameraShakeTime = Math.max(this.cameraShakeTime, 0.45);
+            const reason =
+              obj.properties.reason || "Menginjak bahaya tersembunyi!";
+            this.callbacks.onMessage(`${reason} (-${burst} HP)`);
+          }
         }
       }
     }
 
-    if (inSafeZone) {
-      if (!this.player.interactionPrompt) {
-        this.player.interactionPrompt = "Safe Zone";
-      }
+    this.terrainSlowFactor = slowFactor;
+
+    if (inSafeZone && !this.player.interactionPrompt) {
+      this.player.interactionPrompt = "Zona Aman";
     }
 
-    if (takingDamage && !inSafeZone) {
-      this.player.health -= 10 * dt;
-      if (this.player.health <= 0) {
-        this.player.health = 0;
-        this.player.alive = false;
-        this.state = "FAILED";
-        this.callbacks.onStateChange(this.state);
-        this.callbacks.onMessage("You succumbed to the hazards.");
-      }
+    if (highestDps > 0 && !inSafeZone) {
+      this.player.health = Math.max(0, this.player.health - highestDps * dt);
+    }
+
+    if (this.player.health <= 0 && this.player.alive) {
+      this.player.health = 0;
+      this.player.alive = false;
+      this.state = "FAILED";
+      this.callbacks.onStateChange(this.state);
+      this.callbacks.onMessage("Evakuasi gagal akibat paparan bahaya.");
+    }
+
+    if (highestDps > 0 || this.player.health <= 0) {
       this.callbacks.onPlayerUpdate({ ...this.player });
-    } else if (this.player.health < this.player.maxHealth && !takingDamage) {
     }
   }
 
@@ -617,7 +754,6 @@ export class Phase3Engine {
     if (!floor) return;
 
     let totalObjectives = 0;
-
     for (const obj of this.scenario.objects || []) {
       if (obj.object_type === "OBJECTIVE") {
         totalObjectives++;
@@ -641,27 +777,35 @@ export class Phase3Engine {
         if (obj.object_type === "OBJECTIVE") {
           if (!this.collectedObjectives.has(obj.id)) {
             this.collectedObjectives.add(obj.id);
+            const itemName = obj.properties?.name || "Item Darurat";
             this.callbacks.onMessage(
-              `Objective Collected! (${this.collectedObjectives.size}/${totalObjectives})`,
+              `${itemName} terambil! (${this.collectedObjectives.size}/${totalObjectives})`,
             );
-            this.player.objectiveProgress = `Objectives: ${this.collectedObjectives.size}/${totalObjectives}`;
+            this.player.objectiveProgress =
+              this.collectedObjectives.size >= totalObjectives
+                ? "Semua Misi Selesai -> Gerbang Utama (EXIT)"
+                : `Item Darurat (${this.collectedObjectives.size}/${totalObjectives})`;
             this.callbacks.onPlayerUpdate({ ...this.player });
           }
         }
 
         if (obj.object_type === "EXIT") {
           if (this.collectedObjectives.size >= totalObjectives) {
-            this.player.interactionPrompt = "Press E to Evacuate";
-            if (this.input.isActionDown("interact")) {
-              (this.input as any).keys["e"] = false; // consume
+            this.player.interactionPrompt = "Tekan E / ACT untuk Evakuasi";
+            if (
+              this.input.isActionDown("interact") ||
+              this.virtualButtons["interact"]
+            ) {
+              (this.input as any).keys["e"] = false;
+              this.virtualButtons["interact"] = false;
               this.state = "SUCCESS";
               this.callbacks.onStateChange(this.state);
-              this.callbacks.onMessage("Evacuation Successful!");
-              this.player.objectiveProgress = "Reached Exit!";
+              this.callbacks.onMessage("Evakuasi Berhasil!");
+              this.player.objectiveProgress = "Berhasil Evakuasi!";
               this.callbacks.onPlayerUpdate({ ...this.player });
             }
           } else {
-            this.player.interactionPrompt = `Objectives Missing (${this.collectedObjectives.size}/${totalObjectives})`;
+            this.player.interactionPrompt = `Ambil Item Darurat (${this.collectedObjectives.size}/${totalObjectives})`;
           }
         }
       }
@@ -693,7 +837,7 @@ export class Phase3Engine {
 
           if (targetIdx !== fIdx) {
             const targetFloor = this.map.floors[targetIdx];
-            this.player.interactionPrompt = `Press ACT/E to enter ${targetFloor.name}`;
+            this.player.interactionPrompt = `Tekan E / ACT untuk masuk ${targetFloor.name}`;
 
             if (
               this.input.isActionDown("interact") ||
@@ -704,7 +848,7 @@ export class Phase3Engine {
               this.player.floorId = targetFloor.id;
               this.callbacks.onFloorChange(targetFloor.name);
               this.callbacks.onPlayerUpdate({ ...this.player });
-              this.callbacks.onMessage(`Moved to ${targetFloor.name}`);
+              this.callbacks.onMessage(`Berpindah ke ${targetFloor.name}`);
             }
           }
         }
@@ -733,9 +877,9 @@ export class Phase3Engine {
 
         if (isIntersecting) {
           if (tile.tile_type === "DOOR_LOCKED" && state === "locked") {
-            this.player.interactionPrompt = "Door is Locked";
+            this.player.interactionPrompt = "Pintu Terkunci";
           } else if (state === "closed") {
-            this.player.interactionPrompt = "Press ACT/E to Open Door";
+            this.player.interactionPrompt = "Tekan E / ACT untuk Buka Pintu";
             if (
               this.input.isActionDown("interact") ||
               this.virtualButtons["interact"]
@@ -760,12 +904,18 @@ export class Phase3Engine {
     this.ctx.save();
 
     let scale = 1;
-    const targetWidth = 15 * TILE_SIZE;
+    const targetWidth = 14 * TILE_SIZE;
     if (this.canvas.width < targetWidth) {
       scale = this.canvas.width / targetWidth;
     }
+    const shakeAmp = this.cameraShakeTime > 0 ? 6 : 0;
+    const shakeX = shakeAmp > 0 ? (Math.sin(this.simTimeMs * 0.09) * shakeAmp) : 0;
+    const shakeY = shakeAmp > 0 ? (Math.cos(this.simTimeMs * 0.11) * shakeAmp) : 0;
     this.ctx.scale(scale, scale);
-    this.ctx.translate(-Math.floor(this.camera.x), -Math.floor(this.camera.y));
+    this.ctx.translate(
+      -Math.floor(this.camera.x) + shakeX,
+      -Math.floor(this.camera.y) + shakeY,
+    );
 
     const floor = this.map.floors.find((f) => f.id === this.player.floorId);
     if (!floor) {
@@ -941,15 +1091,87 @@ export class Phase3Engine {
           }
           break;
         case "DAMAGE_ZONE":
-          this.ctx.fillStyle = "rgba(220, 38, 38, 0.2)";
-          this.ctx.fillRect(px, py, pw, ph);
-          this.ctx.strokeStyle = "rgba(220, 38, 38, 0.8)";
-          this.ctx.lineWidth = 2;
-          this.ctx.setLineDash([8, 8]);
-
-          this.ctx.lineDashOffset = -(this.simTimeMs / 50) % 16;
-          this.ctx.strokeRect(px, py, pw, ph);
+          if (obj.properties?.hidden) {
+            const isRevealed = this.revealedHazards.has(obj.id);
+            const isTriggered = this.triggeredHazards.has(obj.id);
+            if (!isRevealed && !isTriggered) {
+              break;
+            }
+            const kind = obj.properties.hazardKind;
+            const pulseAlpha = Math.sin(this.simTimeMs / 120) * 0.2 + 0.7;
+            if (isTriggered) {
+              this.ctx.fillStyle =
+                kind === "ELECTRICAL"
+                  ? `rgba(250, 204, 21, ${0.42 * pulseAlpha})`
+                  : kind === "TOXIC_SPILL"
+                    ? "rgba(132, 204, 22, 0.45)"
+                    : "rgba(220, 38, 38, 0.42)";
+              this.ctx.fillRect(px, py, pw, ph);
+              this.ctx.strokeStyle = kind === "ELECTRICAL" ? "#fde047" : "#ef4444";
+              this.ctx.lineWidth = 3;
+              this.ctx.strokeRect(px, py, pw, ph);
+            } else {
+              // Nearby subtle proximity hint before stepping directly onto trap
+              this.ctx.fillStyle = `rgba(192, 132, 252, ${0.18 * pulseAlpha})`;
+              this.ctx.fillRect(px, py, pw, ph);
+              this.ctx.strokeStyle = `rgba(232, 121, 249, ${0.65 * pulseAlpha})`;
+              this.ctx.lineWidth = 2;
+              this.ctx.setLineDash([4, 4]);
+              this.ctx.strokeRect(px, py, pw, ph);
+              this.ctx.fillStyle = `rgba(245, 208, 254, ${pulseAlpha})`;
+              this.ctx.font = "bold 16px sans-serif";
+              this.ctx.textAlign = "center";
+              this.ctx.textBaseline = "middle";
+              this.ctx.fillText("!", px + pw / 2, py + ph / 2);
+            }
+          } else {
+            this.ctx.fillStyle = "rgba(220, 38, 38, 0.28)";
+            this.ctx.fillRect(px, py, pw, ph);
+            this.ctx.strokeStyle = "rgba(239, 68, 68, 0.9)";
+            this.ctx.lineWidth = 2.5;
+            this.ctx.setLineDash([8, 8]);
+            this.ctx.lineDashOffset = -(this.simTimeMs / 50) % 16;
+            this.ctx.strokeRect(px, py, pw, ph);
+          }
           break;
+        case "DANGER_ZONE": {
+          const kind = obj.properties?.hazardKind;
+          const wave = Math.sin(this.simTimeMs / 240 + px * 0.01) * 0.12 + 0.88;
+          if (kind === "FLOOD") {
+            this.ctx.fillStyle = `rgba(14, 165, 233, ${0.38 * wave})`;
+            this.ctx.fillRect(px, py, pw, ph);
+            this.ctx.strokeStyle = "rgba(56, 189, 248, 0.75)";
+            this.ctx.lineWidth = 2;
+            const ripOffset = (this.simTimeMs / 35) % 24;
+            for (let wy = py + 12; wy < py + ph; wy += 24) {
+              this.ctx.beginPath();
+              this.ctx.moveTo(px + 4, wy);
+              this.ctx.quadraticCurveTo(
+                px + pw / 2 + ripOffset - 12,
+                wy - 6,
+                px + pw - 4,
+                wy,
+              );
+              this.ctx.stroke();
+            }
+          } else if (kind === "GAS_CLOUD") {
+            this.ctx.fillStyle = `rgba(132, 204, 22, ${0.34 * wave})`;
+            this.ctx.fillRect(px, py, pw, ph);
+            this.ctx.strokeStyle = "rgba(163, 230, 53, 0.8)";
+            this.ctx.lineWidth = 2;
+            this.ctx.setLineDash([10, 6]);
+            this.ctx.strokeRect(px, py, pw, ph);
+          } else {
+            this.ctx.fillStyle = `rgba(56, 189, 248, ${0.26 * wave})`;
+            this.ctx.fillRect(px, py, pw, ph);
+            this.ctx.strokeStyle = "rgba(125, 211, 252, 0.85)";
+            this.ctx.lineWidth = 2;
+            this.ctx.setLineDash([14, 10]);
+            this.ctx.lineDashOffset = -(this.simTimeMs / 18);
+            this.ctx.strokeRect(px, py, pw, ph);
+          }
+          break;
+        }
         case "BLOCKED_AREA":
           this.ctx.fillStyle = "rgba(15, 23, 42, 0.9)";
           this.ctx.fillRect(px, py, pw, ph);
@@ -1034,18 +1256,24 @@ export class Phase3Engine {
           this.ctx.stroke();
           break;
         }
-        case "OBJECTIVE":
-          this.ctx.fillStyle = "rgba(234, 179, 8, 0.5)";
+        case "OBJECTIVE": {
+          if (this.collectedObjectives.has(obj.id)) break;
+          const oPulse = Math.sin(this.simTimeMs / 180) * 0.18 + 0.82;
+          const ox = px + pw / 2;
+          const oy = py + ph / 2;
+          this.ctx.fillStyle = `rgba(250, 204, 21, ${0.35 * oPulse})`;
           this.ctx.beginPath();
-          this.ctx.arc(
-            px + pw / 2,
-            py + ph / 2,
-            Math.min(pw, ph) / 2,
-            0,
-            Math.PI * 2,
-          );
+          this.ctx.arc(ox, oy, Math.min(pw, ph) * 0.45 * oPulse, 0, Math.PI * 2);
           this.ctx.fill();
+          this.ctx.fillStyle = "#facc15";
+          this.ctx.beginPath();
+          this.ctx.arc(ox, oy, Math.min(pw, ph) * 0.24, 0, Math.PI * 2);
+          this.ctx.fill();
+          this.ctx.strokeStyle = "#fef08a";
+          this.ctx.lineWidth = 2;
+          this.ctx.stroke();
           break;
+        }
       }
       this.ctx.restore();
     }
@@ -1211,30 +1439,32 @@ export class Phase3Engine {
 
     this.ctx.restore();
 
-    if (smokeOverlay && this.player.alive) {
-      this.ctx.fillStyle = "rgba(15, 23, 42, 0.85)";
+    const ambientDarkness = Number(this.scenario.config?.ambientDarkness || 0);
+    if ((smokeOverlay || ambientDarkness > 0) && this.player.alive) {
+      const overlayAlpha = smokeOverlay
+        ? 0.86
+        : Math.min(0.75, ambientDarkness);
+      const sightRadiusPx = (smokeOverlay ? 115 : 230) * scale;
+      const screenPlayerX = (this.player.x - this.camera.x) * scale;
+      const screenPlayerY = (this.player.y - this.camera.y) * scale;
+
+      this.ctx.fillStyle = `rgba(10, 15, 30, ${overlayAlpha})`;
       this.ctx.fillRect(0, 0, width, height);
 
       this.ctx.globalCompositeOperation = "destination-out";
       const grad = this.ctx.createRadialGradient(
-        this.player.x - this.camera.x,
-        this.player.y - this.camera.y,
-        10,
-        this.player.x - this.camera.x,
-        this.player.y - this.camera.y,
-        80,
+        screenPlayerX,
+        screenPlayerY,
+        sightRadiusPx * 0.16,
+        screenPlayerX,
+        screenPlayerY,
+        sightRadiusPx,
       );
       grad.addColorStop(0, "rgba(255, 255, 255, 1)");
       grad.addColorStop(1, "rgba(255, 255, 255, 0)");
       this.ctx.fillStyle = grad;
       this.ctx.beginPath();
-      this.ctx.arc(
-        this.player.x - this.camera.x,
-        this.player.y - this.camera.y,
-        80,
-        0,
-        Math.PI * 2,
-      );
+      this.ctx.arc(screenPlayerX, screenPlayerY, sightRadiusPx, 0, Math.PI * 2);
       this.ctx.fill();
       this.ctx.globalCompositeOperation = "source-over";
     }

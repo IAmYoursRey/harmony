@@ -1,5 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
+import fs from "node:fs";
+import path from "node:path";
 import {
   MAP_WIDTH,
   MAP_HEIGHT,
@@ -159,19 +161,37 @@ test("Room interiors do not unintentionally collide and doors open cleanly", () 
   }
 });
 
-test("All scenario SPAWNs have valid obstacle-free evacuation paths to SAFE_ZONE and EXIT", () => {
+test("All 6 disaster scenarios have valid obstacle-free evacuation paths to OBJECTIVE, SAFE_ZONE, and EXIT plus hidden traps", () => {
   const { grid, scenarios } = buildSman1NgoroPdfDigitalTwin();
-  assert.ok(scenarios.length >= 3);
+  assert.equal(scenarios.length, 6);
+
+  const disasterTypes = new Set(scenarios.map((s) => s.disaster_type));
+  assert.ok(disasterTypes.size >= 5, "Must include diverse disaster types");
 
   for (const scenario of scenarios) {
     assert.equal(scenario.status, "published");
     const spawns = scenario.objects.filter((o) => o.object_type === "SPAWN");
+    const objectives = scenario.objects.filter((o) => o.object_type === "OBJECTIVE");
     const safeZones = scenario.objects.filter((o) => o.object_type === "SAFE_ZONE");
     const exits = scenario.objects.filter((o) => o.object_type === "EXIT");
+    const hiddenTraps = scenario.objects.filter((o) => o.properties?.hidden === true);
 
     assert.ok(spawns.length > 0, `${scenario.id} must have SPAWN objects`);
+    assert.ok(objectives.length > 0, `${scenario.id} must have OBJECTIVE waypoints`);
     assert.ok(safeZones.length > 0, `${scenario.id} must have SAFE_ZONE objects`);
     assert.ok(exits.length > 0, `${scenario.id} must have EXIT objects`);
+    assert.ok(hiddenTraps.length >= 5, `${scenario.id} must include >= 5 hidden hazards`);
+
+    for (const trap of hiddenTraps) {
+      assert.ok(
+        (trap.properties?.burstDamage || 0) >= 24,
+        `Hidden trap ${trap.id} must deal >= 24 burstDamage`,
+      );
+      assert.ok(
+        (trap.properties?.damagePerSec || 0) >= 18,
+        `Hidden trap ${trap.id} must deal >= 18 damagePerSec`,
+      );
+    }
 
     const blockedKeys = new Set();
     for (const obj of scenario.objects) {
@@ -199,6 +219,15 @@ test("All scenario SPAWNs have valid obstacle-free evacuation paths to SAFE_ZONE
         `SPAWN (${spawn.x},${spawn.y}) in ${scenario.id} placed on hazard`,
       );
 
+      for (const objective of objectives) {
+        const objKeys = new Set(expandRect(objective));
+        const reachesObj = bfsReachable(grid, blockedKeys, spawn.x, spawn.y, objKeys);
+        assert.ok(
+          reachesObj,
+          `SPAWN ${spawn.properties?.label || spawn.id} (${spawn.x},${spawn.y}) cannot reach OBJECTIVE ${objective.properties?.name || objective.id} (${objective.x},${objective.y}) in ${scenario.id}`,
+        );
+      }
+
       const reachesSafe = bfsReachable(grid, blockedKeys, spawn.x, spawn.y, safeKeys);
       assert.ok(
         reachesSafe,
@@ -223,5 +252,38 @@ test("Legacy GridMap and DisasterSimulation structures are populated consistentl
   assert.ok(legacyGridMap.doors.length > 30);
   assert.ok(legacyGridMap.safePoints.length >= 3);
   assert.ok(legacyGridMap.spawnPoints.length >= 3);
-  assert.equal(legacySimulations.length, 3);
+  assert.equal(legacySimulations.length, 6);
+});
+
+test("Hard mode physics enforce larger scale, slower running, and elevated hazard damage", () => {
+  const engineSrc = fs.readFileSync(
+    path.resolve("apps/web/src/components/dashboard/views/spatial/digital-twin/Phase3Engine.ts"),
+    "utf8",
+  );
+  const extractNum = (key) => {
+    const match = engineSrc.match(new RegExp(`${key}:\\s*([0-9.]+)`));
+    assert.ok(match, `Missing SIMULATION_PHYSICS.${key}`);
+    return Number(match[1]);
+  };
+
+  assert.ok(extractNum("TILE_SIZE") >= 64, "TILE_SIZE must expand spatial campus scale (>= 64px)");
+  assert.ok(extractNum("WALK_SPEED") <= 95, "Walking speed must remain controlled");
+  assert.ok(extractNum("RUN_SPEED") <= 150, "Sprint speed must be deliberately slowed (<= 150px/s)");
+  assert.ok(extractNum("FIRE_DPS") >= 30, "Fire hazard damage must be high (>= 30 HP/s)");
+  assert.ok(extractNum("DEFAULT_ZONE_DPS") >= 22, "Damage zones must be severe (>= 22 HP/s)");
+  assert.ok(extractNum("DEFAULT_HIDDEN_BURST") >= 25, "Hidden traps must deal strong burst damage");
+
+  const { scenarios } = buildSman1NgoroPdfDigitalTwin();
+  for (const sc of scenarios) {
+    const primarySpawn = sc.objects.find((o) => o.object_type === "SPAWN");
+    const firstObjective = sc.objects.find((o) => o.object_type === "OBJECTIVE");
+    const exitObj = sc.objects.find((o) => o.object_type === "EXIT");
+    const routeDist =
+      Math.hypot(firstObjective.x - primarySpawn.x, firstObjective.y - primarySpawn.y) +
+      Math.hypot(exitObj.x - firstObjective.x, exitObj.y - firstObjective.y);
+    assert.ok(
+      routeDist >= 55,
+      `${sc.id} total evacuation leg distance (${routeDist.toFixed(1)} tiles) too short`,
+    );
+  }
 });

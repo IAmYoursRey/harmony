@@ -255,6 +255,9 @@ export function Phase1Workspace() {
                   <option value="Kebakaran">Kebakaran</option>
                   <option value="Gempa">Gempa</option>
                   <option value="Banjir">Banjir</option>
+                  <option value="Angin Puting Beliung">Angin Puting Beliung</option>
+                  <option value="Bahaya Kimia">Bahaya Kimia</option>
+                  <option value="Multi-Bencana">Multi-Bencana</option>
                   <option value="Tsunami">Tsunami</option>
                 </select>
               </div>
@@ -309,6 +312,17 @@ export function Phase1Workspace() {
                           Aktif
                         </span>
                       )}
+                      {scen.config?.difficulty && (
+                        <span
+                          className={`px-2 py-0.5 text-[10px] font-bold uppercase rounded-md ${
+                            scen.config.difficulty === "Ekstrem"
+                              ? "bg-rose-100 text-rose-700 dark:bg-rose-900/40 dark:text-rose-300"
+                              : "bg-amber-100 text-amber-700 dark:bg-amber-900/40 dark:text-amber-300"
+                          }`}
+                        >
+                          {scen.config.difficulty}
+                        </span>
+                      )}
                       <span
                         className={`px-2 py-0.5 text-[10px] font-bold uppercase rounded-md ${scen.status === "published" ? "bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400" : "bg-amber-100 text-amber-700"}`}
                       >
@@ -318,8 +332,18 @@ export function Phase1Workspace() {
                         v{scen.version}
                       </span>
                     </div>
-                    <div className="text-xs text-slate-500 dark:text-slate-400 mt-1">
-                      Bencana: <strong className="text-slate-700 dark:text-slate-300">{scen.disaster_type}</strong>
+                    <div className="text-xs text-slate-500 dark:text-slate-400 mt-1 space-y-0.5">
+                      <div>
+                        Bencana: <strong className="text-slate-700 dark:text-slate-300">{scen.disaster_type}</strong>
+                        {scen.config?.evacuationTarget && (
+                          <span className="ml-2 text-slate-400">· Rute: {scen.config.evacuationTarget}</span>
+                        )}
+                      </div>
+                      {scen.config?.summary && (
+                        <p className="text-[11px] text-slate-500 dark:text-slate-400 line-clamp-1">
+                          {scen.config.summary}
+                        </p>
+                      )}
                     </div>
                   </div>
                   <div className="flex flex-wrap items-center gap-2 shrink-0">

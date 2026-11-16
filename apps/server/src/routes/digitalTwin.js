@@ -839,25 +839,30 @@ router.get("/phase1/maps", verifyToken, async (req, res) => {
 
   const ensureCanonicalSman1Map = (list) => {
     if (schoolId !== SMAN1_NGORO_SCHOOL_ID) return list;
+    const canonical = getCanonicalSman1Twin();
+    const canonicalSummary = {
+      ...canonical.map,
+      scenarios: canonical.scenarios.map(({ id, name, disaster_type, status, version, config }) => ({
+        id,
+        name,
+        disaster_type,
+        status,
+        version,
+        config,
+      })),
+    };
     const idx = list.findIndex((m) => m.id === SMAN1_NGORO_MAP_ID);
-    if (idx > 0) {
-      const [official] = list.splice(idx, 1);
-      list.unshift(official);
+    if (idx !== -1) {
+      if ((list[idx].version || 0) < canonical.map.version) {
+        list[idx] = canonicalSummary;
+      }
+      if (idx > 0) {
+        const [official] = list.splice(idx, 1);
+        list.unshift(official);
+      }
       return list;
     }
-    if (idx === -1) {
-      const canonical = getCanonicalSman1Twin();
-      list.unshift({
-        ...canonical.map,
-        scenarios: canonical.scenarios.map(({ id, name, disaster_type, status, version }) => ({
-          id,
-          name,
-          disaster_type,
-          status,
-          version,
-        })),
-      });
-    }
+    list.unshift(canonicalSummary);
     return list;
   };
 
@@ -874,7 +879,7 @@ router.get("/phase1/maps", verifyToken, async (req, res) => {
     for (const map of maps) {
       const scenariosRes = await timeoutQuery(
         pool.query(
-          "SELECT id, name, disaster_type, status, version FROM digital_twin_scenarios WHERE map_id = $1",
+          "SELECT id, name, disaster_type, status, version, config FROM digital_twin_scenarios WHERE map_id = $1",
           [map.id],
         ),
       );
@@ -938,7 +943,11 @@ router.get("/phase1/maps/:mapId", verifyToken, async (req, res) => {
     const mapRes = await timeoutQuery(
       pool.query("SELECT * FROM digital_twin_maps WHERE id = $1", [mapId]),
     );
-    if (mapRes.rows.length === 0) {
+    if (
+      mapRes.rows.length === 0 ||
+      (mapId === SMAN1_NGORO_MAP_ID &&
+        (mapRes.rows[0].version || 0) < getCanonicalSman1Twin().map.version)
+    ) {
       if (mapId === SMAN1_NGORO_MAP_ID) {
         return res.json({ data: buildCanonicalMapPayload() });
       }
@@ -1251,7 +1260,11 @@ router.get("/phase1/scenarios/:scenarioId", verifyToken, async (req, res) => {
         scenarioId,
       ]),
     );
-    if (scnRes.rows.length === 0) {
+    if (
+      scnRes.rows.length === 0 ||
+      (canonicalScenario &&
+        (scnRes.rows[0].version || 0) < (canonicalScenario.version || 0))
+    ) {
       if (canonicalScenario) return res.json({ data: canonicalScenario });
       return res.status(404).json({ error: "Scenario not found" });
     }
