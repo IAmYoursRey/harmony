@@ -187,6 +187,46 @@ test("Any authenticated student can create, join, start, sync, rank, and restart
       headers: { Authorization: `Bearer ${hostToken}` },
     });
     assert.equal(restartRes.status, 200);
+
+    // 7. Enforce unique username: another user trying to join with "Siswa Tamu" or "Siswa Host" gets rejected
+    const cloneToken = makeToken({
+      id: "st-clone-3",
+      role: "student",
+      name: "Siswa Tamu",
+    });
+    const dupJoinRes = await fetch(`${baseUrl}/${created.id}/join`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${cloneToken}`,
+      },
+      body: JSON.stringify({ displayName: "Siswa Tamu" }),
+    });
+    assert.equal(dupJoinRes.status, 409);
+    const dupJson = await dupJoinRes.json();
+    assert.equal(dupJson.error, "DUPLICATE_NAME");
+
+    // Joining with a unique name succeeds
+    const okJoinRes = await fetch(`${baseUrl}/${created.id}/join`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${cloneToken}`,
+      },
+      body: JSON.stringify({ displayName: "Siswa Tamu 2" }),
+    });
+    assert.equal(okJoinRes.status, 200);
+
+    // Trying to rename to existing player's name via ready update gets 409
+    const dupRenameRes = await fetch(`${baseUrl}/${created.id}/ready`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${cloneToken}`,
+      },
+      body: JSON.stringify({ displayName: "Siswa Tamu" }),
+    });
+    assert.equal(dupRenameRes.status, 409);
   } finally {
     server.closeAllConnections?.();
     await new Promise((resolve) => server.close(resolve));

@@ -263,6 +263,7 @@ export class Phase3Engine {
   private remotePlayers = new Map<string, RemotePlayer>();
   private lastNetworkEmitTime: number = 0;
   private isAuthoritative: boolean = false;
+  private isWaitingForHost: boolean = false;
 
   private staminaExhausted: boolean = false;
   private terrainSlowFactor: number = 1;
@@ -530,6 +531,18 @@ export class Phase3Engine {
 
   public removeRemotePlayer(id: string) {
     this.remotePlayers.delete(id);
+  }
+
+  public setWaitingForHost(waiting: boolean) {
+    this.isWaitingForHost = waiting;
+    if (waiting) {
+      this.player.moving = false;
+      this.player.sprinting = false;
+    }
+  }
+
+  public isWaiting(): boolean {
+    return this.isWaitingForHost;
   }
 
   public start() {
@@ -847,6 +860,25 @@ export class Phase3Engine {
   private update(dt: number) {
     if (!this.player.alive) return;
 
+    if (this.isWaitingForHost) {
+      for (const rp of this.remotePlayers.values()) {
+        const dx = rp.targetX - rp.x;
+        const dy = rp.targetY - rp.y;
+        const dist = Math.hypot(dx, dy);
+        if (dist > TILE_SIZE * 6) {
+          rp.x = rp.targetX;
+          rp.y = rp.targetY;
+        } else {
+          const lerpFactor = 1 - Math.exp(-18 * dt);
+          rp.x += dx * lerpFactor;
+          rp.y += dy * lerpFactor;
+        }
+      }
+      this.player.moving = false;
+      this.player.sprinting = false;
+      return;
+    }
+
     if (!this.isAuthoritative) {
       this.simTimeMs += dt * 1000;
       this.updateDynamicDisasters(dt);
@@ -977,8 +1009,29 @@ export class Phase3Engine {
     }
 
     for (const rp of this.remotePlayers.values()) {
-      rp.x += (rp.targetX - rp.x) * 10 * dt;
-      rp.y += (rp.targetY - rp.y) * 10 * dt;
+      const dx = rp.targetX - rp.x;
+      const dy = rp.targetY - rp.y;
+      const dist = Math.hypot(dx, dy);
+
+      if (dist > TILE_SIZE * 6) {
+        rp.x = rp.targetX;
+        rp.y = rp.targetY;
+      } else {
+        const lerpFactor = 1 - Math.exp(-18 * dt);
+        rp.x += dx * lerpFactor;
+        rp.y += dy * lerpFactor;
+      }
+
+      if (dist > 3) {
+        rp.moving = true;
+        if (Math.abs(dx) > Math.abs(dy)) {
+          rp.direction = dx > 0 ? "right" : "left";
+        } else {
+          rp.direction = dy > 0 ? "down" : "up";
+        }
+      } else if (dist < 0.5) {
+        rp.moving = false;
+      }
     }
 
     if (this.simTimeMs - this.lastNetworkEmitTime > 66) {
@@ -2279,8 +2332,13 @@ export class Phase3Engine {
     }
 
     for (const rp of this.remotePlayers.values()) {
-      if (rp.floorId !== floor.id) continue;
-      if (performance.now() - rp.lastUpdate > 12000) continue;
+      const floorMatch =
+        !rp.floorId ||
+        !floor.id ||
+        rp.floorId === floor.id ||
+        this.map.floors.length <= 1;
+      if (!floorMatch) continue;
+      if (performance.now() - rp.lastUpdate > 18000) continue;
 
       this.renderCharacterEntity({
         x: rp.x,
@@ -2385,6 +2443,84 @@ export class Phase3Engine {
       ctx.font = "bold 30px Inter, sans-serif";
       ctx.textAlign = "center";
       ctx.fillText("JEDA", cssW / 2, cssH / 2);
+    }
+
+    // Off-screen indicator radar for multiplayer runners
+    if (this.remotePlayers.size > 0 && this.player.alive) {
+      const centerX = cssW / 2;
+      const centerY = cssH / 2;
+      const padEdge = 48;
+
+      for (const rp of this.remotePlayers.values()) {
+        const floorMatch =
+          !rp.floorId ||
+          !floor.id ||
+          rp.floorId === floor.id ||
+          this.map.floors.length <= 1;
+        if (!floorMatch) continue;
+        if (performance.now() - rp.lastUpdate > 18000) continue;
+
+        const screenX = (rp.x - this.camera.x + shakeX) * scale;
+        const screenY = (rp.y - this.camera.y + shakeY) * scale;
+
+        const isOffscreen =
+          screenX < 24 ||
+          screenX > cssW - 24 ||
+          screenY < 24 ||
+          screenY > cssH - 24;
+
+        if (isOffscreen) {
+          const angle = Math.atan2(screenY - centerY, screenX - centerX);
+          const edgeDistX = cssW / 2 - padEdge;
+          const edgeDistY = cssH / 2 - padEdge;
+
+          let targetX = centerX + Math.cos(angle) * edgeDistX;
+          let targetY = centerY + Math.sin(angle) * edgeDistY;
+
+          targetX = Math.max(padEdge, Math.min(cssW - padEdge, targetX));
+          targetY = Math.max(padEdge, Math.min(cssH - padEdge, targetY));
+
+          const distMeters = Math.max(
+            1,
+            Math.round(
+              Math.hypot(rp.x - this.player.x, rp.y - this.player.y) / TILE_SIZE,
+            ),
+          );
+
+          ctx.save();
+          ctx.translate(targetX, targetY);
+
+          ctx.save();
+          ctx.rotate(angle);
+          ctx.fillStyle = rp.avatarColor || "#38bdf8";
+          ctx.beginPath();
+          ctx.moveTo(12, 0);
+          ctx.lineTo(4, -5);
+          ctx.lineTo(4, 5);
+          ctx.closePath();
+          ctx.fill();
+          ctx.restore();
+
+          const tag = `${rp.displayName || "Pemain"} (${distMeters}m)`;
+          ctx.font = "bold 9px Inter, sans-serif";
+          const tw = ctx.measureText(tag).width;
+
+          ctx.fillStyle = "rgba(15, 23, 42, 0.88)";
+          ctx.beginPath();
+          ctx.roundRect(-tw / 2 - 5, -8, tw + 10, 16, 5);
+          ctx.fill();
+          ctx.strokeStyle = rp.avatarColor || "#38bdf8";
+          ctx.lineWidth = 1.4;
+          ctx.stroke();
+
+          ctx.fillStyle = "#ffffff";
+          ctx.textAlign = "center";
+          ctx.textBaseline = "middle";
+          ctx.fillText(tag, 0, 0);
+
+          ctx.restore();
+        }
+      }
     }
 
     ctx.restore();

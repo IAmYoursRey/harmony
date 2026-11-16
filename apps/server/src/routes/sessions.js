@@ -264,10 +264,13 @@ router.get("/public", verifyToken, async (req, res) => {
   const { mapId } = req.query;
 
   if (!pool) {
+    const twoHoursAgo = Date.now() - 2 * 3600 * 1000;
     const rooms = [...memorySessions.values()]
       .filter(
         (s) =>
           s.status !== "ENDED" &&
+          s.participants.size > 0 &&
+          new Date(s.createdAt).getTime() > twoHoursAgo &&
           s.settings?.isPublic !== false &&
           (!mapId || s.mapId === mapId),
       )
@@ -303,9 +306,10 @@ router.get("/public", verifyToken, async (req, res) => {
         FROM simulation_sessions s
         LEFT JOIN simulation_participants p ON p.session_id = s.id
         WHERE s.status IN ('LOBBY', 'RUNNING')
-          AND s.created_at > NOW() - INTERVAL '6 hours'
+          AND s.created_at > NOW() - INTERVAL '2 hours'
           AND ($1::text IS NULL OR s.map_id = $1)
         GROUP BY s.id
+        HAVING COUNT(p.id) > 0
         ORDER BY s.created_at DESC
         LIMIT 25
       `,
@@ -408,7 +412,8 @@ router.post("/:id/join", verifyToken, async (req, res) => {
   await ensureMultiplayerSchema();
   const { id } = req.params;
   const studentId = req.user.id;
-  const displayName = req.body?.displayName || req.user.name || "Pemain";
+  const rawDisplayName = req.body?.displayName || req.user.name || "Pemain";
+  const displayName = rawDisplayName.trim().slice(0, 32) || "Pemain";
   const avatarStyle = req.body?.avatarStyle === "boy" ? "boy" : "girl";
   const avatarColor =
     typeof req.body?.avatarColor === "string"
@@ -421,6 +426,20 @@ router.post("/:id/join", verifyToken, async (req, res) => {
     if (s.status === "ENDED") {
       return res.status(403).json({ error: "Room sudah berakhir" });
     }
+
+    // Reject duplicate usernames in the same room
+    for (const [pStudentId, p] of s.participants.entries()) {
+      if (
+        pStudentId !== studentId &&
+        (p.displayName || "").trim().toLowerCase() === displayName.toLowerCase()
+      ) {
+        return res.status(409).json({
+          error: "DUPLICATE_NAME",
+          message: `Nama "${displayName}" sudah dipakai pemain lain di room ini. Silakan gunakan nama lain agar tidak tertukar!`,
+        });
+      }
+    }
+
     if (!s.participants.has(studentId)) {
       s.participants.set(studentId, {
         id: uuidv4(),
@@ -438,6 +457,11 @@ router.post("/:id/join", verifyToken, async (req, res) => {
         lastSyncAt: new Date().toISOString(),
         liveState: {},
       });
+    } else {
+      const existing = s.participants.get(studentId);
+      existing.displayName = displayName;
+      existing.avatarStyle = avatarStyle;
+      existing.avatarColor = avatarColor;
     }
     return res.json({ success: true, sessionId: id });
   }
@@ -466,6 +490,23 @@ router.post("/:id/join", verifyToken, async (req, res) => {
       return res.status(403).json({
         error: "SESSION CLOSED",
         message: "Simulasi sudah berjalan dan tidak menerima pemain baru.",
+      });
+    }
+
+    // Reject duplicate usernames in PostgreSQL
+    const nameCheck = await timeoutQuery(
+      pool.query(
+        `SELECT id FROM simulation_participants
+         WHERE session_id = $1
+           AND LOWER(TRIM(display_name)) = LOWER(TRIM($2))
+           AND student_id != $3`,
+        [id, displayName, studentId],
+      ),
+    );
+    if (nameCheck.rows.length > 0) {
+      return res.status(409).json({
+        error: "DUPLICATE_NAME",
+        message: `Nama "${displayName}" sudah dipakai pemain lain di room ini. Silakan gunakan nama lain agar tidak tertukar!`,
       });
     }
 
@@ -509,6 +550,17 @@ router.post("/:id/join", verifyToken, async (req, res) => {
           ],
         ),
       );
+    } else {
+      await timeoutQuery(
+        pool.query(
+          `
+          UPDATE simulation_participants
+          SET display_name = $1, avatar_style = $2, avatar_color = $3, last_sync_at = CURRENT_TIMESTAMP
+          WHERE session_id = $4 AND student_id = $5
+        `,
+          [displayName, avatarStyle, avatarColor, id, studentId],
+        ),
+      );
     }
 
     res.json({ success: true, sessionId: id });
@@ -523,6 +575,43 @@ router.post("/:id/ready", verifyToken, async (req, res) => {
   const { id } = req.params;
   const studentId = req.user.id;
   const { ready, avatarStyle, avatarColor, displayName } = req.body || {};
+  const trimmedName =
+    typeof displayName === "string" && displayName.trim()
+      ? displayName.trim().slice(0, 32)
+      : null;
+
+  if (trimmedName) {
+    if (!pool) {
+      const s = memorySessions.get(id);
+      for (const [pStudentId, p] of s?.participants || []) {
+        if (
+          pStudentId !== studentId &&
+          (p.displayName || "").trim().toLowerCase() === trimmedName.toLowerCase()
+        ) {
+          return res.status(409).json({
+            error: "DUPLICATE_NAME",
+            message: `Nama "${trimmedName}" sudah dipakai pemain lain di room ini.`,
+          });
+        }
+      }
+    } else {
+      const nameCheck = await timeoutQuery(
+        pool.query(
+          `SELECT id FROM simulation_participants
+           WHERE session_id = $1
+             AND LOWER(TRIM(display_name)) = LOWER(TRIM($2))
+             AND student_id != $3`,
+          [id, trimmedName, studentId],
+        ),
+      );
+      if (nameCheck.rows.length > 0) {
+        return res.status(409).json({
+          error: "DUPLICATE_NAME",
+          message: `Nama "${trimmedName}" sudah dipakai pemain lain di room ini.`,
+        });
+      }
+    }
+  }
 
   if (!pool) {
     const s = memorySessions.get(id);
@@ -531,7 +620,7 @@ router.post("/:id/ready", verifyToken, async (req, res) => {
       if (typeof ready === "boolean") p.readyState = ready;
       if (avatarStyle === "boy" || avatarStyle === "girl") p.avatarStyle = avatarStyle;
       if (typeof avatarColor === "string") p.avatarColor = avatarColor;
-      if (typeof displayName === "string" && displayName.trim()) p.displayName = displayName.trim();
+      if (trimmedName) p.displayName = trimmedName;
     }
     return res.json({ success: true });
   }
@@ -553,9 +642,7 @@ router.post("/:id/ready", verifyToken, async (req, res) => {
           typeof ready === "boolean" ? ready : null,
           avatarStyle === "boy" || avatarStyle === "girl" ? avatarStyle : null,
           typeof avatarColor === "string" ? avatarColor : null,
-          typeof displayName === "string" && displayName.trim()
-            ? displayName.trim()
-            : null,
+          trimmedName,
           id,
           studentId,
         ],
@@ -698,17 +785,41 @@ router.post("/:id/leave", verifyToken, async (req, res) => {
   const studentId = req.user.id;
 
   if (!pool) {
-    memorySessions.get(id)?.participants.delete(studentId);
+    const s = memorySessions.get(id);
+    if (s) {
+      s.participants.delete(studentId);
+      if (s.participants.size === 0 || s.createdBy === studentId) {
+        s.status = "ENDED";
+      }
+    }
     return res.json({ success: true });
   }
 
   try {
+    const sessionRes = await timeoutQuery(
+      pool.query("SELECT created_by FROM simulation_sessions WHERE id = $1", [id]),
+    );
     await timeoutQuery(
       pool.query(
         "DELETE FROM simulation_participants WHERE session_id = $1 AND student_id = $2",
         [id, studentId],
       ),
     );
+    const countRes = await timeoutQuery(
+      pool.query(
+        "SELECT COUNT(*)::int as count FROM simulation_participants WHERE session_id = $1",
+        [id],
+      ),
+    );
+    const isHost = sessionRes.rows[0]?.created_by === studentId;
+    if (countRes.rows[0]?.count === 0 || isHost) {
+      await timeoutQuery(
+        pool.query(
+          "UPDATE simulation_sessions SET status = 'ENDED', ended_at = CURRENT_TIMESTAMP WHERE id = $1",
+          [id],
+        ),
+      );
+    }
     res.json({ success: true });
   } catch (err) {
     res.status(500).json({ error: "Database error" });

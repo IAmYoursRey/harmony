@@ -199,11 +199,62 @@ export function Phase3Runtime({
   const [report, setReport] = useState<SimulationReport | null>(null);
   const [leaderboard, setLeaderboard] = useState<OnlineLeaderboardEntry[]>([]);
   const [showLeaderboard, setShowLeaderboard] = useState(true);
+  const [waitingForHost, setWaitingForHost] = useState(Boolean(sessionId));
+  const [countdownSec, setCountdownSec] = useState<number | null>(null);
   const isSyncingRef = useRef(false);
 
   useEffect(() => {
     preloadDigitalTwinAssets();
   }, []);
+
+  useEffect(() => {
+    if (!sessionId) {
+      setWaitingForHost(false);
+      return;
+    }
+
+    let cancelled = false;
+    const pollStatus = async () => {
+      try {
+        const res = await apiClient.get(
+          `/api/sessions/${sessionId}/participants`,
+          { ttl: 0 },
+        );
+        if (cancelled || !res) return;
+        if (Array.isArray(res.participants)) {
+          setLeaderboard(res.leaderboard || res.participants);
+        }
+        if (res.sessionStatus === "RUNNING") {
+          if (waitingForHost && countdownSec === null) {
+            setCountdownSec(3);
+            const t = setInterval(() => {
+              setCountdownSec((prev) => {
+                if (prev === null || prev <= 1) {
+                  clearInterval(t);
+                  setWaitingForHost(false);
+                  engineRef.current?.setWaitingForHost(false);
+                  return null;
+                }
+                return prev - 1;
+              });
+            }, 900);
+          } else if (!waitingForHost) {
+            engineRef.current?.setWaitingForHost(false);
+          }
+        } else {
+          setWaitingForHost(true);
+          engineRef.current?.setWaitingForHost(true);
+        }
+      } catch {}
+    };
+
+    pollStatus();
+    const interval = setInterval(pollStatus, 1500);
+    return () => {
+      cancelled = true;
+      clearInterval(interval);
+    };
+  }, [sessionId, waitingForHost, countdownSec]);
 
   const toggleMute = () => {
     const next = !isMuted;
@@ -321,7 +372,12 @@ export function Phase3Runtime({
   // Serverless REST state sync (keeps multiplayer & race rankings live on Vercel too)
   useEffect(() => {
     if (!sessionId || !user) return;
-    if (simState !== "RUNNING" && simState !== "SUCCESS" && simState !== "FAILED") {
+    if (
+      simState !== "RUNNING" &&
+      simState !== "SUCCESS" &&
+      simState !== "FAILED" &&
+      !waitingForHost
+    ) {
       return;
     }
 
@@ -396,7 +452,7 @@ export function Phase3Runtime({
     };
 
     syncOnce();
-    const intervalMs = simState === "RUNNING" ? 240 : 1400;
+    const intervalMs = simState === "RUNNING" && !waitingForHost ? 240 : 1200;
     const timer = setInterval(syncOnce, intervalMs);
     return () => {
       cancelled = true;
@@ -406,6 +462,7 @@ export function Phase3Runtime({
     sessionId,
     user?.id,
     simState,
+    waitingForHost,
     report?.succeeded,
     report?.score,
     avatarName,
@@ -459,6 +516,9 @@ export function Phase3Runtime({
     );
 
     engineRef.current.setPlayerAvatar(avatarColor, avatarName, avatarStyle);
+    if (sessionId && waitingForHost) {
+      engineRef.current.setWaitingForHost(true);
+    }
     engineRef.current.start();
 
     (window as any).__getEngine = () => engineRef.current;
@@ -1066,15 +1126,41 @@ export function Phase3Runtime({
           </div>
         )}
 
+        {/* Multiplayer Waiting Room State */}
+        {waitingForHost && (
+          <div className="absolute top-20 left-1/2 -translate-x-1/2 z-50 px-5 py-2.5 rounded-2xl bg-slate-900/90 border border-indigo-500/60 shadow-2xl text-white text-xs sm:text-sm font-bold flex items-center gap-3 backdrop-blur-md animate-fade-in pointer-events-none">
+            <span className="w-2.5 h-2.5 rounded-full bg-amber-400 animate-ping" />
+            <span>Menunggu Host Memulai Simulasi...</span>
+            <span className="px-2 py-0.5 rounded bg-indigo-500/30 text-indigo-300 font-mono text-xs">
+              Room #{roomCode || sessionId?.slice(0, 6)}
+            </span>
+          </div>
+        )}
+
+        {/* Synchronized 3-2-1 Countdown Overlay */}
+        {countdownSec !== null && (
+          <div className="absolute inset-0 z-50 bg-slate-950/80 backdrop-blur-sm flex flex-col items-center justify-center p-6 text-center animate-fade-in pointer-events-none">
+            <span className="text-xs uppercase font-extrabold tracking-widest text-indigo-400 mb-2">
+              Evakuasi Dimulai Dalam
+            </span>
+            <div className="text-8xl sm:text-9xl font-display font-black text-white animate-pulse drop-shadow-2xl">
+              {countdownSec}
+            </div>
+            <p className="text-xs text-slate-300 mt-3 font-semibold">
+              Bersiaplah menuju titik kumpul teraman!
+            </p>
+          </div>
+        )}
+
         {/* Cross-platform Touch & Tablet Pointer-Capture Controls */}
-        {simState === "RUNNING" && showTouchControls && (
+        {simState === "RUNNING" && showTouchControls && !waitingForHost && (
           <div className="absolute inset-0 pointer-events-none z-40">
-            {/* Pointer-Captured Analog Joystick (Bottom Left) */}
+            {/* Pointer-Captured Analog Joystick (Bottom Left - Elevated & Comfortable) */}
             <div
-              className={`absolute bottom-[max(1rem,env(safe-area-inset-bottom))] left-[max(1rem,env(safe-area-inset-left))] w-32 h-32 sm:w-36 sm:h-36 rounded-full border-2 pointer-events-auto flex items-center justify-center backdrop-blur-sm touch-none select-none transition-colors ${
+              className={`absolute bottom-[max(2.5rem,calc(env(safe-area-inset-bottom)+1.5rem))] left-[max(1.75rem,calc(env(safe-area-inset-left)+1rem))] w-36 h-36 sm:w-44 sm:h-44 rounded-full border-2 pointer-events-auto flex items-center justify-center backdrop-blur-md touch-none select-none transition-all ${
                 joystickActive
-                  ? "bg-white/18 border-emerald-400/70 shadow-lg shadow-emerald-500/20"
-                  : "bg-slate-900/45 border-white/25"
+                  ? "bg-white/20 border-emerald-400/80 shadow-2xl shadow-emerald-500/30 scale-105"
+                  : "bg-slate-900/50 border-white/30 shadow-lg"
               }`}
               ref={joystickRef}
               onPointerDown={(e) => {
@@ -1083,6 +1169,9 @@ export function Phase3Runtime({
                 e.currentTarget.setPointerCapture(e.pointerId);
                 setJoystickActive(true);
                 updateJoystickFromPoint(e.clientX, e.clientY);
+                try {
+                  navigator.vibrate?.(10);
+                } catch {}
               }}
               onPointerMove={(e) => {
                 if (joystickPointerIdRef.current !== e.pointerId) return;
@@ -1096,16 +1185,24 @@ export function Phase3Runtime({
               }}
               onPointerCancel={handleJoystickEnd}
             >
+              <div className="absolute top-1 text-[10px] text-white/40 font-black pointer-events-none">▲</div>
+              <div className="absolute bottom-1 text-[10px] text-white/40 font-black pointer-events-none">▼</div>
+              <div className="absolute left-1 text-[10px] text-white/40 font-black pointer-events-none">◄</div>
+              <div className="absolute right-1 text-[10px] text-white/40 font-black pointer-events-none">►</div>
+
               <div
-                className="w-12 h-12 sm:w-14 sm:h-14 rounded-full bg-white/75 border-2 border-white shadow-xl pointer-events-none"
+                className="w-14 h-14 sm:w-16 sm:h-16 rounded-full bg-gradient-to-br from-white via-slate-100 to-slate-300 border-2 border-white shadow-2xl pointer-events-none flex items-center justify-center"
                 style={{
                   transform: `translate(${joystickPos.x}px, ${joystickPos.y}px)`,
                 }}
-              />
+              >
+                <div className="w-5 h-5 rounded-full bg-slate-400/40 border border-slate-300/50" />
+              </div>
             </div>
 
-            {/* Right-Thumb Action Deck: Ergonomic Run Toggle + Interact */}
-            <div className="absolute bottom-[max(1rem,env(safe-area-inset-bottom))] right-[max(1rem,env(safe-area-inset-right))] flex items-end gap-3 pointer-events-auto touch-none select-none">
+            {/* Right-Thumb Action Deck (Elevated & Comfortable) */}
+            <div className="absolute bottom-[max(2.5rem,calc(env(safe-area-inset-bottom)+1.5rem))] right-[max(1.75rem,calc(env(safe-area-inset-right)+1rem))] flex items-end gap-3.5 pointer-events-auto touch-none select-none">
+              {/* LARI Toggle Button */}
               <button
                 type="button"
                 aria-pressed={isRunToggled}
@@ -1114,35 +1211,44 @@ export function Phase3Runtime({
                   const next = !isRunToggled;
                   setIsRunToggled(next);
                   setVirtualButton("run", next);
+                  try {
+                    navigator.vibrate?.(15);
+                  } catch {}
                 }}
-                className={`w-14 h-14 sm:w-16 sm:h-16 rounded-full border-2 font-extrabold text-xs sm:text-sm backdrop-blur-sm transition-all active:scale-95 flex flex-col items-center justify-center shadow-lg ${
+                className={`w-16 h-16 sm:w-18 sm:h-18 rounded-full border-2 font-extrabold text-xs sm:text-sm backdrop-blur-md transition-all active:scale-90 flex flex-col items-center justify-center shadow-xl ${
                   isRunToggled
-                    ? "bg-amber-500/90 border-amber-200 text-slate-950 shadow-amber-500/40"
-                    : "bg-slate-900/55 border-white/30 text-white"
+                    ? "bg-gradient-to-br from-amber-500 to-orange-600 border-amber-200 text-slate-950 ring-4 ring-amber-400/30 shadow-amber-500/50"
+                    : "bg-slate-900/60 border-white/35 text-white hover:bg-slate-800/70"
                 }`}
                 title="Ketuk untuk aktif/nonaktif Mode Lari"
               >
-                <span>LARI</span>
-                <span className="text-[9px] font-mono opacity-85">
-                  {isRunToggled ? "ON" : "OFF"}
+                <span className="font-black text-xs sm:text-sm">LARI</span>
+                <span className={`text-[9px] font-mono font-bold ${isRunToggled ? "text-slate-950" : "text-amber-400"}`}>
+                  {isRunToggled ? "AKTIF" : "OFF"}
                 </span>
               </button>
+
+              {/* AKSI / BUKA PINTU Button */}
               <button
                 type="button"
                 onPointerDown={(e) => {
                   e.preventDefault();
                   e.currentTarget.setPointerCapture(e.pointerId);
                   setVirtualButton("interact", true);
+                  try {
+                    navigator.vibrate?.(20);
+                  } catch {}
                 }}
                 onPointerUp={(e) => {
                   e.preventDefault();
                   setVirtualButton("interact", false);
                 }}
                 onPointerCancel={() => setVirtualButton("interact", false)}
-                className="w-16 h-16 sm:w-[72px] sm:h-[72px] bg-emerald-600/85 hover:bg-emerald-500/90 rounded-full border-2 border-emerald-200/80 text-white font-black text-xs sm:text-sm backdrop-blur-sm active:scale-95 transition-all flex items-center justify-center shadow-xl shadow-emerald-900/40"
+                className="w-20 h-20 sm:w-24 sm:h-24 bg-gradient-to-br from-emerald-500 via-emerald-600 to-teal-700 hover:from-emerald-400 hover:to-teal-600 rounded-full border-2 border-emerald-300/90 text-white font-black text-sm sm:text-base backdrop-blur-md active:scale-90 transition-all flex flex-col items-center justify-center shadow-2xl shadow-emerald-950/60 ring-4 ring-emerald-400/30"
                 title="Buka atau tutup pintu darurat (AKSI)"
               >
-                AKSI
+                <span className="leading-tight">AKSI</span>
+                <span className="text-[10px] font-medium opacity-85">PINTU</span>
               </button>
             </div>
           </div>

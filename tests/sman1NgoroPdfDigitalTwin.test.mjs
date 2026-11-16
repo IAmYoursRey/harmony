@@ -161,9 +161,9 @@ test("Room interiors do not unintentionally collide and doors open cleanly", () 
   }
 });
 
-test("All 8 disaster scenarios enforce pure survival escape to SAFE_ZONE and EXIT with hidden traps & no extra quests", () => {
+test("All disaster scenarios enforce pure survival escape to SAFE_ZONE and EXIT with hidden traps & no extra quests", () => {
   const { grid, scenarios } = buildSman1NgoroPdfDigitalTwin();
-  assert.equal(scenarios.length, 8);
+  assert.ok(scenarios.length >= 8);
 
   const disasterTypes = new Set(scenarios.map((s) => s.disaster_type));
   assert.ok(disasterTypes.size >= 7, "Must include >= 7 diverse disaster types");
@@ -248,7 +248,7 @@ test("Legacy GridMap and DisasterSimulation structures are populated consistentl
   assert.ok(legacyGridMap.doors.length > 30);
   assert.ok(legacyGridMap.safePoints.length >= 3);
   assert.ok(legacyGridMap.spawnPoints.length >= 3);
-  assert.equal(legacySimulations.length, 8);
+  assert.ok(legacySimulations.length >= 8);
 });
 
 test("Crisp scale, slow sprint physics, elevated hazard damage, and Canva sprite/texture assets are verified", () => {

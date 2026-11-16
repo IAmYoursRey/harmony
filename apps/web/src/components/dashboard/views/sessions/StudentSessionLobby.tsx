@@ -43,6 +43,15 @@ export function StudentSessionLobby() {
   const [session, setSession] = useState<any>(null);
   const [participants, setParticipants] = useState<any[]>([]);
 
+  const [playerName, setPlayerName] = useState(() => {
+    return (
+      localStorage.getItem("harmony_player_name") ||
+      currentUser?.name ||
+      "Pemain"
+    );
+  });
+  const [nameError, setNameError] = useState<string | null>(null);
+
   const [ready, setReady] = useState(false);
   const [avatarStyle, setAvatarStyle] = useState<AvatarStyle>("girl");
   const [avatarColor, setAvatarColor] = useState("#3b82f6");
@@ -50,6 +59,7 @@ export function StudentSessionLobby() {
   const [copiedLink, setCopiedLink] = useState(false);
   const [starting, setStarting] = useState(false);
   const [isPlaying, setIsPlaying] = useState(false);
+  const [countdownSec, setCountdownSec] = useState<number | null>(null);
   const { show } = useToast();
   const navigate = useNavigate();
 
@@ -63,6 +73,21 @@ export function StudentSessionLobby() {
     preloadDigitalTwinAssets();
   }, []);
 
+  const triggerCountdownAndPlay = () => {
+    if (countdownSec !== null || isPlaying) return;
+    setCountdownSec(3);
+    const interval = setInterval(() => {
+      setCountdownSec((prev) => {
+        if (prev === null || prev <= 1) {
+          clearInterval(interval);
+          setIsPlaying(true);
+          return null;
+        }
+        return prev - 1;
+      });
+    }, 900);
+  };
+
   useEffect(() => {
     if (initialSession) {
       setSession(initialSession);
@@ -72,11 +97,15 @@ export function StudentSessionLobby() {
       if (id && currentUser) {
         apiClient
           .post(`/api/sessions/${id}/join`, {
-            displayName: currentUser.name || "Pemain",
+            displayName: (playerName || currentUser.name || "Pemain").trim(),
             avatarStyle,
             avatarColor,
           })
-          .catch(() => {});
+          .catch((err: any) => {
+            if (err.message?.includes("sudah dipakai") || err.message?.includes("DUPLICATE_NAME")) {
+              setNameError(err.message);
+            }
+          });
       }
     }
     if (error) {
@@ -108,7 +137,7 @@ export function StudentSessionLobby() {
             status: "RUNNING",
             settings: res.settings || s?.settings,
           }));
-          setIsPlaying(true);
+          triggerCountdownAndPlay();
         } else if (res.sessionStatus === "ENDED") {
           show("Room telah diakhiri oleh host.", "info");
           navigate("/app/digital-twin");
@@ -130,28 +159,50 @@ export function StudentSessionLobby() {
       cancelled = true;
       clearInterval(interval);
     };
-  }, [id, isPlaying, session?.status, currentUser?.id]);
+  }, [id, isPlaying, countdownSec, session?.status, currentUser?.id]);
 
   const syncReadyAndAvatar = async (
     nextReady: boolean,
     nextStyle: AvatarStyle,
     nextColor: string,
+    nextName: string,
   ) => {
     if (!id) return;
     try {
+      setNameError(null);
       await apiClient.post(`/api/sessions/${id}/ready`, {
         ready: nextReady,
         avatarStyle: nextStyle,
         avatarColor: nextColor,
-        displayName: currentUser?.name || "Pemain",
+        displayName: nextName.trim() || currentUser?.name || "Pemain",
       });
+    } catch (err: any) {
+      if (err.message?.includes("sudah dipakai") || err.message?.includes("DUPLICATE_NAME")) {
+        setNameError(err.message);
+      }
+    }
+  };
+
+  const handleNameChange = (val: string) => {
+    const cleaned = val.slice(0, 24);
+    setPlayerName(cleaned);
+    try {
+      localStorage.setItem("harmony_player_name", cleaned);
     } catch {}
+    syncReadyAndAvatar(ready, avatarStyle, avatarColor, cleaned);
+  };
+
+  const suggestAlternativeName = () => {
+    const base = playerName.replace(/\s*\(\d+\)$/, "").trim();
+    const randomSuffix = Math.floor(2 + Math.random() * 8);
+    const newName = `${base} (${randomSuffix})`;
+    handleNameChange(newName);
   };
 
   const handleToggleReady = async () => {
     const nextState = !ready;
     setReady(nextState);
-    await syncReadyAndAvatar(nextState, avatarStyle, avatarColor);
+    await syncReadyAndAvatar(nextState, avatarStyle, avatarColor, playerName);
   };
 
   const handleSelectAvatar = async (
@@ -160,7 +211,7 @@ export function StudentSessionLobby() {
   ) => {
     setAvatarStyle(nextStyle);
     setAvatarColor(nextColor);
-    await syncReadyAndAvatar(ready, nextStyle, nextColor);
+    await syncReadyAndAvatar(ready, nextStyle, nextColor, playerName);
   };
 
   const handleStartGame = async () => {
@@ -169,7 +220,7 @@ export function StudentSessionLobby() {
     try {
       await apiClient.post(`/api/sessions/${id}/start`, {});
       setSession((s: any) => ({ ...s, status: "RUNNING" }));
-      setIsPlaying(true);
+      triggerCountdownAndPlay();
     } catch (err: any) {
       show(err.message || "Gagal memulai game", "error");
     } finally {
@@ -242,7 +293,7 @@ export function StudentSessionLobby() {
           }
           initialAvatarStyle={avatarStyle}
           initialAvatarColor={avatarColor}
-          initialAvatarName={currentUser?.name || "Pemain"}
+          initialAvatarName={playerName.trim() || currentUser?.name || "Pemain"}
           autoStart={true}
           onReturnToLobby={handleReturnToLobby}
           onClose={() => navigate("/app/digital-twin")}
@@ -255,7 +306,21 @@ export function StudentSessionLobby() {
   }
 
   return (
-    <div className="max-w-4xl mx-auto p-4 sm:p-6 space-y-6">
+    <div className="max-w-4xl mx-auto p-4 sm:p-6 space-y-6 relative">
+      {countdownSec !== null && (
+        <div className="fixed inset-0 z-[1000] bg-slate-950/90 backdrop-blur-md flex flex-col items-center justify-center p-6 text-center animate-fade-in">
+          <span className="text-xs uppercase font-extrabold tracking-widest text-indigo-400 mb-3">
+            Bersiap! Simulasi Dimulai Dalam
+          </span>
+          <div className="text-8xl sm:text-9xl font-display font-black text-white animate-pulse drop-shadow-2xl">
+            {countdownSec}
+          </div>
+          <p className="text-sm font-semibold text-slate-400 mt-4 max-w-sm">
+            Semua pemain mulai serentak. Siapkan rute evakuasi teramanmu!
+          </p>
+        </div>
+      )}
+
       <div className="glass rounded-3xl p-6 sm:p-8 border border-slate-200/70 dark:border-slate-700/80 shadow-xl space-y-6">
         {/* Header & Room Code */}
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-slate-100 dark:border-slate-800 pb-5">
@@ -326,8 +391,33 @@ export function StudentSessionLobby() {
         <div className="grid md:grid-cols-5 gap-6 items-start">
           {/* Left 2 cols: Character Selector */}
           <div className="md:col-span-2 rounded-2xl bg-slate-50 dark:bg-slate-900/70 border border-slate-200/80 dark:border-slate-700/80 p-4 space-y-4">
+            <div>
+              <label className="block text-[11px] font-bold text-slate-500 dark:text-slate-400 mb-1">
+                Nama Panggilan Karakter
+              </label>
+              <input
+                type="text"
+                value={playerName}
+                onChange={(e) => handleNameChange(e.target.value)}
+                maxLength={24}
+                className="w-full px-3 py-1.5 text-xs font-bold rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-white"
+              />
+              {nameError && (
+                <div className="mt-1.5 p-2 rounded-lg bg-rose-50 dark:bg-rose-950/40 border border-rose-200 dark:border-rose-800 text-rose-600 dark:text-rose-400 text-[11px] flex items-center justify-between gap-1">
+                  <span>{nameError}</span>
+                  <button
+                    type="button"
+                    onClick={suggestAlternativeName}
+                    className="font-bold underline text-indigo-600 dark:text-indigo-400 shrink-0"
+                  >
+                    Ganti Nama
+                  </button>
+                </div>
+              )}
+            </div>
+
             <h3 className="text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">
-              Karakter Kamu
+              Model Chibi
             </h3>
             <div className="grid grid-cols-2 gap-2.5">
               {(
@@ -467,18 +557,24 @@ export function StudentSessionLobby() {
 
           <div className="flex flex-wrap items-center gap-2.5">
             {!isHost && (
-              <button
-                type="button"
-                onClick={handleToggleReady}
-                className={`inline-flex items-center gap-2 px-5 py-2.5 rounded-xl text-sm font-bold shadow transition-all ${
-                  ready
-                    ? "bg-emerald-600 text-white"
-                    : "bg-slate-800 hover:bg-slate-700 text-white"
-                }`}
-              >
-                <CheckCircle2 className="h-4 w-4" />
-                {ready ? "Sudah Siap" : "Tandai Siap"}
-              </button>
+              <div className="flex items-center gap-2.5 flex-wrap">
+                <span className="text-xs font-semibold text-slate-500 dark:text-slate-400 flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-amber-50 dark:bg-amber-950/30 border border-amber-200/60 dark:border-amber-800/40 text-amber-700 dark:text-amber-300">
+                  <span className="w-2 h-2 rounded-full bg-amber-500 animate-ping" />
+                  Menunggu Host Memulai Game
+                </span>
+                <button
+                  type="button"
+                  onClick={handleToggleReady}
+                  className={`inline-flex items-center gap-2 px-5 py-2.5 rounded-xl text-sm font-bold shadow transition-all ${
+                    ready
+                      ? "bg-emerald-600 text-white"
+                      : "bg-slate-800 hover:bg-slate-700 text-white"
+                  }`}
+                >
+                  <CheckCircle2 className="h-4 w-4" />
+                  {ready ? "Sudah Siap" : "Tandai Siap"}
+                </button>
+              </div>
             )}
 
             {isHost && (

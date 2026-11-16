@@ -62,6 +62,13 @@ export function OnlineRoomModal({
     (s) => s.status?.toLowerCase() === "published",
   );
 
+  const [playerName, setPlayerName] = useState(() => {
+    return (
+      localStorage.getItem("harmony_player_name") ||
+      currentUser?.name ||
+      "Pemain"
+    );
+  });
   const [tab, setTab] = useState<"create" | "join">("create");
   const [scenarioId, setScenarioId] = useState(
     defaultScenarioId || publishedScenarios[0]?.id || "",
@@ -76,6 +83,14 @@ export function OnlineRoomModal({
   const [joining, setJoining] = useState(false);
   const [publicRooms, setPublicRooms] = useState<PublicRoomSummary[]>([]);
   const [loadingRooms, setLoadingRooms] = useState(false);
+
+  const savePlayerName = (name: string) => {
+    const clean = name.slice(0, 24);
+    setPlayerName(clean);
+    try {
+      localStorage.setItem("harmony_player_name", clean);
+    } catch {}
+  };
 
   useEffect(() => {
     if (defaultScenarioId) {
@@ -115,6 +130,7 @@ export function OnlineRoomModal({
       show("Pilih skenario terbit terlebih dahulu.", "error");
       return;
     }
+    const cleanName = (playerName || currentUser?.name || "Host").trim();
     setCreating(true);
     try {
       const created = await apiClient.post("/api/sessions", {
@@ -122,7 +138,7 @@ export function OnlineRoomModal({
         classId: "mabar",
         mapId,
         scenarioId,
-        displayName: currentUser?.name || "Host",
+        displayName: cleanName,
         settings: {
           mode,
           difficulty,
@@ -144,13 +160,14 @@ export function OnlineRoomModal({
     e.preventDefault();
     const cleaned = joinCode.replace(/\s+/g, "").toUpperCase();
     if (!cleaned) return;
+    const cleanName = (playerName || currentUser?.name || "Pemain").trim();
     setJoining(true);
     try {
       const session = await apiClient.get(`/api/sessions/${cleaned}`, {
         ttl: 0,
       });
       await apiClient.post(`/api/sessions/${session.id}/join`, {
-        displayName: currentUser?.name || "Pemain",
+        displayName: cleanName,
       });
       onClose();
       navigate(`/app/simulation/lobby/${session.id}`);
@@ -162,10 +179,11 @@ export function OnlineRoomModal({
   };
 
   const handleJoinRoom = async (roomId: string) => {
+    const cleanName = (playerName || currentUser?.name || "Pemain").trim();
     setJoining(true);
     try {
       await apiClient.post(`/api/sessions/${roomId}/join`, {
-        displayName: currentUser?.name || "Pemain",
+        displayName: cleanName,
       });
       onClose();
       navigate(`/app/simulation/lobby/${roomId}`);
@@ -227,7 +245,22 @@ export function OnlineRoomModal({
           </button>
         </div>
 
-        <div className="p-5">
+        <div className="p-5 space-y-4">
+          <div className="p-3 rounded-xl bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700">
+            <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">
+              Nama Karakter Kamu di Game:
+            </label>
+            <input
+              type="text"
+              value={playerName}
+              onChange={(e) => savePlayerName(e.target.value)}
+              placeholder="Contoh: Budi, Salsa_99"
+              maxLength={24}
+              required
+              className="w-full px-3 py-1.5 text-xs font-bold rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-slate-900 dark:text-white focus:border-indigo-500"
+            />
+          </div>
+
           {tab === "create" ? (
             <form onSubmit={handleCreateRoom} className="space-y-4">
               <div>
