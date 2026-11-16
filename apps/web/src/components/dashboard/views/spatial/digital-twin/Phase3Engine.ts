@@ -1444,29 +1444,26 @@ export class Phase3Engine {
       const overlayAlpha = smokeOverlay
         ? 0.86
         : Math.min(0.75, ambientDarkness);
-      const sightRadiusPx = (smokeOverlay ? 115 : 230) * scale;
-      const screenPlayerX = (this.player.x - this.camera.x) * scale;
-      const screenPlayerY = (this.player.y - this.camera.y) * scale;
+      const sightRadiusPx = (smokeOverlay ? 145 : 270) * scale;
+      const screenPlayerX = (this.player.x - Math.floor(this.camera.x) + shakeX) * scale;
+      const screenPlayerY = (this.player.y - Math.floor(this.camera.y) + shakeY) * scale;
 
-      this.ctx.fillStyle = `rgba(10, 15, 30, ${overlayAlpha})`;
-      this.ctx.fillRect(0, 0, width, height);
-
-      this.ctx.globalCompositeOperation = "destination-out";
       const grad = this.ctx.createRadialGradient(
         screenPlayerX,
         screenPlayerY,
-        sightRadiusPx * 0.16,
+        sightRadiusPx * 0.25,
         screenPlayerX,
         screenPlayerY,
         sightRadiusPx,
       );
-      grad.addColorStop(0, "rgba(255, 255, 255, 1)");
-      grad.addColorStop(1, "rgba(255, 255, 255, 0)");
+      grad.addColorStop(0, "rgba(8, 12, 24, 0)");
+      grad.addColorStop(
+        0.6,
+        `rgba(8, 12, 24, ${(overlayAlpha * 0.55).toFixed(3)})`,
+      );
+      grad.addColorStop(1, `rgba(8, 12, 24, ${overlayAlpha.toFixed(3)})`);
       this.ctx.fillStyle = grad;
-      this.ctx.beginPath();
-      this.ctx.arc(screenPlayerX, screenPlayerY, sightRadiusPx, 0, Math.PI * 2);
-      this.ctx.fill();
-      this.ctx.globalCompositeOperation = "source-over";
+      this.ctx.fillRect(0, 0, width, height);
     }
 
     if (this.player.health < this.player.maxHealth && this.player.alive) {
