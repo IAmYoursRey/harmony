@@ -1186,12 +1186,23 @@ export const GeospatialWeatherModal: React.FC<GeospatialWeatherModalProps> = ({
     setIsChartDragging(false);
   }, []);
 
-  const handleChartWheel = useCallback((e: React.WheelEvent) => {
-    if (!chartScrollRef.current) return;
-    if (Math.abs(e.deltaY) > Math.abs(e.deltaX) && Math.abs(e.deltaY) > 2) {
-      chartScrollRef.current.scrollLeft += e.deltaY;
-    }
-  }, []);
+  // Use native non-passive wheel handling so zoomed timeline scrolling does not scroll the outer sheet vertically
+  useEffect(() => {
+    const el = chartScrollRef.current;
+    if (!el || chartZoomLevel === 'fit') return;
+
+    const onWheel = (e: WheelEvent) => {
+      if (el.scrollWidth <= el.clientWidth) return;
+      if (Math.abs(e.deltaY) > Math.abs(e.deltaX) && Math.abs(e.deltaY) > 1) {
+        e.preventDefault();
+        e.stopPropagation();
+        el.scrollLeft += e.deltaY;
+      }
+    };
+
+    el.addEventListener('wheel', onWheel, { passive: false });
+    return () => el.removeEventListener('wheel', onWheel);
+  }, [chartZoomLevel, mainVisualGraph, timeframe]);
 
   const chartTrackStyle = useMemo(() => {
     const totalPoints = chartDisplayData.length;
@@ -1676,12 +1687,14 @@ export const GeospatialWeatherModal: React.FC<GeospatialWeatherModalProps> = ({
     }
   }, [isOpen, asPage, lat, lng, locationName, userPreciseLocation, initialDomain, activeDomain, selectedRegionId]);
 
+  const isStudioActive = Boolean(isOpen || asPage);
+
   // If switched to weather tab and no data yet, load it
   useEffect(() => {
-    if (isOpen && activeDomain === 'weather' && !data) {
+    if (isStudioActive && activeDomain === 'weather' && !data && !loading) {
       loadWeather(activeLat, activeLng, activeRegionName);
     }
-  }, [activeDomain, isOpen]);
+  }, [activeDomain, isStudioActive]);
 
   const handleManualRefreshAll = useCallback(() => {
     setRefreshCountdown(300);
@@ -1691,7 +1704,7 @@ export const GeospatialWeatherModal: React.FC<GeospatialWeatherModalProps> = ({
 
   // Automated 5-Minute Polling Lifecycle: hitung mundur detik demi detik dan perbarui seluruh data setiap 5 menit
   useEffect(() => {
-    if (!isOpen) return;
+    if (!isStudioActive) return;
     const intervalTimer = setInterval(() => {
       setRefreshCountdown((prev) => {
         if (prev <= 1) {
@@ -1704,7 +1717,7 @@ export const GeospatialWeatherModal: React.FC<GeospatialWeatherModalProps> = ({
       });
     }, 1000);
     return () => clearInterval(intervalTimer);
-  }, [isOpen, activeLat, activeLng, activeRegionName]);
+  }, [isStudioActive, activeLat, activeLng, activeRegionName]);
 
   const formattedCountdown = useMemo(() => {
     const mins = Math.floor(refreshCountdown / 60);
@@ -2255,6 +2268,11 @@ export const GeospatialWeatherModal: React.FC<GeospatialWeatherModalProps> = ({
     ispuSummary,
   ]);
 
+  const onlineSourcesCount = useMemo(
+    () => activeGeospatialSources.filter((s) => s.status === 'ONLINE').length,
+    [activeGeospatialSources]
+  );
+
   const filteredHubSources = useMemo(() => {
     if (selectedHubCategory === 'ALL') return activeGeospatialSources;
     if (selectedHubCategory === 'WEATHER') {
@@ -2330,7 +2348,6 @@ export const GeospatialWeatherModal: React.FC<GeospatialWeatherModalProps> = ({
             </button>
           </div>
 
-          {/* Quick 16 Active Data Sources Status in Header */}
           <button
             type="button"
             onClick={() => {
@@ -2343,12 +2360,12 @@ export const GeospatialWeatherModal: React.FC<GeospatialWeatherModalProps> = ({
               }, 50);
             }}
             className="hidden lg:flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl bg-emerald-500/10 hover:bg-emerald-500/20 border border-emerald-500/25 text-xs font-bold text-emerald-600 dark:text-emerald-400 transition-all cursor-pointer shadow-2xs"
-            title="Lihat seluruh 16 Data Spasial Real-Time Valid (HTTP 200) yang terhubung"
+            title={`Lihat status dan cuplikan data dari ${onlineSourcesCount}/${activeGeospatialSources.length} sumber geospasial aktif`}
           >
             <Layers className="w-3.5 h-3.5 text-emerald-500" />
-            <span>16 Sumber Valid</span>
+            <span>{onlineSourcesCount}/{activeGeospatialSources.length} Sumber Aktif</span>
             <span className="text-[10px] font-mono px-1 py-0.2 rounded bg-emerald-500/20 text-emerald-700 dark:text-emerald-300">
-              HTTP 200
+              LIVE
             </span>
           </button>
 
@@ -2692,7 +2709,9 @@ export const GeospatialWeatherModal: React.FC<GeospatialWeatherModalProps> = ({
                   <div className="flex items-center gap-2 flex-wrap">
                     <span className="font-bold text-slate-800 dark:text-white flex items-center gap-1.5">
                       <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse inline-block" />
-                      {data.dataStatus === 'PARTIAL' ? 'Data Sumber Sebagian' : '16 Sumber Data Terhubung (HTTP 200)'}
+                      {data.dataStatus === 'PARTIAL'
+                        ? `Data Sumber Sebagian (${onlineSourcesCount}/${activeGeospatialSources.length})`
+                        : `${onlineSourcesCount} Sumber Data Terhubung (LIVE)`}
                     </span>
                     <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold border ${
                       data.servedFromCache
@@ -2795,7 +2814,7 @@ export const GeospatialWeatherModal: React.FC<GeospatialWeatherModalProps> = ({
                       title="Lihat status dan cuplikan data dari seluruh 16 sumber geospasial real-time"
                     >
                       <Layers className="w-3.5 h-3.5 text-indigo-500" />
-                      <span>16 Sumber Spasial Aktif (HTTP 200)</span>
+                      <span>{onlineSourcesCount}/{activeGeospatialSources.length} Sumber Spasial Aktif</span>
                     </button>
                   </div>
                 </div>
@@ -3751,7 +3770,6 @@ export const GeospatialWeatherModal: React.FC<GeospatialWeatherModalProps> = ({
                       onMouseMove={chartZoomLevel === 'fit' ? undefined : handleMouseMove}
                       onMouseUp={chartZoomLevel === 'fit' ? undefined : handleMouseUpOrLeave}
                       onMouseLeave={chartZoomLevel === 'fit' ? undefined : handleMouseUpOrLeave}
-                      onWheel={chartZoomLevel === 'fit' ? undefined : handleChartWheel}
                       className={`h-80 sm:h-96 w-full select-none rounded-2xl border border-slate-100 dark:border-slate-800/60 bg-slate-50/20 dark:bg-slate-900/20 ${
                         chartZoomLevel === 'fit'
                           ? 'overflow-hidden cursor-default'

@@ -1653,7 +1653,12 @@ export function MapsView() {
     }
     updateWindyLocation();
     setWeatherMapOverlay(overlayKey);
-    const isNativeSupported = overlayKey === 'radar' || overlayKey === 'bmkg_radar' || overlayKey === 'rain';
+    const isNativeSupported =
+      overlayKey === 'radar' ||
+      overlayKey === 'bmkg_radar' ||
+      overlayKey === 'rain' ||
+      overlayKey === 'satellite' ||
+      overlayKey === 'bmkg_sat';
     if (!isNativeSupported) {
       setWeatherRenderMode('windy');
     }
@@ -1671,7 +1676,12 @@ export function MapsView() {
       setShowWindyMenu(false);
     } else {
       setWeatherMapOverlay(overlayKey);
-      const isNativeSupported = overlayKey === 'radar' || overlayKey === 'bmkg_radar' || overlayKey === 'rain';
+      const isNativeSupported =
+        overlayKey === 'radar' ||
+        overlayKey === 'bmkg_radar' ||
+        overlayKey === 'rain' ||
+        overlayKey === 'satellite' ||
+        overlayKey === 'bmkg_sat';
       if (!isNativeSupported) {
         setWeatherRenderMode('windy');
       }
@@ -4244,7 +4254,7 @@ export function MapsView() {
     const handleResolutionChange = () => {
       if (is3D || switchingTo3D || mapMode !== 'spatial' || isTV || !canRun3D) return;
       const curZoom = view.getZoom();
-      if (curZoom !== undefined && curZoom <= 3.5) {
+      if (curZoom !== undefined && curZoom <= 2.3) {
         switchingTo3D = true;
         const center = view.getCenter();
         if (center) {
@@ -6515,8 +6525,9 @@ export function MapsView() {
             {showWeatherCard && (
               <div className="pointer-events-auto relative z-10 transition-all duration-200">
                 <MapWeatherObservationCard
-                  lat={userCoords?.lat ?? -7.2575}
-                  lng={userCoords?.lng ?? 112.7521}
+                  lat={userCoords?.lat ?? selection?.school?.lat ?? activeSchoolLat}
+                  lng={userCoords?.lng ?? selection?.school?.lng ?? activeSchoolLng}
+                  onOpenDetails={() => openStudioDomain('weather')}
                 />
               </div>
             )}
@@ -10341,7 +10352,18 @@ export function MapsView() {
                             : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-200'
                         }`}
                       >
-                        📡 Radar Native (OpenLayers)
+                        Radar &amp; Citra Native
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setWeatherRenderMode('windy')}
+                        className={`flex-1 py-1.5 px-2 rounded-lg text-center transition-all ${
+                          weatherRenderMode === 'windy'
+                            ? 'bg-white dark:bg-slate-900 text-sky-600 dark:text-sky-400 shadow-xs'
+                            : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-200'
+                        }`}
+                      >
+                        ECMWF (Windy)
                       </button>
                     </div>
 

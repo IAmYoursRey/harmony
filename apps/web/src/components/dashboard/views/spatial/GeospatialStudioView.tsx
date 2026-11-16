@@ -20,15 +20,17 @@ export const GeospatialStudioView: React.FC = () => {
   const [userPreciseLocation, setUserPreciseLocation] = useState<PreciseLocationInfo | null>(null);
 
   useEffect(() => {
+    let isMounted = true;
     if ('geolocation' in navigator) {
       navigator.geolocation.getCurrentPosition(
         async (pos) => {
+          if (!isMounted) return;
           const lat = pos.coords.latitude;
           const lng = pos.coords.longitude;
           setDeviceCoords({ lat, lng });
           try {
             const info = await preciseGeocodingService.reverseGeocode(lat, lng, pos.coords.accuracy);
-            setUserPreciseLocation(info);
+            if (isMounted) setUserPreciseLocation(info);
           } catch {
             // non-fatal
           }
@@ -37,6 +39,9 @@ export const GeospatialStudioView: React.FC = () => {
         { enableHighAccuracy: true, timeout: 8000, maximumAge: 300000 }
       );
     }
+    return () => {
+      isMounted = false;
+    };
   }, []);
 
   useEffect(() => {
@@ -115,10 +120,11 @@ export const GeospatialStudioView: React.FC = () => {
     };
   }, []);
 
-  const activeLat = deviceCoords?.lat ?? (currentUser ? (selection?.school?.lat ?? (currentProfile as any)?.schoolLat) : null) ?? -6.2088;
-  const activeLng = deviceCoords?.lng ?? (currentUser ? (selection?.school?.lng ?? (currentProfile as any)?.schoolLng) : null) ?? 106.8456;
-  const activeLocationName = userPreciseLocation?.shortDisplay 
-    || (currentUser ? (selection?.school?.name || (currentProfile as any)?.schoolName) : null)
+  const activeLat = deviceCoords?.lat ?? selection?.school?.lat ?? (currentUser ? (currentProfile as any)?.schoolLat : null) ?? -6.2088;
+  const activeLng = deviceCoords?.lng ?? selection?.school?.lng ?? (currentUser ? (currentProfile as any)?.schoolLng : null) ?? 106.8456;
+  const activeLocationName = userPreciseLocation?.shortDisplay
+    || selection?.school?.name
+    || (currentUser ? (currentProfile as any)?.schoolName : null)
     || (deviceCoords ? `Koordinat (${deviceCoords.lat.toFixed(3)}°, ${deviceCoords.lng.toFixed(3)}°)` : 'DKI Jakarta (Pusat)');
 
   return (

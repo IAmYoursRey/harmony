@@ -1,7 +1,5 @@
-import { useState, useRef, useEffect, useCallback } from "react";
+import { useState } from "react";
 import {
-  Bot,
-  SendHorizonal,
   BookOpen,
   Zap,
   Waves,
@@ -9,59 +7,46 @@ import {
   Wind,
   AlertTriangle,
   Trophy,
-  Star,
-  BarChart3,
   ChevronRight,
   RotateCcw,
   CheckCircle,
   XCircle,
-  Loader2,
   PenLine,
-  MessageSquare,
-  Award,
-  TrendingUp,
-  Lock,
   Mountain,
   CloudRain,
   Trees,
-  Play,
-  CheckCircle2,
-  ArrowRight,
-  ArrowLeft,
-  Clock,
   AlertCircle,
   Compass,
-  CornerDownRight,
-  HelpCircle,
-  FileText,
   Heart,
   Shield,
   MapPin,
   Sparkles,
+  Check,
   type LucideIcon,
 } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
 import {
-  getProfile,
-  buildAISummary,
   recordQuizSession,
-  createInitialTopicScore,
 } from "@/data/userProfiles";
 import {
-  askChatbotAI,
   generateQuizQuestions,
   evaluateQuizAnswers,
   type QuizQuestion,
   type QuizEvaluation,
   type QuizDifficulty,
 } from "@/services/geminiService";
+import { apiClient } from "@/services/apiClient";
 import { LogoSpinner } from "@/components/ui/LogoSpinner";
-import { Link } from "react-router-dom";
-import { Donut } from "@/components/dashboard/Charts";
 import { useI18n } from "@/hooks/useI18n";
 
-import { generateSmartSimulationQuestions } from "@/services/geminiService";
-import { useSchool } from "@/hooks/useSchool";
+function parseMcqOption(rawOption: string, index: number): { letter: string; label: string } {
+  const trimmed = rawOption.trim();
+  const match = trimmed.match(/^([A-E])[.):\-\s]+(.+)$/i);
+  if (match) {
+    return { letter: match[1].toUpperCase(), label: match[2].trim() };
+  }
+  return { letter: String.fromCharCode(65 + index), label: trimmed };
+}
 
 const TOPICS = [
   {
@@ -848,45 +833,53 @@ const learningMaterials = [
 ];
 
 export function DisasterQuestionView() {
-  const { t, locale } = useI18n();
-  const [activeTab, setActiveTab] = useState<"sim" | "materi" | "panduan">(
-    "sim",
-  );
-  const { currentUser, currentProfile, refreshProfile, updateUserProfile } =
-    useAuth();
-  const { selection } = useSchool();
-  const activeSchool = selection?.school;
-
-  const [phase, setPhase] = useState<
-    "select" | "sim" | "result" | "loading_smart"
-  >("select");
-  const [selectedType, setSelectedType] = useState<
-    DisasterType | "smart" | null
-  >(null);
-  const [stepIdx, setStepIdx] = useState(0);
-  const [answers, setAnswers] = useState<boolean[]>([]);
-  const [feedback, setFeedback] = useState<string | null>(null);
-  const [picked, setPicked] = useState<number | null>(null);
-  const [smartSteps, setSmartSteps] = useState<SimStep[]>([]);
-  const [smartMastered, setSmartMastered] = useState<string[]>([]);
+  const { locale } = useI18n();
+  const [activeTab, setActiveTab] = useState<"sim" | "materi" | "panduan">("sim");
+  const { currentUser, currentProfile, refreshProfile } = useAuth();
 
   const [selectedMaterialIdx, setSelectedMaterialIdx] = useState(0);
 
-  const [quizPhase, setQuizPhase] = useState<any>("topic-select");
+  const [quizPhase, setQuizPhase] = useState<QuizPhase>("topic-select");
   const [selectedTopic, setSelectedTopic] = useState<string>("");
-  const [quizQuestions, setQuizQuestions] = useState<any[]>([]);
+  const [quizQuestions, setQuizQuestions] = useState<QuizQuestion[]>([]);
   const [quizAnswers, setQuizAnswers] = useState<Record<string, string>>({});
-  const [quizEvaluations, setQuizEvaluations] = useState<any[]>([]);
+  const [quizEvaluations, setQuizEvaluations] = useState<QuizEvaluation[]>([]);
+  const [quizError, setQuizError] = useState<string | null>(null);
+  const [selectedDifficultyOverride, setSelectedDifficultyOverride] = useState<"auto" | QuizDifficulty>("auto");
+  const [checkedGuideSteps, setCheckedGuideSteps] = useState<Record<string, boolean>>(() => {
+    try {
+      const saved = window.localStorage.getItem("harmony_evacuation_checklist");
+      return saved ? JSON.parse(saved) : {};
+    } catch {
+      return {};
+    }
+  });
+
+  const toggleGuideStep = (stepKey: string) => {
+    setCheckedGuideSteps((prev) => {
+      const next = { ...prev, [stepKey]: !prev[stepKey] };
+      try {
+        window.localStorage.setItem("harmony_evacuation_checklist", JSON.stringify(next));
+      } catch {
+        // Ignore storage quota issues in private browsing.
+      }
+      return next;
+    });
+  };
 
   const startQuiz = async (topicId: string) => {
     setSelectedTopic(topicId);
+    setQuizError(null);
     setQuizPhase("loading");
     setQuizAnswers({});
     setQuizEvaluations([]);
     const topicLabel = TOPICS.find((tp) => tp.id === topicId)?.label ?? topicId;
     const topicScore = currentProfile?.topicScores?.[topicLabel];
     const isFirst = !topicScore || topicScore.isFirstAttempt;
-    const difficulty = topicScore?.currentLevel ?? "pemula";
+    const difficulty =
+      selectedDifficultyOverride === "auto"
+        ? (topicScore?.currentLevel ?? "pemula")
+        : selectedDifficultyOverride;
     const count = isFirst
       ? 5
       : difficulty === "pemula"
@@ -894,72 +887,94 @@ export function DisasterQuestionView() {
         : difficulty === "menengah"
           ? 4
           : 5;
-    const qs = await generateQuizQuestions(
-      topicLabel,
-      difficulty,
-      count,
-      isFirst,
-      topicScore?.weakTopics ?? [],
-      topicScore?.strongTopics ?? [],
-    );
-    setQuizQuestions(qs);
-    setQuizPhase("answering");
+
+    try {
+      const qs = await generateQuizQuestions(
+        topicLabel,
+        difficulty,
+        count,
+        isFirst,
+        topicScore?.weakTopics ?? [],
+        topicScore?.strongTopics ?? [],
+      );
+      if (!Array.isArray(qs) || qs.length === 0) {
+        throw new Error("AI belum mengembalikan daftar pertanyaan yang valid.");
+      }
+      setQuizQuestions(qs);
+      setQuizPhase("answering");
+    } catch (err) {
+      setQuizError(
+        err instanceof Error
+          ? err.message
+          : "Gagal memuat soal dari server AI. Silakan coba lagi.",
+      );
+      setQuizPhase("topic-select");
+    }
   };
 
   const submitQuiz = async () => {
+    if (quizQuestions.length === 0) return;
+    setQuizError(null);
     setQuizPhase("evaluating");
-    const evals = await evaluateQuizAnswers(quizQuestions, quizAnswers);
-    setQuizEvaluations(evals);
-    if (currentUser) {
-      const topicLabel =
-        TOPICS.find((tp) => tp.id === selectedTopic)?.label ?? selectedTopic;
-      const totalScore =
-        evals.length > 0
-          ? Math.round(evals.reduce((s, e) => s + e.score, 0) / evals.length)
-          : 0;
-      const weak = evals
-        .filter((e) => e.score < 60)
-        .map(
-          (e) =>
-            quizQuestions.find((q) => q.id === e.questionId)?.subTopic ?? "",
-        )
-        .filter(Boolean);
-      const strong = evals
-        .filter((e) => e.score >= 80)
-        .map(
-          (e) =>
-            quizQuestions.find((q) => q.id === e.questionId)?.subTopic ?? "",
-        )
-        .filter(Boolean);
-      await recordQuizSession(
-        currentUser.id,
-        topicLabel,
-        totalScore,
-        weak,
-        strong,
-      );
 
-      // Save history for teacher review
-      try {
-        await fetch("http://localhost:3001/api/quiz-history", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
+    try {
+      const evals = await evaluateQuizAnswers(quizQuestions, quizAnswers);
+      setQuizEvaluations(evals);
+
+      if (currentUser) {
+        const topicLabel =
+          TOPICS.find((tp) => tp.id === selectedTopic)?.label ?? selectedTopic;
+        const totalScore =
+          evals.length > 0
+            ? Math.round(evals.reduce((s, e) => s + e.score, 0) / evals.length)
+            : 0;
+        const weak = evals
+          .filter((e) => e.score < 60)
+          .map(
+            (e) =>
+              quizQuestions.find((q) => q.id === e.questionId)?.subTopic ?? "",
+          )
+          .filter(Boolean);
+        const strong = evals
+          .filter((e) => e.score >= 80)
+          .map(
+            (e) =>
+              quizQuestions.find((q) => q.id === e.questionId)?.subTopic ?? "",
+          )
+          .filter(Boolean);
+
+        await recordQuizSession(
+          currentUser.id,
+          topicLabel,
+          totalScore,
+          weak,
+          strong,
+        );
+
+        try {
+          await apiClient.post("/api/quiz-history", {
             userId: currentUser.id,
             topicId: selectedTopic,
             questions: quizQuestions,
             answers: quizAnswers,
             evaluations: evals,
-            score: totalScore
-          })
-        });
-      } catch (e) {
-        console.error("Failed to save quiz history", e);
-      }
+            score: totalScore,
+          });
+        } catch (e) {
+          console.error("Failed to save quiz history", e);
+        }
 
-      refreshProfile();
+        refreshProfile();
+      }
+      setQuizPhase("results");
+    } catch (err) {
+      setQuizError(
+        err instanceof Error
+          ? err.message
+          : "Penilaian jawaban gagal diproses. Jawaban Anda tetap tersimpan.",
+      );
+      setQuizPhase("answering");
     }
-    setQuizPhase("results");
   };
 
   const resetQuiz = () => {
@@ -968,6 +983,7 @@ export function DisasterQuestionView() {
     setQuizQuestions([]);
     setQuizAnswers({});
     setQuizEvaluations([]);
+    setQuizError(null);
   };
 
   const quizAvgScore =
@@ -978,222 +994,124 @@ export function DisasterQuestionView() {
         )
       : 0;
   const quizTopicMeta = TOPICS.find((tp) => tp.id === selectedTopic);
-
-  const startSim = (type: DisasterType | "smart") => {
-    setSelectedType(type);
-    setStepIdx(0);
-    setAnswers([]);
-    setFeedback(null);
-    setPicked(null);
-    setSmartSteps([]);
-    setSmartMastered([]);
-
-    if (type === "smart") {
-      startSmartSim();
-    } else {
-      setPhase("sim");
-    }
-  };
-
-  const startSmartSim = async () => {
-    setPhase("loading_smart");
-    const schoolRisk = activeSchool
-      ? {
-          earthquake: activeSchool.earthquake,
-          flood: activeSchool.flood,
-          tsunami: activeSchool.tsunami,
-          landslide: activeSchool.landslide,
-          volcano: activeSchool.volcanic,
-          fire: 30, // Default static probability
-        }
-      : {
-          earthquake: 20,
-          flood: 20,
-          tsunami: 20,
-          landslide: 20,
-          volcano: 20,
-          fire: 20,
-        };
-
-    const qs = await generateSmartSimulationQuestions({
-      schoolRisk,
-      masteredConcepts: currentProfile?.masteredConcepts || [],
-      mode: "learning",
-      count: 10,
-    });
-
-    const mappedSteps: SimStep[] = qs.map((q, idx) => {
-      const options = (q.options || [])
-        .map((opt) => ({
-          text: opt,
-          correct: opt.startsWith(q.correctOption || "A"),
-          feedback: opt.startsWith(q.correctOption || "A")
-            ? "Benar!"
-            : `Salah. Jawaban tepat adalah ${q.correctOption}.`,
-          subTopic: q.subTopic,
-        }))
-        .sort(() => Math.random() - 0.5);
-
-      return {
-        title: `Skenario Cerdas ${idx + 1} · ${q.subTopic}`,
-        instruction: q.question,
-        options,
-      };
-    });
-
-    setSmartSteps(mappedSteps);
-    setPhase("sim");
-  };
-
-  const reset = () => {
-    setPhase("select");
-    setSelectedType(null);
-    setStepIdx(0);
-    setAnswers([]);
-    setFeedback(null);
-    setPicked(null);
-    setSmartSteps([]);
-    setSmartMastered([]);
-  };
-
-  const pickOption = (
-    correct: boolean,
-    feedbackText: string,
-    idx: number,
-    subTopic?: string,
-  ) => {
-    if (feedback !== null) return;
-    setPicked(idx);
-    setFeedback(feedbackText);
-    setAnswers((a) => [...a, correct]);
-    if (correct && subTopic && selectedType === "smart") {
-      setSmartMastered((prev) => [...prev, subTopic]);
-    }
-  };
-
-  const nextStep = () => {
-    const steps =
-      selectedType === "smart"
-        ? smartSteps
-        : selectedType
-          ? simSteps[selectedType]
-          : [];
-    if (stepIdx + 1 < steps.length) {
-      setStepIdx(stepIdx + 1);
-      setFeedback(null);
-      setPicked(null);
-    } else {
-      setPhase("result");
-      if (currentProfile) {
-        const totalAnswers = answers.length || 1;
-        const scoreEarned =
-          Math.round((answers.filter(Boolean).length / totalAnswers) * 100) ||
-          0;
-        const pointsEarned = Math.round(scoreEarned * 0.5) + (scoreEarned >= 80 ? 25 : 10);
-        const newTotal = (currentProfile.totalPoints || 0) + pointsEarned;
-        const newTopicScores = { ...(currentProfile.topicScores || {}) };
-
-        if (selectedType === "smart") {
-          smartMastered.forEach((t) => {
-            if (!newTopicScores[t]) newTopicScores[t] = createInitialTopicScore();
-            newTopicScores[t].averageScore = 100;
-          });
-        } else if (selectedType) {
-          if (!newTopicScores[selectedType]) newTopicScores[selectedType] = createInitialTopicScore();
-          const cur = newTopicScores[selectedType];
-          cur.totalAttempts = (cur.totalAttempts || 0) + 1;
-          cur.totalScore = (cur.totalScore || 0) + scoreEarned;
-          cur.averageScore = Math.round(cur.totalScore / cur.totalAttempts);
-          cur.lastAttempt = new Date().toISOString();
-        }
-
-        updateUserProfile({
-          totalPoints: newTotal,
-          topicScores: newTopicScores,
-        });
-      }
-    }
-  };
-
-  const score =
-    Math.round((answers.filter(Boolean).length / answers.length) * 100) || 0;
+  const answeredCount = quizQuestions.filter(
+    (q) => (quizAnswers[q.id] ?? "").trim().length > 0,
+  ).length;
 
   return (
     <div className="space-y-6">
-      {/* Header Banner */}
       <div className="relative overflow-hidden rounded-2xl bg-gradient-to-br from-brand-600 via-brand-700 to-brand-900 p-6 text-white shadow-glass-lg sm:p-8">
         <div className="absolute inset-0 bg-grid-pattern bg-[size:36px_36px] opacity-15" />
         <div className="absolute -right-10 -top-10 h-48 w-48 rounded-full bg-white/10 blur-3xl" />
         <div className="relative">
           <div className="inline-flex items-center gap-1.5 rounded-full bg-white/15 px-3 py-1 text-xs font-semibold backdrop-blur-sm">
             <Shield className="h-3.5 w-3.5" strokeWidth={2.5} />{" "}
-            {locale === "id" ? "Pertanyaan Bencana" : "Disaster Question"}
+            {locale === "id" ? "Pusat Evaluasi & Pembelajaran" : "Learning & Assessment Center"}
           </div>
           <h2 className="mt-3 font-display text-2xl font-extrabold tracking-tight sm:text-3xl">
             {locale === "id"
               ? "Pusat Pertanyaan Bencana"
               : "Disaster Question Center"}
           </h2>
-          <p className="mt-1.5 max-w-md text-sm text-brand-100">
+          <p className="mt-1.5 max-w-xl text-sm text-brand-100">
             {locale === "id"
-              ? "Ikuti pertanyaan bencana interaktif, pelajari materi bencana berkelanjutan, dan ikuti panduan penyelamatan diri."
-              : "Take interactive disaster questions and read continuous safety guides."}
+              ? "Uji pemahaman mitigasi adaptif berbasis AI, pelajari kurikulum terstruktur, dan verifikasi daftar kesiapsiagaan evakuasi mandiri."
+              : "Take adaptive disaster questions, study structured mitigation modules, and verify evacuation readiness."}
           </p>
         </div>
       </div>
 
-      {/* Tabs Selector */}
-      <div className="flex border-b border-brand-100 dark:border-slate-800">
+      <div className="flex border-b border-slate-200 dark:border-slate-800">
         <button
-          onClick={() => {
-            setActiveTab("sim");
-            reset();
-          }}
-          className={`flex-1 pb-3 text-center text-sm font-semibold transition-all border-b-2 ${
+          type="button"
+          onClick={() => setActiveTab("sim")}
+          className={`flex-1 pb-3 flex items-center justify-center gap-2 text-sm font-semibold transition-all border-b-2 ${
             activeTab === "sim"
-              ? "border-brand-600 text-brand-600 dark:border-brand-50 dark:text-brand-400"
-              : "border-transparent text-ink-500 hover:text-ink-800 dark:text-slate-400 dark:hover:text-white"
+              ? "border-brand-600 text-brand-600 dark:border-brand-400 dark:text-brand-400"
+              : "border-transparent text-slate-500 hover:text-slate-800 dark:text-slate-400 dark:hover:text-white"
           }`}
         >
-          🎮 {locale === "id" ? "Interaktif" : "Interactive"}
+          <Sparkles className="h-4 w-4" />
+          <span>{locale === "id" ? "Evaluasi Interaktif" : "Interactive Quiz"}</span>
         </button>
         <button
+          type="button"
           onClick={() => setActiveTab("materi")}
-          className={`flex-1 pb-3 text-center text-sm font-semibold transition-all border-b-2 ${
+          className={`flex-1 pb-3 flex items-center justify-center gap-2 text-sm font-semibold transition-all border-b-2 ${
             activeTab === "materi"
-              ? "border-brand-600 text-brand-600 dark:border-brand-50 dark:text-brand-400"
-              : "border-transparent text-ink-500 hover:text-ink-800 dark:text-slate-400 dark:hover:text-white"
+              ? "border-brand-600 text-brand-600 dark:border-brand-400 dark:text-brand-400"
+              : "border-transparent text-slate-500 hover:text-slate-800 dark:text-slate-400 dark:hover:text-white"
           }`}
         >
-          📚 {locale === "id" ? "Materi Berkelanjutan" : "Continuous Materials"}
+          <BookOpen className="h-4 w-4" />
+          <span>{locale === "id" ? "Materi Berkelanjutan" : "Learning Materials"}</span>
         </button>
         <button
+          type="button"
           onClick={() => setActiveTab("panduan")}
-          className={`flex-1 pb-3 text-center text-sm font-semibold transition-all border-b-2 ${
+          className={`flex-1 pb-3 flex items-center justify-center gap-2 text-sm font-semibold transition-all border-b-2 ${
             activeTab === "panduan"
-              ? "border-brand-600 text-brand-600 dark:border-brand-50 dark:text-brand-400"
-              : "border-transparent text-ink-500 hover:text-ink-800 dark:text-slate-400 dark:hover:text-white"
+              ? "border-brand-600 text-brand-600 dark:border-brand-400 dark:text-brand-400"
+              : "border-transparent text-slate-500 hover:text-slate-800 dark:text-slate-400 dark:hover:text-white"
           }`}
         >
-          📋 {locale === "id" ? "Panduan Evakuasi Diri" : "Evacuation Guide"}
+          <Compass className="h-4 w-4" />
+          <span>{locale === "id" ? "Panduan Evakuasi Diri" : "Evacuation Guide"}</span>
         </button>
       </div>
 
-      {/* INTERAKTIF TAB — AI-generated disaster questions */}
+      {quizError && activeTab === "sim" && (
+        <div role="alert" className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 rounded-2xl border border-rose-300 bg-rose-50 dark:bg-rose-950/40 dark:border-rose-800/70 p-4 text-xs text-rose-800 dark:text-rose-200">
+          <div className="flex items-start gap-2.5">
+            <AlertCircle className="h-4 w-4 shrink-0 mt-0.5 text-rose-600 dark:text-rose-400" />
+            <div>
+              <p className="font-bold">Kendala Pemrosesan Evaluasi</p>
+              <p className="mt-0.5 opacity-90">{quizError}</p>
+            </div>
+          </div>
+          {selectedTopic && (
+            <button
+              type="button"
+              onClick={() => (quizPhase === "answering" ? submitQuiz() : startQuiz(selectedTopic))}
+              className="shrink-0 rounded-xl bg-rose-600 px-3.5 py-1.5 text-xs font-bold text-white hover:bg-rose-700 transition-colors"
+            >
+              Coba Lagi
+            </button>
+          )}
+        </div>
+      )}
+
       {activeTab === "sim" && (
         <div className="space-y-5">
           {quizPhase === "topic-select" && (
             <div className="space-y-4">
-              <div>
-                <h3 className="font-display text-lg font-bold text-ink-900 dark:text-white">
-                  Pilih Topik Bencana
-                </h3>
-                <p className="text-sm text-ink-500 dark:text-slate-400 mt-1">
-                  AI akan membuat soal interaktif khusus sesuai level dan
-                  riwayat belajar Anda.
-                </p>
+              <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-3">
+                <div>
+                  <h3 className="font-display text-lg font-bold text-slate-900 dark:text-white">
+                    Pilih Topik Bencana
+                  </h3>
+                  <p className="text-sm text-slate-500 dark:text-slate-400 mt-1">
+                    Soal pilihan ganda dan esai disusun adaptif sesuai riwayat penguasaan konsep Anda.
+                  </p>
+                </div>
+                <div className="flex items-center gap-1 rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-1 text-xs font-semibold">
+                  {(["auto", "pemula", "menengah", "mahir"] as const).map((lvl) => (
+                    <button
+                      key={lvl}
+                      type="button"
+                      onClick={() => setSelectedDifficultyOverride(lvl)}
+                      className={`px-2.5 py-1 rounded-lg capitalize transition-colors ${
+                        selectedDifficultyOverride === lvl
+                          ? "bg-brand-600 text-white shadow-sm"
+                          : "text-slate-500 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white"
+                      }`}
+                    >
+                      {lvl === "auto" ? "Adaptif" : lvl}
+                    </button>
+                  ))}
+                </div>
               </div>
-              <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
+              <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
                 {TOPICS.map((topicItem) => {
                   const Icon = topicItem.icon;
                   const topicScore =
@@ -1203,33 +1121,41 @@ export function DisasterQuestionView() {
                   return (
                     <button
                       key={topicItem.id}
+                      type="button"
                       onClick={() => startQuiz(topicItem.id)}
-                      className={`group flex flex-col items-start gap-2 rounded-2xl border ${topicItem.border} ${topicItem.bg} p-4 text-left transition-all hover:shadow-glass hover:-translate-y-0.5`}
+                      className={`group flex flex-col items-start gap-2.5 rounded-2xl border ${topicItem.border} ${topicItem.bg} p-4 text-left transition-all hover:shadow-glass hover:-translate-y-0.5`}
                     >
-                      <Icon className={`h-6 w-6 ${topicItem.color}`} />
-                      <p className="font-display text-sm font-bold text-ink-900 dark:text-white leading-tight">
+                      <div className="flex w-full items-center justify-between">
+                        <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-white/80 dark:bg-slate-900/70 shadow-xs">
+                          <Icon className={`h-5 w-5 ${topicItem.color}`} />
+                        </span>
+                        <ChevronRight className="h-4 w-4 text-slate-400 opacity-0 group-hover:opacity-100 group-hover:translate-x-0.5 transition-all" />
+                      </div>
+                      <p className="font-display text-sm font-bold text-slate-900 dark:text-white leading-tight">
                         {topicItem.label}
                       </p>
                       {level ? (
-                        <div className="flex flex-col gap-1 w-full">
-                          <span
-                            className={`text-[10px] font-bold px-2 py-0.5 rounded-full border ${LEVEL_COLORS[level as keyof typeof LEVEL_COLORS] || ""} w-fit`}
-                          >
-                            {level}
-                          </span>
-                          <div className="w-full h-1 bg-black/10 rounded-full">
+                        <div className="flex flex-col gap-1.5 w-full">
+                          <div className="flex items-center justify-between">
+                            <span
+                              className={`text-[10px] font-bold uppercase px-2 py-0.5 rounded-full border ${LEVEL_COLORS[level as keyof typeof LEVEL_COLORS] || ""}`}
+                            >
+                              {level}
+                            </span>
+                            <span className="text-[11px] font-semibold text-slate-500 dark:text-slate-400">
+                              Rata-rata {avg ?? 0}%
+                            </span>
+                          </div>
+                          <div className="w-full h-1.5 bg-slate-200/80 dark:bg-slate-700/80 rounded-full overflow-hidden">
                             <div
-                              className="h-1 rounded-full bg-brand-500"
-                              style={{ width: `${avg ?? 0}%` }}
+                              className="h-1.5 rounded-full bg-brand-500 transition-all"
+                              style={{ width: `${Math.min(100, Math.max(0, avg ?? 0))}%` }}
                             />
                           </div>
-                          <p className="text-[10px] text-ink-400">
-                            Rata-rata: {avg}%
-                          </p>
                         </div>
                       ) : (
-                        <span className="text-[10px] font-semibold text-ink-400">
-                          Belum pernah diuji
+                        <span className="text-[11px] font-medium text-slate-500 dark:text-slate-400">
+                          Belum pernah diuji · Mulai diagnostik
                         </span>
                       )}
                     </button>
@@ -1243,11 +1169,11 @@ export function DisasterQuestionView() {
             <div className="flex flex-col items-center justify-center py-20 gap-4">
               <LogoSpinner size="lg" />
               <div className="text-center">
-                <p className="font-display font-bold text-ink-900 dark:text-white">
-                  AI sedang menyiapkan soal...
+                <p className="font-display font-bold text-slate-900 dark:text-white">
+                  Menyiapkan evaluasi adaptif...
                 </p>
-                <p className="text-sm text-ink-500 dark:text-slate-400 mt-1">
-                  Disesuaikan dengan level &amp; riwayat belajar Anda
+                <p className="text-sm text-slate-500 dark:text-slate-400 mt-1">
+                  Topik {quizTopicMeta?.label} disesuaikan dengan riwayat belajar Anda
                 </p>
               </div>
             </div>
@@ -1255,99 +1181,128 @@ export function DisasterQuestionView() {
 
           {quizPhase === "answering" && (
             <div className="space-y-5">
-              <div className="flex items-center justify-between">
-                <div>
-                  <h3 className="font-display text-lg font-bold text-ink-900 dark:text-white">
-                    {quizTopicMeta?.label}
-                  </h3>
-                  <p className="text-xs text-ink-500 mt-0.5">
-                    {quizQuestions.length} soal · Level:{" "}
-                    <strong>
-                      {currentProfile?.topicScores?.[quizTopicMeta?.label ?? ""]
-                        ?.currentLevel ?? "Pemula"}
-                    </strong>
-                  </p>
+              <div className="rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-4 space-y-3">
+                <div className="flex items-center justify-between gap-2">
+                  <div>
+                    <h3 className="font-display text-lg font-bold text-slate-900 dark:text-white">
+                      {quizTopicMeta?.label}
+                    </h3>
+                    <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
+                      {answeredCount} dari {quizQuestions.length} soal terjawab · Level:{" "}
+                      <strong className="capitalize">
+                        {selectedDifficultyOverride === "auto"
+                          ? (currentProfile?.topicScores?.[quizTopicMeta?.label ?? ""]?.currentLevel ?? "Pemula")
+                          : selectedDifficultyOverride}
+                      </strong>
+                    </p>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={resetQuiz}
+                    className="rounded-xl border border-slate-200 dark:border-slate-700 px-3 py-1.5 text-xs font-semibold text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800 flex items-center gap-1.5 transition-colors"
+                  >
+                    <RotateCcw className="h-3.5 w-3.5" /> Ganti Topik
+                  </button>
                 </div>
-                <button
-                  onClick={resetQuiz}
-                  className="text-xs text-ink-400 hover:text-ink-600 flex items-center gap-1"
-                >
-                  <RotateCcw className="h-3.5 w-3.5" /> Ganti Topik
-                </button>
+                <div className="h-1.5 w-full rounded-full bg-slate-100 dark:bg-slate-800 overflow-hidden">
+                  <div
+                    className="h-full rounded-full bg-brand-600 transition-all duration-300"
+                    style={{
+                      width: `${quizQuestions.length > 0 ? Math.round((answeredCount / quizQuestions.length) * 100) : 0}%`,
+                    }}
+                  />
+                </div>
               </div>
+
               {quizQuestions.map((q, idx) => (
                 <div
                   key={q.id}
-                  className="rounded-2xl border border-brand-100 dark:border-slate-800 bg-white/80 dark:bg-slate-800/50 p-5 space-y-3"
+                  className="rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-5 space-y-3 shadow-xs"
                 >
-                  <div className="flex items-start gap-2">
-                    <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-brand-600 text-[11px] font-bold text-white mt-0.5">
-                      {idx + 1}
+                  <div className="flex items-start justify-between gap-3">
+                    <div className="flex items-start gap-2.5 flex-1">
+                      <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-brand-600 text-[11px] font-bold text-white mt-0.5">
+                        {idx + 1}
+                      </span>
+                      <p className="text-sm font-semibold text-slate-900 dark:text-white leading-relaxed">
+                        {q.question}
+                      </p>
+                    </div>
+                    <span className="shrink-0 rounded-md bg-slate-100 dark:bg-slate-800 px-2 py-0.5 text-[10px] font-bold uppercase text-slate-500 dark:text-slate-400">
+                      {q.type === "mcq" ? "Pilihan Ganda" : "Esai"}
                     </span>
-                    <p className="text-sm font-semibold text-ink-900 dark:text-white leading-relaxed">
-                      {q.question}
-                    </p>
                   </div>
                   {q.type === "mcq" && q.options ? (
                     <div className="space-y-2 mt-3">
-                      {q.options.map((opt: string) => {
-                        const optLetter = opt.charAt(0);
-                        const isSelected = quizAnswers[q.id] === optLetter;
+                      {q.options.map((opt, optIdx) => {
+                        const { letter, label } = parseMcqOption(opt, optIdx);
+                        const isSelected = quizAnswers[q.id] === letter;
                         return (
                           <button
-                            key={opt}
+                            key={`${q.id}-${letter}-${optIdx}`}
+                            type="button"
                             onClick={() =>
                               setQuizAnswers((prev) => ({
                                 ...prev,
-                                [q.id]: optLetter,
+                                [q.id]: letter,
                               }))
                             }
                             className={`w-full flex items-center gap-3 p-3 text-left rounded-xl border text-sm transition-all ${
                               isSelected
-                                ? "bg-brand-50 border-brand-400 text-brand-700 dark:bg-brand-500/20 dark:border-brand-500/50 dark:text-brand-300 shadow-sm"
-                                : "bg-white border-brand-100 text-ink-700 hover:bg-brand-50/50 hover:border-brand-300 dark:bg-slate-800 dark:border-slate-700 dark:text-slate-300"
+                                ? "bg-brand-50 border-brand-500 text-brand-800 dark:bg-brand-500/20 dark:border-brand-500/60 dark:text-brand-200 shadow-xs"
+                                : "bg-white border-slate-200 text-slate-700 hover:bg-slate-50 hover:border-slate-300 dark:bg-slate-800/70 dark:border-slate-700 dark:text-slate-200 dark:hover:bg-slate-800"
                             }`}
                           >
                             <span
                               className={`flex shrink-0 h-6 w-6 items-center justify-center rounded-full border text-[11px] font-bold ${
                                 isSelected
                                   ? "bg-brand-600 border-brand-600 text-white"
-                                  : "border-ink-300 dark:border-slate-600"
+                                  : "border-slate-300 dark:border-slate-600 text-slate-500 dark:text-slate-400"
                               }`}
                             >
-                              {optLetter}
+                              {letter}
                             </span>
-                            <span className="flex-1">
-                              {opt.substring(3).trim()}
-                            </span>
+                            <span className="flex-1 leading-snug">{label}</span>
                           </button>
                         );
                       })}
                     </div>
                   ) : (
-                    <textarea name="textarea_ylhgi" id="disasterquestionview-textarea_ylhgi"
-                      rows={3}
-                      value={quizAnswers[q.id] ?? ""}
-                      onChange={(e) =>
-                        setQuizAnswers((prev) => ({
-                          ...prev,
-                          [q.id]: e.target.value,
-                        }))
-                      }
-                      placeholder="Tulis jawaban singkat Anda..."
-                      className="w-full mt-3 rounded-xl border border-brand-100 dark:border-slate-700 bg-white dark:bg-slate-900 px-4 py-3 text-sm text-ink-900 dark:text-white placeholder:text-ink-400 outline-none focus:border-brand-400 resize-none"
-                    />
+                    <div className="mt-3 space-y-1">
+                      <textarea
+                        name={`quizEssay-${q.id}`}
+                        id={`quiz-essay-${q.id}`}
+                        rows={3}
+                        value={quizAnswers[q.id] ?? ""}
+                        onChange={(e) =>
+                          setQuizAnswers((prev) => ({
+                            ...prev,
+                            [q.id]: e.target.value,
+                          }))
+                        }
+                        placeholder="Tuliskan penjelasan langkah mitigasi atau alasan Anda secara ringkas dan jelas..."
+                        className="w-full rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50/50 dark:bg-slate-950/60 px-4 py-3 text-sm text-slate-900 dark:text-white placeholder:text-slate-400 outline-none focus:border-brand-500 focus:ring-2 focus:ring-brand-500/20 resize-y"
+                      />
+                      <p className="text-right text-[11px] text-slate-400">
+                        {(quizAnswers[q.id] ?? "").trim().length} karakter
+                      </p>
+                    </div>
                   )}
                 </div>
               ))}
               <button
+                type="button"
                 onClick={submitQuiz}
-                disabled={quizQuestions.some(
-                  (q) => !(quizAnswers[q.id] ?? "").trim(),
-                )}
+                disabled={
+                  quizQuestions.length === 0 ||
+                  quizQuestions.some((q) => !(quizAnswers[q.id] ?? "").trim())
+                }
                 className="w-full flex items-center justify-center gap-2 rounded-xl bg-brand-600 py-3.5 text-sm font-bold text-white shadow-glass hover:bg-brand-700 disabled:opacity-50 transition-all"
               >
-                <ChevronRight className="h-4 w-4" /> Kumpulkan Jawaban
+                <ChevronRight className="h-4 w-4" />
+                {answeredCount === quizQuestions.length
+                  ? "Kumpulkan & Nilai Jawaban"
+                  : `Lengkapi Semua Soal (${answeredCount}/${quizQuestions.length})`}
               </button>
             </div>
           )}
@@ -1356,11 +1311,11 @@ export function DisasterQuestionView() {
             <div className="flex flex-col items-center justify-center py-20 gap-4">
               <LogoSpinner size="lg" />
               <div className="text-center">
-                <p className="font-display font-bold text-ink-900 dark:text-white">
-                  AI sedang menilai jawaban...
+                <p className="font-display font-bold text-slate-900 dark:text-white">
+                  Menilai jawaban &amp; menyusun umpan balik...
                 </p>
-                <p className="text-sm text-ink-500 dark:text-slate-400 mt-1">
-                  Sebentar lagi
+                <p className="text-sm text-slate-500 dark:text-slate-400 mt-1">
+                  Setiap butir jawaban sedang dianalisis terhadap kunci mitigasi
                 </p>
               </div>
             </div>
@@ -1369,26 +1324,26 @@ export function DisasterQuestionView() {
           {quizPhase === "results" && (
             <div className="space-y-5">
               <div
-                className={`rounded-2xl p-5 text-white shadow-glass-lg ${quizAvgScore >= 80 ? "bg-gradient-to-br from-emerald-500 to-emerald-700" : quizAvgScore >= 60 ? "bg-gradient-to-br from-amber-500 to-amber-700" : "bg-gradient-to-br from-red-500 to-red-700"}`}
+                className={`rounded-2xl p-6 text-white shadow-glass-lg ${quizAvgScore >= 80 ? "bg-gradient-to-br from-emerald-500 to-emerald-700" : quizAvgScore >= 60 ? "bg-gradient-to-br from-amber-500 to-amber-700" : "bg-gradient-to-br from-rose-500 to-rose-700"}`}
               >
-                <div className="flex items-center justify-between">
+                <div className="flex items-center justify-between gap-4">
                   <div>
-                    <p className="text-sm font-semibold opacity-80">
-                      Skor Anda
+                    <p className="text-xs font-bold uppercase tracking-wider opacity-85">
+                      Hasil Evaluasi · {quizTopicMeta?.label}
                     </p>
                     <p className="font-display text-5xl font-extrabold mt-1">
                       {quizAvgScore}
-                      <span className="text-2xl">/100</span>
+                      <span className="text-2xl opacity-80">/100</span>
                     </p>
-                    <p className="text-xs mt-2 opacity-80">
+                    <p className="text-xs mt-2 opacity-90">
                       {quizAvgScore >= 80
-                        ? "🎉 Sangat baik!"
+                        ? "Pemahaman sangat baik. Siap naik ke skenario tingkat lanjut."
                         : quizAvgScore >= 60
-                          ? "👍 Terus berlatih."
-                          : "📚 Pelajari materi dulu."}
+                          ? "Pemahaman cukup baik. Tinjau kembali poin koreksi di bawah."
+                          : "Disarankan membaca Materi Berkelanjutan sebelum mengulang topik ini."}
                     </p>
                   </div>
-                  <Trophy className="h-16 w-16 opacity-30" />
+                  <Trophy className="h-14 w-14 opacity-30 shrink-0" />
                 </div>
               </div>
               <div className="space-y-3">
@@ -1397,30 +1352,36 @@ export function DisasterQuestionView() {
                     (e) => e.questionId === q.id,
                   );
                   if (!evalItem) return null;
+                  const studentAns = quizAnswers[q.id];
                   return (
                     <div
                       key={q.id}
-                      className="rounded-2xl border border-brand-100 dark:border-slate-800 bg-white/80 dark:bg-slate-800/50 p-4"
+                      className="rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-4 space-y-2.5"
                     >
-                      <div className="flex items-start justify-between gap-2">
-                        <p className="text-xs font-semibold text-ink-900 dark:text-white leading-relaxed flex-1">
+                      <div className="flex items-start justify-between gap-3">
+                        <p className="text-sm font-semibold text-slate-900 dark:text-white leading-relaxed flex-1">
                           {idx + 1}. {q.question}
                         </p>
                         <div
-                          className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-xl font-bold text-xs ${evalItem.score >= 80 ? "bg-emerald-100 text-emerald-700" : evalItem.score >= 60 ? "bg-amber-100 text-amber-700" : "bg-red-100 text-red-700"}`}
+                          className={`flex h-9 min-w-[2.5rem] px-2 shrink-0 items-center justify-center rounded-xl font-bold text-xs ${evalItem.score >= 80 ? "bg-emerald-100 text-emerald-700 dark:bg-emerald-950/50 dark:text-emerald-300" : evalItem.score >= 60 ? "bg-amber-100 text-amber-700 dark:bg-amber-950/50 dark:text-amber-300" : "bg-rose-100 text-rose-700 dark:bg-rose-950/50 dark:text-rose-300"}`}
                         >
                           {evalItem.score}
                         </div>
                       </div>
+                      {studentAns && (
+                        <p className="text-xs text-slate-500 dark:text-slate-400">
+                          Jawaban Anda: <strong className="text-slate-700 dark:text-slate-200">{studentAns}</strong>
+                        </p>
+                      )}
                       <div
-                        className={`flex items-start gap-2 mt-2 rounded-lg p-2 text-xs ${evalItem.isCorrect ? "bg-emerald-50 dark:bg-emerald-500/10 text-emerald-700 dark:text-emerald-300" : "bg-red-50 dark:bg-red-500/10 text-red-700 dark:text-red-300"}`}
+                        className={`flex items-start gap-2 rounded-xl p-3 text-xs leading-relaxed ${evalItem.isCorrect ? "bg-emerald-50 dark:bg-emerald-500/10 text-emerald-800 dark:text-emerald-200" : "bg-rose-50 dark:bg-rose-500/10 text-rose-800 dark:text-rose-200"}`}
                       >
                         {evalItem.isCorrect ? (
-                          <CheckCircle className="h-3.5 w-3.5 shrink-0 mt-0.5" />
+                          <CheckCircle className="h-4 w-4 shrink-0 mt-0.5" />
                         ) : (
-                          <XCircle className="h-3.5 w-3.5 shrink-0 mt-0.5" />
+                          <XCircle className="h-4 w-4 shrink-0 mt-0.5" />
                         )}
-                        <p className="line-clamp-2">{evalItem.feedback}</p>
+                        <p className="flex-1">{evalItem.feedback}</p>
                       </div>
                     </div>
                   );
@@ -1428,16 +1389,18 @@ export function DisasterQuestionView() {
               </div>
               <div className="flex gap-3">
                 <button
+                  type="button"
                   onClick={resetQuiz}
-                  className="flex-1 flex items-center justify-center gap-2 rounded-xl border border-brand-200 dark:border-slate-700 py-3 text-sm font-bold text-brand-600 dark:text-brand-400 hover:bg-brand-50 dark:hover:bg-slate-800"
+                  className="flex-1 flex items-center justify-center gap-2 rounded-xl border border-slate-200 dark:border-slate-700 py-3 text-sm font-bold text-brand-600 dark:text-brand-400 hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors"
                 >
                   <RotateCcw className="h-4 w-4" /> Topik Lain
                 </button>
                 <button
+                  type="button"
                   onClick={() => startQuiz(selectedTopic)}
-                  className="flex-1 flex items-center justify-center gap-2 rounded-xl bg-brand-600 py-3 text-sm font-bold text-white hover:bg-brand-700"
+                  className="flex-1 flex items-center justify-center gap-2 rounded-xl bg-brand-600 py-3 text-sm font-bold text-white hover:bg-brand-700 transition-colors"
                 >
-                  <PenLine className="h-4 w-4" /> Ulangi
+                  <PenLine className="h-4 w-4" /> Ulangi Topik Ini
                 </button>
               </div>
             </div>
@@ -1445,42 +1408,64 @@ export function DisasterQuestionView() {
         </div>
       )}
 
-      {/* 2. MATERI PEMBELAJARAN BERKELANJUTAN TAB */}
       {activeTab === "materi" && (
         <div className="grid gap-6 lg:grid-cols-4 min-h-[400px]">
-          {/* Menu materi */}
-          <div className="lg:col-span-1 glass rounded-2xl p-4 space-y-4 dark:bg-slate-900/60">
-            <h3 className="text-xs font-bold uppercase tracking-wider text-brand-600">
-              Topik Bencana
+          <div className="lg:col-span-1 rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-4 space-y-3 h-fit">
+            <h3 className="text-xs font-bold uppercase tracking-wider text-brand-600 dark:text-brand-400">
+              Kurikulum Bencana
             </h3>
             <div className="space-y-1">
               {learningMaterials.map((mat, idx) => (
                 <button
                   key={mat.topic}
+                  type="button"
                   onClick={() => setSelectedMaterialIdx(idx)}
-                  className={`w-full text-left px-3 py-2.5 rounded-xl text-xs font-semibold transition-all flex items-center gap-2 ${
+                  className={`w-full text-left px-3 py-2.5 rounded-xl text-xs font-semibold transition-all flex items-center justify-between gap-2 ${
                     selectedMaterialIdx === idx
-                      ? "bg-brand-50 text-brand-700 dark:bg-brand-950/20 dark:text-brand-400 border-l-4 border-brand-500"
-                      : "hover:bg-brand-50/40 text-ink-700 dark:text-slate-300"
+                      ? "bg-brand-50 text-brand-700 dark:bg-brand-950/30 dark:text-brand-300 border-l-4 border-brand-500"
+                      : "hover:bg-slate-50 dark:hover:bg-slate-800 text-slate-700 dark:text-slate-300"
                   }`}
                 >
-                  <BookOpen className="h-4 w-4" />
-                  {mat.topic}
+                  <span className="flex items-center gap-2">
+                    <BookOpen className="h-4 w-4 shrink-0" />
+                    {mat.topic}
+                  </span>
+                  <span className="text-[10px] font-medium text-slate-400">
+                    {mat.chapters.length} bab
+                  </span>
                 </button>
               ))}
             </div>
           </div>
 
-          {/* Isi materi */}
-          <div className="lg:col-span-3 glass rounded-2xl p-6 dark:bg-slate-900/60 space-y-6">
-            <div className="flex items-center gap-2 border-b border-brand-50 pb-3 dark:border-slate-800">
-              <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-brand-100 text-brand-600 dark:bg-slate-800 dark:text-brand-400">
-                <BookOpen className="h-4 w-4" />
-              </span>
-              <h3 className="font-display text-base font-bold text-ink-900 dark:text-white">
-                Kurikulum Berkelanjutan: Mitigasi{" "}
-                {learningMaterials[selectedMaterialIdx].topic}
-              </h3>
+          <div className="lg:col-span-3 rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-6 space-y-6">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-slate-100 pb-4 dark:border-slate-800">
+              <div className="flex items-center gap-2.5">
+                <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-brand-100 text-brand-600 dark:bg-brand-950/50 dark:text-brand-400">
+                  <BookOpen className="h-4 w-4" />
+                </span>
+                <div>
+                  <h3 className="font-display text-base font-bold text-slate-900 dark:text-white">
+                    Kurikulum Berkelanjutan: Mitigasi{" "}
+                    {learningMaterials[selectedMaterialIdx].topic}
+                  </h3>
+                  <p className="text-xs text-slate-500 dark:text-slate-400">
+                    {learningMaterials[selectedMaterialIdx].chapters.length} modul ringkas kesiapsiagaan
+                  </p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => {
+                  const topicName = learningMaterials[selectedMaterialIdx].topic.toLowerCase();
+                  const matched = TOPICS.find((tp) => tp.label.toLowerCase().includes(topicName));
+                  setActiveTab("sim");
+                  if (matched) void startQuiz(matched.id);
+                }}
+                className="inline-flex items-center gap-1.5 rounded-xl bg-brand-600 px-3.5 py-2 text-xs font-bold text-white hover:bg-brand-700 transition-colors self-start sm:self-center"
+              >
+                <Sparkles className="h-3.5 w-3.5" /> Uji Pemahaman
+              </button>
             </div>
 
             <div className="space-y-6">
@@ -1488,13 +1473,13 @@ export function DisasterQuestionView() {
                 (ch, cIdx) => (
                   <div
                     key={cIdx}
-                    className="space-y-2 border-l-2 border-brand-100 pl-4 py-1 dark:border-slate-800 relative"
+                    className="space-y-2 border-l-2 border-brand-200 pl-4 py-1 dark:border-brand-800 relative"
                   >
-                    <div className="absolute -left-1.5 top-2 w-3 h-3 rounded-full bg-brand-500" />
-                    <h4 className="text-sm font-bold text-brand-700 dark:text-brand-400">
+                    <div className="absolute -left-[7px] top-2 w-3 h-3 rounded-full bg-brand-500 ring-4 ring-white dark:ring-slate-900" />
+                    <h4 className="text-sm font-bold text-brand-700 dark:text-brand-300">
                       Bab {cIdx + 1}: {ch.title}
                     </h4>
-                    <p className="text-xs text-ink-600 dark:text-slate-300 leading-relaxed">
+                    <p className="text-xs text-slate-600 dark:text-slate-300 leading-relaxed">
                       {ch.content}
                     </p>
                   </div>
@@ -1505,78 +1490,99 @@ export function DisasterQuestionView() {
         </div>
       )}
 
-      {/* 3. PANDUAN EVAKUASI DIRI TAB */}
       {activeTab === "panduan" && (
-        <div className="glass rounded-2xl p-6 dark:bg-slate-900/60 space-y-6">
-          <div className="flex items-center gap-2 border-b border-brand-50 pb-3 dark:border-slate-800">
-            <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-brand-100 text-brand-600 dark:bg-slate-800 dark:text-brand-400">
-              <Compass className="h-4 w-4" />
+        <div className="rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-6 space-y-6">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-slate-100 pb-4 dark:border-slate-800">
+            <div className="flex items-center gap-2.5">
+              <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-brand-100 text-brand-600 dark:bg-brand-950/50 dark:text-brand-400">
+                <Compass className="h-4 w-4" />
+              </span>
+              <div>
+                <h3 className="font-display text-base font-bold text-slate-900 dark:text-white">
+                  Buku Saku Panduan Tata Cara Evakuasi Diri Mandiri
+                </h3>
+                <p className="text-xs text-slate-500 dark:text-slate-400">
+                  Klik setiap langkah untuk menandai pemahaman kesiapsiagaan Anda
+                </p>
+              </div>
+            </div>
+            <span className="text-xs font-bold text-emerald-600 dark:text-emerald-400">
+              {["step1", "step2", "step3", "step4"].filter((k) => checkedGuideSteps[k]).length}/4 langkah dipahami
             </span>
-            <h3 className="font-display text-base font-bold text-ink-900 dark:text-white">
-              Buku Saku Panduan Tata Cara Evakuasi Diri Mandiri
-            </h3>
           </div>
 
           <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-            <div className="p-4 rounded-xl border border-brand-50 bg-white/40 dark:bg-slate-800 dark:border-slate-700 flex flex-col justify-between">
-              <div>
-                <span className="flex h-9 w-9 items-center justify-center rounded-lg bg-orange-100 text-orange-600 dark:bg-orange-950/20 dark:text-orange-400 mb-3">
-                  <AlertTriangle className="h-5 w-5" />
-                </span>
-                <h4 className="text-xs font-bold text-ink-900 dark:text-white">
-                  1. Pra-Evakuasi (Siaga)
-                </h4>
-                <p className="mt-1.5 text-[11px] text-ink-500 dark:text-slate-400 leading-relaxed">
-                  Siapkan Tas Siaga Bencana (P3K, senter, air minum, dokumen
-                  penting) di dekat pintu keluar.
-                </p>
-              </div>
-            </div>
-
-            <div className="p-4 rounded-xl border border-brand-50 bg-white/40 dark:bg-slate-800 dark:border-slate-700 flex flex-col justify-between">
-              <div>
-                <span className="flex h-9 w-9 items-center justify-center rounded-lg bg-brand-100 text-brand-650 dark:bg-brand-950/20 dark:text-brand-400 mb-3">
-                  <Heart className="h-5 w-5" />
-                </span>
-                <h4 className="text-xs font-bold text-ink-900 dark:text-white">
-                  2. Amankan Diri Pertama
-                </h4>
-                <p className="mt-1.5 text-[11px] text-ink-500 dark:text-slate-400 leading-relaxed">
-                  Matikan sekring utama listrik dan kompor gas segera. Lindungi
-                  kepala memakai tangan, tas, atau helm.
-                </p>
-              </div>
-            </div>
-
-            <div className="p-4 rounded-xl border border-brand-50 bg-white/40 dark:bg-slate-800 dark:border-slate-700 flex flex-col justify-between">
-              <div>
-                <span className="flex h-9 w-9 items-center justify-center rounded-lg bg-blue-100 text-blue-600 dark:bg-blue-950/20 dark:text-blue-400 mb-3">
-                  <MapPin className="h-5 w-5" />
-                </span>
-                <h4 className="text-xs font-bold text-ink-900 dark:text-white">
-                  3. Rute Evakuasi Hijau
-                </h4>
-                <p className="mt-1.5 text-[11px] text-ink-500 dark:text-slate-400 leading-relaxed">
-                  Ikuti papan rambu evakuasi berwarna hijau. Gunakan tangga
-                  darurat, dilarang memakai lift atau eskalator.
-                </p>
-              </div>
-            </div>
-
-            <div className="p-4 rounded-xl border border-brand-50 bg-white/40 dark:bg-slate-800 dark:border-slate-700 flex flex-col justify-between">
-              <div>
-                <span className="flex h-9 w-9 items-center justify-center rounded-lg bg-emerald-100 text-emerald-600 dark:bg-emerald-950/20 dark:text-emerald-400 mb-3">
-                  <Shield className="h-5 w-5" />
-                </span>
-                <h4 className="text-xs font-bold text-ink-900 dark:text-white">
-                  4. Berkumpul & Laporkan
-                </h4>
-                <p className="mt-1.5 text-[11px] text-ink-500 dark:text-slate-400 leading-relaxed">
-                  Menuju titik kumpul terbuka (lapangan). Laporkan jumlah
-                  anggota keluarga/kelas ke koordinator evakuasi.
-                </p>
-              </div>
-            </div>
+            {[
+              {
+                key: "step1",
+                title: "1. Pra-Evakuasi (Siaga)",
+                desc: "Siapkan Tas Siaga Bencana (P3K, senter, air minum, dokumen penting) di dekat pintu keluar.",
+                icon: AlertTriangle,
+                iconBg: "bg-orange-100 text-orange-600 dark:bg-orange-950/40 dark:text-orange-400",
+              },
+              {
+                key: "step2",
+                title: "2. Amankan Diri Pertama",
+                desc: "Matikan sekring utama listrik dan kompor gas segera. Lindungi kepala memakai tangan, tas, atau helm.",
+                icon: Heart,
+                iconBg: "bg-brand-100 text-brand-600 dark:bg-brand-950/40 dark:text-brand-400",
+              },
+              {
+                key: "step3",
+                title: "3. Rute Evakuasi Hijau",
+                desc: "Ikuti papan rambu evakuasi berwarna hijau. Gunakan tangga darurat, dilarang memakai lift atau eskalator.",
+                icon: MapPin,
+                iconBg: "bg-blue-100 text-blue-600 dark:bg-blue-950/40 dark:text-blue-400",
+              },
+              {
+                key: "step4",
+                title: "4. Berkumpul & Laporkan",
+                desc: "Menuju titik kumpul terbuka (lapangan). Laporkan jumlah anggota kelas ke koordinator evakuasi.",
+                icon: Shield,
+                iconBg: "bg-emerald-100 text-emerald-600 dark:bg-emerald-950/40 dark:text-emerald-400",
+              },
+            ].map((step) => {
+              const StepIcon = step.icon;
+              const isChecked = Boolean(checkedGuideSteps[step.key]);
+              return (
+                <button
+                  key={step.key}
+                  type="button"
+                  onClick={() => toggleGuideStep(step.key)}
+                  className={`p-4 rounded-xl border text-left transition-all flex flex-col justify-between gap-3 ${
+                    isChecked
+                      ? "border-emerald-400 bg-emerald-50/50 dark:bg-emerald-950/20 dark:border-emerald-700"
+                      : "border-slate-200 bg-slate-50/40 hover:border-slate-300 dark:bg-slate-800/60 dark:border-slate-700"
+                  }`}
+                >
+                  <div>
+                    <div className="flex items-center justify-between mb-3">
+                      <span className={`flex h-9 w-9 items-center justify-center rounded-lg ${step.iconBg}`}>
+                        <StepIcon className="h-5 w-5" />
+                      </span>
+                      <span
+                        className={`flex h-6 w-6 items-center justify-center rounded-full border transition-colors ${
+                          isChecked
+                            ? "bg-emerald-500 border-emerald-500 text-white"
+                            : "border-slate-300 dark:border-slate-600 text-transparent"
+                        }`}
+                      >
+                        <Check className="h-3.5 w-3.5" />
+                      </span>
+                    </div>
+                    <h4 className="text-xs font-bold text-slate-900 dark:text-white">
+                      {step.title}
+                    </h4>
+                    <p className="mt-1.5 text-xs text-slate-600 dark:text-slate-300 leading-relaxed">
+                      {step.desc}
+                    </p>
+                  </div>
+                  <span className="text-[11px] font-semibold text-emerald-600 dark:text-emerald-400">
+                    {isChecked ? "Sudah dipahami" : "Tandai selesai dipahami"}
+                  </span>
+                </button>
+              );
+            })}
           </div>
         </div>
       )}

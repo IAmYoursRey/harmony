@@ -332,7 +332,7 @@ export const apiClient = {
     });
   },
 
-  post<T = any>(endpoint: string, body: unknown, options?: RequestInit) {
+  post<T = any>(endpoint: string, body: unknown, options?: ApiRequestOptions) {
     this.clearCache();
     return this.fetch<T>(endpoint, {
       ...options,
@@ -341,7 +341,7 @@ export const apiClient = {
     });
   },
 
-  put<T = any>(endpoint: string, body: unknown, options?: RequestInit) {
+  put<T = any>(endpoint: string, body: unknown, options?: ApiRequestOptions) {
     this.clearCache();
     return this.fetch<T>(endpoint, {
       ...options,
@@ -350,7 +350,7 @@ export const apiClient = {
     });
   },
 
-  delete<T = any>(endpoint: string, options?: RequestInit) {
+  delete<T = any>(endpoint: string, options?: ApiRequestOptions) {
     this.clearCache();
     return this.fetch<T>(endpoint, { ...options, method: "DELETE" });
   },

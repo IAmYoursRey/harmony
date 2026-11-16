@@ -29,6 +29,7 @@ interface MapWeatherObservationCardProps {
 export const MapWeatherObservationCard: React.FC<MapWeatherObservationCardProps> = ({
   lat,
   lng,
+  onOpenDetails,
   className = '',
 }) => {
   const [weatherState, setWeatherState] = useState<MapWeatherState>(() =>
@@ -255,7 +256,19 @@ export const MapWeatherObservationCard: React.FC<MapWeatherObservationCardProps>
       </div>
 
       {/* Action Bar */}
-      <div className="flex items-center justify-end pt-1">
+      <div className="flex items-center justify-between gap-2 pt-1">
+        {onOpenDetails ? (
+          <button
+            type="button"
+            onClick={onOpenDetails}
+            className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-semibold bg-slate-800 hover:bg-slate-700 text-sky-300 border border-slate-700 transition-colors"
+            title="Buka Analisis Cuaca & NWP Lengkap"
+          >
+            <span>Detail Studio</span>
+          </button>
+        ) : (
+          <span />
+        )}
         <button
           type="button"
           onClick={handleManualRefresh}
@@ -277,7 +290,10 @@ export const MapWeatherObservationCard: React.FC<MapWeatherObservationCardProps>
       {weatherState.error && (
         <div className="flex items-center gap-1.5 text-[10px] text-amber-300 bg-amber-950/60 p-2 rounded-lg border border-amber-800/80">
           <AlertCircle className="h-3.5 w-3.5 shrink-0" />
-          <span className="truncate">{weatherState.error}. Menyajikan cache tersimpan.</span>
+          <span className="truncate">
+            {weatherState.error}.{' '}
+            {data ? 'Menyajikan cache tersimpan.' : 'Klik Perbarui Data untuk memuat ulang.'}
+          </span>
         </div>
       )}
     </div>

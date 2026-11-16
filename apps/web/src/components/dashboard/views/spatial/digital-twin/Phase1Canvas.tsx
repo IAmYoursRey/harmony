@@ -1428,21 +1428,41 @@ export function Phase1Canvas({
   };
 
   useEffect(() => {
+    const container = containerRef.current;
+    if (!container) return;
+
     const handleWheel = (e: WheelEvent) => {
       e.preventDefault();
-      if (e.deltaY < 0)
-        setCamera((p) => ({ ...p, zoom: Math.min(5, p.zoom * 1.1) }));
-      else setCamera((p) => ({ ...p, zoom: Math.max(0.1, p.zoom * 0.9) }));
+      e.stopPropagation();
+
+      const normDelta = e.deltaMode === 1 ? e.deltaY * 16 : e.deltaY;
+      if (normDelta === 0) return;
+
+      const clamped = Math.max(-180, Math.min(180, normDelta));
+      const factor = Math.exp(-clamped * 0.002);
+      const rect = container.getBoundingClientRect();
+      const mouseX = e.clientX - rect.left;
+      const mouseY = e.clientY - rect.top;
+      const cx = rect.width / 2;
+      const cy = rect.height / 2;
+
+      setCamera((p) => {
+        const nextZoom = Math.min(5, Math.max(0.1, p.zoom * factor));
+        if (nextZoom === p.zoom) return p;
+
+        const worldX = (mouseX - cx - p.x) / p.zoom;
+        const worldY = (mouseY - cy - p.y) / p.zoom;
+        return {
+          x: mouseX - cx - worldX * nextZoom,
+          y: mouseY - cy - worldY * nextZoom,
+          zoom: nextZoom,
+        };
+      });
     };
 
-    const container = containerRef.current;
-    if (container) {
-      container.addEventListener("wheel", handleWheel, { passive: false });
-    }
+    container.addEventListener("wheel", handleWheel, { passive: false });
     return () => {
-      if (container) {
-        container.removeEventListener("wheel", handleWheel);
-      }
+      container.removeEventListener("wheel", handleWheel);
     };
   }, []);
 

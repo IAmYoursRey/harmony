@@ -55,8 +55,13 @@ export function GameGridSandbox({
   const [showExits, setShowExits] = useState(true);
   const [isFullscreen, setIsFullscreen] = useState(false);
 
-  // Animation frame
+  // Animation frame & stable camera refs (prevents RAF churn and stale closures)
   const animFrameRef = useRef<number | null>(null);
+  const cameraRef = useRef(camera);
+  cameraRef.current = camera;
+  const hasInitializedCameraRef = useRef(false);
+  const containerSizeRef = useRef({ width: 0, height: 0 });
+  const dragStateRef = useRef({ active: false, startX: 0, startY: 0 });
 
   // Load map and scenario details
   useEffect(() => {
@@ -98,7 +103,13 @@ export function GameGridSandbox({
     };
   }, [mapId, scenarioId]);
 
-  // Center camera when map loads
+  // Reset one-shot camera initialization only when switching maps
+  useEffect(() => {
+    hasInitializedCameraRef.current = false;
+    containerSizeRef.current = { width: 0, height: 0 };
+  }, [mapId]);
+
+  // Center camera when map loads or when user explicitly clicks Reset View
   const centerCamera = useCallback(() => {
     if (!map || !containerRef.current) return;
     const containerW = containerRef.current.clientWidth;
@@ -119,72 +130,86 @@ export function GameGridSandbox({
     });
   }, [map]);
 
-  // Keep canvas sized cleanly to container even after async loading finishes
+  // Keep canvas bitmap crisp and preserve viewport center across resizes
   useEffect(() => {
     if (loading || !map) return;
     const el = containerRef.current;
     const canvas = canvasRef.current;
     if (!el || !canvas) return;
 
-    let lastW = 0;
-    let lastH = 0;
-
-    const syncSize = (recenterIfChanged: boolean) => {
+    const syncSize = () => {
       const nextW = el.clientWidth;
       const nextH = el.clientHeight;
       if (nextW <= 0 || nextH <= 0) return;
 
-      const sizeChanged = nextW !== lastW || nextH !== lastH;
-      if (canvas.width !== nextW) canvas.width = nextW;
-      if (canvas.height !== nextH) canvas.height = nextH;
+      const dpr = Math.min(window.devicePixelRatio || 1, 2);
+      const targetW = Math.round(nextW * dpr);
+      const targetH = Math.round(nextH * dpr);
+      if (canvas.width !== targetW) canvas.width = targetW;
+      if (canvas.height !== targetH) canvas.height = targetH;
 
-      if (sizeChanged && recenterIfChanged) {
-        lastW = nextW;
-        lastH = nextH;
+      const prevSize = containerSizeRef.current;
+      const sizeChanged = nextW !== prevSize.width || nextH !== prevSize.height;
+      containerSizeRef.current = { width: nextW, height: nextH };
+
+      if (!hasInitializedCameraRef.current) {
+        hasInitializedCameraRef.current = true;
         centerCamera();
+        return;
+      }
+
+      if (sizeChanged && prevSize.width > 0 && prevSize.height > 0) {
+        const dx = (nextW - prevSize.width) / 2;
+        const dy = (nextH - prevSize.height) / 2;
+        setCamera((prev) => ({
+          ...prev,
+          x: prev.x + dx,
+          y: prev.y + dy,
+        }));
       }
     };
 
-    syncSize(true);
+    syncSize();
 
     if (typeof ResizeObserver !== "undefined") {
-      const ro = new ResizeObserver(() => {
-        syncSize(true);
-      });
+      const ro = new ResizeObserver(syncSize);
       ro.observe(el);
       return () => ro.disconnect();
     }
 
-    const onResize = () => syncSize(true);
-    window.addEventListener("resize", onResize);
-    return () => window.removeEventListener("resize", onResize);
+    window.addEventListener("resize", syncSize);
+    return () => window.removeEventListener("resize", syncSize);
   }, [loading, map, isFullscreen, centerCamera]);
 
   // Main Render Loop
   useEffect(() => {
     const canvas = canvasRef.current;
-    if (!canvas || !map) return;
+    const container = containerRef.current;
+    if (!canvas || !container || !map) return;
     const ctx = canvas.getContext("2d");
     if (!ctx) return;
 
-    let startTime = performance.now();
+    const startTime = performance.now();
 
     const render = (now: number) => {
       const elapsed = now - startTime;
-      const { width, height } = canvas;
+      const cssW = container.clientWidth || canvas.width;
+      const cssH = container.clientHeight || canvas.height;
+      const dpr = cssW > 0 ? canvas.width / cssW : 1;
+      const cam = cameraRef.current;
 
+      ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
       ctx.imageSmoothingEnabled = true;
       ctx.imageSmoothingQuality = "high";
-      ctx.clearRect(0, 0, width, height);
+      ctx.clearRect(0, 0, cssW, cssH);
 
       // Deep space / digital twin background
       ctx.fillStyle = "#090d16";
-      ctx.fillRect(0, 0, width, height);
+      ctx.fillRect(0, 0, cssW, cssH);
 
       ctx.save();
-      // Apply camera transform
-      ctx.translate(camera.x, camera.y);
-      ctx.scale(camera.zoom, camera.zoom);
+      ctx.translate(cam.x, cam.y);
+      ctx.scale(cam.zoom, cam.zoom);
 
       const floor = map.floors?.[0];
       if (floor) {
@@ -448,7 +473,6 @@ export function GameGridSandbox({
   }, [
     map,
     scenario,
-    camera,
     showGrid,
     showRooms,
     showEffects,
@@ -457,49 +481,94 @@ export function GameGridSandbox({
     showExits,
   ]);
 
+  // Anchor zoom at a CSS-pixel pivot inside the canvas container
+  const zoomAtPoint = useCallback(
+    (anchorX: number, anchorY: number, factor: number) => {
+      setCamera((prev) => {
+        const nextZoom = Math.min(3.0, Math.max(0.08, prev.zoom * factor));
+        if (nextZoom === prev.zoom) return prev;
+
+        const worldX = (anchorX - prev.x) / prev.zoom;
+        const worldY = (anchorY - prev.y) / prev.zoom;
+        const nextX = anchorX - worldX * nextZoom;
+        const nextY = anchorY - worldY * nextZoom;
+
+        if (dragStateRef.current.active) {
+          dragStateRef.current.startX += prev.x - nextX;
+          dragStateRef.current.startY += prev.y - nextY;
+        }
+
+        return {
+          x: nextX,
+          y: nextY,
+          zoom: nextZoom,
+        };
+      });
+    },
+    []
+  );
+
+  // Use native non-passive wheel listener so ancestor scrollbars cannot shift the canvas while zooming
+  useEffect(() => {
+    if (loading || !map) return;
+    const el = containerRef.current;
+    if (!el) return;
+
+    const onNativeWheel = (e: WheelEvent) => {
+      e.preventDefault();
+      e.stopPropagation();
+
+      const normDelta = e.deltaMode === 1 ? e.deltaY * 16 : e.deltaY;
+      if (normDelta === 0) return;
+
+      const clamped = Math.max(-180, Math.min(180, normDelta));
+      const zoomFactor = Math.exp(-clamped * 0.002);
+      const rect = el.getBoundingClientRect();
+      zoomAtPoint(e.clientX - rect.left, e.clientY - rect.top, zoomFactor);
+    };
+
+    el.addEventListener("wheel", onNativeWheel, { passive: false });
+    return () => el.removeEventListener("wheel", onNativeWheel);
+  }, [loading, map, zoomAtPoint]);
+
   // Mouse interaction for Panning & Zooming
   const handleMouseDown = (e: React.MouseEvent) => {
+    if (e.button !== 0) return;
+    const cam = cameraRef.current;
+    dragStateRef.current = {
+      active: true,
+      startX: e.clientX - cam.x,
+      startY: e.clientY - cam.y,
+    };
     setIsDragging(true);
-    setDragStart({ x: e.clientX - camera.x, y: e.clientY - camera.y });
+    setDragStart({ x: dragStateRef.current.startX, y: dragStateRef.current.startY });
   };
 
   const handleMouseMove = (e: React.MouseEvent) => {
-    if (!isDragging) return;
+    if (!dragStateRef.current.active) return;
+    if ((e.buttons & 1) === 0) {
+      dragStateRef.current.active = false;
+      setIsDragging(false);
+      return;
+    }
+    const { startX, startY } = dragStateRef.current;
     setCamera((prev) => ({
       ...prev,
-      x: e.clientX - dragStart.x,
-      y: e.clientY - dragStart.y,
+      x: e.clientX - startX,
+      y: e.clientY - startY,
     }));
   };
 
   const handleMouseUp = () => {
+    dragStateRef.current.active = false;
     setIsDragging(false);
   };
 
-  const handleWheel = (e: React.WheelEvent) => {
-    e.preventDefault();
-    const zoomFactor = e.deltaY < 0 ? 1.12 : 0.89;
-    const newZoom = Math.min(3.0, Math.max(0.08, camera.zoom * zoomFactor));
-
-    if (containerRef.current) {
-      const rect = containerRef.current.getBoundingClientRect();
-      const mouseX = e.clientX - rect.left;
-      const mouseY = e.clientY - rect.top;
-
-      setCamera((prev) => ({
-        x: mouseX - (mouseX - prev.x) * (newZoom / prev.zoom),
-        y: mouseY - (mouseY - prev.y) * (newZoom / prev.zoom),
-        zoom: newZoom,
-      }));
-    }
-  };
-
   const handleZoom = (inOut: "in" | "out") => {
+    const el = containerRef.current;
+    if (!el) return;
     const factor = inOut === "in" ? 1.25 : 0.8;
-    setCamera((prev) => ({
-      ...prev,
-      zoom: Math.min(3.0, Math.max(0.08, prev.zoom * factor)),
-    }));
+    zoomAtPoint(el.clientWidth / 2, el.clientHeight / 2, factor);
   };
 
   // Launch Play
@@ -570,12 +639,11 @@ export function GameGridSandbox({
       {/* Interactive Canvas Container */}
       <div
         ref={containerRef}
-        className="w-full h-full cursor-grab active:cursor-grabbing select-none"
+        className="w-full h-full overflow-hidden touch-none cursor-grab active:cursor-grabbing select-none"
         onMouseDown={handleMouseDown}
         onMouseMove={handleMouseMove}
         onMouseUp={handleMouseUp}
         onMouseLeave={handleMouseUp}
-        onWheel={handleWheel}
       >
         <canvas ref={canvasRef} className="block w-full h-full" />
       </div>
@@ -586,8 +654,8 @@ export function GameGridSandbox({
           <button
             onClick={() => setShowSafeZones(!showSafeZones)}
             className={`shrink-0 whitespace-nowrap flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg transition-colors font-medium text-[11px] ${showSafeZones
-                ? "bg-emerald-500/20 text-emerald-400 border border-emerald-500/40"
-                : "text-slate-400 hover:text-white"
+              ? "bg-emerald-500/20 text-emerald-400 border border-emerald-500/40"
+              : "text-slate-400 hover:text-white"
               }`}
             title="Toggle Safe Zones"
           >
@@ -598,8 +666,8 @@ export function GameGridSandbox({
           <button
             onClick={() => setShowExits(!showExits)}
             className={`shrink-0 whitespace-nowrap flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg transition-colors font-medium text-[11px] ${showExits
-                ? "bg-teal-500/20 text-teal-400 border border-teal-500/40"
-                : "text-slate-400 hover:text-white"
+              ? "bg-teal-500/20 text-teal-400 border border-teal-500/40"
+              : "text-slate-400 hover:text-white"
               }`}
             title="Toggle Exits / Gates"
           >
@@ -610,8 +678,8 @@ export function GameGridSandbox({
           <button
             onClick={() => setShowSpawns(!showSpawns)}
             className={`shrink-0 whitespace-nowrap flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg transition-colors font-medium text-[11px] ${showSpawns
-                ? "bg-amber-500/20 text-amber-400 border border-amber-500/40"
-                : "text-slate-400 hover:text-white"
+              ? "bg-amber-500/20 text-amber-400 border border-amber-500/40"
+              : "text-slate-400 hover:text-white"
               }`}
             title="Toggle Student Spawns"
           >
@@ -622,8 +690,8 @@ export function GameGridSandbox({
           <button
             onClick={() => setShowGrid(!showGrid)}
             className={`shrink-0 whitespace-nowrap flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg transition-colors font-medium text-[11px] ${showGrid
-                ? "bg-blue-500/20 text-blue-400 border border-blue-500/40"
-                : "text-slate-400 hover:text-white"
+              ? "bg-blue-500/20 text-blue-400 border border-blue-500/40"
+              : "text-slate-400 hover:text-white"
               }`}
             title="Toggle Grid Lines"
           >
@@ -634,8 +702,8 @@ export function GameGridSandbox({
           <button
             onClick={() => setShowRooms(!showRooms)}
             className={`shrink-0 whitespace-nowrap flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg transition-colors font-medium text-[11px] ${showRooms
-                ? "bg-amber-500/20 text-amber-300 border border-amber-500/40"
-                : "text-slate-400 hover:text-white"
+              ? "bg-amber-500/20 text-amber-300 border border-amber-500/40"
+              : "text-slate-400 hover:text-white"
               }`}
             title="Toggle Label & Zona Ruangan"
           >
@@ -645,8 +713,8 @@ export function GameGridSandbox({
           <button
             onClick={() => setShowEffects(!showEffects)}
             className={`shrink-0 whitespace-nowrap flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg transition-colors font-medium text-[11px] ${showEffects
-                ? "bg-purple-500/20 text-purple-400 border border-purple-500/40"
-                : "text-slate-400 hover:text-white"
+              ? "bg-purple-500/20 text-purple-400 border border-purple-500/40"
+              : "text-slate-400 hover:text-white"
               }`}
             title="Toggle Hologram VFX"
           >
