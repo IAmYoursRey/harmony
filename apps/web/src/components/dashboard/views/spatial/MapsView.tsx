@@ -6396,7 +6396,7 @@ export function MapsView() {
         <>
       {/* Loading Indicator for Map Layers */}
       {activeLayerLoads > 0 && (
-        <div className="absolute top-16 right-4 sm:top-20 z-30 flex items-center gap-2 rounded-full bg-white px-4 py-2 shadow-glass backdrop-blur-md dark:bg-slate-900/90 dark:border dark:border-slate-800 animate-in fade-in slide-in-from-top-4 duration-300">
+        <div className="pointer-events-none absolute bottom-6 left-1/2 -translate-x-1/2 z-30 flex items-center gap-2 rounded-full bg-white/95 px-4 py-2 shadow-glass backdrop-blur-md dark:bg-slate-900/95 dark:border dark:border-slate-800 animate-in fade-in duration-300">
            <div className="h-4 w-4 animate-spin rounded-full border-2 border-brand-500 border-t-transparent"></div>
            <span className="text-xs font-bold text-ink-900 dark:text-white">Memuat Data Peta...</span>
         </div>
