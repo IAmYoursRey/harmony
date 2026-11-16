@@ -8,7 +8,12 @@ import {
   SimState,
   DifficultyLevel,
   SimulationReport,
+  AvatarStyle,
 } from "./Phase3Engine";
+import {
+  getDigitalTwinAssetUrl,
+  preloadDigitalTwinAssets,
+} from "./digitalTwinTextures";
 import { simulationAudio } from "./simulationAudio";
 import { useToast } from "@/hooks/useToast";
 import {
@@ -18,11 +23,6 @@ import {
   Pause,
   Volume2,
   VolumeX,
-  KeyRound,
-  Flame,
-  Shield,
-  Flashlight,
-  Users,
 } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
 import { io, Socket } from "socket.io-client";
@@ -117,10 +117,15 @@ export function Phase3Runtime({
 
   const [avatarColor, setAvatarColor] = useState("#3b82f6");
   const [avatarName, setAvatarName] = useState(user?.name || "Player");
+  const [avatarStyle, setAvatarStyle] = useState<AvatarStyle>("girl");
   const [avatarSelected, setAvatarSelected] = useState(false);
   const [difficulty, setDifficulty] = useState<DifficultyLevel>("sulit");
   const [isMuted, setIsMuted] = useState(false);
   const [report, setReport] = useState<SimulationReport | null>(null);
+
+  useEffect(() => {
+    preloadDigitalTwinAssets();
+  }, []);
 
   const toggleMute = () => {
     const next = !isMuted;
@@ -156,15 +161,20 @@ export function Phase3Runtime({
     loadData();
   }, [mapId, scenarioId]);
 
+  const syncCanvasResolution = () => {
+    if (!canvasRef.current || !containerRef.current) return;
+    const cssW = containerRef.current.clientWidth;
+    const cssH = containerRef.current.clientHeight;
+    if (cssW <= 0 || cssH <= 0) return;
+    const dpr = Math.min(window.devicePixelRatio || 1, 2.5);
+    canvasRef.current.width = Math.round(cssW * dpr);
+    canvasRef.current.height = Math.round(cssH * dpr);
+  };
+
   useEffect(() => {
-    const handleResize = () => {
-      if (canvasRef.current && containerRef.current) {
-        canvasRef.current.width = containerRef.current.clientWidth;
-        canvasRef.current.height = containerRef.current.clientHeight;
-      }
-    };
-    window.addEventListener("resize", handleResize);
-    return () => window.removeEventListener("resize", handleResize);
+    syncCanvasResolution();
+    window.addEventListener("resize", syncCanvasResolution);
+    return () => window.removeEventListener("resize", syncCanvasResolution);
   }, []);
 
   const socketRef = useRef<Socket | null>(null);
@@ -235,12 +245,7 @@ export function Phase3Runtime({
 
   const initEngine = () => {
     if (!canvasRef.current || !map || !scenario) return;
-    console.log("INIT ENGINE WITH MAP FLOORS:", map.floors);
-
-    if (containerRef.current) {
-      canvasRef.current.width = containerRef.current.clientWidth;
-      canvasRef.current.height = containerRef.current.clientHeight;
-    }
+    syncCanvasResolution();
 
     if (engineRef.current) {
       engineRef.current.destroy();
@@ -283,7 +288,7 @@ export function Phase3Runtime({
       { difficulty },
     );
 
-    engineRef.current.setPlayerAvatar(avatarColor, avatarName);
+    engineRef.current.setPlayerAvatar(avatarColor, avatarName, avatarStyle);
     engineRef.current.start();
 
     (window as any).__getEngine = () => engineRef.current;
@@ -415,50 +420,14 @@ export function Phase3Runtime({
               </span>{" "}
               {activeFloorName}
             </div>
-
-            {/* Compact Tactical Inventory, Buffs & NPC Status (no minimap) */}
-            {(playerState.inventory || (playerState.npcTotalCount || 0) > 0) && (
-              <div className="flex flex-wrap items-center gap-1.5 text-[10px] sm:text-xs font-bold">
-                {(playerState.npcTotalCount || 0) > 0 && (
-                  <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-slate-900/85 border border-slate-700 text-sky-300 shadow">
-                    <Users className="w-3 h-3" />
-                    NPC: {(playerState.npcRescuedCount || 0) + (playerState.npcFollowingCount || 0)}/{playerState.npcTotalCount}
-                  </span>
-                )}
-                {(playerState.inventory?.keys || 0) > 0 && (
-                  <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-amber-950/90 border border-amber-500/50 text-amber-300 shadow">
-                    <KeyRound className="w-3 h-3" />
-                    Kunci: {playerState.inventory?.keys}
-                  </span>
-                )}
-                {(playerState.inventory?.extinguishers || 0) > 0 && (
-                  <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-orange-950/90 border border-orange-500/50 text-orange-300 shadow">
-                    <Flame className="w-3 h-3" />
-                    APAR: {playerState.inventory?.extinguishers}
-                  </span>
-                )}
-                {(playerState.inventory?.maskSec || 0) > 0 && (
-                  <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-teal-950/90 border border-teal-500/50 text-teal-300 shadow">
-                    <Shield className="w-3 h-3" />
-                    Masker {Math.ceil(playerState.inventory?.maskSec || 0)}d
-                  </span>
-                )}
-                {(playerState.inventory?.flashlightSec || 0) > 0 && (
-                  <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-yellow-950/90 border border-yellow-500/50 text-yellow-300 shadow">
-                    <Flashlight className="w-3 h-3" />
-                    Senter {Math.ceil(playerState.inventory?.flashlightSec || 0)}d
-                  </span>
-                )}
-              </div>
-            )}
           </div>
 
           {/* Center HUD: Objective */}
-          <div className="bg-slate-900/80 backdrop-blur border border-slate-700 rounded-xl px-3 py-1.5 sm:px-6 sm:py-3 flex flex-col items-center gap-0.5 sm:gap-1 shadow-xl">
+          <div className="bg-slate-900/80 backdrop-blur border border-slate-700 rounded-xl px-3 py-1.5 sm:px-6 sm:py-2.5 flex flex-col items-center gap-0.5 shadow-xl">
             <span className="text-slate-400 text-[10px] sm:text-xs font-bold uppercase tracking-wider">
-              Misi Saat Ini
+              Misi Evakuasi
             </span>
-            <span className="text-yellow-400 font-bold text-sm sm:text-lg">
+            <span className="text-emerald-400 font-bold text-xs sm:text-base text-center">
               {playerState.objectiveProgress}
             </span>
           </div>
@@ -577,15 +546,14 @@ export function Phase3Runtime({
                   </p>
                 </div>
                 <div
-                  className={`w-12 h-12 rounded-xl flex items-center justify-center font-black text-2xl border ${
-                    report.grade === "S"
+                  className={`w-12 h-12 rounded-xl flex items-center justify-center font-black text-2xl border ${report.grade === "S"
                       ? "bg-amber-500/20 text-amber-300 border-amber-400"
                       : report.grade === "A"
                         ? "bg-emerald-500/20 text-emerald-300 border-emerald-400"
                         : report.grade === "B"
                           ? "bg-sky-500/20 text-sky-300 border-sky-400"
                           : "bg-rose-500/20 text-rose-300 border-rose-500"
-                  }`}
+                    }`}
                 >
                   {report.grade}
                 </div>
@@ -593,15 +561,15 @@ export function Phase3Runtime({
 
               <div className="grid grid-cols-2 gap-2.5 text-xs">
                 <div className="rounded-xl bg-slate-800/80 p-3">
-                  <span className="text-slate-400 block">Sisa HP</span>
-                  <span className="text-base font-extrabold text-emerald-400">
-                    {report.healthRemaining} / 100
+                  <span className="text-slate-400 block">Waktu Evakuasi</span>
+                  <span className="text-base font-extrabold text-sky-300">
+                    {formatTime(report.timeMs)}
                   </span>
                 </div>
                 <div className="rounded-xl bg-slate-800/80 p-3">
-                  <span className="text-slate-400 block">NPC Selamat</span>
-                  <span className="text-base font-extrabold text-sky-300">
-                    {report.npcsRescued} / {report.npcsTotal}
+                  <span className="text-slate-400 block">Sisa HP</span>
+                  <span className="text-base font-extrabold text-emerald-400">
+                    {report.healthRemaining} / 100
                   </span>
                 </div>
                 <div className="rounded-xl bg-slate-800/80 p-3">
@@ -612,9 +580,9 @@ export function Phase3Runtime({
                   </span>
                 </div>
                 <div className="rounded-xl bg-slate-800/80 p-3">
-                  <span className="text-slate-400 block">Alat Diambil</span>
-                  <span className="text-base font-extrabold text-purple-300">
-                    {report.suppliesCollected} item
+                  <span className="text-slate-400 block">Mode Simulasi</span>
+                  <span className="text-base font-extrabold text-purple-300 capitalize">
+                    {report.difficulty}
                   </span>
                 </div>
               </div>
@@ -642,8 +610,7 @@ export function Phase3Runtime({
       <div className="flex-1 w-full h-full relative" ref={containerRef}>
         <canvas
           ref={canvasRef}
-          className="absolute inset-0 cursor-crosshair"
-          style={{ imageRendering: "pixelated" }}
+          className="absolute inset-0 w-full h-full cursor-crosshair"
         />
 
         {/* Helper text overlay for WASD */}
@@ -742,19 +709,64 @@ export function Phase3Runtime({
         )}
       </div>
 
-      {/* AVATAR SELECTION OVERLAY */}
+      {/* CHARACTER & DIFFICULTY SELECTION OVERLAY */}
       {simState === "READY" && !avatarSelected && (
-        <div className="absolute inset-0 z-50 bg-slate-900/90 backdrop-blur flex items-center justify-center flex-col gap-6 text-white p-6">
-          <div className="bg-slate-800 p-8 rounded-2xl border border-slate-700 max-w-sm w-full shadow-2xl flex flex-col items-center">
-            <h2 className="text-2xl font-black mb-6">Pilih Avatar</h2>
+        <div className="absolute inset-0 z-50 bg-slate-900/90 backdrop-blur flex items-center justify-center flex-col gap-6 text-white p-4 sm:p-6 overflow-y-auto">
+          <div className="bg-slate-800/95 p-6 sm:p-7 rounded-2xl border border-slate-700 max-w-md w-full shadow-2xl flex flex-col items-center">
+            <h2 className="text-xl sm:text-2xl font-black mb-1">
+              Pilih Karakter
+            </h2>
+            <p className="text-xs text-slate-400 mb-5 text-center">
+              Hindari seluruh bahaya dan capai Gerbang Utama secepat mungkin.
+            </p>
 
-            <div
-              className="w-24 h-24 rounded-full border-4 shadow-inner mb-6 transition-colors"
-              style={{
-                backgroundColor: avatarColor,
-                borderColor: "rgba(255,255,255,0.2)",
-              }}
-            />
+            <div className="grid grid-cols-2 gap-3 w-full mb-5">
+              {(
+                [
+                  {
+                    id: "girl" as AvatarStyle,
+                    label: "Siswi SMA",
+                    src: getDigitalTwinAssetUrl("characterGirl"),
+                  },
+                  {
+                    id: "boy" as AvatarStyle,
+                    label: "Siswa SMA",
+                    src: getDigitalTwinAssetUrl("characterBoy"),
+                  },
+                ]
+              ).map((preset) => {
+                const selected = avatarStyle === preset.id;
+                return (
+                  <button
+                    key={preset.id}
+                    type="button"
+                    onClick={() => setAvatarStyle(preset.id)}
+                    className={`rounded-xl p-3 border-2 transition-all flex flex-col items-center gap-2 ${
+                      selected
+                        ? "bg-slate-900/90 shadow-lg scale-[1.02]"
+                        : "bg-slate-900/45 border-slate-700/80 opacity-75 hover:opacity-100"
+                    }`}
+                    style={
+                      selected
+                        ? {
+                            borderColor: avatarColor,
+                            boxShadow: `0 0 18px ${avatarColor}33`,
+                          }
+                        : undefined
+                    }
+                  >
+                    <img
+                      src={preset.src}
+                      alt={preset.label}
+                      className="w-16 h-16 object-contain drop-shadow"
+                    />
+                    <span className="text-xs font-bold text-slate-200">
+                      {preset.label}
+                    </span>
+                  </button>
+                );
+              })}
+            </div>
 
             <div className="w-full mb-4">
               <label className="block text-xs font-bold text-slate-400 mb-1">
@@ -770,7 +782,7 @@ export function Phase3Runtime({
 
             <div className="w-full mb-5">
               <label className="block text-xs font-bold text-slate-400 mb-2">
-                Warna
+                Warna Cincin
               </label>
               <div className="flex justify-between">
                 {[
@@ -808,15 +820,14 @@ export function Phase3Runtime({
                     key={d.id}
                     type="button"
                     onClick={() => setDifficulty(d.id)}
-                    className={`py-2 rounded-lg text-xs font-bold transition-colors ${
-                      difficulty === d.id
+                    className={`py-2 rounded-lg text-xs font-bold transition-colors ${difficulty === d.id
                         ? d.id === "sulit"
                           ? "bg-rose-600 text-white"
                           : d.id === "sedang"
                             ? "bg-amber-600 text-white"
                             : "bg-emerald-600 text-white"
                         : "text-slate-400 hover:text-white"
-                    }`}
+                      }`}
                   >
                     {d.label}
                   </button>

@@ -1068,25 +1068,6 @@ function buildScenarioObjects() {
       })),
   ];
 
-  const gempaObjectives = [
-    {
-      object_type: "OBJECTIVE",
-      x: 56,
-      y: 36,
-      width: 1,
-      height: 1,
-      properties: { name: "Ambil Kotak P3K Darurat (UKS)" },
-    },
-    {
-      object_type: "OBJECTIVE",
-      x: 32,
-      y: 13,
-      width: 1,
-      height: 1,
-      properties: { name: "Bunyikan Alarm Evakuasi (Lobi)" },
-    },
-  ];
-
   const gempaHazards = [
     {
       object_type: "BLOCKED_AREA",
@@ -1338,25 +1319,6 @@ function buildScenarioObjects() {
     },
   ];
 
-  const kebakaranObjectives = [
-    {
-      object_type: "OBJECTIVE",
-      x: 56,
-      y: 29,
-      width: 1,
-      height: 1,
-      properties: { name: "Matikan Panel Induk (R. Operator)" },
-    },
-    {
-      object_type: "OBJECTIVE",
-      x: 74,
-      y: 14,
-      width: 1,
-      height: 1,
-      properties: { name: "Ambil Tabung APAR Sayap Utara" },
-    },
-  ];
-
   const kebakaranHazards = [
     {
       object_type: "FIRE",
@@ -1536,25 +1498,6 @@ function buildScenarioObjects() {
       })),
   ];
 
-  const banjirObjectives = [
-    {
-      object_type: "OBJECTIVE",
-      x: 97,
-      y: 34,
-      width: 1,
-      height: 1,
-      properties: { name: "Cek & Evakuasi Kelas Sayap Timur (Ruang 18)" },
-    },
-    {
-      object_type: "OBJECTIVE",
-      x: 55,
-      y: 12,
-      width: 1,
-      height: 1,
-      properties: { name: "Amankan Arsip & Daftar Hadir (R. Sekretariat)" },
-    },
-  ];
-
   const banjirHazards = [
     {
       object_type: "DANGER_ZONE",
@@ -1706,25 +1649,6 @@ function buildScenarioObjects() {
       })),
   ];
 
-  const anginObjectives = [
-    {
-      object_type: "OBJECTIVE",
-      x: 68,
-      y: 12,
-      width: 1,
-      height: 1,
-      properties: { name: "Kumpulkan Siswa Berlindung (Masjid)" },
-    },
-    {
-      object_type: "OBJECTIVE",
-      x: 66,
-      y: 45,
-      width: 1,
-      height: 1,
-      properties: { name: "Cek Ruang Selatan (Ruang 23)" },
-    },
-  ];
-
   const anginHazards = [
     {
       object_type: "DANGER_ZONE",
@@ -1870,25 +1794,6 @@ function buildScenarioObjects() {
       })),
   ];
 
-  const kimiaObjectives = [
-    {
-      object_type: "OBJECTIVE",
-      x: 26,
-      y: 12,
-      width: 1,
-      height: 1,
-      properties: { name: "Ambil Masker Respirator (Ruang Guru)" },
-    },
-    {
-      object_type: "OBJECTIVE",
-      x: 56,
-      y: 36,
-      width: 1,
-      height: 1,
-      properties: { name: "Ambil Cairan Netralisir (UKS)" },
-    },
-  ];
-
   const kimiaHazards = [
     {
       object_type: "DANGER_ZONE",
@@ -2024,25 +1929,6 @@ function buildScenarioObjects() {
         y: s.y,
         properties: { label: s.label },
       })),
-  ];
-
-  const pasObjectives = [
-    {
-      object_type: "OBJECTIVE",
-      x: 43,
-      y: 16,
-      width: 1,
-      height: 1,
-      properties: { name: "Ambil Berkas Pengawas (R. Meeting)" },
-    },
-    {
-      object_type: "OBJECTIVE",
-      x: 59,
-      y: 12,
-      width: 1,
-      height: 1,
-      properties: { name: "Ambil Senter & P3K (Ruang BK)" },
-    },
   ];
 
   const pasHazards = [
@@ -2196,87 +2082,6 @@ function buildScenarioObjects() {
     },
   ];
 
-  // Perlengkapan taktis opsional (pickupOnly: true) di berbagai titik bangunan
-  const sharedEmergencySupplies = [
-    {
-      object_type: "OBJECTIVE",
-      x: 56,
-      y: 35,
-      width: 1,
-      height: 1,
-      properties: {
-        pickupOnly: true,
-        itemKind: "MEDKIT",
-        healAmount: 35,
-        name: "Kotak P3K UKS (+35 HP)",
-      },
-    },
-    {
-      object_type: "OBJECTIVE",
-      x: 61,
-      y: 44,
-      width: 1,
-      height: 1,
-      properties: {
-        pickupOnly: true,
-        itemKind: "STAMINA_DRINK",
-        staminaAmount: 55,
-        name: "Air Energi Koperasi (+55 Stamina)",
-      },
-    },
-    {
-      object_type: "OBJECTIVE",
-      x: 26,
-      y: 45,
-      width: 1,
-      height: 1,
-      properties: {
-        pickupOnly: true,
-        itemKind: "KEY",
-        name: "Kunci Pintu Darurat (R. OSIS)",
-      },
-    },
-    {
-      object_type: "OBJECTIVE",
-      x: 58,
-      y: 23,
-      width: 1,
-      height: 1,
-      properties: {
-        pickupOnly: true,
-        itemKind: "FLASHLIGHT",
-        durationSec: 20,
-        name: "Senter Taktis (Gudang Tengah)",
-      },
-    },
-    {
-      object_type: "OBJECTIVE",
-      x: 25,
-      y: 12,
-      width: 1,
-      height: 1,
-      properties: {
-        pickupOnly: true,
-        itemKind: "MASK",
-        durationSec: 15,
-        name: "Masker Respirator (Ruang Guru)",
-      },
-    },
-    {
-      object_type: "OBJECTIVE",
-      x: 42,
-      y: 15,
-      width: 1,
-      height: 1,
-      properties: {
-        pickupOnly: true,
-        itemKind: "EXTINGUISHER",
-        charges: 2,
-        name: "Tabung APAR (R. Meeting)",
-      },
-    },
-  ];
-
   // Skenario 7: Badai Petir & Korsleting Massal
   const petirSpawns = [
     {
@@ -2293,25 +2098,6 @@ function buildScenarioObjects() {
         y: s.y,
         properties: { label: s.label },
       })),
-  ];
-
-  const petirObjectives = [
-    {
-      object_type: "OBJECTIVE",
-      x: 56,
-      y: 29,
-      width: 1,
-      height: 1,
-      properties: { name: "Cabut MCB Penangkal Petir (R. Operator)" },
-    },
-    {
-      object_type: "OBJECTIVE",
-      x: 68,
-      y: 12,
-      width: 1,
-      height: 1,
-      properties: { name: "Amankan Siswa di Masjid Sabilunnajah" },
-    },
   ];
 
   const petirHazards = [
@@ -2445,25 +2231,6 @@ function buildScenarioObjects() {
         y: s.y,
         properties: { label: s.label },
       })),
-  ];
-
-  const longsorObjectives = [
-    {
-      object_type: "OBJECTIVE",
-      x: 4,
-      y: 27,
-      width: 1,
-      height: 1,
-      properties: { name: "Amankan Peralatan Lab & Gas (Lab. Fisika)" },
-    },
-    {
-      object_type: "OBJECTIVE",
-      x: 40,
-      y: 11,
-      width: 1,
-      height: 1,
-      properties: { name: "Serahkan Data Siswa ke R. Kasek" },
-    },
   ];
 
   const longsorHazards = [
@@ -2601,31 +2368,20 @@ function buildScenarioObjects() {
       name: "Gempa Bumi Tektonik & Runtuhan Susulan (SMAN 1 Ngoro)",
       disaster_type: "Gempa",
       status: "published",
-      version: 4,
+      version: 5,
       config: {
         sourceDocument: "DENAH LOKASI DAN RUANG PAS GASAL 2023/2024 SMAN 1 NGORO",
         address: "Jl. Candi Jolotundo, Kutogirang, Ngoro, Mojokerto 61385",
         difficulty: "Sulit",
-        summary: "Mulai dari pojok barat daya dengan koridor runtuh, gempa susulan berkala, penyelamatan siswa/guru, dan jebakan tersembunyi.",
+        summary: "Selamatkan diri secepat mungkin dari pojok barat daya menuju Gerbang Utama dengan menghindari reruntuhan, gempa susulan, dan jebakan kaca/kabel tersembunyi.",
         hazardSpeed: 1.35,
         aftershockIntervalMs: 11000,
         ambientDarkness: 0.22,
-        lockedDoors: [
-          { x: 35, y: 12 },
-          { x: 59, y: 30 },
-        ],
-        npcs: [
-          { id: "npc-gempa-1", name: "Bu Sari (Guru)", role: "Guru", x: 26, y: 12 },
-          { id: "npc-gempa-2", name: "Bagas (Kelas XI)", role: "Siswa", x: 65, y: 34 },
-          { id: "npc-gempa-3", name: "Nadia (Kelas X)", role: "Siswa", x: 14, y: 45 },
-        ],
-        evacuationTarget: "UKS (P3K) → Lobi (Alarm) → Gerbang Utama",
+        evacuationTarget: "Hindari Bahaya → Gerbang Utama (EXIT)",
       },
       objects: buildObjects(SCENARIO_IDS.GEMPA, [
         ...safeZonesAndExits,
         ...gempaSpawns,
-        ...gempaObjectives,
-        ...sharedEmergencySupplies,
         ...gempaHazards,
       ]),
     },
@@ -2635,31 +2391,20 @@ function buildScenarioObjects() {
       name: "Kebakaran Hebat Kantin, Gudang & Asap Tebal",
       disaster_type: "Kebakaran",
       status: "published",
-      version: 4,
+      version: 5,
       config: {
         sourceDocument: "DENAH LOKASI DAN RUANG PAS GASAL 2023/2024 SMAN 1 NGORO",
         address: "Jl. Candi Jolotundo, Kutogirang, Ngoro, Mojokerto 61385",
         difficulty: "Ekstrem",
-        summary: "Api menjalar dinamis, asap pekat ber-damage tinggi, bara & korsleting tersembunyi, serta warga kantin butuh diselamatkan.",
+        summary: "Api menjalar dinamis disertai asap pekat dan bara tersembunyi — tembus koridor teraman menuju Gerbang Utama secepat mungkin.",
         hazardSpeed: 1.4,
         fireSpreadIntervalMs: 14000,
         ambientDarkness: 0.42,
-        lockedDoors: [
-          { x: 73, y: 12 },
-          { x: 54, y: 30 },
-        ],
-        npcs: [
-          { id: "npc-api-1", name: "Bu Wati (Kantin)", role: "Guru", x: 85, y: 45 },
-          { id: "npc-api-2", name: "Raka (Kelas XII)", role: "Siswa", x: 77, y: 24 },
-          { id: "npc-api-3", name: "Dinda (Kelas X)", role: "Siswa", x: 39, y: 45 },
-        ],
-        evacuationTarget: "R. Operator (Panel) → Sayap Utara (APAR) → Gerbang Utama",
+        evacuationTarget: "Hindari Api & Asap → Gerbang Utama (EXIT)",
       },
       objects: buildObjects(SCENARIO_IDS.KEBAKARAN, [
         ...safeZonesAndExits,
         ...kebakaranSpawns,
-        ...kebakaranObjectives,
-        ...sharedEmergencySupplies,
         ...kebakaranHazards,
       ]),
     },
@@ -2669,28 +2414,20 @@ function buildScenarioObjects() {
       name: "Banjir Bandang & Bahaya Listrik Terendam",
       disaster_type: "Banjir",
       status: "published",
-      version: 4,
+      version: 5,
       config: {
         sourceDocument: "DENAH LOKASI DAN RUANG PAS GASAL 2023/2024 SMAN 1 NGORO",
         address: "Jl. Candi Jolotundo, Kutogirang, Ngoro, Mojokerto 61385",
         difficulty: "Sulit",
-        summary: "Air banjir perlahan meluas, memperlambat lari, serta menyembunyikan lubang drainase dan korsleting listrik.",
+        summary: "Air banjir perlahan meluas dan memperlambat lari serta menyembunyikan arus listrik bawah air — evakuasi segera ke Gerbang Utama.",
         hazardSpeed: 1.25,
         floodRiseIntervalMs: 15000,
         ambientDarkness: 0.25,
-        lockedDoors: [{ x: 55, y: 18 }],
-        npcs: [
-          { id: "npc-banjir-1", name: "Pak Budi (Pustakawan)", role: "Guru", x: 34, y: 45 },
-          { id: "npc-banjir-2", name: "Fajar (Kelas XI)", role: "Siswa", x: 79, y: 45 },
-          { id: "npc-banjir-3", name: "Tania (Kelas X)", role: "Siswa", x: 90, y: 34 },
-        ],
-        evacuationTarget: "Ruang 18 Timur → R. Sekretariat → Gerbang Utama",
+        evacuationTarget: "Hindari Banjir & Sengatan Listrik → Gerbang Utama (EXIT)",
       },
       objects: buildObjects(SCENARIO_IDS.BANJIR, [
         ...safeZonesAndExits,
         ...banjirSpawns,
-        ...banjirObjectives,
-        ...sharedEmergencySupplies,
         ...banjirHazards,
       ]),
     },
@@ -2700,28 +2437,20 @@ function buildScenarioObjects() {
       name: "Angin Puting Beliung & Puing Atap Terbang",
       disaster_type: "Angin Puting Beliung",
       status: "published",
-      version: 4,
+      version: 5,
       config: {
         sourceDocument: "DENAH LOKASI DAN RUANG PAS GASAL 2023/2024 SMAN 1 NGORO",
         address: "Jl. Candi Jolotundo, Kutogirang, Ngoro, Mojokerto 61385",
         difficulty: "Ekstrem",
-        summary: "Pusaran angin di lapangan terbuka memaksa memutar jauh melewati sayap masjid, disertai kabel putus & petir sesekali.",
+        summary: "Pusaran angin di lapangan terbuka, puing atap tajam, dan sambaran petir mengancam rute utara — cari celah aman tercepat menuju Gerbang Utama.",
         hazardSpeed: 1.45,
         lightningIntervalMs: 13000,
         ambientDarkness: 0.3,
-        lockedDoors: [{ x: 32, y: 18 }],
-        npcs: [
-          { id: "npc-angin-1", name: "Pelatih Dedi", role: "Guru", x: 4, y: 15 },
-          { id: "npc-angin-2", name: "Rizky (Kelas XI)", role: "Siswa", x: 79, y: 13 },
-          { id: "npc-angin-3", name: "Sinta (Kelas XII)", role: "Siswa", x: 67, y: 45 },
-        ],
-        evacuationTarget: "Masjid → Ruang 23 Selatan → Gerbang Utama",
+        evacuationTarget: "Hindari Angin & Petir → Gerbang Utama (EXIT)",
       },
       objects: buildObjects(SCENARIO_IDS.ANGIN, [
         ...safeZonesAndExits,
         ...anginSpawns,
-        ...anginObjectives,
-        ...sharedEmergencySupplies,
         ...anginHazards,
       ]),
     },
@@ -2731,27 +2460,19 @@ function buildScenarioObjects() {
       name: "Kebocoran Gas Kimia Lab. Fisika & Cairan Korosif",
       disaster_type: "Bahaya Kimia",
       status: "published",
-      version: 4,
+      version: 5,
       config: {
         sourceDocument: "DENAH LOKASI DAN RUANG PAS GASAL 2023/2024 SMAN 1 NGORO",
         address: "Jl. Candi Jolotundo, Kutogirang, Ngoro, Mojokerto 61385",
         difficulty: "Ekstrem",
-        summary: "Awan gas korosif mengisolasi sisi barat dan menyisakan tumpahan asam tersembunyi — gunakan Masker Respirator untuk bertahan.",
+        summary: "Awan gas beracun mengisolasi sayap barat disertai tumpahan asam korosif tersembunyi — larilah keluar menuju Gerbang Utama secepat mungkin.",
         hazardSpeed: 1.35,
         ambientDarkness: 0.34,
-        lockedDoors: [{ x: 26, y: 18 }],
-        npcs: [
-          { id: "npc-kimia-1", name: "Bu Hana (Laboran)", role: "Guru", x: 5, y: 24 },
-          { id: "npc-kimia-2", name: "Ilham (Kelas XI)", role: "Siswa", x: 14, y: 11 },
-          { id: "npc-kimia-3", name: "Putri (Kelas X)", role: "Siswa", x: 65, y: 24 },
-        ],
-        evacuationTarget: "Ruang Guru (Respirator) → UKS → Gerbang Utama",
+        evacuationTarget: "Hindari Gas Beracun & Asam → Gerbang Utama (EXIT)",
       },
       objects: buildObjects(SCENARIO_IDS.KIMIA, [
         ...safeZonesAndExits,
         ...kimiaSpawns,
-        ...kimiaObjectives,
-        ...sharedEmergencySupplies,
         ...kimiaHazards,
       ]),
     },
@@ -2761,28 +2482,20 @@ function buildScenarioObjects() {
       name: "Badai Petir Ekstrem & Korsleting Panel Massal",
       disaster_type: "Badai Petir",
       status: "published",
-      version: 4,
+      version: 5,
       config: {
         sourceDocument: "DENAH LOKASI DAN RUANG PAS GASAL 2023/2024 SMAN 1 NGORO",
         address: "Jl. Candi Jolotundo, Kutogirang, Ngoro, Mojokerto 61385",
         difficulty: "Ekstrem",
-        summary: "Sambaran petir berkala di area terbuka disertai kobaran panel listrik dan genangan beraliran listrik tersembunyi.",
+        summary: "Sambaran petir berkala di area terbuka disertai kobaran panel listrik dan genangan beraliran tinggi — hindari zona kilat & capai Gerbang Utama.",
         hazardSpeed: 1.45,
         lightningIntervalMs: 8500,
         ambientDarkness: 0.44,
-        lockedDoors: [{ x: 59, y: 18 }],
-        npcs: [
-          { id: "npc-petir-1", name: "Pak Eko (Teknisi)", role: "Guru", x: 56, y: 31 },
-          { id: "npc-petir-2", name: "Aldi (Kelas X)", role: "Siswa", x: 20, y: 45 },
-          { id: "npc-petir-3", name: "Maya (Kelas XI)", role: "Siswa", x: 84, y: 24 },
-        ],
-        evacuationTarget: "R. Operator (MCB) → Masjid → Gerbang Utama",
+        evacuationTarget: "Hindari Petir & Arus Listrik → Gerbang Utama (EXIT)",
       },
       objects: buildObjects(SCENARIO_IDS.PETIR, [
         ...safeZonesAndExits,
         ...petirSpawns,
-        ...petirObjectives,
-        ...sharedEmergencySupplies,
         ...petirHazards,
       ]),
     },
@@ -2792,29 +2505,21 @@ function buildScenarioObjects() {
       name: "Tanah Longsor Tebing Selatan & Aliran Lumpur",
       disaster_type: "Tanah Longsor",
       status: "published",
-      version: 4,
+      version: 5,
       config: {
         sourceDocument: "DENAH LOKASI DAN RUANG PAS GASAL 2023/2024 SMAN 1 NGORO",
         address: "Jl. Candi Jolotundo, Kutogirang, Ngoro, Mojokerto 61385",
         difficulty: "Sulit",
-        summary: "Longsoran tebing memblokir sisi tenggara dengan lumpur meluas yang sangat menghambat kecepatan berjalan & lari.",
+        summary: "Longsoran tebing menimbun koridor tenggara dengan lumpur meluas yang memperlambat gerak — hindari timbunan & keluar melalui Gerbang Utama.",
         hazardSpeed: 1.3,
         floodRiseIntervalMs: 16000,
         aftershockIntervalMs: 14000,
         ambientDarkness: 0.28,
-        lockedDoors: [{ x: 41, y: 7 }],
-        npcs: [
-          { id: "npc-longsor-1", name: "Pak Hendra (BK)", role: "Guru", x: 59, y: 12 },
-          { id: "npc-longsor-2", name: "Dimas (Kelas XII)", role: "Siswa", x: 79, y: 45 },
-          { id: "npc-longsor-3", name: "Rani (Kelas X)", role: "Siswa", x: 20, y: 11 },
-        ],
-        evacuationTarget: "Lab. Fisika → R. Kasek → Gerbang Utama",
+        evacuationTarget: "Hindari Longsor & Lumpur → Gerbang Utama (EXIT)",
       },
       objects: buildObjects(SCENARIO_IDS.LONGSOR, [
         ...safeZonesAndExits,
         ...longsorSpawns,
-        ...longsorObjectives,
-        ...sharedEmergencySupplies,
         ...longsorHazards,
       ]),
     },
@@ -2824,33 +2529,21 @@ function buildScenarioObjects() {
       name: "Krisis Ganda Ujian PAS (Pemadaman Total 1–26)",
       disaster_type: "Multi-Bencana",
       status: "published",
-      version: 4,
+      version: 5,
       config: {
         sourceDocument: "DENAH LOKASI DAN RUANG PAS GASAL 2023/2024 SMAN 1 NGORO",
         address: "Jl. Candi Jolotundo, Kutogirang, Ngoro, Mojokerto 61385",
         difficulty: "Ekstrem",
-        summary: "Mode tersulit: pemadaman listrik gelap, api menjalar, genangan meluas, gempa susulan, 4 NPC terjebak, dan pintu darurat terkunci.",
+        summary: "Mode bertahan hidup tersulit: pemadaman gelap, api menjalar, genangan meluas, gempa susulan, dan jebakan tersembunyi — selamatkan diri ke Gerbang Utama secepatnya.",
         hazardSpeed: 1.5,
         aftershockIntervalMs: 12000,
         fireSpreadIntervalMs: 15000,
-        ambientDarkness: 0.56,
-        lockedDoors: [
-          { x: 43, y: 18 },
-          { x: 59, y: 18 },
-        ],
-        npcs: [
-          { id: "npc-pas-1", name: "Bu Ratna (Pengawas)", role: "Guru", x: 90, y: 34 },
-          { id: "npc-pas-2", name: "Kevin (Ruang 18)", role: "Siswa", x: 97, y: 24 },
-          { id: "npc-pas-3", name: "Lia (Ruang 20)", role: "Siswa", x: 85, y: 45 },
-          { id: "npc-pas-4", name: "Yoga (Ruang 3)", role: "Siswa", x: 49, y: 10 },
-        ],
-        evacuationTarget: "R. Meeting → Ruang BK → Gerbang Utama",
+        ambientDarkness: 0.54,
+        evacuationTarget: "Bertahan & Capai Gerbang Utama (EXIT) Secepatnya",
       },
       objects: buildObjects(SCENARIO_IDS.PAS_DRILL, [
         ...safeZonesAndExits,
         ...pasSpawns,
-        ...pasObjectives,
-        ...sharedEmergencySupplies,
         ...pasHazards,
       ]),
     },
@@ -3003,7 +2696,7 @@ export function buildSman1NgoroPdfDigitalTwin() {
     height: MAP_HEIGHT,
     active_floor_id: SMAN1_NGORO_FLOOR_ID,
     status: "published",
-    version: 4,
+    version: 5,
     border: {
       minX: 0,
       minY: 0,

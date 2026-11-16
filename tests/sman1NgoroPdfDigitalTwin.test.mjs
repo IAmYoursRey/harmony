@@ -161,7 +161,7 @@ test("Room interiors do not unintentionally collide and doors open cleanly", () 
   }
 });
 
-test("All 8 disaster scenarios have valid obstacle-free evacuation paths to OBJECTIVE, NPC, SAFE_ZONE, and EXIT plus supplies & hidden traps", () => {
+test("All 8 disaster scenarios enforce pure survival escape to SAFE_ZONE and EXIT with hidden traps & no extra quests", () => {
   const { grid, scenarios } = buildSman1NgoroPdfDigitalTwin();
   assert.equal(scenarios.length, 8);
 
@@ -170,25 +170,22 @@ test("All 8 disaster scenarios have valid obstacle-free evacuation paths to OBJE
 
   for (const scenario of scenarios) {
     assert.equal(scenario.status, "published");
+    assert.ok(scenario.version >= 5, `${scenario.id} must be version >= 5`);
     const spawns = scenario.objects.filter((o) => o.object_type === "SPAWN");
-    const requiredObjectives = scenario.objects.filter(
-      (o) => o.object_type === "OBJECTIVE" && !o.properties?.pickupOnly,
-    );
-    const supplies = scenario.objects.filter(
-      (o) => o.object_type === "OBJECTIVE" && o.properties?.pickupOnly === true,
-    );
+    const objectives = scenario.objects.filter((o) => o.object_type === "OBJECTIVE");
     const safeZones = scenario.objects.filter((o) => o.object_type === "SAFE_ZONE");
     const exits = scenario.objects.filter((o) => o.object_type === "EXIT");
     const hiddenTraps = scenario.objects.filter((o) => o.properties?.hidden === true);
     const npcs = scenario.config?.npcs || [];
+    const lockedDoors = scenario.config?.lockedDoors || [];
 
     assert.ok(spawns.length > 0, `${scenario.id} must have SPAWN objects`);
-    assert.ok(requiredObjectives.length > 0, `${scenario.id} must have required OBJECTIVE waypoints`);
-    assert.ok(supplies.length >= 4, `${scenario.id} must have tactical survival supplies`);
+    assert.equal(objectives.length, 0, `${scenario.id} must NOT include extra OBJECTIVE side missions`);
+    assert.equal(npcs.length, 0, `${scenario.id} must NOT include extra NPC side quests`);
+    assert.equal(lockedDoors.length, 0, `${scenario.id} must NOT lock doors behind key quests`);
     assert.ok(safeZones.length > 0, `${scenario.id} must have SAFE_ZONE objects`);
     assert.ok(exits.length > 0, `${scenario.id} must have EXIT objects`);
     assert.ok(hiddenTraps.length >= 5, `${scenario.id} must include >= 5 hidden hazards`);
-    assert.ok(npcs.length >= 3, `${scenario.id} must include >= 3 rescuable NPCs`);
 
     for (const trap of hiddenTraps) {
       assert.ok(
@@ -206,20 +203,6 @@ test("All 8 disaster scenarios have valid obstacle-free evacuation paths to OBJE
       if (BLOCKING_SCENARIO_OBJECTS.has(obj.object_type)) {
         for (const k of expandRect(obj)) blockedKeys.add(k);
       }
-    }
-    for (const ld of scenario.config?.lockedDoors || []) {
-      blockedKeys.add(`${ld.x},${ld.y}`);
-    }
-
-    for (const npc of npcs) {
-      assert.ok(
-        !BLOCKING_TILES.has(grid[npc.y][npc.x]),
-        `NPC ${npc.name} (${npc.x},${npc.y}) in ${scenario.id} placed on blocking tile`,
-      );
-      assert.ok(
-        !blockedKeys.has(`${npc.x},${npc.y}`),
-        `NPC ${npc.name} (${npc.x},${npc.y}) in ${scenario.id} placed on hazard`,
-      );
     }
 
     const safeKeys = new Set();
@@ -240,15 +223,6 @@ test("All 8 disaster scenarios have valid obstacle-free evacuation paths to OBJE
         !blockedKeys.has(`${spawn.x},${spawn.y}`),
         `SPAWN (${spawn.x},${spawn.y}) in ${scenario.id} placed on hazard`,
       );
-
-      for (const objective of requiredObjectives) {
-        const objKeys = new Set(expandRect(objective));
-        const reachesObj = bfsReachable(grid, blockedKeys, spawn.x, spawn.y, objKeys);
-        assert.ok(
-          reachesObj,
-          `SPAWN ${spawn.properties?.label || spawn.id} (${spawn.x},${spawn.y}) cannot reach OBJECTIVE ${objective.properties?.name || objective.id} (${objective.x},${objective.y}) in ${scenario.id}`,
-        );
-      }
 
       const reachesSafe = bfsReachable(grid, blockedKeys, spawn.x, spawn.y, safeKeys);
       assert.ok(
@@ -277,9 +251,13 @@ test("Legacy GridMap and DisasterSimulation structures are populated consistentl
   assert.equal(legacySimulations.length, 8);
 });
 
-test("Hard mode physics enforce larger scale, slower running, and elevated hazard damage", () => {
+test("Crisp scale, slow sprint physics, elevated hazard damage, and Canva sprite/texture assets are verified", () => {
   const engineSrc = fs.readFileSync(
     path.resolve("apps/web/src/components/dashboard/views/spatial/digital-twin/Phase3Engine.ts"),
+    "utf8",
+  );
+  const runtimeSrc = fs.readFileSync(
+    path.resolve("apps/web/src/components/dashboard/views/spatial/digital-twin/Phase3Runtime.tsx"),
     "utf8",
   );
   const extractNum = (key) => {
@@ -288,9 +266,11 @@ test("Hard mode physics enforce larger scale, slower running, and elevated hazar
     return Number(match[1]);
   };
 
-  assert.ok(extractNum("TILE_SIZE") >= 64, "TILE_SIZE must expand spatial campus scale (>= 64px)");
-  assert.ok(extractNum("WALK_SPEED") <= 95, "Walking speed must remain controlled");
-  assert.ok(extractNum("RUN_SPEED") <= 150, "Sprint speed must be deliberately slowed (<= 150px/s)");
+  const tileSize = extractNum("TILE_SIZE");
+  assert.ok(tileSize >= 44 && tileSize <= 56, `TILE_SIZE (${tileSize}px) should stay crisp and not oversized`);
+  assert.ok(!runtimeSrc.includes('imageRendering: "pixelated"'), "Must not use blurry pixelated canvas upscaling");
+  assert.ok(extractNum("WALK_SPEED") <= 85, "Walking speed must remain controlled");
+  assert.ok(extractNum("RUN_SPEED") <= 125, "Sprint speed must remain deliberately challenging (<= 125px/s)");
   assert.ok(extractNum("FIRE_DPS") >= 30, "Fire hazard damage must be high (>= 30 HP/s)");
   assert.ok(extractNum("DEFAULT_ZONE_DPS") >= 22, "Damage zones must be severe (>= 22 HP/s)");
   assert.ok(extractNum("DEFAULT_HIDDEN_BURST") >= 25, "Hidden traps must deal strong burst damage");
@@ -298,16 +278,27 @@ test("Hard mode physics enforce larger scale, slower running, and elevated hazar
   const { scenarios } = buildSman1NgoroPdfDigitalTwin();
   for (const sc of scenarios) {
     const primarySpawn = sc.objects.find((o) => o.object_type === "SPAWN");
-    const firstObjective = sc.objects.find(
-      (o) => o.object_type === "OBJECTIVE" && !o.properties?.pickupOnly,
-    );
     const exitObj = sc.objects.find((o) => o.object_type === "EXIT");
-    const routeDist =
-      Math.hypot(firstObjective.x - primarySpawn.x, firstObjective.y - primarySpawn.y) +
-      Math.hypot(exitObj.x - firstObjective.x, exitObj.y - firstObjective.y);
+    const routeDist = Math.hypot(exitObj.x - primarySpawn.x, exitObj.y - primarySpawn.y);
     assert.ok(
-      routeDist >= 55,
-      `${sc.id} total evacuation leg distance (${routeDist.toFixed(1)} tiles) too short`,
+      routeDist >= 30,
+      `${sc.id} spawn-to-exit span (${routeDist.toFixed(1)} tiles) too short`,
     );
+  }
+
+  const requiredAssets = [
+    "character-girl.png",
+    "character-boy.png",
+    "floor-campus.png",
+    "paving-campus.png",
+    "grass-campus.png",
+    "road-campus.png",
+    "hazard-fire.png",
+    "hazard-rubble.png",
+  ];
+  for (const file of requiredAssets) {
+    const assetPath = path.resolve("apps/web/public/digital-twin", file);
+    assert.ok(fs.existsSync(assetPath), `Missing Canva asset ${file}`);
+    assert.ok(fs.statSync(assetPath).size > 10_000, `Asset ${file} is suspiciously small`);
   }
 });

@@ -173,6 +173,8 @@ export function GameGridSandbox({
       const elapsed = now - startTime;
       const { width, height } = canvas;
 
+      ctx.imageSmoothingEnabled = true;
+      ctx.imageSmoothingQuality = "high";
       ctx.clearRect(0, 0, width, height);
 
       // Deep space / digital twin background
@@ -338,21 +340,9 @@ export function GameGridSandbox({
               ctx.stroke();
               ctx.restore();
             } else if (obj.object_type === "BLOCKED_AREA") {
-              // Hazard warning stripes
               ctx.save();
-              ctx.fillStyle = "rgba(15, 23, 42, 0.85)";
-              ctx.fillRect(ox, oy, ow, oh);
-              ctx.beginPath();
-              ctx.rect(ox, oy, ow, oh);
-              ctx.clip();
-              ctx.strokeStyle = "#eab308";
-              ctx.lineWidth = 6;
-              for (let i = -ow; i < ow + oh; i += 16) {
-                ctx.beginPath();
-                ctx.moveTo(ox + i, oy);
-                ctx.lineTo(ox + i - oh, oy + oh);
-                ctx.stroke();
-              }
+              ctx.translate(ox, oy);
+              AssetRenderer.drawScenarioObject(ctx, "BLOCKED_AREA", ow, oh, elapsed);
               ctx.restore();
             } else if (obj.object_type === "DAMAGE_ZONE") {
               ctx.save();
@@ -438,14 +428,10 @@ export function GameGridSandbox({
               }
               ctx.restore();
             } else if (obj.object_type === "FIRE") {
-              const cx = ox + ow / 2;
-              const cy = oy + oh / 2;
-              const grad = ctx.createRadialGradient(cx, cy, 0, cx, cy, Math.max(ow, oh) * 0.8);
-              grad.addColorStop(0, "rgba(254, 240, 138, 0.95)");
-              grad.addColorStop(0.4, "rgba(249, 115, 22, 0.8)");
-              grad.addColorStop(1, "rgba(220, 38, 38, 0)");
-              ctx.fillStyle = grad;
-              ctx.fillRect(ox, oy, ow, oh);
+              ctx.save();
+              ctx.translate(ox, oy);
+              AssetRenderer.drawScenarioObject(ctx, "FIRE", ow, oh, elapsed);
+              ctx.restore();
             }
           });
         }
@@ -543,9 +529,8 @@ export function GameGridSandbox({
 
   return (
     <div
-      className={`relative w-full min-w-0 rounded-2xl overflow-hidden border border-slate-700/80 bg-slate-950 shadow-2xl transition-all ${
-        isFullscreen ? "fixed inset-4 z-50 rounded-2xl" : "h-[460px] sm:h-[620px]"
-      }`}
+      className={`relative w-full min-w-0 rounded-2xl overflow-hidden border border-slate-700/80 bg-slate-950 shadow-2xl transition-all ${isFullscreen ? "fixed inset-4 z-50 rounded-2xl" : "h-[460px] sm:h-[620px]"
+        }`}
     >
       {/* HUD Header Bar */}
       <div className="absolute top-0 inset-x-0 z-20 flex flex-wrap items-center justify-between gap-2 p-3 sm:p-4 bg-gradient-to-b from-slate-950/95 via-slate-950/75 to-transparent pointer-events-none">
@@ -600,11 +585,10 @@ export function GameGridSandbox({
         <div className="flex flex-wrap items-center gap-1 p-1 rounded-xl bg-slate-900/90 border border-slate-700/80 backdrop-blur-md shadow-xl text-xs max-w-full">
           <button
             onClick={() => setShowSafeZones(!showSafeZones)}
-            className={`shrink-0 whitespace-nowrap flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg transition-colors font-medium text-[11px] ${
-              showSafeZones
+            className={`shrink-0 whitespace-nowrap flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg transition-colors font-medium text-[11px] ${showSafeZones
                 ? "bg-emerald-500/20 text-emerald-400 border border-emerald-500/40"
                 : "text-slate-400 hover:text-white"
-            }`}
+              }`}
             title="Toggle Safe Zones"
           >
             <ShieldCheck className="h-3.5 w-3.5" />
@@ -613,11 +597,10 @@ export function GameGridSandbox({
 
           <button
             onClick={() => setShowExits(!showExits)}
-            className={`shrink-0 whitespace-nowrap flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg transition-colors font-medium text-[11px] ${
-              showExits
+            className={`shrink-0 whitespace-nowrap flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg transition-colors font-medium text-[11px] ${showExits
                 ? "bg-teal-500/20 text-teal-400 border border-teal-500/40"
                 : "text-slate-400 hover:text-white"
-            }`}
+              }`}
             title="Toggle Exits / Gates"
           >
             <DoorOpen className="h-3.5 w-3.5" />
@@ -626,11 +609,10 @@ export function GameGridSandbox({
 
           <button
             onClick={() => setShowSpawns(!showSpawns)}
-            className={`shrink-0 whitespace-nowrap flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg transition-colors font-medium text-[11px] ${
-              showSpawns
+            className={`shrink-0 whitespace-nowrap flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg transition-colors font-medium text-[11px] ${showSpawns
                 ? "bg-amber-500/20 text-amber-400 border border-amber-500/40"
                 : "text-slate-400 hover:text-white"
-            }`}
+              }`}
             title="Toggle Student Spawns"
           >
             <MapPin className="h-3.5 w-3.5" />
@@ -639,11 +621,10 @@ export function GameGridSandbox({
 
           <button
             onClick={() => setShowGrid(!showGrid)}
-            className={`shrink-0 whitespace-nowrap flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg transition-colors font-medium text-[11px] ${
-              showGrid
+            className={`shrink-0 whitespace-nowrap flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg transition-colors font-medium text-[11px] ${showGrid
                 ? "bg-blue-500/20 text-blue-400 border border-blue-500/40"
                 : "text-slate-400 hover:text-white"
-            }`}
+              }`}
             title="Toggle Grid Lines"
           >
             <Layers className="h-3.5 w-3.5" />
@@ -652,11 +633,10 @@ export function GameGridSandbox({
 
           <button
             onClick={() => setShowRooms(!showRooms)}
-            className={`shrink-0 whitespace-nowrap flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg transition-colors font-medium text-[11px] ${
-              showRooms
+            className={`shrink-0 whitespace-nowrap flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg transition-colors font-medium text-[11px] ${showRooms
                 ? "bg-amber-500/20 text-amber-300 border border-amber-500/40"
                 : "text-slate-400 hover:text-white"
-            }`}
+              }`}
             title="Toggle Label & Zona Ruangan"
           >
             <span>Ruangan</span>
@@ -664,11 +644,10 @@ export function GameGridSandbox({
 
           <button
             onClick={() => setShowEffects(!showEffects)}
-            className={`shrink-0 whitespace-nowrap flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg transition-colors font-medium text-[11px] ${
-              showEffects
+            className={`shrink-0 whitespace-nowrap flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg transition-colors font-medium text-[11px] ${showEffects
                 ? "bg-purple-500/20 text-purple-400 border border-purple-500/40"
                 : "text-slate-400 hover:text-white"
-            }`}
+              }`}
             title="Toggle Hologram VFX"
           >
             <Sparkles className="h-3.5 w-3.5" />
