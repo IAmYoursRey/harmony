@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react";
+import { createPortal } from "react-dom";
 import { useParams, useNavigate } from "react-router-dom";
 import {
   Play,
@@ -228,8 +229,8 @@ export function StudentSessionLobby() {
   }
 
   if (isPlaying && session) {
-    return (
-      <div className="fixed inset-0 z-[100] bg-slate-950">
+    const runtimeView = (
+      <div className="fixed inset-0 z-[999] bg-slate-950">
         <Phase3Runtime
           mapId={session.mapId}
           scenarioId={session.scenarioId}
@@ -248,6 +249,9 @@ export function StudentSessionLobby() {
         />
       </div>
     );
+    return typeof document !== "undefined"
+      ? createPortal(runtimeView, document.body)
+      : runtimeView;
   }
 
   return (
