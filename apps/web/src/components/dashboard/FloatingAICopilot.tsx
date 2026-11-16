@@ -270,7 +270,7 @@ export function FloatingAICopilot() {
   const chatHistory = useRef<
     { role: "user" | "model"; parts: { text: string }[] }[]
   >([]);
-  const chatEndRef = useRef<HTMLDivElement>(null);
+  const chatScrollRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
 
   const handleClearCopilotMemory = useCallback(() => {
@@ -292,7 +292,10 @@ export function FloatingAICopilot() {
 
   useEffect(() => {
     if (isOpen) {
-      chatEndRef.current?.scrollIntoView({ behavior: "smooth" });
+      const el = chatScrollRef.current;
+      if (el) {
+        el.scrollTop = el.scrollHeight;
+      }
       setTimeout(() => inputRef.current?.focus(), 150);
     }
   }, [chatMessages, isOpen]);
@@ -611,7 +614,7 @@ export function FloatingAICopilot() {
             </div>
 
             {/* Messages Scroll Area */}
-            <div className="flex-1 overflow-y-auto p-3.5 space-y-3">
+            <div ref={chatScrollRef} className="flex-1 overflow-y-auto p-3.5 space-y-3">
               {chatMessages.map((msg) => (
                 <div
                   key={msg.id}
@@ -662,7 +665,6 @@ export function FloatingAICopilot() {
                   </span>
                 </div>
               ))}
-              <div ref={chatEndRef} />
             </div>
 
             {/* Input Bar */}

@@ -109,10 +109,13 @@ export function AILearningView() {
   const chatHistory = useRef<
     { role: "user" | "model"; parts: { text: string }[] }[]
   >([]);
-  const chatEndRef = useRef<HTMLDivElement>(null);
+  const chatScrollRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
-    chatEndRef.current?.scrollIntoView({ behavior: "smooth" });
+    const el = chatScrollRef.current;
+    if (el) {
+      el.scrollTop = el.scrollHeight;
+    }
   }, [chatMessages]);
 
   const getProfileSummary = useCallback(() => {
@@ -204,7 +207,7 @@ export function AILearningView() {
     : 0;
 
   return (
-    <div className="flex h-[calc(100dvh-7.5rem)] min-h-[480px] flex-col overflow-hidden rounded-2xl border border-slate-200/80 dark:border-slate-800 bg-white dark:bg-slate-900 shadow-sm">
+    <div className="flex h-[calc(100dvh-9rem)] sm:h-[calc(100dvh-8rem)] min-h-[440px] flex-col overflow-hidden rounded-2xl border border-slate-200/80 dark:border-slate-800 bg-white dark:bg-slate-900 shadow-sm">
       <div className="bg-gradient-to-br from-brand-600 via-brand-700 to-brand-900 px-4 py-3.5 text-white sm:px-6 shrink-0">
         <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
           <div>
@@ -247,7 +250,7 @@ export function AILearningView() {
       </div>
 
       <div className="flex flex-1 flex-col overflow-hidden bg-slate-50/50 dark:bg-slate-950/40">
-        <div className="flex-1 overflow-y-auto px-4 py-4 space-y-4">
+        <div ref={chatScrollRef} className="flex-1 overflow-y-auto px-4 py-4 space-y-4">
           {chatMessages.map((msg) => (
             <div
               key={msg.id}
@@ -301,7 +304,6 @@ export function AILearningView() {
               </div>
             </div>
           ))}
-          <div ref={chatEndRef} />
         </div>
 
         {chatMessages.length <= 1 && (
