@@ -5,6 +5,30 @@ import { PLANETARY_CATALOG, CelestialBodyData } from '@/data/planetaryCatalog';
 const textureCache: Record<string, THREE.CanvasTexture> = {};
 const canvasCache: Record<string, HTMLCanvasElement> = {};
 const dataUrlCache: Record<string, string> = {};
+const realTextureLoadedState: Record<string, boolean> = {};
+
+/**
+ * Authentic NASA & ESA spacecraft photographic cylindrical maps (2048x1024)
+ * Ground-truth mission data from MESSENGER, Magellan, LRO, Viking, Cassini, SDO & Voyager.
+ */
+export const REAL_PLANET_TEXTURE_URLS: Record<string, string> = {
+  sun: '/celestial/sun.jpg',
+  mercury: '/celestial/mercury.jpg',
+  venus: '/celestial/venus.jpg',
+  earth: '/earth-blue-marble.jpg',
+  moon: '/celestial/moon.jpg',
+  mars: '/celestial/mars.jpg',
+  jupiter: '/celestial/jupiter.jpg',
+  saturn: '/celestial/saturn.jpg',
+  uranus: '/celestial/uranus.jpg',
+  neptune: '/celestial/neptune.jpg',
+};
+
+export const REAL_SATURN_RING_URL = '/celestial/saturn_ring.png';
+
+export function getRealPlanetTextureUrl(bodyId: string): string | undefined {
+  return REAL_PLANET_TEXTURE_URLS[bodyId];
+}
 
 /**
  * Ultra-HD (2048x1024) Equirectangular Texture Generator for Celestial Bodies
@@ -799,7 +823,7 @@ export function generateHDCelestialCanvas(bodyId: string): HTMLCanvasElement {
 
 export function getCelestialTexture(bodyId: string): THREE.CanvasTexture {
   if (textureCache[bodyId]) return textureCache[bodyId];
-  const canvas = generateHDCelestialCanvas(bodyId);
+  const canvas = getCelestialCanvas(bodyId);
   const texture = new THREE.CanvasTexture(canvas);
   texture.colorSpace = THREE.SRGBColorSpace;
   textureCache[bodyId] = texture;
@@ -807,7 +831,7 @@ export function getCelestialTexture(bodyId: string): THREE.CanvasTexture {
 }
 
 /**
- * Generate Saturn's Iconic Concentric Rings Texture (1D linear for Three.js)
+ * Generate Saturn's Iconic Concentric Rings Texture (1D linear for polar UV mapped Three.js)
  */
 export function getSaturnRingTexture(): THREE.CanvasTexture {
   if (textureCache['saturn_ring']) return textureCache['saturn_ring'];
@@ -819,13 +843,18 @@ export function getSaturnRingTexture(): THREE.CanvasTexture {
 
   const grad = ctx.createLinearGradient(0, 0, 1024, 0);
   grad.addColorStop(0.0, 'rgba(0, 0, 0, 0)');
-  grad.addColorStop(0.12, 'rgba(217, 119, 6, 0.4)');   // C Ring (Crepe Ring)
-  grad.addColorStop(0.28, 'rgba(253, 224, 71, 0.85)'); // B Ring (Brightest inner)
-  grad.addColorStop(0.62, 'rgba(202, 138, 4, 0.9)');
-  grad.addColorStop(0.68, 'rgba(0, 0, 0, 0.05)');      // Cassini Division (dark gap)
-  grad.addColorStop(0.72, 'rgba(0, 0, 0, 0.05)');
-  grad.addColorStop(0.75, 'rgba(234, 179, 8, 0.7)');   // A Ring
-  grad.addColorStop(0.96, 'rgba(202, 138, 4, 0.55)');
+  grad.addColorStop(0.02, 'rgba(180, 83, 9, 0.45)');   // C Ring (Crepe Ring) inner
+  grad.addColorStop(0.20, 'rgba(202, 138, 4, 0.60)');  // C Ring outer
+  grad.addColorStop(0.22, 'rgba(254, 240, 138, 0.95)');// B Ring inner (Densest & brightest)
+  grad.addColorStop(0.64, 'rgba(234, 179, 8, 0.92)');  // B Ring outer
+  grad.addColorStop(0.66, 'rgba(0, 0, 0, 0.04)');      // Cassini Division (4,700 km dark gap)
+  grad.addColorStop(0.72, 'rgba(0, 0, 0, 0.04)');      // Cassini Division outer edge
+  grad.addColorStop(0.74, 'rgba(234, 179, 8, 0.85)');  // A Ring inner edge
+  grad.addColorStop(0.91, 'rgba(202, 138, 4, 0.72)');  // A Ring body
+  grad.addColorStop(0.92, 'rgba(0, 0, 0, 0.15)');      // Encke Division gap
+  grad.addColorStop(0.94, 'rgba(202, 138, 4, 0.65)');  // A Ring outer edge
+  grad.addColorStop(0.96, 'rgba(0, 0, 0, 0)');         // Gap before F ring
+  grad.addColorStop(0.975, 'rgba(253, 224, 71, 0.65)');// F Ring strand
   grad.addColorStop(1.0, 'rgba(0, 0, 0, 0)');
 
   ctx.fillStyle = grad;
@@ -841,6 +870,28 @@ export function getCelestialCanvas(bodyId: string): HTMLCanvasElement {
   if (canvasCache[bodyId]) return canvasCache[bodyId];
   const canvas = generateHDCelestialCanvas(bodyId);
   canvasCache[bodyId] = canvas;
+
+  // Asynchronously paint authentic NASA spacecraft photographic map if available
+  const realUrl = REAL_PLANET_TEXTURE_URLS[bodyId];
+  if (realUrl && typeof window !== 'undefined' && typeof Image !== 'undefined' && !realTextureLoadedState[bodyId]) {
+    const img = new Image();
+    img.crossOrigin = 'anonymous';
+    img.onload = () => {
+      const ctx = canvas.getContext('2d');
+      if (ctx) {
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+        ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+        realTextureLoadedState[bodyId] = true;
+        if (textureCache[bodyId]) {
+          textureCache[bodyId].needsUpdate = true;
+        }
+        delete dataUrlCache[bodyId];
+        canvas.dispatchEvent(new CustomEvent('celestial_texture_loaded', { detail: { bodyId } }));
+      }
+    };
+    img.src = realUrl;
+  }
+
   return canvas;
 }
 
@@ -864,7 +915,7 @@ export function getSaturnRingDataUrl(): string {
 
 /**
  * 2D Circular Radial Saturn Ring Texture for Cesium 3D Planar Discs
- * Transparent center hole, C ring, B ring, Cassini Division, A ring, Encke gap, F ring
+ * Transparent inner void inside 1.25x R_saturn, C ring, B ring, Cassini Division, A ring, F ring
  */
 export function getSaturnRingRadialDataUrl(): string {
   if (dataUrlCache['saturn_ring_radial']) return dataUrlCache['saturn_ring_radial'];
@@ -877,20 +928,25 @@ export function getSaturnRingRadialDataUrl(): string {
   const cy = 512;
 
   // Concentric radial gradient matching true Saturn ring system
+  // Radius 512px corresponds to 2.45x R_saturn.
+  // Saturn's surface (1.0x R_saturn) is at 0.408 (209px).
+  // Inner ring (1.25x R_saturn) starts at 0.510 (261px), leaving a distinct 25% clear gap.
   const grad = ctx.createRadialGradient(cx, cy, 0, cx, cy, 512);
   grad.addColorStop(0.0, 'rgba(0, 0, 0, 0)');
-  grad.addColorStop(0.38, 'rgba(0, 0, 0, 0)');         // Inner void inside C ring
-  grad.addColorStop(0.42, 'rgba(180, 83, 9, 0.35)');   // C Ring (Crepe Ring)
-  grad.addColorStop(0.54, 'rgba(202, 138, 4, 0.55)');
-  grad.addColorStop(0.56, 'rgba(254, 240, 138, 0.95)');// B Ring (Dense, brightest)
-  grad.addColorStop(0.74, 'rgba(234, 179, 8, 0.90)');
-  grad.addColorStop(0.75, 'rgba(0, 0, 0, 0.05)');      // Cassini Division (Sharp gap)
-  grad.addColorStop(0.78, 'rgba(0, 0, 0, 0.05)');
-  grad.addColorStop(0.79, 'rgba(234, 179, 8, 0.78)');  // A Ring
-  grad.addColorStop(0.88, 'rgba(202, 138, 4, 0.65)');  // Encke division zone
-  grad.addColorStop(0.94, 'rgba(202, 138, 4, 0.45)');
-  grad.addColorStop(0.96, 'rgba(253, 224, 71, 0.5)');  // F Ring
-  grad.addColorStop(0.98, 'rgba(0, 0, 0, 0)');         // Outer void
+  grad.addColorStop(0.505, 'rgba(0, 0, 0, 0)');        // Inner dark void (never overlaps planet body)
+  grad.addColorStop(0.515, 'rgba(180, 83, 9, 0.40)');  // C Ring (Crepe Ring) inner
+  grad.addColorStop(0.615, 'rgba(202, 138, 4, 0.55)');  // C Ring outer
+  grad.addColorStop(0.625, 'rgba(254, 240, 138, 0.95)');// B Ring inner (densest & brightest)
+  grad.addColorStop(0.795, 'rgba(234, 179, 8, 0.92)');  // B Ring outer
+  grad.addColorStop(0.805, 'rgba(0, 0, 0, 0.05)');      // Cassini Division inner
+  grad.addColorStop(0.835, 'rgba(0, 0, 0, 0.05)');      // Cassini Division outer (4,700 km dark gap)
+  grad.addColorStop(0.845, 'rgba(234, 179, 8, 0.85)');  // A Ring inner
+  grad.addColorStop(0.935, 'rgba(202, 138, 4, 0.70)');  // A Ring body
+  grad.addColorStop(0.940, 'rgba(0, 0, 0, 0.15)');      // Encke gap
+  grad.addColorStop(0.950, 'rgba(202, 138, 4, 0.65)');  // A Ring outer
+  grad.addColorStop(0.960, 'rgba(0, 0, 0, 0)');         // Pre-F ring gap
+  grad.addColorStop(0.970, 'rgba(253, 224, 71, 0.6)');  // F Ring
+  grad.addColorStop(0.985, 'rgba(0, 0, 0, 0)');         // Outer deep space
   grad.addColorStop(1.0, 'rgba(0, 0, 0, 0)');
 
   ctx.fillStyle = grad;

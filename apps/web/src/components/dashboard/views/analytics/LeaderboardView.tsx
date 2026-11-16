@@ -160,10 +160,10 @@ export function LeaderboardView() {
           <div>
             <h3 className="font-display text-lg font-bold text-ink-900 dark:text-white flex items-center gap-2">
               <Trophy className="h-5 w-5 text-amber-500" />
-              Disaster Resilience Leaderboard
+              Papan Peringkat Ketahanan
             </h3>
             <p className="text-sm text-ink-500 dark:text-slate-400 mt-1">
-              Top 10 disaster resilience student champions
+              10 siswa dengan kesiapsiagaan bencana tertinggi
             </p>
           </div>
 
@@ -189,7 +189,7 @@ export function LeaderboardView() {
               }`}
             >
               <School className="h-3.5 w-3.5 sm:h-4 sm:w-4 shrink-0" />{" "}
-              <span className="truncate">School</span>
+              <span className="truncate">Sekolah</span>
             </button>
             <button
               onClick={() => setActiveTab("regency")}
@@ -200,7 +200,7 @@ export function LeaderboardView() {
               }`}
             >
               <MapPin className="h-3.5 w-3.5 sm:h-4 sm:w-4 shrink-0" />{" "}
-              <span className="truncate">Regency</span>
+              <span className="truncate">Kabupaten</span>
             </button>
             <button
               onClick={() => setActiveTab("province")}
@@ -211,17 +211,17 @@ export function LeaderboardView() {
               }`}
             >
               <Map className="h-3.5 w-3.5 sm:h-4 sm:w-4 shrink-0" />{" "}
-              <span className="truncate">Province</span>
+              <span className="truncate">Provinsi</span>
             </button>
           </div>
         </div>
 
         <div className="space-y-3">
           {loading ? (
-            <LoadingState message="Loading leaderboard..." />
+            <LoadingState message="Memuat peringkat..." />
           ) : leaderboardData.length === 0 ? (
             <div className="py-8 text-center text-sm font-medium text-ink-500 dark:text-slate-400">
-              No rankings available for this category yet.
+              Belum ada data peringkat untuk kategori ini.
             </div>
           ) : (
             leaderboardData.map((user, index) => (

@@ -14,7 +14,9 @@ import {
   Maximize2,
   ChevronRight,
   ShieldAlert,
-  Layers
+  Layers,
+  Map as MapIcon,
+  Navigation
 } from 'lucide-react';
 import { 
   PLANETARY_CATALOG, 
@@ -27,6 +29,7 @@ interface CelestialInfoPanelProps {
   onSelectBody: (id: string) => void;
   onFocusTarget: (id: string) => void;
   onReturnToEarth: () => void;
+  onOpenPlanetaryExplorer?: (bodyId: string, mode?: 'map' | 'globe3d' | 'surface') => void;
   onClose: () => void;
 }
 
@@ -35,6 +38,7 @@ export function CelestialInfoPanel({
   onSelectBody,
   onFocusTarget,
   onReturnToEarth,
+  onOpenPlanetaryExplorer,
   onClose
 }: CelestialInfoPanelProps) {
   const [activeTab, setActiveTab] = useState<'metrics' | 'atmosphere' | 'interior' | 'missions'>('metrics');
@@ -464,37 +468,62 @@ export function CelestialInfoPanel({
       </div>
 
       {/* Bottom Floating Actions */}
-      <div className="p-3 border-t border-white/10 bg-slate-900/90 flex items-center gap-2">
-        <button
-          type="button"
-          onClick={() => onFocusTarget(body.id)}
-          className="flex-1 flex items-center justify-center gap-1.5 py-2 px-3 rounded-xl bg-gradient-to-r from-sky-600 to-indigo-600 hover:from-sky-500 hover:to-indigo-500 text-white font-bold text-xs shadow-md shadow-sky-600/30 transition-all active:scale-95"
-        >
-          <Maximize2 className="w-3.5 h-3.5" />
-          <span>Kunci Target ({body.name})</span>
-        </button>
+      <div className="p-3 border-t border-white/10 bg-slate-900/90 space-y-2">
+        <div className="flex items-center gap-2">
+          <button
+            type="button"
+            onClick={() => onFocusTarget(body.id)}
+            className="flex-1 flex items-center justify-center gap-1.5 py-2 px-3 rounded-xl bg-gradient-to-r from-sky-600 to-indigo-600 hover:from-sky-500 hover:to-indigo-500 text-white font-bold text-xs shadow-md shadow-sky-600/30 transition-all active:scale-95 cursor-pointer"
+          >
+            <Maximize2 className="w-3.5 h-3.5" />
+            <span>Kunci Target ({body.name})</span>
+          </button>
 
-        {body.id === 'earth' ? (
+          {body.id === 'earth' ? (
+            <button
+              type="button"
+              onClick={onReturnToEarth}
+              className="flex items-center justify-center gap-1.5 py-2 px-3 rounded-xl bg-sky-600/30 hover:bg-sky-600/50 text-sky-200 font-semibold text-xs border border-sky-500/40 transition-colors cursor-pointer"
+              title="Kembali ke tampilan bola bumi WGS84 dan data spasial GIS Indonesia"
+            >
+              <Globe2 className="w-3.5 h-3.5 text-sky-400" />
+              <span>Peta GIS Indonesia</span>
+            </button>
+          ) : (
+            <button
+              type="button"
+              onClick={onReturnToEarth}
+              className="flex items-center justify-center gap-1.5 py-2 px-3 rounded-xl bg-white/10 hover:bg-white/15 text-slate-200 font-semibold text-xs border border-white/10 transition-colors cursor-pointer"
+              title="Kembali ke tampilan Bumi dan data geosains"
+            >
+              <Globe2 className="w-3.5 h-3.5 text-sky-400" />
+              <span>Kembali ke Bumi</span>
+            </button>
+          )}
+        </div>
+
+        {/* Row 2: Planetary Cartography & Surface Landing Exploration */}
+        <div className="grid grid-cols-2 gap-2">
           <button
             type="button"
-            onClick={onReturnToEarth}
-            className="flex items-center justify-center gap-1.5 py-2 px-3 rounded-xl bg-sky-600/30 hover:bg-sky-600/50 text-sky-200 font-semibold text-xs border border-sky-500/40 transition-colors"
-            title="Kembali ke tampilan bola bumi WGS84 dan data spasial GIS Indonesia"
+            onClick={() => onOpenPlanetaryExplorer?.(body.id, 'map')}
+            className="flex items-center justify-center gap-1.5 py-2 px-2.5 rounded-xl bg-sky-500/15 hover:bg-sky-500/25 text-sky-300 border border-sky-500/30 text-xs font-semibold transition-all cursor-pointer"
+            title="Buka Peta Kartografi 2D dan Bola Planet 3D"
           >
-            <Globe2 className="w-3.5 h-3.5 text-sky-400" />
-            <span>Peta GIS Indonesia</span>
+            <MapIcon className="w-3.5 h-3.5" />
+            <span>Peta & Bola 3D</span>
           </button>
-        ) : (
+
           <button
             type="button"
-            onClick={onReturnToEarth}
-            className="flex items-center justify-center gap-1.5 py-2 px-3 rounded-xl bg-white/10 hover:bg-white/15 text-slate-200 font-semibold text-xs border border-white/10 transition-colors"
-            title="Kembali ke tampilan Bumi dan data geosains"
+            onClick={() => onOpenPlanetaryExplorer?.(body.id, 'surface')}
+            className="flex items-center justify-center gap-1.5 py-2 px-2.5 rounded-xl bg-gradient-to-r from-amber-600/80 to-rose-600/80 hover:from-amber-600 hover:to-rose-600 text-white font-bold text-xs shadow-md transition-all cursor-pointer active:scale-95"
+            title="Masuk ke dalam planet dan jelajahi cakrawala permukaan 360°"
           >
-            <Globe2 className="w-3.5 h-3.5 text-sky-400" />
-            <span>Kembali ke Bumi</span>
+            <Navigation className="w-3.5 h-3.5" />
+            <span>Masuk Planet (3D)</span>
           </button>
-        )}
+        </div>
       </div>
     </div>,
     document.body

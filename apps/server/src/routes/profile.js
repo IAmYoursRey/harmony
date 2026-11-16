@@ -1,21 +1,37 @@
 import express from "express";
-import { readDB, writeDB, uploadBase64 } from "../repositories/repository.js";
+import {
+  readDB,
+  writeDB,
+  uploadBase64,
+  getAccountById,
+  getProfileByUserId,
+  saveProfile,
+} from "../repositories/repository.js";
 import { verifyToken } from "../middleware/authMiddleware.js";
 import { getBaseSchools } from "./schools.js";
 
 const router = express.Router();
+const SMAN1_NGORO_SCHOOL_ID = "ffdcdf34-fc99-4209-913e-5a6042e957ad";
+
+function isFixedDemoUser(user, account) {
+  const email = (account?.email || user?.email || "").toLowerCase();
+  return (
+    email === "raihanansari3345@gmail.com" ||
+    email.endsWith("@sman1ngoro.sch.id") ||
+    user?.id?.includes("sman1ngoro") ||
+    String(user?.id || "").startsWith("usr-demo-")
+  );
+}
 
 router.get("/", verifyToken, async (req, res) => {
-  const db = await readDB();
-  let profile = db.profiles.find((p) => p.userId === req.user.id);
-  if (!profile) {
-    const account = db.accounts.find((a) => a.id === req.user.id);
-    const isNgoroUser =
-      req.user.role === "developer" ||
-      req.user.id?.includes("sman1ngoro") ||
-      account?.email?.toLowerCase() === "raihanansari3345@gmail.com" ||
-      account?.email?.toLowerCase().endsWith("@sman1ngoro.sch.id");
+  const [existingProfile, account] = await Promise.all([
+    getProfileByUserId(req.user.id),
+    getAccountById(req.user.id),
+  ]);
+  const isNgoroUser = isFixedDemoUser(req.user, account);
+  let profile = existingProfile;
 
+  if (!profile) {
     profile = {
       userId: req.user.id,
       name: account?.name || req.user.name || "Pengguna SMAN 1 Ngoro",
@@ -24,7 +40,7 @@ router.get("/", verifyToken, async (req, res) => {
       grade: "X",
       section: "1",
       classSection: "1",
-      schoolId: isNgoroUser ? "ffdcdf34-fc99-4209-913e-5a6042e957ad" : null,
+      schoolId: isNgoroUser ? SMAN1_NGORO_SCHOOL_ID : null,
       schoolName: isNgoroUser ? "SMAN 1 Ngoro" : null,
       province: isNgoroUser ? "Jawa Timur" : null,
       regency: isNgoroUser ? "Kabupaten Mojokerto" : null,
@@ -34,40 +50,47 @@ router.get("/", verifyToken, async (req, res) => {
       joinedAt: new Date().toISOString(),
       lastUpdated: new Date().toISOString(),
     };
-    db.profiles.push(profile);
-    await writeDB(db);
+    await saveProfile(profile);
+  } else if (isNgoroUser && profile.schoolId !== SMAN1_NGORO_SCHOOL_ID) {
+    profile.schoolId = SMAN1_NGORO_SCHOOL_ID;
+    profile.schoolName = "SMAN 1 Ngoro";
+    profile.province = "Jawa Timur";
+    profile.regency = "Kabupaten Mojokerto";
+    await saveProfile(profile);
   }
   res.json({ profile });
 });
 
 router.post("/", verifyToken, async (req, res) => {
-  const db = await readDB();
-  const index = db.profiles.findIndex((p) => p.userId === req.user.id);
+  const [existing, account] = await Promise.all([
+    getProfileByUserId(req.user.id),
+    getAccountById(req.user.id),
+  ]);
 
-  const { schoolId, ...safeBody } = req.body;
+  const { schoolId, ...safeBody } = req.body || {};
 
   if (safeBody.avatar && safeBody.avatar.startsWith("data:image")) {
     safeBody.avatar = await uploadBase64(safeBody.avatar, `avatar_${req.user.id}_${Date.now()}`);
   }
 
-  if (index === -1) {
-    const newProfile = {
-      ...safeBody,
-      userId: req.user.id,
-      lastUpdated: new Date().toISOString(),
-    };
-    db.profiles.push(newProfile);
-    await writeDB(db);
-    return res.json({ profile: newProfile });
-  } else {
-    db.profiles[index] = {
-      ...db.profiles[index],
-      ...safeBody,
-      lastUpdated: new Date().toISOString(),
-    };
-    await writeDB(db);
-    return res.json({ profile: db.profiles[index] });
-  }
+  const lockedMeta = isFixedDemoUser(req.user, account)
+    ? {
+        schoolId: SMAN1_NGORO_SCHOOL_ID,
+        schoolName: "SMAN 1 Ngoro",
+        province: "Jawa Timur",
+        regency: "Kabupaten Mojokerto",
+      }
+    : {};
+
+  const updated = {
+    ...(existing || {}),
+    ...safeBody,
+    ...lockedMeta,
+    userId: req.user.id,
+    lastUpdated: new Date().toISOString(),
+  };
+  await saveProfile(updated);
+  return res.json({ profile: updated });
 });
 
 router.get("/all", verifyToken, async (req, res) => {

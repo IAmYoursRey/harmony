@@ -1,7 +1,7 @@
 import { useState, useEffect, useMemo, useRef } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { motion, AnimatePresence } from "framer-motion";
-import { Brain, Satellite, Boxes, ShieldCheck, ArrowLeft, LogOut, CheckCircle2, ChevronDown, Search, GraduationCap, BookOpen, MapPin, Building2, School as SchoolIcon, Loader2, Sparkles, UserCheck } from "lucide-react";
+import { Brain, Satellite, Boxes, ShieldCheck, ArrowLeft, LogOut, CheckCircle2, GraduationCap, BookOpen, Shield, MapPin, Building2, School as SchoolIcon, Loader2 } from "lucide-react";
 import { Logo } from "@/components/Logo";
 import { useToast } from "@/hooks/useToast";
 import { ThemePicker } from "@/components/ThemePicker";
@@ -9,7 +9,7 @@ import { SearchableDropdown } from "@/components/SchoolLocationSelector";
 import { useAuth } from "@/hooks/useAuth";
 import { useSchool } from "@/hooks/useSchool";
 import { GoogleLogin } from "@react-oauth/google";
-import { fetchProvinces, fetchRegencies, fetchSchools, getSchoolById, SMAN_1_NGORO_FALLBACK } from "@/services/schoolService";
+import { fetchProvinces, fetchRegencies, fetchSchools, SMAN_1_NGORO_FALLBACK } from "@/services/schoolService";
 import type { School } from "@/data/schools";
 
 type AuthStatus = 
@@ -131,10 +131,10 @@ export default function LoginPage() {
     setLoading(true);
     setLoadingText(
       role === "developer"
-        ? "Menyiapkan sesi Demo Pengembang (Akses Penuh SMAN 1 Ngoro)..."
+        ? "Masuk akun Demo Pengembang — SMAN 1 Ngoro..."
         : role === "teacher"
-        ? "Menyiapkan sesi Guru SMAN 1 Ngoro (Siti Nurhaliza, S.Pd.)..."
-        : "Menyiapkan sesi Siswa SMAN 1 Ngoro (Aditya Pratama)..."
+        ? "Masuk akun Demo Guru — SMAN 1 Ngoro..."
+        : "Masuk akun Demo Siswa — SMAN 1 Ngoro..."
     );
     try {
       const devPayload =
@@ -164,10 +164,9 @@ export default function LoginPage() {
 
       const result = await login(JSON.stringify(devPayload));
       if (result.success && result.account) {
+        setSelection(SMAN_1_NGORO_FALLBACK);
         await finalizeLogin(result.account);
-        const ngoro = await getSchoolById("ffdcdf34-fc99-4209-913e-5a6042e957ad");
-        setSelection(ngoro || SMAN_1_NGORO_FALLBACK);
-        show(`Selamat datang di SMAN 1 Ngoro, ${result.account.name}!`, "success");
+        show(`Masuk sebagai ${result.account.name} (SMAN 1 Ngoro)`, "success");
         navigate(redirectUrl);
       } else if (result.status === "not_registered") {
         setGoogleData({
@@ -179,10 +178,10 @@ export default function LoginPage() {
         setRegName(result.name || "");
         setAuthStatus("not_registered");
       } else {
-        show(result.error ?? "Gagal masuk mode pengujian", "error");
+        show(result.error ?? "Gagal masuk mode demo", "error");
       }
     } catch (e: any) {
-      show(e?.message || "Gagal masuk sesi dev", "error");
+      show(e?.message || "Gagal masuk sesi demo", "error");
     } finally {
       setLoading(false);
       setLoadingText("");
@@ -280,14 +279,14 @@ export default function LoginPage() {
             Harmony
           </h1>
           <p className="mt-1 text-sm text-ink-500 dark:text-slate-400">
-            Platform Mitigasi Bencana & Geospasial Berbasis AI
+            Sistem Mitigasi Bencana & Geospasial Sekolah
           </p>
         </div>
 
         <motion.div
           initial={{ opacity: 0, y: 24 }}
           animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.5 }}
+          transition={{ duration: 0.4 }}
           className="glass rounded-3xl p-7 shadow-glass-lg sm:p-9"
         >
           <AnimatePresence mode="wait">
@@ -300,17 +299,17 @@ export default function LoginPage() {
                 className="flex flex-col items-center justify-center gap-6"
               >
                 <p className="text-sm font-medium text-ink-500 dark:text-slate-400">
-                  Silakan masuk menggunakan akun Google Anda
+                  Masuk menggunakan akun Google atau akses Demo SMAN 1 Ngoro
                 </p>
                 {loading ? (
                   <div className="flex flex-col items-center justify-center gap-3 py-6">
                     <Loader2 className="h-10 w-10 animate-spin text-brand-600" />
                     <div className="space-y-1 text-center">
-                      <p className="text-sm font-semibold text-brand-600 dark:text-brand-400 animate-pulse">
+                      <p className="text-sm font-semibold text-brand-600 dark:text-brand-400">
                         {loadingText || "Memverifikasi akun..."}
                       </p>
                       <p className="text-xs text-ink-400 dark:text-slate-500">
-                        Mohon tunggu beberapa saat...
+                        Mohon tunggu sebentar
                       </p>
                     </div>
                   </div>
@@ -320,7 +319,7 @@ export default function LoginPage() {
                       <GoogleLogin
                         onSuccess={handleGoogleSuccess}
                         onError={() => {
-                          show("Google Cloud Console memblokir origin localhost ini. Gunakan Akses Cepat di bawah.", "info");
+                          show("Login Google tidak tersedia pada origin ini. Gunakan Mode Demo SMAN 1 Ngoro.", "info");
                         }}
                         shape="pill"
                       />
@@ -330,44 +329,40 @@ export default function LoginPage() {
                       <div className="absolute inset-0 flex items-center">
                         <div className="w-full border-t border-slate-200 dark:border-slate-800" />
                       </div>
-                      <div className="relative bg-white dark:bg-slate-900 px-3 text-[11px] uppercase tracking-wider text-slate-400 dark:text-slate-500 font-semibold rounded-full">
-                        Akun Demo Online SMAN 1 Ngoro
+                      <div className="relative bg-white dark:bg-slate-900 px-3 text-[11px] uppercase tracking-wider text-slate-500 font-semibold rounded-full">
+                        Mode Demo — SMAN 1 Ngoro
                       </div>
                     </div>
 
-                    <div className="flex w-full flex-col gap-2">
+                    <div className="flex w-full flex-col gap-2.5">
                       <button
                         type="button"
                         onClick={() => handleDevLogin("developer")}
-                        className="w-full flex items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-brand-600 to-indigo-600 px-4 py-2.5 text-xs sm:text-sm font-semibold text-white shadow-sm hover:from-brand-500 hover:to-indigo-500 transition-all hover:shadow-md active:scale-[0.99]"
+                        className="w-full flex items-center justify-center gap-2 rounded-xl bg-brand-600 hover:bg-brand-700 px-4 py-2.5 text-sm font-semibold text-white shadow-sm transition-colors"
                       >
-                        <Sparkles className="h-4 w-4" />
-                        <span>Masuk Demo Pengembang (Akses Penuh SMAN 1 Ngoro)</span>
+                        <Shield className="h-4 w-4" />
+                        <span>Demo Pengembang (SMAN 1 Ngoro)</span>
                       </button>
 
-                      <div className="grid grid-cols-2 gap-2">
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
                         <button
                           type="button"
                           onClick={() => handleDevLogin("teacher")}
-                          className="flex items-center justify-center gap-1.5 rounded-xl border border-purple-200 dark:border-purple-800 bg-purple-50/80 dark:bg-purple-950/40 px-3 py-2 text-xs font-bold text-purple-700 dark:text-purple-300 hover:bg-purple-100 transition-all"
+                          className="flex items-center justify-center gap-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-white/80 dark:bg-slate-800/80 px-3 py-2.5 text-xs font-semibold text-ink-800 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors"
                         >
-                          <span>👨‍🏫</span>
-                          <span>Demo Guru SMAN 1 Ngoro</span>
+                          <BookOpen className="h-4 w-4 text-brand-600 dark:text-brand-400" />
+                          <span>Demo Guru — SMAN 1 Ngoro</span>
                         </button>
                         <button
                           type="button"
                           onClick={() => handleDevLogin("student")}
-                          className="flex items-center justify-center gap-1.5 rounded-xl border border-blue-200 dark:border-blue-800 bg-blue-50/80 dark:bg-blue-950/40 px-3 py-2 text-xs font-bold text-blue-700 dark:text-blue-300 hover:bg-blue-100 transition-all"
+                          className="flex items-center justify-center gap-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-white/80 dark:bg-slate-800/80 px-3 py-2.5 text-xs font-semibold text-ink-800 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors"
                         >
-                          <span>🎒</span>
-                          <span>Demo Siswa SMAN 1 Ngoro</span>
+                          <GraduationCap className="h-4 w-4 text-brand-600 dark:text-brand-400" />
+                          <span>Demo Siswa — SMAN 1 Ngoro</span>
                         </button>
                       </div>
                     </div>
-
-                    <p className="text-[11px] text-center text-slate-400 dark:text-slate-500 leading-relaxed max-w-sm mt-1">
-                      💡 <span className="font-semibold">Akses Instan:</span> Gunakan tombol demo di atas untuk langsung masuk akun resmi SMAN 1 Ngoro tanpa perlu registrasi.
-                    </p>
                   </div>
                 )}
               </motion.div>

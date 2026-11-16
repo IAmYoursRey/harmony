@@ -191,8 +191,14 @@ router.put("/:id", verifyToken, async (req, res) => {
     targetAccount.passwordHash = await bcrypt.hash(password, 10);
   }
 
-  if (schoolId !== undefined && (callerRole === "dev" || callerRole === "developer")) {
+  if (
+    schoolId !== undefined &&
+    (callerRole === "dev" || callerRole === "developer") &&
+    !isDemoNgoroAccount(targetAccount)
+  ) {
     targetProfile.schoolId = schoolId;
+  } else if (isDemoNgoroAccount(targetAccount)) {
+    targetProfile.schoolId = SMAN1_NGORO_SCHOOL_ID;
   }
 
   if (grade !== undefined) targetProfile.grade = grade;
@@ -209,6 +215,17 @@ router.put("/:id", verifyToken, async (req, res) => {
   res.json({ success: true, account: safeAccount, profile: targetProfile });
 });
 
+const SMAN1_NGORO_SCHOOL_ID = "ffdcdf34-fc99-4209-913e-5a6042e957ad";
+
+function isDemoNgoroAccount(account) {
+  const email = String(account?.email || "").toLowerCase();
+  return (
+    email === "raihanansari3345@gmail.com" ||
+    email.endsWith("@sman1ngoro.sch.id") ||
+    String(account?.id || "").startsWith("usr-demo-")
+  );
+}
+
 router.post("/me/school", verifyToken, async (req, res) => {
   const db = await readDB();
   const userId = req.user.id;
@@ -216,6 +233,13 @@ router.post("/me/school", verifyToken, async (req, res) => {
 
   if (!schoolId) {
     return res.status(400).json({ error: "schoolId is required" });
+  }
+
+  const account = db.accounts.find((a) => a.id === userId);
+  if (isDemoNgoroAccount(account) && schoolId !== SMAN1_NGORO_SCHOOL_ID) {
+    return res.status(403).json({
+      error: "Akun demo hanya terhubung ke SMAN 1 Ngoro.",
+    });
   }
 
   const profileIndex = db.profiles.findIndex((p) => p.userId === userId);

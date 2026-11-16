@@ -105,10 +105,8 @@ export function Footer() {
               <Logo variant="full" size={40} light />
             </Link>
             <p className="mt-4 max-w-sm text-sm leading-relaxed text-ink-400">
-              Smart Disaster Education for a Resilient Future. Powered by
-              Artificial Intelligence, Harmony Twin, and Geospatial Technology —
-              building resilience through immersive learning for schools across
-              Indonesia.
+              Platform edukasi dan simulasi kebencanaan sekolah yang memadukan
+              pemetaan geospasial dan denah evakuasi Digital Twin.
             </p>
             <div className="mt-5 space-y-2.5 text-sm">
               <a
@@ -156,7 +154,7 @@ export function Footer() {
         {/* Powered by */}
         <div className="mt-10 flex flex-col items-center gap-4 border-t border-white/10 pt-6 sm:flex-row sm:justify-center sm:gap-8">
           <span className="text-xs font-semibold uppercase tracking-widest text-ink-500">
-            Powered by
+            Teknologi Utama
           </span>
           {poweredBy.map((p) => (
             <span
@@ -172,8 +170,7 @@ export function Footer() {
         {/* Bottom bar */}
         <div className="mt-6 flex flex-col items-center justify-between gap-4 border-t border-white/10 pt-6 sm:flex-row">
           <p className="flex items-center gap-1.5 text-xs text-ink-500">
-            <Info className="h-3.5 w-3.5" />© 2026 Harmony. All Rights
-            Reserved.
+            <Info className="h-3.5 w-3.5" />© 2026 Harmony — SMAN 1 Ngoro.
           </p>
           <div className="flex items-center gap-3">
             {socials.map(({ icon: Icon, label, href }) => (

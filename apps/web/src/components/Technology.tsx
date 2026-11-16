@@ -20,37 +20,37 @@ const steps: Step[] = [
   {
     icon: Brain,
     step: "01",
-    title: "AI",
+    title: "Pemetaan Profil",
     description:
-      "The AI Learning Engine assesses each school\u2019s context and generates tailored disaster scenarios aligned to local risk.",
+      "Mengidentifikasi tingkat pemahaman siswa dan profil kerawanan bencana sekolah.",
   },
   {
     icon: Satellite,
     step: "02",
-    title: "Geospatial Analysis",
+    title: "Analisis Spasial",
     description:
-      "Live satellite and GIS data map real hazards around the school \u2014 flood zones, fault lines, and exposure patterns.",
+      "Memvisualisasikan lapisan satelit, cuaca, dan zona risiko di sekitar lokasi sekolah.",
   },
   {
     icon: Boxes,
     step: "03",
-    title: "Harmony Twin Simulation",
+    title: "Simulasi Denah",
     description:
-      "A 2D game-based simulation of the campus layout replays disaster scenarios, letting students practice evacuation routes and emergency procedures safely.",
+      "Latihan evakuasi di atas denah lantai sekolah nyata menuju titik aman dan gerbang keluar.",
   },
   {
     icon: ClipboardCheck,
     step: "04",
-    title: "Evaluation",
+    title: "Evaluasi Respons",
     description:
-      "Every simulation is scored against response time, decisions, and knowledge \u2014 surfacing strengths and gaps to close.",
+      "Mengukur ketepatan jalur evakuasi, waktu tempuh, dan keputusan mitigasi siswa.",
   },
   {
     icon: Gauge,
     step: "05",
-    title: "Harmony Score",
+    title: "Skor Kesiapan",
     description:
-      "Schools receive a clear Harmony Score tracking preparedness over time, with actionable steps to keep improving.",
+      "Menyajikan indeks kesiapsiagaan terukur beserta rekomendasi tindak lanjut bagi sekolah.",
   },
 ];
 
@@ -58,23 +58,22 @@ export function Technology() {
   return (
     <section
       id="how-it-works"
-      className="relative scroll-mt-20 sm:scroll-mt-24 overflow-hidden py-20 sm:py-28"
+      className="relative isolate scroll-mt-20 sm:scroll-mt-24 overflow-hidden py-20 sm:py-24"
     >
-      <div className="absolute inset-0 -z-10 bg-gradient-to-b from-brand-950 to-brand-900" />
+      <div className="absolute inset-0 -z-10 bg-gradient-to-b from-slate-900 via-brand-900 to-slate-900" />
       <div className="absolute inset-0 -z-10 bg-grid-pattern bg-[size:44px_44px] opacity-20" />
       <div className="absolute -top-20 left-1/2 -z-10 h-96 w-[700px] -translate-x-1/2 rounded-full bg-brand-500/20 blur-[120px]" />
 
       <div className="section-container">
         <Reveal className="mx-auto max-w-2xl text-center">
           <span className="text-sm font-semibold uppercase tracking-wider text-brand-300">
-            How it works
+            Alur Sistem
           </span>
           <h2 className="mt-3 font-display text-3xl font-extrabold tracking-tight text-white sm:text-4xl">
-            From data to a Harmony Score
+            Dari data wilayah ke skor kesiapsiagaan
           </h2>
           <p className="mt-4 text-brand-200">
-            Five connected stages turn raw environmental data into a clear,
-            actionable measure of how ready your school really is.
+            Lima tahapan terhubung untuk melatih kesiapan evakuasi sekolah secara sistematis.
           </p>
         </Reveal>
 
@@ -118,9 +117,8 @@ export function Technology() {
                 <div>
                   <div className="flex items-center gap-2">
                     <span className="font-display text-xs font-bold text-brand-300">
-                      STEP {s.step}
+                      TAHAP {s.step}
                     </span>
-                    <ArrowRight className="h-3 w-3 text-brand-400/60" />
                   </div>
                   <h3 className="mt-1 font-display text-lg font-bold text-white">
                     {s.title}

@@ -2,6 +2,7 @@ import React, { useEffect, useRef, useState, useCallback } from "react";
 import { phase1Api } from "./Phase1API";
 import { Phase1Map, Phase1Scenario, Phase1Tile } from "./Phase1Types";
 import { AssetRenderer } from "./Phase1AssetRenderer";
+import { renderRoomOverlays } from "./Phase1RoomRenderer";
 import {
   Play,
   Maximize2,
@@ -47,6 +48,7 @@ export function GameGridSandbox({
 
   // Toggles
   const [showGrid, setShowGrid] = useState(true);
+  const [showRooms, setShowRooms] = useState(true);
   const [showEffects, setShowEffects] = useState(true);
   const [showSafeZones, setShowSafeZones] = useState(true);
   const [showSpawns, setShowSpawns] = useState(true);
@@ -101,13 +103,14 @@ export function GameGridSandbox({
     if (!map || !containerRef.current) return;
     const containerW = containerRef.current.clientWidth;
     const containerH = containerRef.current.clientHeight;
+    if (containerW <= 0 || containerH <= 0) return;
 
     const mapPxW = map.width * TILE_SIZE;
     const mapPxH = map.height * TILE_SIZE;
 
-    const zoomW = (containerW * 0.95) / mapPxW;
-    const zoomH = (containerH * 0.95) / mapPxH;
-    const fitZoom = Math.min(1.4, Math.max(0.4, Math.min(zoomW, zoomH)));
+    const zoomW = Math.max(0.05, (containerW - 32) / mapPxW);
+    const zoomH = Math.max(0.05, (containerH - 136) / mapPxH);
+    const fitZoom = Math.min(1.4, Math.max(0.08, Math.min(zoomW, zoomH)));
 
     setCamera({
       x: containerW / 2 - (mapPxW * fitZoom) / 2,
@@ -116,22 +119,46 @@ export function GameGridSandbox({
     });
   }, [map]);
 
+  // Keep canvas sized cleanly to container even after async loading finishes
   useEffect(() => {
-    centerCamera();
-  }, [map, centerCamera]);
+    if (loading || !map) return;
+    const el = containerRef.current;
+    const canvas = canvasRef.current;
+    if (!el || !canvas) return;
 
-  // Handle Resize
-  useEffect(() => {
-    const handleResize = () => {
-      if (canvasRef.current && containerRef.current) {
-        canvasRef.current.width = containerRef.current.clientWidth;
-        canvasRef.current.height = containerRef.current.clientHeight;
+    let lastW = 0;
+    let lastH = 0;
+
+    const syncSize = (recenterIfChanged: boolean) => {
+      const nextW = el.clientWidth;
+      const nextH = el.clientHeight;
+      if (nextW <= 0 || nextH <= 0) return;
+
+      const sizeChanged = nextW !== lastW || nextH !== lastH;
+      if (canvas.width !== nextW) canvas.width = nextW;
+      if (canvas.height !== nextH) canvas.height = nextH;
+
+      if (sizeChanged && recenterIfChanged) {
+        lastW = nextW;
+        lastH = nextH;
+        centerCamera();
       }
     };
-    handleResize();
-    window.addEventListener("resize", handleResize);
-    return () => window.removeEventListener("resize", handleResize);
-  }, []);
+
+    syncSize(true);
+
+    if (typeof ResizeObserver !== "undefined") {
+      const ro = new ResizeObserver(() => {
+        syncSize(true);
+      });
+      ro.observe(el);
+      return () => ro.disconnect();
+    }
+
+    const onResize = () => syncSize(true);
+    window.addEventListener("resize", onResize);
+    return () => window.removeEventListener("resize", onResize);
+  }, [loading, map, isFullscreen, centerCamera]);
 
   // Main Render Loop
   useEffect(() => {
@@ -191,6 +218,14 @@ export function GameGridSandbox({
             ctx.lineTo(map.width * TILE_SIZE, y * TILE_SIZE);
           }
           ctx.stroke();
+        }
+
+        if (showRooms) {
+          renderRoomOverlays(ctx, map.rooms, TILE_SIZE, {
+            showZoneTint: true,
+            showLabels: true,
+            currentFloorId: floor.id,
+          });
         }
 
         // Draw scenario objects (Safe Zones, Exits, Spawns, Hazards)
@@ -355,6 +390,7 @@ export function GameGridSandbox({
     scenario,
     camera,
     showGrid,
+    showRooms,
     showEffects,
     showSafeZones,
     showSpawns,
@@ -383,7 +419,7 @@ export function GameGridSandbox({
   const handleWheel = (e: React.WheelEvent) => {
     e.preventDefault();
     const zoomFactor = e.deltaY < 0 ? 1.12 : 0.89;
-    const newZoom = Math.min(3.0, Math.max(0.3, camera.zoom * zoomFactor));
+    const newZoom = Math.min(3.0, Math.max(0.08, camera.zoom * zoomFactor));
 
     if (containerRef.current) {
       const rect = containerRef.current.getBoundingClientRect();
@@ -402,7 +438,7 @@ export function GameGridSandbox({
     const factor = inOut === "in" ? 1.25 : 0.8;
     setCamera((prev) => ({
       ...prev,
-      zoom: Math.min(3.0, Math.max(0.3, prev.zoom * factor)),
+      zoom: Math.min(3.0, Math.max(0.08, prev.zoom * factor)),
     }));
   };
 
@@ -433,22 +469,22 @@ export function GameGridSandbox({
 
   return (
     <div
-      className={`relative w-full rounded-2xl overflow-hidden border border-slate-700/80 bg-slate-950 shadow-2xl transition-all ${
-        isFullscreen ? "fixed inset-4 z-50 rounded-2xl" : "h-[620px]"
+      className={`relative w-full min-w-0 rounded-2xl overflow-hidden border border-slate-700/80 bg-slate-950 shadow-2xl transition-all ${
+        isFullscreen ? "fixed inset-4 z-50 rounded-2xl" : "h-[460px] sm:h-[620px]"
       }`}
     >
       {/* HUD Header Bar */}
-      <div className="absolute top-0 inset-x-0 z-20 flex flex-wrap items-center justify-between gap-3 p-4 bg-gradient-to-b from-slate-950/95 via-slate-950/80 to-transparent pointer-events-none">
-        <div className="flex items-center gap-3 pointer-events-auto">
-          <div className="flex items-center gap-2 px-3 py-1.5 rounded-xl bg-slate-900/90 border border-slate-700/80 backdrop-blur-md shadow-lg text-xs font-bold text-white">
-            <span className="w-2.5 h-2.5 rounded-full bg-emerald-500 animate-ping" />
-            <span className="text-brand-400 font-extrabold">HARMONY TWIN</span>
-            <span className="text-slate-400">|</span>
-            <span className="text-slate-200">{map?.name || "Game Sandbox"}</span>
+      <div className="absolute top-0 inset-x-0 z-20 flex flex-wrap items-center justify-between gap-2 p-3 sm:p-4 bg-gradient-to-b from-slate-950/95 via-slate-950/75 to-transparent pointer-events-none">
+        <div className="flex items-center gap-2 min-w-0 max-w-full sm:max-w-[65%] pointer-events-auto">
+          <div className="flex items-center gap-2 px-3 py-1.5 rounded-xl bg-slate-900/90 border border-slate-700/80 backdrop-blur-md shadow-lg text-xs font-bold text-white min-w-0">
+            <span className="w-2 h-2 shrink-0 rounded-full bg-emerald-500" />
+            <span className="text-brand-400 font-bold shrink-0">HARMONY TWIN</span>
+            <span className="text-slate-500 hidden sm:inline">|</span>
+            <span className="text-slate-200 truncate">{map?.name || "Denah Sekolah"}</span>
           </div>
 
-          <div className="hidden sm:flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-slate-900/80 border border-slate-800 text-[11px] text-slate-300 font-medium">
-            <span>Dimensi: {map?.width} × {map?.height} Grid</span>
+          <div className="hidden md:flex shrink-0 items-center gap-1.5 px-3 py-1.5 rounded-xl bg-slate-900/80 border border-slate-800 text-[11px] text-slate-300 font-medium">
+            <span>Grid {map?.width} × {map?.height}</span>
           </div>
         </div>
 
@@ -456,16 +492,16 @@ export function GameGridSandbox({
         <div className="flex items-center gap-2 pointer-events-auto">
           <button
             onClick={handleStartPlay}
-            className="flex items-center gap-2 px-4 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs shadow-lg shadow-emerald-900/40 hover:shadow-emerald-600/30 transition-all hover:scale-[1.03] active:scale-95 animate-pulse"
+            className="flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs shadow-lg transition-colors"
           >
-            <Play className="h-4 w-4 fill-white" />
-            <span>Mulai Simulasi (Play)</span>
+            <Play className="h-3.5 w-3.5 fill-white" />
+            <span>Mulai Simulasi</span>
           </button>
 
           <button
             onClick={() => setIsFullscreen(!isFullscreen)}
             className="p-2 rounded-xl bg-slate-900/80 hover:bg-slate-800 border border-slate-700 text-slate-300 transition-colors"
-            title={isFullscreen ? "Exit Fullscreen" : "Fullscreen"}
+            title={isFullscreen ? "Keluar Layar Penuh" : "Layar Penuh"}
           >
             {isFullscreen ? <Minimize2 className="h-4 w-4" /> : <Maximize2 className="h-4 w-4" />}
           </button>
@@ -486,11 +522,11 @@ export function GameGridSandbox({
       </div>
 
       {/* Floating Tactical Layer Toggles & Zoom Toolbar (Bottom-Left) */}
-      <div className="absolute bottom-4 left-4 z-20 flex flex-wrap items-center gap-2 pointer-events-auto">
-        <div className="flex items-center gap-1 p-1 rounded-xl bg-slate-900/90 border border-slate-700/80 backdrop-blur-md shadow-xl text-xs">
+      <div className="absolute bottom-3 left-3 right-3 sm:bottom-4 sm:left-4 sm:right-auto z-20 flex flex-wrap items-center gap-2 pointer-events-auto max-w-[calc(100%-1.5rem)]">
+        <div className="flex flex-wrap items-center gap-1 p-1 rounded-xl bg-slate-900/90 border border-slate-700/80 backdrop-blur-md shadow-xl text-xs max-w-full">
           <button
             onClick={() => setShowSafeZones(!showSafeZones)}
-            className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg transition-colors font-medium text-[11px] ${
+            className={`shrink-0 whitespace-nowrap flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg transition-colors font-medium text-[11px] ${
               showSafeZones
                 ? "bg-emerald-500/20 text-emerald-400 border border-emerald-500/40"
                 : "text-slate-400 hover:text-white"
@@ -503,7 +539,7 @@ export function GameGridSandbox({
 
           <button
             onClick={() => setShowExits(!showExits)}
-            className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg transition-colors font-medium text-[11px] ${
+            className={`shrink-0 whitespace-nowrap flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg transition-colors font-medium text-[11px] ${
               showExits
                 ? "bg-teal-500/20 text-teal-400 border border-teal-500/40"
                 : "text-slate-400 hover:text-white"
@@ -516,7 +552,7 @@ export function GameGridSandbox({
 
           <button
             onClick={() => setShowSpawns(!showSpawns)}
-            className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg transition-colors font-medium text-[11px] ${
+            className={`shrink-0 whitespace-nowrap flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg transition-colors font-medium text-[11px] ${
               showSpawns
                 ? "bg-amber-500/20 text-amber-400 border border-amber-500/40"
                 : "text-slate-400 hover:text-white"
@@ -529,7 +565,7 @@ export function GameGridSandbox({
 
           <button
             onClick={() => setShowGrid(!showGrid)}
-            className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg transition-colors font-medium text-[11px] ${
+            className={`shrink-0 whitespace-nowrap flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg transition-colors font-medium text-[11px] ${
               showGrid
                 ? "bg-blue-500/20 text-blue-400 border border-blue-500/40"
                 : "text-slate-400 hover:text-white"
@@ -541,8 +577,20 @@ export function GameGridSandbox({
           </button>
 
           <button
+            onClick={() => setShowRooms(!showRooms)}
+            className={`shrink-0 whitespace-nowrap flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg transition-colors font-medium text-[11px] ${
+              showRooms
+                ? "bg-amber-500/20 text-amber-300 border border-amber-500/40"
+                : "text-slate-400 hover:text-white"
+            }`}
+            title="Toggle Label & Zona Ruangan"
+          >
+            <span>Ruangan</span>
+          </button>
+
+          <button
             onClick={() => setShowEffects(!showEffects)}
-            className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg transition-colors font-medium text-[11px] ${
+            className={`shrink-0 whitespace-nowrap flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg transition-colors font-medium text-[11px] ${
               showEffects
                 ? "bg-purple-500/20 text-purple-400 border border-purple-500/40"
                 : "text-slate-400 hover:text-white"
@@ -593,8 +641,8 @@ export function GameGridSandbox({
         <span>S</span>
       </div>
 
-      {/* Denah Architectural Legend (Bottom-Right) */}
-      <div className="absolute bottom-4 right-4 z-20 hidden md:flex items-center gap-3 px-3 py-2 rounded-xl bg-slate-900/90 border border-slate-800 backdrop-blur-md text-[11px] text-slate-300 pointer-events-auto">
+      {/* Denah Architectural Legend (Bottom-Right, wide desktop) */}
+      <div className="absolute bottom-4 right-4 z-20 hidden 2xl:flex items-center gap-3 px-3 py-2 rounded-xl bg-slate-900/90 border border-slate-800 backdrop-blur-md text-[11px] text-slate-300 pointer-events-auto">
         <div className="flex items-center gap-1.5">
           <span className="w-3 h-3 rounded bg-emerald-500/40 border border-emerald-400 shadow-sm" />
           <span>Titik Aman</span>

@@ -171,26 +171,28 @@ export function Phase1Workspace() {
 
     return (
       <div className="space-y-6">
-        <div className="flex items-center gap-4 mb-6">
-          <button
-            onClick={() => setSelectedMapId(null)}
-            className="p-2 bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 rounded-xl transition-colors text-sm font-medium"
-          >
-            ← Semua Peta
-          </button>
-          <div>
-            <h2 className="text-2xl font-bold text-slate-800 dark:text-white flex items-center gap-2">
-              <MapIcon className="h-6 w-6 text-brand-600" />
-              {map.name}
-            </h2>
-            <p className="text-slate-500 text-sm">{map.description}</p>
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between mb-6">
+          <div className="flex items-start sm:items-center gap-3 min-w-0">
+            <button
+              onClick={() => setSelectedMapId(null)}
+              className="shrink-0 px-3 py-2 bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 rounded-xl transition-colors text-xs sm:text-sm font-medium"
+            >
+              Semua Peta
+            </button>
+            <div className="min-w-0">
+              <h2 className="text-lg sm:text-2xl font-bold text-slate-800 dark:text-white flex items-center gap-2 truncate">
+                <MapIcon className="h-5 w-5 shrink-0 text-brand-600" />
+                <span className="truncate">{map.name}</span>
+              </h2>
+              <p className="text-slate-500 dark:text-slate-400 text-xs sm:text-sm line-clamp-2">{map.description}</p>
+            </div>
           </div>
-          <div className="ml-auto flex items-center gap-2">
+          <div className="flex items-center gap-2 shrink-0">
             <button
               onClick={() => navigate(`/app/digital-twin/editor/${map.id}`)}
               className="flex items-center gap-2 bg-slate-800 hover:bg-slate-900 text-white px-4 py-2 rounded-xl transition-colors font-medium shadow-sm text-sm"
             >
-              <Edit className="h-4 w-4" /> Edit Base Map
+              <Edit className="h-4 w-4" /> Edit Denah Dasar
             </button>
           </div>
         </div>
@@ -201,20 +203,20 @@ export function Phase1Workspace() {
           scenarioId={activeSandboxScenarioId || map.scenarios?.[0]?.id}
         />
 
-        <div className="flex justify-between items-center mb-4">
+        <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-3 mb-4">
           <div>
             <h3 className="text-lg font-bold text-slate-800 dark:text-white">
               Skenario Tanggap Bencana
             </h3>
-            <p className="text-xs text-slate-500">
-              Pilih skenario simulasi untuk melihat zona bahaya & rute evakuasi di atas game grid
+            <p className="text-xs text-slate-500 dark:text-slate-400">
+              Pilih skenario untuk menampilkan zona bahaya dan jalur evakuasi pada denah.
             </p>
           </div>
           <button
             onClick={() => setShowCreateScenario(true)}
-            className="flex items-center gap-2 bg-brand-600 hover:bg-brand-700 text-white px-4 py-2 rounded-xl transition-colors font-medium text-sm"
+            className="self-start sm:self-auto flex items-center gap-2 bg-brand-600 hover:bg-brand-700 text-white px-4 py-2 rounded-xl transition-colors font-medium text-sm"
           >
-            <Plus className="h-4 w-4" /> Create Scenario
+            <Plus className="h-4 w-4" /> Buat Skenario
           </button>
         </div>
 
@@ -287,23 +289,23 @@ export function Phase1Workspace() {
               return (
                 <div
                   key={scen.id}
-                  className={`glass p-4 rounded-xl flex items-center justify-between border transition-all ${
+                  className={`glass p-4 rounded-xl flex flex-col lg:flex-row lg:items-center justify-between gap-3 border transition-all ${
                     isSandboxActive
                       ? "border-brand-500 shadow-md ring-1 ring-brand-500/40"
                       : "border-slate-200/50 dark:border-slate-700/50 hover:border-slate-300 dark:hover:border-slate-600"
                   }`}
                 >
                   <div
-                    className="cursor-pointer flex-1 mr-4"
+                    className="cursor-pointer flex-1 min-w-0"
                     onClick={() => setActiveSandboxScenarioId(scen.id)}
                   >
-                    <div className="flex items-center gap-2">
+                    <div className="flex flex-wrap items-center gap-2">
                       <span className="font-bold text-slate-800 dark:text-white">
                         {scen.name}
                       </span>
                       {isSandboxActive && (
-                        <span className="px-2 py-0.5 text-[10px] font-extrabold uppercase rounded-md bg-brand-500/20 text-brand-600 dark:text-brand-400 border border-brand-500/30">
-                          Aktif di Grid
+                        <span className="px-2 py-0.5 text-[10px] font-bold uppercase rounded-md bg-brand-500/20 text-brand-600 dark:text-brand-400 border border-brand-500/30">
+                          Aktif
                         </span>
                       )}
                       <span
@@ -315,11 +317,11 @@ export function Phase1Workspace() {
                         v{scen.version}
                       </span>
                     </div>
-                    <div className="text-xs text-slate-500 mt-1">
-                      Jenis Bencana: <strong className="text-slate-700 dark:text-slate-300">{scen.disaster_type}</strong> • Klik untuk memuat efek & zona bahaya di peta grid
+                    <div className="text-xs text-slate-500 dark:text-slate-400 mt-1">
+                      Bencana: <strong className="text-slate-700 dark:text-slate-300">{scen.disaster_type}</strong>
                     </div>
                   </div>
-                  <div className="flex items-center gap-2">
+                  <div className="flex flex-wrap items-center gap-2 shrink-0">
                     <button
                       onClick={() => setActiveSandboxScenarioId(scen.id)}
                       className={`px-3 py-1.5 text-xs rounded-lg font-medium transition-colors ${
@@ -328,7 +330,7 @@ export function Phase1Workspace() {
                           : "bg-slate-100 hover:bg-slate-200 text-slate-700 dark:bg-slate-800 dark:text-slate-300"
                       }`}
                     >
-                      {isSandboxActive ? "Previewing" : "Preview"}
+                      {isSandboxActive ? "Aktif" : "Pratinjau"}
                     </button>
                     <button
                       onClick={() =>
@@ -347,20 +349,20 @@ export function Phase1Workspace() {
                         }
                         className="px-3 py-1.5 text-xs bg-emerald-600 hover:bg-emerald-500 text-white rounded-lg font-bold transition-all flex items-center gap-1 shadow-sm"
                       >
-                        <Play className="h-3 w-3 fill-white" /> Play
+                        <Play className="h-3 w-3 fill-white" /> Mulai
                       </button>
                     )}
                     <button
                       onClick={() => handleDuplicateScenario(scen.id)}
                       className="px-3 py-1.5 text-xs bg-slate-100 hover:bg-slate-200 text-slate-700 dark:bg-slate-800 dark:text-slate-300 rounded-lg font-medium transition-colors"
                     >
-                      Duplicate
+                      Duplikat
                     </button>
                     <button
                       onClick={() => handlePublishScenario(scen.id, scen.status)}
                       className={`px-3 py-1.5 text-xs rounded-lg font-medium transition-colors ${scen.status === "draft" ? "bg-emerald-50 text-emerald-700 hover:bg-emerald-100" : "bg-amber-50 text-amber-700 hover:bg-amber-100"}`}
                     >
-                      {scen.status === "draft" ? "Publish" : "Unpublish"}
+                      {scen.status === "draft" ? "Publikasikan" : "Tarik Draft"}
                     </button>
                   </div>
                 </div>
@@ -378,11 +380,11 @@ export function Phase1Workspace() {
         <div>
           <h2 className="text-2xl font-bold text-slate-800 dark:text-white flex items-center gap-2">
             <Globe className="h-6 w-6 text-brand-600" />
-            Harmony Twin (Phase 1 Sandbox)
+            Harmony Twin — Denah & Simulasi Sekolah
           </h2>
           <p className="text-slate-500 dark:text-slate-400">
             {activeSchool
-              ? `School: ${activeSchool.name}`
+              ? `Sekolah: ${activeSchool.name}`
               : "Pilih sekolah terlebih dahulu"}
           </p>
         </div>
@@ -392,7 +394,7 @@ export function Phase1Workspace() {
             className="flex items-center gap-2 bg-brand-600 hover:bg-brand-700 text-white px-4 py-2 rounded-xl transition-colors font-medium shadow-sm"
           >
             <Plus className="h-4 w-4" />
-            Create Map
+            Buat Peta Baru
           </button>
         )}
       </div>

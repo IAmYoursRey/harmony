@@ -714,12 +714,16 @@ const dictionaries: Record<Language, Dictionary> = {
 };
 
 export function I18nProvider({ children }: { children: ReactNode }) {
-  const [locale, setLocaleState] = useState<Language>("en");
+  const [locale, setLocaleState] = useState<Language>(() => {
+    if (typeof window === "undefined") return "id";
+    const saved = window.localStorage.getItem("language");
+    return saved === "en" ? "en" : "id";
+  });
 
   useEffect(() => {
-    // Standardize to English
-    window.localStorage.setItem("language", "en");
-    setLocaleState("en");
+    if (typeof window !== "undefined" && !window.localStorage.getItem("language")) {
+      window.localStorage.setItem("language", "id");
+    }
   }, []);
 
   const setLocale = (newLocale: Language) => {
@@ -731,7 +735,7 @@ export function I18nProvider({ children }: { children: ReactNode }) {
     key: string,
     variablesOrDefault?: string | Record<string, string | number>,
   ) => {
-    let text = dictionaries["en"]?.[key] || dictionaries[locale]?.[key];
+    let text = dictionaries[locale]?.[key] || dictionaries["id"]?.[key] || dictionaries["en"]?.[key];
     if (!text && typeof variablesOrDefault === "string") {
       text = variablesOrDefault;
     } else if (!text) {

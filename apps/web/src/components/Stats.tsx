@@ -1,4 +1,3 @@
-import { useEffect, useRef, useState } from "react";
 import { Reveal } from "@/components/Reveal";
 import { useReveal } from "@/hooks/useReveal";
 
@@ -28,29 +27,6 @@ const stats: Stat[] = [
   },
 ];
 
-function useCountUp(target: number, active: boolean, duration = 1600) {
-  const [value, setValue] = useState(0);
-  const startedRef = useRef(false);
-
-  useEffect(() => {
-    if (!active || startedRef.current) return;
-    startedRef.current = true;
-
-    let raf = 0;
-    const start = performance.now();
-    const tick = (now: number) => {
-      const p = Math.min((now - start) / duration, 1);
-      const eased = 1 - Math.pow(1 - p, 3);
-      setValue(Math.round(eased * target));
-      if (p < 1) raf = requestAnimationFrame(tick);
-    };
-    raf = requestAnimationFrame(tick);
-    return () => cancelAnimationFrame(raf);
-  }, [active, target, duration]);
-
-  return value;
-}
-
 function StatCard({
   stat,
   index,
@@ -60,19 +36,16 @@ function StatCard({
   index: number;
   locale: string;
 }) {
-  const { ref, visible } = useReveal<HTMLDivElement>();
-  const animated = useCountUp(stat.value, visible);
+  const { ref } = useReveal<HTMLDivElement>();
 
   return (
     <div
       ref={ref}
-      className={`reveal glass group h-full rounded-2xl p-6 text-center transition-all hover:-translate-y-1 hover:shadow-glass-lg ${
-        visible ? "is-visible" : ""
-      }`}
-      style={{ transitionDelay: `${index * 100}ms` }}
+      className="reveal is-visible glass group h-full rounded-2xl p-6 text-center transition-all hover:-translate-y-1 hover:shadow-glass-lg"
+      style={{ transitionDelay: `${index * 60}ms` }}
     >
       <p className="font-display text-4xl font-extrabold text-brand-700 sm:text-5xl">
-        {animated.toLocaleString()}
+        {stat.value.toLocaleString()}
         <span className="text-brand-500 dark:text-brand-400">
           {stat.suffix}
         </span>

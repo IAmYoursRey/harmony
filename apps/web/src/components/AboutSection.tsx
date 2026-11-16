@@ -352,10 +352,10 @@ function HeroIllustration() {
 }
 
 /* ─── Main view ─────────────────────────────────────────────────────────────── */
-export function AboutSection() {
+export function AboutSection({ compact = false }: { compact?: boolean }) {
   const { t } = useI18n();
   return (
-    <section id="about" className="space-y-8 section-container scroll-mt-20 sm:scroll-mt-24 py-24">
+    <section id="about" className="space-y-8 section-container scroll-mt-20 sm:scroll-mt-24 py-20">
       {/* ── Hero banner ─────────────────────────────────────────────────────── */}
       <div className="relative overflow-hidden rounded-2xl bg-gradient-to-br from-brand-600 via-brand-700 to-brand-900 p-8 text-white shadow-glass-lg sm:p-10">
         <div className="absolute inset-0 bg-grid-pattern bg-[size:40px_40px] opacity-15" />
@@ -365,21 +365,19 @@ export function AboutSection() {
         <div className="relative flex flex-col items-center gap-8 lg:flex-row lg:items-center lg:justify-between">
           <div className="max-w-lg text-center lg:text-left">
             <span className="inline-flex items-center gap-1.5 rounded-full bg-white/15 px-3 py-1 text-xs font-semibold backdrop-blur-sm">
-              <Globe className="h-3.5 w-3.5" /> Platform Edukasi Bencana
+              <Globe className="h-3.5 w-3.5" /> Tim Riset SMAN 1 Ngoro
             </span>
-            <h1 className="mt-4 font-display text-3xl font-extrabold tracking-tight sm:text-4xl lg:text-5xl">
-              Tentang
-              <br />
-              <span className="text-brand-200">Harmony</span>
-            </h1>
+            <h2 className="mt-4 font-display text-3xl font-extrabold tracking-tight sm:text-4xl lg:text-5xl">
+              Tentang <span className="text-brand-200">Harmony</span>
+            </h2>
             <p className="mt-4 text-base leading-relaxed text-brand-100 sm:text-lg">
-              Membangun komunitas sekolah yang tangguh terhadap bencana melalui kekuatan AI, Harmony Twin, dan Teknologi Geospasial.
+              Inisiatif sekolah untuk memetakan kerawanan bencana dan melatih jalur evakuasi berbasis denah kampus secara terukur.
             </p>
             <div className="mt-5 flex flex-wrap justify-center gap-2.5 lg:justify-start">
               {[
-                "Artificial Intelligence",
+                "Kecerdasan Buatan",
                 "Harmony Twin",
-                "Geospatial Technology",
+                "Data Geospasial",
               ].map((tech) => (
                 <span
                   key={tech}
@@ -462,16 +460,15 @@ export function AboutSection() {
           </div>
           <div className="grid gap-5 lg:grid-cols-2">
             <div className="space-y-3 text-sm leading-relaxed text-ink-600 dark:text-slate-300">
-              <p>Berada di wilayah Cincin Api Pasifik (Ring of Fire), Indonesia adalah salah satu negara dengan risiko bencana paling tinggi di dunia. Oleh karena itu, edukasi dan simulasi bencana mutlak diperlukan.</p>
-              <p>Meskipun demikian, akses ke simulasi bencana yang akurat seringkali terkendala oleh minimnya data interaktif. <strong>Harmony hadir menjembatani jarak ini.</strong></p>
+              <p>Sebagai wilayah di jalur Cincin Api Pasifik, sekolah memerlukan latihan kesiapsiagaan rutin yang sesuai kondisi gedung dan lingkungan sekitarnya.</p>
+              <p><strong>Harmony</strong> menghubungkan denah ruang belajar dengan skenario simulasi darurat sehingga siswa dan guru mengenali titik aman dan rute evakuasi sejak dini.</p>
             </div>
             <div className="space-y-3 text-sm leading-relaxed text-ink-600 dark:text-slate-300">
-              <p>Mengintegrasikan data denah sekolah dan kerawanan bencana real-time untuk pemodelan Harmony Twin.</p>
-              <p>Kami memberdayakan pengguna melalui analisis data yang cepat dan presisi berbasis kecerdasan buatan.</p>
+              <p>Data kerawanan geospasial, cuaca, dan denah kampus dipadukan langsung agar evaluasi kesiapsiagaan tidak lagi sekadar teori.</p>
             </div>
           </div>
           <div className="mt-5 flex flex-wrap gap-2">
-            {["Ring of Fire", "Mojokerto", "Research", "Harmony"].map(
+            {["SMAN 1 Ngoro", "Mojokerto", "SPAB", "Digital Twin"].map(
               (tag) => (
                 <span
                   key={tag}
@@ -485,7 +482,7 @@ export function AboutSection() {
         </div>
       </Card>
 
-      {/* ── Technologies ─────────────────────────────────────────────────────── */}
+      {!compact && (
       <div>
         <div className="mb-5 text-center">
           <SectionLabel>
@@ -533,8 +530,9 @@ export function AboutSection() {
           ))}
         </div>
       </div>
+      )}
 
-      {/* ── SDGs ─────────────────────────────────────────────────────────────── */}
+      {!compact && (
       <div>
         <div className="mb-5 text-center">
           <SectionLabel>
@@ -576,6 +574,7 @@ export function AboutSection() {
           ))}
         </div>
       </div>
+      )}
 
       {/* ── Team ─────────────────────────────────────────────────────────────── */}
       <div>

@@ -950,3 +950,110 @@ export const CELESTIAL_ORDER: string[] = [
   'uranus',
   'neptune'
 ];
+
+export interface PlanetaryMapMetadata {
+  mission: string;
+  agency: string;
+  instrument: string;
+  resolution: string;
+  projection: string;
+  authenticity: string;
+  historicalContext: string;
+}
+
+export const PLANETARY_MAP_METADATA: Record<string, PlanetaryMapMetadata> = {
+  sun: {
+    mission: 'NASA Solar Dynamics Observatory (SDO) & ESA/NASA SOHO',
+    agency: 'NASA / ESA',
+    instrument: 'Helioseismic and Magnetic Imager (HMI) & AIA',
+    resolution: '2048 x 1024 (2K Ekuirektangular)',
+    projection: 'Silindris Ekuirektangular',
+    authenticity: 'Peta Fotometrik Spektroheliograf Asli NASA SDO',
+    historicalContext: 'Mosaik permukaan fotosfer matahari beresolusi tinggi yang merekam granulasi konveksi plasma dan daerah aktif bintik matahari tanpa distorsi generatif AI.',
+  },
+  mercury: {
+    mission: 'NASA MESSENGER (MErcury Surface, Space ENvironment, GEochemistry, and Ranging)',
+    agency: 'NASA / JHUAPL / CIW',
+    instrument: 'Mercury Dual Imaging System (MDIS)',
+    resolution: '2048 x 1024 (2K Ekuirektangular)',
+    projection: 'Silindris Ekuirektangular',
+    authenticity: 'Mosaik Citra Global Wahana Antariksa Asli NASA MESSENGER',
+    historicalContext: 'Dipetakan secara menyeluruh selama misi orbit 2011–2015, menampilkan Caloris Basin, Discovery Rupes, dan kawah-kawah impak kuno Merkurius.',
+  },
+  venus: {
+    mission: 'NASA Magellan Radar Orbiter',
+    agency: 'NASA / Jet Propulsion Laboratory (JPL)',
+    instrument: 'Synthetic Aperture Radar (SAR) & Radar Altimeter',
+    resolution: '2048 x 1024 (2K Ekuirektangular)',
+    projection: 'Silindris Ekuirektangular',
+    authenticity: 'Mosaik Radar Penembus Awan Asli Wahana NASA Magellan',
+    historicalContext: 'Gelombang mikro radar Magellan berhasil menembus 100% atmosfer tebal asam sulfat Venus pada 1990–1994, memetakan pegunungan Maxwell Montes dan dataran lava Aphrodite Terra.',
+  },
+  earth: {
+    mission: 'NASA Earth Observatory Blue Marble: Next Generation',
+    agency: 'NASA / USGS',
+    instrument: 'Moderate Resolution Imaging Spectroradiometer (MODIS) di satelit Terra & Aqua',
+    resolution: '2048 x 1024 (2K Ekuirektangular)',
+    projection: 'Silindris Ekuirektangular',
+    authenticity: 'Mosaik Spektrofotometrik Satelit Asli NASA Terra & Aqua',
+    historicalContext: 'Kompilasi mosaik observasi satelit Bumi tanpa awan yang menangkap vegetasi daratan, batimetri samudra, dan lapisan es kutub.',
+  },
+  moon: {
+    mission: 'NASA Lunar Reconnaissance Orbiter (LRO)',
+    agency: 'NASA / Goddard Space Flight Center / ASU',
+    instrument: 'Lunar Reconnaissance Orbiter Camera (LROC) Wide Angle Camera (WAC)',
+    resolution: '2048 x 1024 (2K Ekuirektangular)',
+    projection: 'Silindris Ekuirektangular',
+    authenticity: 'Mosaik Albedo Global Asli Kamera Wahana NASA LRO',
+    historicalContext: 'Mosaik fotometrik albedo global Bulan yang merekam kawah Tycho, bentang laut basal Maria Tranquillitatis, dan dataran tinggi anortositik.',
+  },
+  mars: {
+    mission: 'NASA Viking 1 & 2 Orbiters / Mars Global Surveyor (MGS)',
+    agency: 'NASA / Jet Propulsion Laboratory / USGS',
+    instrument: 'Mars Orbiter Camera (MOC) & Viking Visual Imaging Subsystem (VIS)',
+    resolution: '2048 x 1024 (2K Ekuirektangular)',
+    projection: 'Silindris Ekuirektangular',
+    authenticity: 'Mosaik Citra Warna Asli Misi Wahana NASA Viking & MGS',
+    historicalContext: 'Peta warna digital global Mars yang menampilkan ngarai raksasa Valles Marineris, gunung berapi Olympus Mons, dan tudung es kutub.',
+  },
+  jupiter: {
+    mission: 'NASA Cassini-Huygens & Hubble Space Telescope (OPAL Program)',
+    agency: 'NASA / ESA / JPL / STScI',
+    instrument: 'Imaging Science Subsystem (ISS) & Wide Field Camera 3 (WFC3)',
+    resolution: '2048 x 1024 (2K Ekuirektangular)',
+    projection: 'Silindris Ekuirektangular',
+    authenticity: 'Mosaik Silindris Asli Cassini Jupiter Flyby & Teleskop Hubble',
+    historicalContext: 'Peta silindris resolusi tinggi pita badai gas Jupiter yang menangkap Bintik Merah Raksasa (Great Red Spot) dan sabuk konveksi atmosfer bergolak.',
+  },
+  saturn: {
+    mission: 'NASA/ESA/ASI Cassini-Huygens Mission',
+    agency: 'NASA / ESA / ASI / JPL / SSI',
+    instrument: 'Cassini Imaging Science Subsystem (ISS) Narrow-Angle Camera',
+    resolution: '2048 x 1024 (2K Ekuirektangular)',
+    projection: 'Silindris Ekuirektangular',
+    authenticity: 'Peta Silindris Mosaik Global Asli Wahana Antariksa Cassini',
+    historicalContext: 'Mosaik fotometrik global dari orbit Cassini yang menampilkan gradasi sabuk atmosfer emas karamel dan formasi heksagon di kutub utara Saturnus.',
+  },
+  uranus: {
+    mission: 'NASA Voyager 2 Encounter & Hubble Space Telescope',
+    agency: 'NASA / JPL / STScI',
+    instrument: 'Voyager 2 Imaging Science Subsystem & HST ACS',
+    resolution: '2048 x 1024 (2K Ekuirektangular)',
+    projection: 'Silindris Ekuirektangular',
+    authenticity: 'Peta Silindris Spektrofotometrik Asli Voyager 2 & HST',
+    historicalContext: 'Direkonstruksi dari lintasan terbang bersejarah Voyager 2 (Januari 1986) dan observasi teleskop Hubble, menampilkan atmosfer metana cyan-aquamarine.',
+  },
+  neptune: {
+    mission: 'NASA Voyager 2 Encounter & Hubble Space Telescope',
+    agency: 'NASA / JPL / STScI',
+    instrument: 'Voyager 2 Narrow-Angle Camera & HST WFC3',
+    resolution: '2048 x 1024 (2K Ekuirektangular)',
+    projection: 'Silindris Ekuirektangular',
+    authenticity: 'Mosaik Global Asli Kamera Wahana Voyager 2 & Hubble',
+    historicalContext: 'Citra autentik pertemuan Voyager 2 (Agustus 1989) digabungkan dengan data Hubble, menampilkan atmosfer biru kobalt, Bintik Gelap Besar, dan awan sirrus metana.',
+  },
+};
+
+export function getPlanetaryMapMetadata(bodyId: string): PlanetaryMapMetadata | undefined {
+  return PLANETARY_MAP_METADATA[bodyId];
+}

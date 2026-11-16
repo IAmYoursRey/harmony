@@ -44,6 +44,7 @@ import {
 } from 'lucide-react';
 import { CosmicSolarSystemEngine } from './celestial/CosmicSolarSystemEngine';
 import { CelestialInfoPanel } from './celestial/CelestialInfoPanel';
+import { PlanetarySurfaceExplorerModal } from './celestial/PlanetarySurfaceExplorerModal';
 import { cosmicAudio } from './celestial/cosmicAudioSynth';
 import { PLANETARY_CATALOG } from '@/data/planetaryCatalog';
 import { 
@@ -639,6 +640,11 @@ export function GlobeView3D({
   const isOrbitPausedRef = useRef<boolean>(false);
   useEffect(() => { isOrbitPausedRef.current = isOrbitPaused; }, [isOrbitPaused]);
 
+  // Planetary Surface & Cartography Explorer Modal State
+  const [isPlanetaryExplorerOpen, setIsPlanetaryExplorerOpen] = useState<boolean>(false);
+  const [planetaryExplorerMode, setPlanetaryExplorerMode] = useState<'map' | 'globe3d' | 'surface'>('surface');
+  const [planetaryExplorerBodyId, setPlanetaryExplorerBodyId] = useState<string>('earth');
+
   const [isAudioPlaying, setIsAudioPlaying] = useState<boolean>(false);
   useEffect(() => {
     return () => {
@@ -651,6 +657,7 @@ export function GlobeView3D({
   const orbitPitchRef = useRef<number>(0);
   const orbitYawRef = useRef<number>(0);
   const zoomRef = useRef<number>(initialCenter ? 1.45 : 2.3);
+  const celestialTransitionRef = useRef<{ startTarget: THREE.Vector3; startTime: number; duration: number } | null>(null);
 
   const [quakeSnapshot, setQuakeSnapshot] = useState<EarthquakeSnapshot | null>(() => earthquakeSnapshotService.getLatestSnapshot('2.5_day'));
   const [hotspotSnapshot, setHotspotSnapshot] = useState<HotspotSnapshot | null>(() => hotspotFireService.getLatestSnapshot({ bbox: [-180, -90, 180, 90], source: 'ALL' }));
@@ -761,12 +768,18 @@ export function GlobeView3D({
       : bodyId === 'sun' 
       ? 75.0 
       : bodyId === 'moon' 
-      ? 1.2 
-      : Math.max(2.0, framingRadius * 3.0);
+      ? 1.15 
+      : Math.max(1.6, framingRadius * 2.8);
 
     const startZoom = zoomRef.current;
     const startTime = performance.now();
     const duration = 850;
+
+    celestialTransitionRef.current = {
+      startTarget: cameraTargetRef.current.clone(),
+      startTime,
+      duration,
+    };
 
     const step = (now: number) => {
       const elapsed = now - startTime;
@@ -804,7 +817,13 @@ export function GlobeView3D({
         return prev;
       }
       const activeBody = PLANETARY_CATALOG[activeCelestialIdRef.current];
-      const minSafeDist = activeBody ? Math.max(1.18, (activeBody.visual.ringOuter || activeBody.visual.bodyRadius) * 1.25) : 1.18;
+      const minSafeDist = activeBody ? Math.max(0.55, (activeBody.visual.ringOuter || activeBody.visual.bodyRadius) * 1.25) : 1.18;
+      if (direction === 'in' && activeCelestialIdRef.current !== 'earth' && prev <= minSafeDist + 0.12) {
+        setPlanetaryExplorerBodyId(activeCelestialIdRef.current);
+        setPlanetaryExplorerMode('surface');
+        setIsPlanetaryExplorerOpen(true);
+        return prev;
+      }
       const next = Math.max(minSafeDist, Math.min(2500.0, prev + delta));
       zoomRef.current = next;
       return next;
@@ -1318,12 +1337,29 @@ export function GlobeView3D({
         cosmicEngineRef.current.update(0.016);
       }
 
-      // 2. Smooth Camera Tracking of Active Celestial Body
-      const targetPos = cosmicEngineRef.current
+      // 2. Smooth Camera Tracking & Rigid Lock-Follow of Active Celestial Body
+      const liveTargetPos = cosmicEngineRef.current
         ? cosmicEngineRef.current.getCelestialWorldPosition(activeCelestialIdRef.current)
         : new THREE.Vector3(0, 0, 0);
 
-      cameraTargetRef.current.lerp(targetPos, 0.08);
+      const trans = celestialTransitionRef.current;
+      if (trans) {
+        const elapsed = performance.now() - trans.startTime;
+        const progress = Math.min(1.0, elapsed / trans.duration);
+        const ease = progress < 0.5
+          ? 4 * progress * progress * progress
+          : 1 - Math.pow(-2 * progress + 2, 3) / 2;
+
+        cameraTargetRef.current.lerpVectors(trans.startTarget, liveTargetPos, ease);
+
+        if (progress >= 1.0) {
+          celestialTransitionRef.current = null;
+          cameraTargetRef.current.copy(liveTargetPos);
+        }
+      } else {
+        // Locked on target body: lock directly to live world position to eliminate lag and jitter
+        cameraTargetRef.current.copy(liveTargetPos);
+      }
 
       const pitch = orbitPitchRef.current;
       const yaw = orbitYawRef.current;
@@ -1333,8 +1369,16 @@ export function GlobeView3D({
       const offsetY = currentDist * Math.sin(pitch);
       const offsetZ = currentDist * Math.cos(yaw) * Math.cos(pitch);
 
-      const desiredCamPos = cameraTargetRef.current.clone().add(new THREE.Vector3(offsetX, offsetY, offsetZ));
-      camera.position.lerp(desiredCamPos, 0.12);
+      if (trans) {
+        const desiredCamPos = cameraTargetRef.current.clone().add(new THREE.Vector3(offsetX, offsetY, offsetZ));
+        camera.position.lerp(desiredCamPos, 0.15);
+      } else {
+        camera.position.set(
+          cameraTargetRef.current.x + offsetX,
+          cameraTargetRef.current.y + offsetY,
+          cameraTargetRef.current.z + offsetZ
+        );
+      }
       camera.lookAt(cameraTargetRef.current);
 
       // Globe Axial Rotation
@@ -1541,7 +1585,7 @@ export function GlobeView3D({
             return;
           }
           const activeBody = PLANETARY_CATALOG[activeCelestialIdRef.current];
-          const minSafeDist = activeBody ? Math.max(1.18, (activeBody.visual.ringOuter || activeBody.visual.bodyRadius) * 1.25) : 1.18;
+          const minSafeDist = activeBody ? Math.max(0.55, (activeBody.visual.ringOuter || activeBody.visual.bodyRadius) * 1.25) : 1.18;
           const clamped = Math.max(minSafeDist, Math.min(2500.0, next));
           zoomRef.current = clamped;
           setZoom(clamped);
@@ -1657,7 +1701,7 @@ export function GlobeView3D({
         return;
       }
       const activeBody = PLANETARY_CATALOG[activeCelestialIdRef.current];
-      const minSafeDist = activeBody ? Math.max(1.18, (activeBody.visual.ringOuter || activeBody.visual.bodyRadius) * 1.25) : 1.18;
+      const minSafeDist = activeBody ? Math.max(0.55, (activeBody.visual.ringOuter || activeBody.visual.bodyRadius) * 1.25) : 1.18;
       const clamped = Math.max(minSafeDist, Math.min(2500.0, next));
       zoomRef.current = clamped;
       setZoom(clamped);
@@ -2338,7 +2382,27 @@ export function GlobeView3D({
           }}
           onFocusTarget={(id) => flyToCelestialBody(id)}
           onReturnToEarth={returnToEarth}
+          onOpenPlanetaryExplorer={(bodyId, mode) => {
+            setPlanetaryExplorerBodyId(bodyId);
+            setPlanetaryExplorerMode(mode || 'surface');
+            setIsPlanetaryExplorerOpen(true);
+          }}
           onClose={() => setShowCelestialPanel(false)}
+        />
+      )}
+
+      {/* ================= PLANETARY SURFACE & CARTOGRAPHY MODAL ================= */}
+      {isPlanetaryExplorerOpen && (
+        <PlanetarySurfaceExplorerModal
+          initialBodyId={planetaryExplorerBodyId}
+          initialMode={planetaryExplorerMode}
+          isOpen={isPlanetaryExplorerOpen}
+          onClose={() => setIsPlanetaryExplorerOpen(false)}
+          onSelectBody={(bId) => {
+            setActiveCelestialId(bId);
+            activeCelestialIdRef.current = bId;
+            flyToCelestialBody(bId);
+          }}
         />
       )}
 
@@ -2425,6 +2489,21 @@ export function GlobeView3D({
         >
           {isAudioPlaying ? <Volume2 className="w-3 h-3 text-purple-400" /> : <VolumeX className="w-3 h-3" />}
           <span className="hidden sm:inline">Audio Kosmik</span>
+        </button>
+
+        {/* Planetary Map & Surface Landing Explorer Button */}
+        <button
+          type="button"
+          onClick={() => {
+            setPlanetaryExplorerBodyId(activeCelestialId);
+            setPlanetaryExplorerMode('surface');
+            setIsPlanetaryExplorerOpen(true);
+          }}
+          className="flex items-center gap-1 px-2.5 py-0.5 rounded-lg bg-gradient-to-r from-amber-600 to-rose-600 hover:from-amber-500 hover:to-rose-500 text-white text-[10px] font-bold transition-all shadow-sm cursor-pointer"
+          title={`Buka Peta & Masuk ke Permukaan ${PLANETARY_CATALOG[activeCelestialId]?.name || activeCelestialId} (3D)`}
+        >
+          <Navigation className="w-3 h-3" />
+          <span>Peta & Masuk Planet</span>
         </button>
 
         {/* Quick Return to Earth button */}

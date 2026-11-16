@@ -1,5 +1,6 @@
 import { useState, useEffect, useMemo, useRef } from "react";
 import { useAuth } from "@/hooks/useAuth";
+import { isDemoNgoroUser } from "@/utils/demoSchool";
 import {
   getAllAccounts,
   updateAccount,
@@ -463,7 +464,7 @@ export function ProfileView() {
               </span>
               <span className="inline-flex items-center gap-1 rounded-full bg-slate-100 px-2.5 py-1 text-xs font-medium text-slate-600 dark:bg-slate-800 dark:text-slate-300">
                 <MapPin className="h-3 w-3" />{" "}
-                {currentProfile?.schoolId || "SMA Negeri 1 Mojokerto"}
+                {getSchoolName(currentProfile?.schoolId || "ffdcdf34-fc99-4209-913e-5a6042e957ad")}
               </span>
             </div>
           </div>
@@ -584,14 +585,14 @@ export function ProfileView() {
                   onChange={(v) => setDraft({ ...draft, fullName: v })}
                 />
 
-                {currentUser?.role === "developer" ? (
+                {currentUser?.role === "developer" && !isDemoNgoroUser(currentUser) ? (
                   <EditableField
                     icon={School}
                     label="School"
                     value={draft.school}
                     onChange={(v) => setDraft({ ...draft, school: v })}
                   />
-                ) : draft.school === "unknown" ? (
+                ) : draft.school === "unknown" && !isDemoNgoroUser(currentUser) ? (
                   <div className="flex flex-col rounded-xl border border-brand-50 p-3 dark:border-slate-800 bg-brand-50/50 dark:bg-slate-900/50 relative">
                     <div className="flex items-center gap-3 justify-between">
                       <div className="flex items-center gap-3">
@@ -632,7 +633,9 @@ export function ProfileView() {
                     </div>
                     {/* Tooltip */}
                     <div className="pointer-events-none absolute left-1/2 -top-10 -translate-x-1/2 whitespace-nowrap rounded-lg bg-ink-900 px-3 py-1.5 text-[11px] font-medium text-white opacity-0 transition-opacity group-hover:opacity-100 dark:bg-slate-700">
-                      Hanya Developer yang dapat mengubah sekolah
+                      {isDemoNgoroUser(currentUser)
+                        ? "Akun demo terkunci pada SMAN 1 Ngoro"
+                        : "Hanya Developer yang dapat mengubah sekolah"}
                     </div>
                   </div>
                 )}

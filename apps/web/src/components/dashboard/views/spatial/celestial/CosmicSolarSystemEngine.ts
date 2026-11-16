@@ -149,9 +149,24 @@ export class CosmicSolarSystemEngine {
         Math.sin(initialAngle) * orbitRadius
       );
 
-      // Saturn Rings
+      // Saturn Rings with Polar Radial UV Mapping (Concentric Circles)
       if (data.visual.hasRings && id === 'saturn') {
-        const ringGeo = new THREE.RingGeometry(data.visual.ringInner || 2.2, data.visual.ringOuter || 4.2, 64);
+        const inner = data.visual.ringInner || (data.visual.bodyRadius * 1.25);
+        const outer = data.visual.ringOuter || (data.visual.bodyRadius * 2.35);
+        const ringGeo = new THREE.RingGeometry(inner, outer, 128);
+
+        // Convert planar UV coordinates into polar radial coordinates
+        const posAttr = ringGeo.attributes.position;
+        const uvAttr = ringGeo.attributes.uv;
+        for (let i = 0; i < posAttr.count; i++) {
+          const x = posAttr.getX(i);
+          const y = posAttr.getY(i);
+          const dist = Math.sqrt(x * x + y * y);
+          const u = (dist - inner) / (outer - inner);
+          uvAttr.setXY(i, u, 0.5);
+        }
+        uvAttr.needsUpdate = true;
+
         // Align ring to horizontal plane
         ringGeo.rotateX(Math.PI / 2);
 
@@ -159,7 +174,7 @@ export class CosmicSolarSystemEngine {
           map: getSaturnRingTexture(),
           side: THREE.DoubleSide,
           transparent: true,
-          opacity: 0.92,
+          opacity: 0.95,
           roughness: 0.7,
         });
 

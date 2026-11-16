@@ -17,50 +17,48 @@ interface Feature {
 const features: Feature[] = [
   {
     icon: Brain,
-    title: "AI Learning Engine",
+    title: "Pembelajaran Adaptif",
     description:
-      "Adaptive AI tailors disaster lessons to each student, generating personalized scenarios and real-time feedback that build true understanding.",
+      "Materi kebencanaan disesuaikan otomatis dengan kebutuhan belajar dan umpan balik langsung bagi siswa.",
     accent: "from-brand-500 to-brand-700",
   },
   {
     icon: Map,
-    title: "GeoSpatial Risk Mapping",
+    title: "Peta Risiko Geospasial",
     description:
-      "Interactive maps layer live satellite, terrain, and hazard data so schools can see the real risks surrounding their exact location.",
+      "Lapisan data satelit, topografi, cuaca, dan histori gempa memetakan kerawanan di sekitar koordinat sekolah.",
     accent: "from-brand-500 to-brand-600",
   },
   {
     icon: Boxes,
-    title: "Harmony Twin School",
+    title: "Harmony Twin Sekolah",
     description:
-      "An interactive 2D game-based simulation of the school floor plan that lets students practice disaster evacuation and emergency response safely.",
+      "Simulasi 2D berbasis denah gedung sekolah agar siswa berlatih rute evakuasi menuju titik kumpul dengan aman.",
     accent: "from-brand-500 to-brand-600",
   },
   {
     icon: LayoutDashboard,
-    title: "Teacher Dashboard",
+    title: "Dasbor Guru Terpadu",
     description:
-      "Track every student\u2019s progress, assign simulations, and measure preparedness gains from one clear, unified control center.",
+      "Pantau skor kesiapsiagaan siswa, kelola sesi simulasi kelas, dan evaluasi capaian mitigasi secara terpusat.",
     accent: "from-brand-500 to-brand-600",
   },
 ];
 
 export function Features() {
   return (
-    <section id="features" className="relative scroll-mt-20 sm:scroll-mt-24 py-20 sm:py-28">
+    <section id="features" className="relative scroll-mt-20 sm:scroll-mt-24 py-20 sm:py-24">
       <div className="absolute inset-0 -z-10 bg-gradient-to-b from-white via-brand-50/40 to-white dark:from-slate-900 dark:via-slate-800/40 dark:to-slate-900" />
       <div className="section-container">
         <Reveal className="mx-auto max-w-2xl text-center">
           <span className="text-sm font-semibold uppercase tracking-wider text-brand-600 dark:text-brand-400">
-            Platform Features
+            Fitur Utama
           </span>
-          <h2 className="mt-3 font-display text-3xl font-extrabold tracking-tight text-ink-900 sm:text-4xl">
-            Four pillars of disaster-ready education
+          <h2 className="mt-3 font-display text-3xl font-extrabold tracking-tight text-ink-900 dark:text-white sm:text-4xl">
+            Empat pilar kesiapsiagaan sekolah
           </h2>
           <p className="mt-4 text-ink-600 dark:text-slate-300">
-            Each feature brings one of our core technologies directly into the
-            classroom, turning abstract risk into hands-on, measurable
-            preparedness.
+            Menghubungkan data risiko lokasi dengan latihan simulasi terstruktur di kelas.
           </p>
         </Reveal>
 

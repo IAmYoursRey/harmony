@@ -136,41 +136,41 @@ function getDashboardData(userId: string, baseScore: number, profile: any) {
     stats: [
       {
         icon: BookOpen,
-        label: "Modules Completed",
+        label: "Modul Selesai",
         value: modulesCompleted.toString(),
-        sub: modulesCompleted > 0 ? "Active" : "No activity yet",
+        sub: modulesCompleted > 0 ? "Aktif" : "Belum dimulai",
         color: "from-brand-500 to-brand-700",
         bg: "bg-brand-100 text-brand-600 dark:bg-slate-800 dark:text-brand-400",
       },
       {
         icon: TrendingUp,
-        label: "Learning Progress",
+        label: "Progres Belajar",
         value: `${avgProgress}%`,
-        sub: avgProgress > 0 ? "In Progress" : "Not started",
+        sub: avgProgress > 0 ? "Berjalan" : "Belum dimulai",
         color: "from-brand-500 to-brand-600",
         bg: "bg-brand-100 text-brand-600 dark:bg-brand-900/40 dark:text-brand-400",
       },
       {
         icon: Globe,
-        label: "Geospatial Awareness",
+        label: "Pemetaan Wilayah",
         value: `${baseScore}%`,
-        sub: "Real-time Map Data",
+        sub: "Data Spasial",
         color: "from-brand-500 to-brand-600",
         bg: "bg-brand-100 text-brand-600 dark:bg-brand-900/40 dark:text-brand-400",
       },
       {
         icon: Zap,
-        label: "Preparedness Score",
+        label: "Skor Kesiapan",
         value: `${baseScore}`,
-        sub: baseScore > 0 ? "Resilient" : "No Data",
+        sub: baseScore > 0 ? "Siap" : "Belum ada data",
         color: "from-brand-500 to-brand-600",
         bg: "bg-brand-100 text-brand-600 dark:bg-brand-900/40 dark:text-brand-400",
       },
       {
         icon: Award,
-        label: "Certificates",
+        label: "Sertifikat",
         value: (profile?.badges?.length || 0).toString(),
-        sub: "Earned",
+        sub: "Diperoleh",
         color: "from-brand-500 to-brand-600",
         bg: "bg-brand-100 text-brand-600 dark:bg-brand-900/40 dark:text-brand-400",
       },
@@ -407,55 +407,53 @@ export function DashboardView() {
           </div>
 
           {/* Score badges */}
-          <div className="flex flex-wrap gap-3">
-            <div className="flex items-center gap-2.5 rounded-xl bg-white/10 px-4 py-2.5 backdrop-blur-sm ring-1 ring-white/15">
-              <Zap className="h-5 w-5 text-brand-300 shrink-0" />
-              <div>
-                <p className="text-[10px] uppercase tracking-wider text-brand-200">
+          <div className="grid grid-cols-2 sm:flex sm:flex-wrap gap-2.5 sm:gap-3">
+            <div className="flex items-center gap-2 rounded-xl bg-white/10 px-3 py-2 sm:px-4 sm:py-2.5 backdrop-blur-sm ring-1 ring-white/15">
+              <Zap className="h-4 w-4 sm:h-5 sm:w-5 text-brand-300 shrink-0" />
+              <div className="min-w-0">
+                <p className="text-[10px] uppercase tracking-wider text-brand-200 truncate">
                   {t("dashboard.score")}
                 </p>
-                <p className="font-display text-lg font-extrabold">
+                <p className="font-display text-base sm:text-lg font-extrabold">
                   {currentScore}
-                  <span className="text-sm text-brand-300">/100</span>
+                  <span className="text-xs sm:text-sm text-brand-300">/100</span>
                 </p>
               </div>
             </div>
-            <div className="flex items-center gap-2.5 rounded-xl bg-white/10 px-4 py-2.5 backdrop-blur-sm ring-1 ring-white/15">
-              <TrendingUp className="h-5 w-5 text-brand-300 shrink-0" />
-              <div>
-                <p className="text-[10px] uppercase tracking-wider text-brand-200">
+            <div className="flex items-center gap-2 rounded-xl bg-white/10 px-3 py-2 sm:px-4 sm:py-2.5 backdrop-blur-sm ring-1 ring-white/15">
+              <TrendingUp className="h-4 w-4 sm:h-5 sm:w-5 text-brand-300 shrink-0" />
+              <div className="min-w-0">
+                <p className="text-[10px] uppercase tracking-wider text-brand-200 truncate">
                   {t("dashboard.previous_score")}
                 </p>
-                <p className="font-display text-lg font-extrabold">
+                <p className="font-display text-base sm:text-lg font-extrabold">
                   {previousScore}
-                  <span className="text-sm text-brand-300">/100</span>
+                  <span className="text-xs sm:text-sm text-brand-300">/100</span>
                 </p>
               </div>
             </div>
-            <div className="flex items-center gap-2.5 rounded-xl bg-brand-400/20 px-4 py-2.5 backdrop-blur-sm ring-1 ring-brand-300/30">
-              <TrendingUp className="h-5 w-5 text-brand-300 shrink-0" />
-              <div>
-                <p className="text-[10px] uppercase tracking-wider text-brand-200">
+            <div className="flex items-center gap-2 rounded-xl bg-brand-400/20 px-3 py-2 sm:px-4 sm:py-2.5 backdrop-blur-sm ring-1 ring-brand-300/30">
+              <TrendingUp className="h-4 w-4 sm:h-5 sm:w-5 text-brand-300 shrink-0" />
+              <div className="min-w-0">
+                <p className="text-[10px] uppercase tracking-wider text-brand-200 truncate">
                   {t("dashboard.improvement_label")}
                 </p>
-                <p className="font-display text-lg font-extrabold">
+                <p className="font-display text-base sm:text-lg font-extrabold">
                   +{improvement}{" "}
-                  <span className="text-sm text-brand-300">
+                  <span className="text-xs sm:text-sm text-brand-300">
                     {improvementPct}%
                   </span>
                 </p>
               </div>
             </div>
-            <div className="flex items-center gap-2.5 rounded-xl bg-white/10 px-4 py-2.5 backdrop-blur-sm ring-1 ring-white/15">
-              <Shield className="h-5 w-5 text-brand-300 shrink-0" />
-              <div>
-                <p className="text-[10px] uppercase tracking-wider text-brand-200">
+            <div className="flex items-center gap-2 rounded-xl bg-white/10 px-3 py-2 sm:px-4 sm:py-2.5 backdrop-blur-sm ring-1 ring-white/15">
+              <Shield className="h-4 w-4 sm:h-5 sm:w-5 text-brand-300 shrink-0" />
+              <div className="min-w-0">
+                <p className="text-[10px] uppercase tracking-wider text-brand-200 truncate">
                   {t("dashboard.preparedness")}
                 </p>
-                <p className="font-display text-lg font-extrabold">
-                  {hasPoints
-                    ? t("dashboard.highly_resilient", "Highly Resilient")
-                    : t("dashboard.not_started", "Belum Dimulai")}
+                <p className="font-display text-base sm:text-lg font-extrabold truncate">
+                  {hasPoints ? "Sangat Tangguh" : "Belum Dimulai"}
                 </p>
               </div>
             </div>
@@ -473,7 +471,7 @@ export function DashboardView() {
               to="/app/simulation/join"
               className="inline-flex items-center gap-2 rounded-full border border-white/30 bg-white/10 px-5 py-2.5 text-sm font-semibold text-white backdrop-blur-sm transition-all hover:bg-white/20"
             >
-              <Play className="h-4 w-4 fill-white shrink-0" /> Join Session
+              <Play className="h-4 w-4 fill-white shrink-0" /> Gabung Sesi
             </Link>
             <Link
               to="/app/simulation"
@@ -512,7 +510,7 @@ export function DashboardView() {
               </p>
               <div className="mt-2 flex items-center gap-2">
                 <span className="inline-flex items-center gap-1 rounded-full bg-brand-100 px-3 py-1 text-xs font-bold text-brand-700 dark:bg-brand-950/40 dark:text-brand-400">
-                  <TrendingUp className="h-3.5 w-3.5" /> +{improvement} points
+                  <TrendingUp className="h-3.5 w-3.5" /> +{improvement} poin
                   (+{improvementPct}%)
                 </span>
               </div>
@@ -613,22 +611,21 @@ export function DashboardView() {
               </span>
               <div>
                 <span className="text-[10px] font-bold uppercase tracking-widest text-brand-600">
-                  Real-time Data
+                  Rekomendasi
                 </span>
                 <h3 className="font-display text-sm font-bold text-ink-900 dark:text-white">
-                  Pemantauan Geospasial
+                  Pemantauan Wilayah
                 </h3>
               </div>
             </div>
             <p className="text-sm leading-relaxed text-ink-600 dark:text-slate-300">
-              Berdasarkan pemantauan peta interaktif dan data sensor kebencanaan secara real-time, 
-              kami menyarankan Anda untuk memantau zona <strong className="text-ink-900 dark:text-white">Rawan Gempa</strong> dan mempelajari rute <strong className="text-ink-900 dark:text-white">Evakuasi Tsunami</strong> di wilayah Anda.
+              Tinjau peta kerawanan sekitar sekolah dan latih skenario evakuasi gempa atau kebakaran pada modul Harmony Twin.
             </p>
             <Link
-              to="/app/maps"
-              className="group mt-5 inline-flex w-full items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-brand-600 to-brand-700 px-5 py-3 text-sm font-semibold text-white shadow-glass transition-all hover:-translate-y-0.5 hover:shadow-glow"
+              to="/app/digital-twin"
+              className="group mt-5 inline-flex w-full items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-brand-600 to-brand-700 px-5 py-3 text-sm font-semibold text-white shadow-glass transition-colors hover:from-brand-700 hover:to-brand-800"
             >
-              <Globe className="h-4 w-4" /> Buka Peta Sekarang
+              <Globe className="h-4 w-4" /> Buka Harmony Twin
               <ArrowRight className="h-4 w-4 transition-transform group-hover:translate-x-1" />
             </Link>
           </div>

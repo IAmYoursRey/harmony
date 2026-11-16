@@ -93,33 +93,21 @@ export function FeatureCards() {
   return (
     <section className="relative py-16 sm:py-20">
       <div className="section-container">
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          whileInView={{ opacity: 1, y: 0 }}
-          viewport={{ once: true }}
-          transition={{ duration: 0.5 }}
-          className="mx-auto mb-10 max-w-2xl text-center"
-        >
+        <div className="mb-10 mx-auto max-w-2xl text-center">
           <span className="text-sm font-semibold uppercase tracking-wider text-brand-600 dark:text-brand-400">
             {t("features.explore")}
           </span>
-          <h2 className="mt-3 font-display text-2xl font-extrabold tracking-tight text-ink-900 sm:text-3xl">
+          <h2 className="mt-3 font-display text-2xl font-extrabold tracking-tight text-ink-900 dark:text-white sm:text-3xl">
             {t("features.title")}
           </h2>
           <p className="mt-3 text-ink-600 dark:text-slate-300">
             {t("features.subtitle")}
           </p>
-        </motion.div>
+        </div>
 
-        <motion.div
-          variants={container}
-          initial="hidden"
-          whileInView="show"
-          viewport={{ once: true, margin: "-80px" }}
-          className="grid gap-5 sm:grid-cols-2 lg:grid-cols-4"
-        >
+        <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-4">
           {cards.map((c) => (
-            <motion.div key={c.titleKey} variants={item}>
+            <div key={c.titleKey}>
               <Link to={c.to} className="group block h-full">
                 <article
                   className={`glass group relative h-full overflow-hidden rounded-2xl p-6 transition-all duration-300 hover:-translate-y-1.5 hover:shadow-glass-lg group-hover:shadow-brand-300/40`}
@@ -144,9 +132,9 @@ export function FeatureCards() {
                   </div>
                 </article>
               </Link>
-            </motion.div>
+            </div>
           ))}
-        </motion.div>
+        </div>
       </div>
     </section>
   );

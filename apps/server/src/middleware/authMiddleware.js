@@ -1,12 +1,12 @@
 import jwt from "jsonwebtoken";
 import dotenv from "dotenv";
-import { readDB } from "../repositories/repository.js";
-dotenv.config();
+import { getAccountById } from "../repositories/repository.js";
+dotenv.config({ path: [".env.local", ".env"] });
 
-const SECRET = process.env.JWT_SECRET;
-if (!SECRET) {
-  console.error(
-    "[CRITICAL] JWT_SECRET is not defined in environment variables.",
+const SECRET = process.env.JWT_SECRET || "default_jwt_secret_for_development";
+if (!process.env.JWT_SECRET) {
+  console.warn(
+    "[WARNING] JWT_SECRET is not defined in environment variables. Using fallback.",
   );
 }
 export async function verifyToken(req, res, next) {
@@ -18,12 +18,11 @@ export async function verifyToken(req, res, next) {
   const token = authHeader.split(" ")[1];
   try {
     const decoded = jwt.verify(token, SECRET);
-    
-    // Always fetch the freshest role from the database in case of manual upgrades
-    const db = await readDB();
-    const account = db.accounts.find(a => a.id === decoded.id);
+
+    const account = await getAccountById(decoded.id);
     if (account) {
       decoded.role = account.role;
+      decoded.email = account.email;
     }
     
     // Normalize 'developer' to 'dev' for backend compatibility

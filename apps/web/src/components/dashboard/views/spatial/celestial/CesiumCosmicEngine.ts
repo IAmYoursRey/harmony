@@ -5,7 +5,8 @@ import {
   getCelestialDataUrl, 
   getSaturnRingRadialDataUrl,
   getSolarCoronaDataUrl,
-  getAtmosphereHaloDataUrl
+  getAtmosphereHaloDataUrl,
+  REAL_PLANET_TEXTURE_URLS
 } from './cosmicSceneUtils';
 import {
   ASTRONOMICAL_CONSTANTS,
@@ -31,6 +32,7 @@ export interface CesiumCelestialItem {
   axialTiltDeg: number;
   orbitEntity?: Entity;
   ringEntity?: Entity;
+  ringEntityBottom?: Entity;
   spherePrimitive?: any;
   orbitLocalPoints?: { x: number; y: number; z: number }[];
 }
@@ -282,6 +284,28 @@ export function solveKeplerianOrbit(
 }
 
 /**
+ * Defensive vector normalization guaranteeing zero NaN / division-by-zero crashes.
+ * Strictly prevents Cesium's "DeveloperError: normalized result is not a number".
+ */
+export function safeNormalize(C: any, cartesian: any, fallback?: any): any {
+  if (!cartesian) {
+    return fallback ? C.Cartesian3.clone(fallback) : new C.Cartesian3(0, 0, 1);
+  }
+  const x = Number(cartesian.x);
+  const y = Number(cartesian.y);
+  const z = Number(cartesian.z);
+  if (!Number.isFinite(x) || !Number.isFinite(y) || !Number.isFinite(z)) {
+    return fallback ? C.Cartesian3.clone(fallback) : new C.Cartesian3(0, 0, 1);
+  }
+  const magSq = x * x + y * y + z * z;
+  if (magSq < 1e-12) {
+    return fallback ? C.Cartesian3.clone(fallback) : new C.Cartesian3(0, 0, 1);
+  }
+  const invMag = 1.0 / Math.sqrt(magSq);
+  return new C.Cartesian3(x * invMag, y * invMag, z * invMag);
+}
+
+/**
  * CesiumCosmicEngine
  * 
  * Deepthink 3D Solar System & Universe Map Engine:
@@ -324,6 +348,18 @@ export class CesiumCosmicEngine {
   public activeTrackingId: string | null = null;
   public lockedTargetId: string | null = null;
   public isFlightTransitioning: boolean = false;
+  private lastFocusedTargetPos: any = null;
+  private cachedDirectionalLight: any = null;
+
+  // Pre-allocated scratch objects for zero-allocation 60 FPS animation loop
+  private scratchQTilt: any;
+  private scratchQSpin: any;
+  private scratchQTotal: any;
+  private scratchRotMat3: any;
+  private scratchModelMat4: any;
+  private animFrameCount: number = 0;
+  private lastIsExploringEarthSurface: boolean = true;
+  private removeInputListeners: (() => void) | null = null;
 
   // Real-Time Sun Position (relative to Earth at 0, 0, 0 in Cesium world frame)
   public sunPosition: any = { x: 0, y: 0, z: 0 };
@@ -332,6 +368,12 @@ export class CesiumCosmicEngine {
     this.viewer = viewer;
     this.C = C;
     this.scaleMode = initialScaleMode;
+
+    this.scratchQTilt = new C.Quaternion();
+    this.scratchQSpin = new C.Quaternion();
+    this.scratchQTotal = new C.Quaternion();
+    this.scratchRotMat3 = new C.Matrix3();
+    this.scratchModelMat4 = new C.Matrix4();
 
     const scene = viewer.scene;
 
@@ -393,7 +435,104 @@ export class CesiumCosmicEngine {
     this.initCosmicBackground();
     this.initSolarSystem();
     this.updateSunPositionAndLighting();
+    this.initCelestialInteractionListeners();
     this.startAnimationLoop();
+  }
+
+  /**
+   * Pointer and wheel listeners for smooth planetary orbit and zoom when locked to a celestial body
+   */
+  private initCelestialInteractionListeners(): void {
+    const canvas = this.viewer.canvas;
+    if (!canvas || typeof window === 'undefined') return;
+
+    let isPointerDown = false;
+    let lastX = 0;
+    let lastY = 0;
+
+    const onPointerDown = (e: PointerEvent) => {
+      if (this.cameraState === 'FOCUSED' && this.focusedBodyId && this.focusedBodyId !== 'earth' && e.button === 0) {
+        isPointerDown = true;
+        lastX = e.clientX;
+        lastY = e.clientY;
+      }
+    };
+
+    const onPointerMove = (e: PointerEvent) => {
+      if (!isPointerDown || this.cameraState !== 'FOCUSED' || !this.focusedBodyId || this.focusedBodyId === 'earth') {
+        return;
+      }
+      const dx = e.clientX - lastX;
+      const dy = e.clientY - lastY;
+      lastX = e.clientX;
+      lastY = e.clientY;
+
+      if (Math.abs(dx) < 0.2 && Math.abs(dy) < 0.2) return;
+
+      const targetPos = this.getTargetWorldPosition(this.focusedBodyId);
+      if (!targetPos) return;
+
+      const C = this.C;
+      const camPos = this.viewer.camera.positionWC;
+      const offset = C.Cartesian3.subtract(camPos, targetPos, new C.Cartesian3());
+      const dist = C.Cartesian3.magnitude(offset);
+      if (dist < 10) return;
+
+      const rotHoriz = C.Matrix3.fromRotationZ(-dx * 0.005, new C.Matrix3());
+      let newOffset = C.Matrix3.multiplyByVector(rotHoriz, offset, new C.Cartesian3());
+
+      const camRight = this.viewer.camera.rightWC;
+      const rotVert = C.Quaternion.fromAxisAngle(camRight, dy * 0.005, new C.Quaternion());
+      const rotVertMat = C.Matrix3.fromQuaternion(rotVert, new C.Matrix3());
+      newOffset = C.Matrix3.multiplyByVector(rotVertMat, newOffset, new C.Cartesian3());
+
+      const offsetDir = safeNormalize(C, newOffset, safeNormalize(C, offset, new C.Cartesian3(0.5, 0.5, 0.7)));
+      const finalPos = C.Cartesian3.add(
+        targetPos,
+        C.Cartesian3.multiplyByScalar(offsetDir, dist, new C.Cartesian3()),
+        new C.Cartesian3()
+      );
+      const lookDir = safeNormalize(C, C.Cartesian3.negate(offsetDir, new C.Cartesian3()), new C.Cartesian3(0, 0, -1));
+
+      let currentUp = this.viewer.camera.upWC;
+      let rightCross = C.Cartesian3.cross(lookDir, currentUp, new C.Cartesian3());
+      if (C.Cartesian3.magnitude(rightCross) < 1e-4) {
+        currentUp = new C.Cartesian3(0, 1, 0);
+      }
+      const cleanUp = safeNormalize(C, currentUp, new C.Cartesian3(0, 1, 0));
+
+      this.viewer.camera.setView({
+        destination: finalPos,
+        orientation: {
+          direction: lookDir,
+          up: cleanUp,
+        },
+      });
+    };
+
+    const onPointerUp = () => {
+      isPointerDown = false;
+    };
+
+    const onWheel = (e: WheelEvent) => {
+      if (this.cameraState === 'FOCUSED' && this.focusedBodyId && this.focusedBodyId !== 'earth') {
+        e.preventDefault();
+        const factor = e.deltaY > 0 ? 1.15 : 0.85;
+        this.zoomIn(factor);
+      }
+    };
+
+    canvas.addEventListener('pointerdown', onPointerDown);
+    window.addEventListener('pointermove', onPointerMove);
+    window.addEventListener('pointerup', onPointerUp);
+    canvas.addEventListener('wheel', onWheel, { passive: false });
+
+    this.removeInputListeners = () => {
+      canvas.removeEventListener('pointerdown', onPointerDown);
+      window.removeEventListener('pointermove', onPointerMove);
+      window.removeEventListener('pointerup', onPointerUp);
+      canvas.removeEventListener('wheel', onWheel);
+    };
   }
 
   /**
@@ -404,15 +543,21 @@ export class CesiumCosmicEngine {
     const scene = this.viewer.scene;
 
     const sunToEarth = C.Cartesian3.negate(this.sunPosition, new C.Cartesian3());
-    const sunRay = C.Cartesian3.magnitude(sunToEarth) > 1000
-      ? C.Cartesian3.normalize(sunToEarth, new C.Cartesian3())
-      : new C.Cartesian3(0, 0, 1);
+    const sunRay = safeNormalize(C, sunToEarth, new C.Cartesian3(0, 0, 1));
 
-    scene.light = new C.DirectionalLight({
-      direction: sunRay,
-      color: new C.Color(0.92, 0.90, 0.86, 1.0),
-      intensity: 0.75, // Moderate, natural sunlight ("sedang saja, tidak silau")
-    });
+    if (!this.cachedDirectionalLight) {
+      this.cachedDirectionalLight = new C.DirectionalLight({
+        direction: sunRay,
+        color: new C.Color(0.92, 0.90, 0.86, 1.0),
+        intensity: 0.75, // Moderate, natural sunlight ("sedang saja, tidak silau")
+      });
+      scene.light = this.cachedDirectionalLight;
+    } else {
+      this.cachedDirectionalLight.direction = sunRay;
+      if (scene.light !== this.cachedDirectionalLight) {
+        scene.light = this.cachedDirectionalLight;
+      }
+    }
   }
 
   /**
@@ -429,6 +574,60 @@ export class CesiumCosmicEngine {
     }
     const item = this.celestialItems.get(id);
     return item ? item.currentPosition : null;
+  }
+
+  /**
+   * Geometrically robust camera approach vantage direction.
+   * Ensures non-degenerate geometry, day/night terminator visibility,
+   * elevated orbital view, and strict immunity to gimbal lock.
+   */
+  public calculateVantageOffsetDir(targetPos: any, bodyId: string): any {
+    const C = this.C;
+    const eps = 0.4090928;
+    const eclipticNormal = new C.Cartesian3(0, -Math.sin(eps), Math.cos(eps));
+
+    if (bodyId === 'sun') {
+      return safeNormalize(
+        C,
+        new C.Cartesian3(
+          eclipticNormal.x * 0.45 + 0.78,
+          eclipticNormal.y * 0.45 - 0.42,
+          eclipticNormal.z * 0.45 + 0.15
+        ),
+        new C.Cartesian3(0.8, -0.4, 0.4)
+      );
+    }
+
+    const sunToTarget = C.Cartesian3.subtract(targetPos, this.sunPosition, new C.Cartesian3());
+    const sunDir = safeNormalize(C, sunToTarget, new C.Cartesian3(1, 0, 0));
+
+    const sunDotNormal = C.Cartesian3.dot(sunDir, eclipticNormal);
+    const inPlaneRadial = C.Cartesian3.subtract(
+      sunDir,
+      C.Cartesian3.multiplyByScalar(eclipticNormal, sunDotNormal, new C.Cartesian3()),
+      new C.Cartesian3()
+    );
+    const rDir = safeNormalize(C, inPlaneRadial, new C.Cartesian3(1, 0, 0));
+
+    const tCross = C.Cartesian3.cross(eclipticNormal, rDir, new C.Cartesian3());
+    const tDir = safeNormalize(C, tCross, new C.Cartesian3(0, 1, 0));
+
+    const cosPitch = 0.951;
+    const sinPitch = 0.309;
+    const cosAz = 0.898;
+    const sinAz = 0.438;
+
+    const termRadial = C.Cartesian3.multiplyByScalar(rDir, cosPitch * cosAz, new C.Cartesian3());
+    const termTangent = C.Cartesian3.multiplyByScalar(tDir, cosPitch * sinAz, new C.Cartesian3());
+    const termNormal = C.Cartesian3.multiplyByScalar(eclipticNormal, sinPitch, new C.Cartesian3());
+
+    const combined = C.Cartesian3.add(
+      C.Cartesian3.add(termRadial, termTangent, new C.Cartesian3()),
+      termNormal,
+      new C.Cartesian3()
+    );
+
+    return safeNormalize(C, combined, new C.Cartesian3(0.5, 0.5, 0.7));
   }
 
   public setPaused(paused: boolean): void {
@@ -463,7 +662,9 @@ export class CesiumCosmicEngine {
   private createTexturedSpherePrimitive(id: string, radiusMeters: number, entityId: any): any {
     const C = this.C;
     const canvas = typeof document !== 'undefined' ? getCelestialCanvas(id) : null;
-    if (!canvas) return null;
+    const realUrl = REAL_PLANET_TEXTURE_URLS[id];
+    const imageSource = realUrl || canvas;
+    if (!imageSource) return null;
 
     return new C.Primitive({
       geometryInstances: new C.GeometryInstance({
@@ -478,7 +679,7 @@ export class CesiumCosmicEngine {
           fabric: {
             type: 'Image',
             uniforms: {
-              image: canvas,
+              image: imageSource,
             },
           },
         }),
@@ -767,23 +968,24 @@ export class CesiumCosmicEngine {
       }
 
       if (cfg.id === 'saturn') {
-        // Saturn ring outer radius: 25,870,000 meters
-        const ringOuterMeters = 25870000;
+        // Saturn calibrated radius: 10,760,000 meters
+        // Outer ring edge (A/F ring): 2.45 * radiusMeters = 26,362,000 meters
+        const ringOuterMeters = radiusMeters * 2.45;
+        const ringDiameterMeters = ringOuterMeters * 2.0;
         const ringRadialUrl = getSaturnRingRadialDataUrl();
 
+        // 1. Top face of Saturn's Rings (Normal along +Z, locked to Saturn's equatorial plane)
         const ringEntity = this.viewer.entities.add({
           id: 'celestial-saturn-ring',
           name: 'Cincin Saturnus (Cassini Division)',
-          position: new C.CallbackProperty(() => item.currentPosition, false) as any,
+          position: new C.CallbackProperty((_time, result) => C.Cartesian3.clone(item.currentPosition, result), false) as any,
           orientation: new C.CallbackProperty(() => {
-            const tiltRad = C.Math.toRadians(26.73);
-            const qTilt = C.Quaternion.fromAxisAngle(C.Cartesian3.UNIT_X, tiltRad, new C.Quaternion());
-            const qSpin = C.Quaternion.fromAxisAngle(C.Cartesian3.UNIT_Z, item.rotationAngle, new C.Quaternion());
-            return C.Quaternion.multiply(qTilt, qSpin, new C.Quaternion());
+            const tiltRad = C.Math.toRadians(item.axialTiltDeg);
+            return C.Quaternion.fromAxisAngle(C.Cartesian3.UNIT_X, tiltRad, new C.Quaternion());
           }, false) as any,
           plane: {
             plane: new C.Plane(C.Cartesian3.UNIT_Z, 0.0),
-            dimensions: new C.Cartesian2(ringOuterMeters * 2.2, ringOuterMeters * 2.2),
+            dimensions: new C.Cartesian2(ringDiameterMeters, ringDiameterMeters),
             material: new C.ImageMaterialProperty({
               image: ringRadialUrl,
               transparent: true,
@@ -791,6 +993,26 @@ export class CesiumCosmicEngine {
           },
         });
         item.ringEntity = ringEntity;
+
+        // 2. Bottom face of Saturn's Rings (Normal along -Z, ensures full visibility when viewing from below)
+        const ringEntityBottom = this.viewer.entities.add({
+          id: 'celestial-saturn-ring-bottom',
+          name: 'Cincin Saturnus Sisi Bawah',
+          position: new C.CallbackProperty((_time, result) => C.Cartesian3.clone(item.currentPosition, result), false) as any,
+          orientation: new C.CallbackProperty(() => {
+            const tiltRad = C.Math.toRadians(item.axialTiltDeg);
+            return C.Quaternion.fromAxisAngle(C.Cartesian3.UNIT_X, tiltRad, new C.Quaternion());
+          }, false) as any,
+          plane: {
+            plane: new C.Plane(new C.Cartesian3(0, 0, -1), 0.0),
+            dimensions: new C.Cartesian2(ringDiameterMeters, ringDiameterMeters),
+            material: new C.ImageMaterialProperty({
+              image: ringRadialUrl,
+              transparent: true,
+            }),
+          },
+        });
+        item.ringEntityBottom = ringEntityBottom;
       }
 
       this.celestialItems.set(cfg.id, item);
@@ -1111,11 +1333,12 @@ export class CesiumCosmicEngine {
 
         if (item.spherePrimitive) {
           const tiltRad = C.Math.toRadians(item.axialTiltDeg);
-          const qTilt = C.Quaternion.fromAxisAngle(C.Cartesian3.UNIT_X, tiltRad, new C.Quaternion());
-          const qSpin = C.Quaternion.fromAxisAngle(C.Cartesian3.UNIT_Z, item.rotationAngle, new C.Quaternion());
-          const qTotal = C.Quaternion.multiply(qTilt, qSpin, new C.Quaternion());
-          const rotMat3 = C.Matrix3.fromQuaternion(qTotal, new C.Matrix3());
-          item.spherePrimitive.modelMatrix = C.Matrix4.fromRotationTranslation(rotMat3, item.currentPosition, new C.Matrix4());
+          C.Quaternion.fromAxisAngle(C.Cartesian3.UNIT_X, tiltRad, this.scratchQTilt);
+          C.Quaternion.fromAxisAngle(C.Cartesian3.UNIT_Z, item.rotationAngle, this.scratchQSpin);
+          C.Quaternion.multiply(this.scratchQTilt, this.scratchQSpin, this.scratchQTotal);
+          C.Matrix3.fromQuaternion(this.scratchQTotal, this.scratchRotMat3);
+          C.Matrix4.fromRotationTranslation(this.scratchRotMat3, item.currentPosition, this.scratchModelMat4);
+          C.Matrix4.clone(this.scratchModelMat4, item.spherePrimitive.modelMatrix);
         }
       });
 
@@ -1131,11 +1354,12 @@ export class CesiumCosmicEngine {
         }
         if (sunItem.spherePrimitive) {
           const tiltRad = C.Math.toRadians(sunItem.axialTiltDeg);
-          const qTilt = C.Quaternion.fromAxisAngle(C.Cartesian3.UNIT_X, tiltRad, new C.Quaternion());
-          const qSpin = C.Quaternion.fromAxisAngle(C.Cartesian3.UNIT_Z, sunItem.rotationAngle, new C.Quaternion());
-          const qTotal = C.Quaternion.multiply(qTilt, qSpin, new C.Quaternion());
-          const rotMat3 = C.Matrix3.fromQuaternion(qTotal, new C.Matrix3());
-          sunItem.spherePrimitive.modelMatrix = C.Matrix4.fromRotationTranslation(rotMat3, this.sunPosition, new C.Matrix4());
+          C.Quaternion.fromAxisAngle(C.Cartesian3.UNIT_X, tiltRad, this.scratchQTilt);
+          C.Quaternion.fromAxisAngle(C.Cartesian3.UNIT_Z, sunItem.rotationAngle, this.scratchQSpin);
+          C.Quaternion.multiply(this.scratchQTilt, this.scratchQSpin, this.scratchQTotal);
+          C.Matrix3.fromQuaternion(this.scratchQTotal, this.scratchRotMat3);
+          C.Matrix4.fromRotationTranslation(this.scratchRotMat3, this.sunPosition, this.scratchModelMat4);
+          C.Matrix4.clone(this.scratchModelMat4, sunItem.spherePrimitive.modelMatrix);
         }
       }
 
@@ -1163,17 +1387,19 @@ export class CesiumCosmicEngine {
 
         if (moonItem.spherePrimitive) {
           const tiltRad = C.Math.toRadians(moonItem.axialTiltDeg);
-          const qTilt = C.Quaternion.fromAxisAngle(C.Cartesian3.UNIT_X, tiltRad, new C.Quaternion());
-          const qSpin = C.Quaternion.fromAxisAngle(C.Cartesian3.UNIT_Z, moonItem.rotationAngle, new C.Quaternion());
-          const qTotal = C.Quaternion.multiply(qTilt, qSpin, new C.Quaternion());
-          const rotMat3 = C.Matrix3.fromQuaternion(qTotal, new C.Matrix3());
-          moonItem.spherePrimitive.modelMatrix = C.Matrix4.fromRotationTranslation(rotMat3, moonItem.currentPosition, new C.Matrix4());
+          C.Quaternion.fromAxisAngle(C.Cartesian3.UNIT_X, tiltRad, this.scratchQTilt);
+          C.Quaternion.fromAxisAngle(C.Cartesian3.UNIT_Z, moonItem.rotationAngle, this.scratchQSpin);
+          C.Quaternion.multiply(this.scratchQTilt, this.scratchQSpin, this.scratchQTotal);
+          C.Matrix3.fromQuaternion(this.scratchQTotal, this.scratchRotMat3);
+          C.Matrix4.fromRotationTranslation(this.scratchRotMat3, moonItem.currentPosition, this.scratchModelMat4);
+          C.Matrix4.clone(this.scratchModelMat4, moonItem.spherePrimitive.modelMatrix);
         }
       }
 
       // 5. Update Asteroid Belt modelMatrix to follow the Sun
       if (this.asteroidBeltPrimitives) {
-        this.asteroidBeltPrimitives.modelMatrix = C.Matrix4.fromTranslation(this.sunPosition, new C.Matrix4());
+        C.Matrix4.fromTranslation(this.sunPosition, this.scratchModelMat4);
+        C.Matrix4.clone(this.scratchModelMat4, this.asteroidBeltPrimitives.modelMatrix);
       }
 
       // 6. Dynamic Camera Navigation State Machine & Moving Target Tracking
@@ -1196,6 +1422,7 @@ export class CesiumCosmicEngine {
           // Target is in continuous orbital motion: resolve live rendered world position
           const curTargetPos = this.getTargetWorldPosition(trans.targetId);
           if (curTargetPos) {
+            trans.approachOffsetDir = this.calculateVantageOffsetDir(curTargetPos, trans.targetId);
             const curDestCamPos = C.Cartesian3.add(
               curTargetPos,
               C.Cartesian3.multiplyByScalar(trans.approachOffsetDir, trans.framingDist, new C.Cartesian3()),
@@ -1221,21 +1448,28 @@ export class CesiumCosmicEngine {
             const sGaze = gazeU * gazeU * (3.0 - 2.0 * gazeU);
             const currentLookAtPos = C.Cartesian3.lerp(trans.startLookAtPos, curTargetPos, sGaze, new C.Cartesian3());
 
-            const lookDir = C.Cartesian3.normalize(
-              C.Cartesian3.subtract(currentLookAtPos, currentCamPos, new C.Cartesian3()),
-              new C.Cartesian3()
-            );
+            const toLookAt = C.Cartesian3.subtract(currentLookAtPos, currentCamPos, new C.Cartesian3());
+            const lookDir = safeNormalize(C, toLookAt, new C.Cartesian3(0, 0, -1));
 
             const eps = 0.4090928;
             const eclipticNormal = new C.Cartesian3(0, -Math.sin(eps), Math.cos(eps));
-            const currentUp = C.Cartesian3.lerp(trans.startUp, eclipticNormal, s, new C.Cartesian3());
-            C.Cartesian3.normalize(currentUp, currentUp);
+            let currentUp = C.Cartesian3.lerp(trans.startUp, eclipticNormal, s, new C.Cartesian3());
+
+            let rightCross = C.Cartesian3.cross(lookDir, currentUp, new C.Cartesian3());
+            if (C.Cartesian3.magnitude(rightCross) < 1e-4) {
+              currentUp = new C.Cartesian3(0, 1, 0);
+              rightCross = C.Cartesian3.cross(lookDir, currentUp, new C.Cartesian3());
+              if (C.Cartesian3.magnitude(rightCross) < 1e-4) {
+                currentUp = new C.Cartesian3(1, 0, 0);
+              }
+            }
+            const cleanUp = safeNormalize(C, currentUp, eclipticNormal);
 
             this.viewer.camera.setView({
               destination: currentCamPos,
               orientation: {
                 direction: lookDir,
-                up: currentUp,
+                up: cleanUp,
               },
             });
 
@@ -1246,54 +1480,44 @@ export class CesiumCosmicEngine {
           }
         }
       } else if (this.cameraState === 'FOCUSED' && this.focusedBodyId && this.focusedBodyId !== 'earth') {
-        // Continuous lock-follow: update camera reference frame to target's live world position
-        const targetPos = this.getTargetWorldPosition(this.focusedBodyId);
-        if (targetPos) {
-          const localPos = this.viewer.camera.position;
-          const currentDist = C.Cartesian3.magnitude(localPos);
-
-          const item = this.celestialItems.get(this.focusedBodyId);
-          const radius = item ? item.radiusMeters : SOLAR_SCALE_CONFIG.SUN_RENDER_RADIUS_METERS;
-          const framingInfo = calculateSafeFramingDistance(this.focusedBodyId, radius);
-
-          if (currentDist < framingInfo.minDistance) {
-            C.Cartesian3.multiplyByScalar(
-              C.Cartesian3.normalize(localPos, new C.Cartesian3()),
-              framingInfo.minDistance,
-              localPos
-            );
-          } else if (currentDist > framingInfo.maxDistance) {
-            C.Cartesian3.multiplyByScalar(
-              C.Cartesian3.normalize(localPos, new C.Cartesian3()),
-              framingInfo.maxDistance,
-              localPos
-            );
+        // Continuous lock-follow in world space:
+        // Translates camera rigidly by target delta without matrix inversions or jitter!
+        const curTargetPos = this.getTargetWorldPosition(this.focusedBodyId);
+        if (curTargetPos && this.lastFocusedTargetPos) {
+          const deltaX = curTargetPos.x - this.lastFocusedTargetPos.x;
+          const deltaY = curTargetPos.y - this.lastFocusedTargetPos.y;
+          const deltaZ = curTargetPos.z - this.lastFocusedTargetPos.z;
+          if (Number.isFinite(deltaX) && Number.isFinite(deltaY) && Number.isFinite(deltaZ)) {
+            if (Math.abs(deltaX) > 1e-5 || Math.abs(deltaY) > 1e-5 || Math.abs(deltaZ) > 1e-5) {
+              this.viewer.camera.position.x += deltaX;
+              this.viewer.camera.position.y += deltaY;
+              this.viewer.camera.position.z += deltaZ;
+            }
           }
-
-          const transform = C.Matrix4.fromTranslation(targetPos, new C.Matrix4());
-          this.viewer.camera.lookAtTransform(transform, localPos);
         }
+        this.lastFocusedTargetPos = curTargetPos ? C.Cartesian3.clone(curTargetPos) : null;
       }
 
-      // 7. Dynamic Telemetry & Mathematical Diagnostics
-      const targetPosForDiag = this.focusedBodyId ? this.getTargetWorldPosition(this.focusedBodyId) : null;
-      const camPos = this.viewer.camera.positionWC;
-      let targetError = 0;
-      let alignmentDot = 1.0;
+      // 7. Dynamic Telemetry & Mathematical Diagnostics (throttled to avoid per-frame GC spikes)
+      this.animFrameCount++;
+      if (this.animFrameCount % 10 === 0 && typeof window !== 'undefined') {
+        const targetPosForDiag = this.focusedBodyId ? this.getTargetWorldPosition(this.focusedBodyId) : null;
+        const camPos = this.viewer.camera.positionWC;
+        let targetError = 0;
+        let alignmentDot = 1.0;
 
-      if (targetPosForDiag) {
-        const toTarget = C.Cartesian3.subtract(targetPosForDiag, camPos, new C.Cartesian3());
-        const toTargetDist = C.Cartesian3.magnitude(toTarget);
-        if (toTargetDist > 1.0) {
-          const toTargetDir = C.Cartesian3.normalize(toTarget, new C.Cartesian3());
-          alignmentDot = C.Cartesian3.dot(this.viewer.camera.directionWC, toTargetDir);
+        if (targetPosForDiag) {
+          const toTarget = C.Cartesian3.subtract(targetPosForDiag, camPos, new C.Cartesian3());
+          const toTargetDist = C.Cartesian3.magnitude(toTarget);
+          if (toTargetDist > 1.0) {
+            const toTargetDir = safeNormalize(C, toTarget, new C.Cartesian3(0, 0, -1));
+            alignmentDot = C.Cartesian3.dot(this.viewer.camera.directionWC, toTargetDir);
+          }
+          if (this.cameraState === 'FOCUSED') {
+            targetError = 0;
+          }
         }
-        if (this.cameraState === 'FOCUSED') {
-          targetError = 0;
-        }
-      }
 
-      if (typeof window !== 'undefined') {
         (window as any).__cosmicTelemetry = {
           requestedBody: this.requestedBodyId,
           focusedBody: this.focusedBodyId,
@@ -1313,41 +1537,46 @@ export class CesiumCosmicEngine {
       const camHeight = camera.positionCartographic?.height ?? 1e7;
       const isExploringEarthSurface = camHeight < 8_500_000 && (!this.lockedTargetId || this.lockedTargetId === 'earth');
 
-      if (isExploringEarthSurface) {
-        // Map Exploration Mode: Disable harsh glare, bloom, specular wash & atmosphere fog
-        if (scene.globe.enableLighting) {
-          scene.globe.enableLighting = false;
+      if (isExploringEarthSurface !== this.lastIsExploringEarthSurface) {
+        this.lastIsExploringEarthSurface = isExploringEarthSurface;
+        if (isExploringEarthSurface) {
+          // Map Exploration Mode: Disable harsh glare, bloom, specular wash & atmosphere fog
+          if (scene.globe.enableLighting) {
+            scene.globe.enableLighting = false;
+          }
+          if (scene.globe.showGroundAtmosphere) {
+            scene.globe.showGroundAtmosphere = false;
+          }
+          if (scene.postProcessStages?.bloom?.enabled) {
+            scene.postProcessStages.bloom.enabled = false;
+          }
+          if (scene.skyAtmosphere && scene.skyAtmosphere.show) {
+            scene.skyAtmosphere.show = false;
+          }
+          scene.globe.atmosphereLightIntensity = 0.0;
+        } else {
+          // Deep Space Celestial Mode: Balanced, natural solar lighting ("sedang saja, tidak silau")
+          if (!scene.globe.enableLighting) {
+            scene.globe.enableLighting = true;
+          }
+          if (scene.globe.showGroundAtmosphere) {
+            scene.globe.showGroundAtmosphere = false;
+          }
+          if (scene.postProcessStages?.bloom?.enabled) {
+            scene.postProcessStages.bloom.enabled = false;
+          }
+          if (scene.skyAtmosphere && !scene.skyAtmosphere.show) {
+            scene.skyAtmosphere.show = true;
+            try {
+              scene.skyAtmosphere.brightnessShift = -0.10;
+              scene.skyAtmosphere.saturationShift = 0.15;
+            } catch {}
+          }
+          scene.globe.atmosphereLightIntensity = 0.25;
         }
-        if (scene.globe.showGroundAtmosphere) {
-          scene.globe.showGroundAtmosphere = false;
-        }
-        if (scene.postProcessStages?.bloom?.enabled) {
-          scene.postProcessStages.bloom.enabled = false;
-        }
-        if (scene.skyAtmosphere && scene.skyAtmosphere.show) {
-          scene.skyAtmosphere.show = false;
-        }
-        scene.globe.atmosphereLightIntensity = 0.0;
-      } else {
-        // Deep Space Celestial Mode: Balanced, natural solar lighting ("sedang saja, tidak silau")
-        if (!scene.globe.enableLighting) {
-          scene.globe.enableLighting = true;
-        }
-        if (scene.globe.showGroundAtmosphere) {
-          scene.globe.showGroundAtmosphere = false;
-        }
-        if (scene.postProcessStages?.bloom?.enabled) {
-          scene.postProcessStages.bloom.enabled = false;
-        }
-        if (scene.skyAtmosphere && !scene.skyAtmosphere.show) {
-          scene.skyAtmosphere.show = true;
-          try {
-            scene.skyAtmosphere.brightnessShift = -0.10;
-            scene.skyAtmosphere.saturationShift = 0.15;
-          } catch {}
-        }
-        scene.globe.atmosphereLightIntensity = 0.25;
+      }
 
+      if (!isExploringEarthSurface) {
         let lightTargetPos: any;
         if (this.focusedBodyId && this.celestialItems.has(this.focusedBodyId)) {
           const tItem = this.celestialItems.get(this.focusedBodyId);
@@ -1357,16 +1586,21 @@ export class CesiumCosmicEngine {
         } else {
           lightTargetPos = C.Cartesian3.negate(this.sunPosition, new C.Cartesian3());
         }
-        const mag = C.Cartesian3.magnitude(lightTargetPos);
-        const sunRay = mag > 1000 
-          ? C.Cartesian3.normalize(lightTargetPos, new C.Cartesian3())
-          : new C.Cartesian3(0, 0, 1);
+        const sunRay = safeNormalize(C, lightTargetPos, new C.Cartesian3(0, 0, 1));
 
-        scene.light = new C.DirectionalLight({
-          direction: sunRay,
-          color: new C.Color(0.92, 0.90, 0.86, 1.0),
-          intensity: 0.75,
-        });
+        if (!this.cachedDirectionalLight) {
+          this.cachedDirectionalLight = new C.DirectionalLight({
+            direction: sunRay,
+            color: new C.Color(0.92, 0.90, 0.86, 1.0),
+            intensity: 0.75,
+          });
+          scene.light = this.cachedDirectionalLight;
+        } else {
+          this.cachedDirectionalLight.direction = sunRay;
+          if (scene.light !== this.cachedDirectionalLight) {
+            scene.light = this.cachedDirectionalLight;
+          }
+        }
       }
 
       // Earth photorealistic globe is ALWAYS visible
@@ -1383,15 +1617,22 @@ export class CesiumCosmicEngine {
     if (this.viewer.trackedEntity) {
       this.viewer.trackedEntity = undefined;
     }
-    if (this.lockedTargetId || this.focusedBodyId) {
-      this.viewer.camera.lookAtTransform(this.C.Matrix4.IDENTITY);
-      this.lockedTargetId = null;
-      this.activeTrackingId = null;
-      this.focusedBodyId = null;
-      if (this.cameraState === 'FOCUSED') {
-        this.cameraState = 'OVERVIEW';
-      }
+    this.viewer.camera.lookAtTransform(this.C.Matrix4.IDENTITY);
+    this.lockedTargetId = null;
+    this.activeTrackingId = null;
+    this.focusedBodyId = null;
+    this.lastFocusedTargetPos = null;
+    if (this.cameraState === 'FOCUSED') {
+      this.cameraState = 'OVERVIEW';
     }
+
+    const ssc = this.viewer.scene.screenSpaceCameraController;
+    ssc.enableInputs = true;
+    ssc.enableRotate = true;
+    ssc.enableZoom = true;
+    ssc.enableTranslate = true;
+    ssc.enableTilt = true;
+    ssc.enableLook = true;
   }
 
   /**
@@ -1413,18 +1654,33 @@ export class CesiumCosmicEngine {
         : (this.celestialItems.get(this.focusedBodyId)?.radiusMeters ?? 1e6);
 
       const framingInfo = calculateSafeFramingDistance(this.focusedBodyId, radius);
-      const localPos = camera.position;
-      const currentDist = C.Cartesian3.magnitude(localPos);
+      const camPos = camera.positionWC;
+      const toCam = C.Cartesian3.subtract(camPos, targetPos, new C.Cartesian3());
+      const currentDist = C.Cartesian3.magnitude(toCam);
       const targetDist = Math.max(framingInfo.minDistance, currentDist * factor);
+      const dir = safeNormalize(C, toCam, new C.Cartesian3(0.5, 0.5, 0.7));
 
-      const newLocalPos = C.Cartesian3.multiplyByScalar(
-        C.Cartesian3.normalize(localPos, new C.Cartesian3()),
-        targetDist,
+      const newCamPos = C.Cartesian3.add(
+        targetPos,
+        C.Cartesian3.multiplyByScalar(dir, targetDist, new C.Cartesian3()),
         new C.Cartesian3()
       );
+      const lookDir = safeNormalize(C, C.Cartesian3.negate(dir, new C.Cartesian3()), new C.Cartesian3(0, 0, -1));
 
-      const transform = C.Matrix4.fromTranslation(targetPos, new C.Matrix4());
-      camera.lookAtTransform(transform, newLocalPos);
+      let currentUp = camera.upWC;
+      let rightCross = C.Cartesian3.cross(lookDir, currentUp, new C.Cartesian3());
+      if (C.Cartesian3.magnitude(rightCross) < 1e-4) {
+        currentUp = new C.Cartesian3(0, 1, 0);
+      }
+      const cleanUp = safeNormalize(C, currentUp, new C.Cartesian3(0, 1, 0));
+
+      camera.setView({
+        destination: newCamPos,
+        orientation: {
+          direction: lookDir,
+          up: cleanUp,
+        },
+      });
       return;
     }
 
@@ -1449,14 +1705,22 @@ export class CesiumCosmicEngine {
 
     if (distToEarth > 25000000) {
       const newDist = Math.max(25000000, distToEarth * factor);
-      const dirToEarth = C.Cartesian3.normalize(C.Cartesian3.negate(camPosWC, new C.Cartesian3()), new C.Cartesian3());
-      const newPos = C.Cartesian3.multiplyByScalar(C.Cartesian3.normalize(camPosWC, new C.Cartesian3()), newDist, new C.Cartesian3());
+      const safeCamPos = safeNormalize(C, camPosWC, new C.Cartesian3(0, 0, 1));
+      const newPos = C.Cartesian3.multiplyByScalar(safeCamPos, newDist, new C.Cartesian3());
+      const dirToEarth = safeNormalize(C, C.Cartesian3.negate(newPos, new C.Cartesian3()), new C.Cartesian3(0, 0, -1));
+
+      let currentUp = camera.upWC;
+      let rightCross = C.Cartesian3.cross(dirToEarth, currentUp, new C.Cartesian3());
+      if (C.Cartesian3.magnitude(rightCross) < 1e-4) {
+        currentUp = new C.Cartesian3(0, 1, 0);
+      }
+      const cleanUp = safeNormalize(C, currentUp, new C.Cartesian3(0, 1, 0));
 
       camera.flyTo({
         destination: newPos,
         orientation: {
           direction: dirToEarth,
-          up: camera.upWC,
+          up: cleanUp,
         },
         duration: 0.6,
       });
@@ -1484,18 +1748,33 @@ export class CesiumCosmicEngine {
         : (this.celestialItems.get(this.focusedBodyId)?.radiusMeters ?? 1e6);
 
       const framingInfo = calculateSafeFramingDistance(this.focusedBodyId, radius);
-      const localPos = camera.position;
-      const currentDist = C.Cartesian3.magnitude(localPos);
+      const camPos = camera.positionWC;
+      const toCam = C.Cartesian3.subtract(camPos, targetPos, new C.Cartesian3());
+      const currentDist = C.Cartesian3.magnitude(toCam);
       const targetDist = Math.min(framingInfo.maxDistance, currentDist * factor);
+      const dir = safeNormalize(C, toCam, new C.Cartesian3(0.5, 0.5, 0.7));
 
-      const newLocalPos = C.Cartesian3.multiplyByScalar(
-        C.Cartesian3.normalize(localPos, new C.Cartesian3()),
-        targetDist,
+      const newCamPos = C.Cartesian3.add(
+        targetPos,
+        C.Cartesian3.multiplyByScalar(dir, targetDist, new C.Cartesian3()),
         new C.Cartesian3()
       );
+      const lookDir = safeNormalize(C, C.Cartesian3.negate(dir, new C.Cartesian3()), new C.Cartesian3(0, 0, -1));
 
-      const transform = C.Matrix4.fromTranslation(targetPos, new C.Matrix4());
-      camera.lookAtTransform(transform, newLocalPos);
+      let currentUp = camera.upWC;
+      let rightCross = C.Cartesian3.cross(lookDir, currentUp, new C.Cartesian3());
+      if (C.Cartesian3.magnitude(rightCross) < 1e-4) {
+        currentUp = new C.Cartesian3(0, 1, 0);
+      }
+      const cleanUp = safeNormalize(C, currentUp, new C.Cartesian3(0, 1, 0));
+
+      camera.setView({
+        destination: newCamPos,
+        orientation: {
+          direction: lookDir,
+          up: cleanUp,
+        },
+      });
       return;
     }
 
@@ -1534,6 +1813,22 @@ export class CesiumCosmicEngine {
     const targetPos = this.getTargetWorldPosition(id);
     if (!targetPos) return;
 
+    // Capture previous body ID and view direction before clearing target lock
+    const prevBodyId = this.focusedBodyId;
+    const startCamPos = C.Cartesian3.clone(this.viewer.camera.positionWC);
+    let startLookAtPos: any;
+
+    if (prevBodyId && prevBodyId !== 'earth') {
+      const prevBodyPos = this.getTargetWorldPosition(prevBodyId);
+      startLookAtPos = prevBodyPos ? C.Cartesian3.clone(prevBodyPos) : C.Cartesian3.ZERO.clone();
+    } else {
+      startLookAtPos = C.Cartesian3.add(
+        startCamPos,
+        C.Cartesian3.multiplyByScalar(this.viewer.camera.directionWC, 1e7, new C.Cartesian3()),
+        new C.Cartesian3()
+      );
+    }
+
     this.unlockTarget();
     this.isSolarSystemView = true;
     this.viewer.scene.globe.show = true;
@@ -1552,42 +1847,8 @@ export class CesiumCosmicEngine {
       frustum.far = 3.5e10;
     }
 
-    // Calculate destination vantage point direction
-    const eps = 0.4090928;
-    const eclipticNormal = new C.Cartesian3(0, -Math.sin(eps), Math.cos(eps));
-
-    let approachOffsetDir: any;
-    if (id === 'sun') {
-      approachOffsetDir = C.Cartesian3.normalize(new C.Cartesian3(0, -0.88, 0.48), new C.Cartesian3());
-    } else {
-      const sunToTarget = C.Cartesian3.subtract(targetPos, this.sunPosition, new C.Cartesian3());
-      const sunDir = C.Cartesian3.magnitude(sunToTarget) > 100
-        ? C.Cartesian3.normalize(sunToTarget, new C.Cartesian3())
-        : new C.Cartesian3(0, 0, 1);
-      const crossVec = C.Cartesian3.cross(sunDir, eclipticNormal, new C.Cartesian3());
-      approachOffsetDir = C.Cartesian3.normalize(
-        new C.Cartesian3(
-          sunDir.x * 0.72 + eclipticNormal.x * 0.42 + crossVec.x * 0.32,
-          sunDir.y * 0.72 + eclipticNormal.y * 0.42 + crossVec.y * 0.32,
-          sunDir.z * 0.72 + eclipticNormal.z * 0.42 + crossVec.z * 0.32
-        ),
-        new C.Cartesian3()
-      );
-    }
-
-    const startCamPos = C.Cartesian3.clone(this.viewer.camera.positionWC);
-    let startLookAtPos: any;
-
-    if (this.focusedBodyId && this.focusedBodyId !== 'earth') {
-      const prevBodyPos = this.getTargetWorldPosition(this.focusedBodyId);
-      startLookAtPos = prevBodyPos ? C.Cartesian3.clone(prevBodyPos) : C.Cartesian3.ZERO.clone();
-    } else {
-      startLookAtPos = C.Cartesian3.add(
-        startCamPos,
-        C.Cartesian3.multiplyByScalar(this.viewer.camera.directionWC, 1e7, new C.Cartesian3()),
-        new C.Cartesian3()
-      );
-    }
+    // Calculate geometrically robust vantage point direction (elevated, sunlit, non-degenerate)
+    const approachOffsetDir = this.calculateVantageOffsetDir(targetPos, id);
 
     const initialDestCamPos = C.Cartesian3.add(
       targetPos,
@@ -1600,14 +1861,16 @@ export class CesiumCosmicEngine {
     // Solar clearance waypoint detection
     let hasSafeWaypoint = false;
     let midWaypoint: any = null;
+    const eps = 0.4090928;
+    const eclipticNormal = new C.Cartesian3(0, -Math.sin(eps), Math.cos(eps));
 
-    if (id !== 'sun' && this.focusedBodyId !== 'sun') {
+    if (id !== 'sun' && prevBodyId !== 'sun') {
       const sunPos = this.sunPosition;
       const sunRadius = SOLAR_SCALE_CONFIG.SUN_RENDER_RADIUS_METERS;
       const pathVec = C.Cartesian3.subtract(initialDestCamPos, startCamPos, new C.Cartesian3());
       const pathLen = C.Cartesian3.magnitude(pathVec);
       if (pathLen > 1000) {
-        const pathDir = C.Cartesian3.normalize(pathVec, new C.Cartesian3());
+        const pathDir = safeNormalize(C, pathVec, new C.Cartesian3(1, 0, 0));
         const toSun = C.Cartesian3.subtract(sunPos, startCamPos, new C.Cartesian3());
         const proj = C.Cartesian3.dot(toSun, pathDir);
         if (proj > 0 && proj < pathLen) {
@@ -1642,7 +1905,7 @@ export class CesiumCosmicEngine {
     this.activeTransition = {
       id: transitionId,
       targetId: id,
-      startBodyId: this.focusedBodyId,
+      startBodyId: prevBodyId,
       startCamPos,
       startLookAtPos,
       startUp: C.Cartesian3.clone(this.viewer.camera.upWC),
@@ -1684,16 +1947,47 @@ export class CesiumCosmicEngine {
     this.activeTrackingId = targetId;
     this.isFlightTransitioning = false;
 
-    // Local offset relative to target body center
-    const localOffset = C.Cartesian3.multiplyByScalar(approachOffsetDir, framingDist, new C.Cartesian3());
-    const transform = C.Matrix4.fromTranslation(targetPos, new C.Matrix4());
+    // Position camera in world coordinates relative to target body center
+    const safeOffset = safeNormalize(C, approachOffsetDir, new C.Cartesian3(0.5, 0.5, 0.7));
+    const destCamPos = C.Cartesian3.add(
+      targetPos,
+      C.Cartesian3.multiplyByScalar(safeOffset, framingDist, new C.Cartesian3()),
+      new C.Cartesian3()
+    );
+    const toTarget = C.Cartesian3.subtract(targetPos, destCamPos, new C.Cartesian3());
+    const lookDir = safeNormalize(C, toTarget, new C.Cartesian3(0, 0, -1));
 
-    this.viewer.camera.lookAtTransform(transform, localOffset);
+    const eps = 0.4090928;
+    const eclipticNormal = new C.Cartesian3(0, -Math.sin(eps), Math.cos(eps));
+    let currentUp = C.Cartesian3.clone(eclipticNormal);
+    let rightCross = C.Cartesian3.cross(lookDir, currentUp, new C.Cartesian3());
+    if (C.Cartesian3.magnitude(rightCross) < 1e-4) {
+      currentUp = new C.Cartesian3(0, 1, 0);
+      rightCross = C.Cartesian3.cross(lookDir, currentUp, new C.Cartesian3());
+      if (C.Cartesian3.magnitude(rightCross) < 1e-4) {
+        currentUp = new C.Cartesian3(1, 0, 0);
+      }
+    }
+    const cleanUp = safeNormalize(C, currentUp, eclipticNormal);
+
+    this.viewer.camera.lookAtTransform(C.Matrix4.IDENTITY);
+    this.viewer.camera.setView({
+      destination: destCamPos,
+      orientation: {
+        direction: lookDir,
+        up: cleanUp,
+      },
+    });
+
+    this.lastFocusedTargetPos = C.Cartesian3.clone(targetPos);
 
     const ssc = this.viewer.scene.screenSpaceCameraController;
     ssc.enableInputs = true;
-    ssc.minimumZoomDistance = minDistance;
-    ssc.maximumZoomDistance = maxDistance;
+    ssc.enableRotate = false; // Handled smoothly by custom celestial pointer listeners
+    ssc.enableZoom = false;   // Handled smoothly by custom wheel listener
+    ssc.enableTranslate = false;
+    ssc.enableTilt = false;
+    ssc.enableLook = false;
     ssc.enableCollisionDetection = false;
   }
 
@@ -1718,7 +2012,7 @@ export class CesiumCosmicEngine {
     const eps = 0.4090928;
     const sinEps = Math.sin(eps);
     const cosEps = Math.cos(eps);
-    const eclipticNormalIcrf = new C.Cartesian3(0, -sinEps, cosEps);
+    let eclipticNormalIcrf = new C.Cartesian3(0, -sinEps, cosEps);
 
     // Overview vantage distance: frames Neptune (16.8B m) from Sun with comfortable cosmic depth
     const viewDistance = 2.4e10; // 24 billion meters
@@ -1735,10 +2029,21 @@ export class CesiumCosmicEngine {
       viewDistance * 0.88
     );
     const camPos = C.Cartesian3.add(this.sunPosition, camOffset, new C.Cartesian3());
-    const dir = C.Cartesian3.normalize(C.Cartesian3.subtract(this.sunPosition, camPos, new C.Cartesian3()), new C.Cartesian3());
+    const toSun = C.Cartesian3.subtract(this.sunPosition, camPos, new C.Cartesian3());
+    const dir = safeNormalize(C, toSun, new C.Cartesian3(0, 1, -1));
+    let rightCross = C.Cartesian3.cross(dir, eclipticNormalIcrf, new C.Cartesian3());
+    if (C.Cartesian3.magnitude(rightCross) < 1e-4) {
+      eclipticNormalIcrf = new C.Cartesian3(0, 1, 0);
+    }
+    const cleanUp = safeNormalize(C, eclipticNormalIcrf, new C.Cartesian3(0, 1, 0));
 
     const ssc = this.viewer.scene.screenSpaceCameraController;
     ssc.enableInputs = true;
+    ssc.enableRotate = true;
+    ssc.enableZoom = true;
+    ssc.enableTranslate = true;
+    ssc.enableTilt = true;
+    ssc.enableLook = true;
     ssc.minimumZoomDistance = SOLAR_SCALE_CONFIG.SUN_RENDER_RADIUS_METERS * 2.5; // Outside Sun
     ssc.maximumZoomDistance = 8.0e10;
 
@@ -1746,7 +2051,7 @@ export class CesiumCosmicEngine {
       destination: camPos,
       orientation: {
         direction: dir,
-        up: eclipticNormalIcrf,
+        up: cleanUp,
       },
       duration: 2.2,
       easingFunction: C.EasingFunction.QUINTIC_IN_OUT,
@@ -1777,6 +2082,11 @@ export class CesiumCosmicEngine {
 
     const ssc = this.viewer.scene.screenSpaceCameraController;
     ssc.enableInputs = true;
+    ssc.enableRotate = true;
+    ssc.enableZoom = true;
+    ssc.enableTranslate = true;
+    ssc.enableTilt = true;
+    ssc.enableLook = true;
     ssc.minimumZoomDistance = 10;
     ssc.maximumZoomDistance = 5e10;
 
@@ -1796,6 +2106,11 @@ export class CesiumCosmicEngine {
 
   public destroy(): void {
     this.unlockTarget();
+
+    if (this.removeInputListeners) {
+      this.removeInputListeners();
+      this.removeInputListeners = null;
+    }
 
     if (this.removePreRenderListener) {
       this.removePreRenderListener();
@@ -1823,6 +2138,7 @@ export class CesiumCosmicEngine {
       }
       if (item.orbitEntity) this.viewer.entities.remove(item.orbitEntity);
       if (item.ringEntity) this.viewer.entities.remove(item.ringEntity);
+      if (item.ringEntityBottom) this.viewer.entities.remove(item.ringEntityBottom);
     });
     this.celestialItems.clear();
 

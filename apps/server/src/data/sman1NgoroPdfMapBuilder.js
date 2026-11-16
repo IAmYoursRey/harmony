@@ -1,0 +1,1458 @@
+/**
+ * Deterministic Digital Twin map and scenario builder derived from the official
+ * SMAN 1 Ngoro floor plan PDF ("DENAH LOKASI DAN RUANG PAS GASAL 2023/2024",
+ * Jl. Candi Jolotundo, Kutogirang, Ngoro, Mojokerto 61385).
+ * Orientation: North = Top (y = 0).
+ */
+
+export const SMAN1_NGORO_SCHOOL_ID = "ffdcdf34-fc99-4209-913e-5a6042e957ad";
+export const SMAN1_NGORO_MAP_ID = "map-sman1-denah";
+export const SMAN1_NGORO_FLOOR_ID = "floor-sman1-1";
+export const MAP_WIDTH = 102;
+export const MAP_HEIGHT = 58;
+
+export const SCENARIO_IDS = {
+  GEMPA: "scenario-sman1-gempa",
+  KEBAKARAN: "scenario-sman1-kebakaran",
+  PAS_DRILL: "scenario-sman1-pas",
+};
+
+function createGrid(width, height, defaultTile = "PAVING") {
+  return Array.from({ length: height }, () => Array(width).fill(defaultTile));
+}
+
+function fillRect(grid, x1, y1, x2, y2, tileType) {
+  for (let y = y1; y <= y2; y++) {
+    for (let x = x1; x <= x2; x++) {
+      if (y >= 0 && y < grid.length && x >= 0 && x < grid[0].length) {
+        grid[y][x] = tileType;
+      }
+    }
+  }
+}
+
+/**
+ * Stamps a walled room rectangle onto the tile grid and returns a room descriptor
+ * matching the digital_twin_rooms schema.
+ */
+function placeWalledRoom(grid, rooms, config) {
+  const {
+    id,
+    name,
+    shortName,
+    type = "classroom",
+    x1,
+    y1,
+    x2,
+    y2,
+    floorType = "FLOOR",
+    doors = [],
+    capacity = 32,
+    color = "#fef08a",
+    category = "academic",
+  } = config;
+
+  for (let y = y1; y <= y2; y++) {
+    for (let x = x1; x <= x2; x++) {
+      const isPerimeter = x === x1 || x === x2 || y === y1 || y === y2;
+      grid[y][x] = isPerimeter ? "WALL" : floorType;
+    }
+  }
+
+  for (const [dx, dy] of doors) {
+    grid[dy][dx] = "DOOR";
+  }
+
+  rooms.push({
+    id,
+    map_id: SMAN1_NGORO_MAP_ID,
+    floor_id: SMAN1_NGORO_FLOOR_ID,
+    name,
+    type,
+    x: x1,
+    y: y1,
+    width: x2 - x1 + 1,
+    height: y2 - y1 + 1,
+    capacity,
+    metadata: {
+      shortName: shortName || name,
+      color,
+      category,
+      doors: doors.map(([x, y]) => ({ x, y })),
+    },
+  });
+}
+
+function buildSman1NgoroTileAndRoomLayout() {
+  const grid = createGrid(MAP_WIDTH, MAP_HEIGHT, "PAVING");
+  const rooms = [];
+  const floorObjects = [];
+
+  // North road (Jl. Candi Jolotundo) and campus outer fence perimeter
+  fillRect(grid, 0, 0, MAP_WIDTH - 1, 0, "ROAD");
+  fillRect(grid, 0, 1, 50, 1, "BORDER");
+  fillRect(grid, 62, 1, MAP_WIDTH - 1, 1, "BORDER");
+  grid[1][50] = "WALL";
+  grid[1][62] = "WALL";
+
+  for (let y = 1; y < MAP_HEIGHT; y++) {
+    grid[y][0] = "BORDER";
+    grid[y][MAP_WIDTH - 1] = "BORDER";
+  }
+  fillRect(grid, 0, MAP_HEIGHT - 1, MAP_WIDTH - 1, MAP_HEIGHT - 1, "BORDER");
+
+  // Front green strips, parking bays, courtyard lawn, and south garden belt
+  fillRect(grid, 1, 2, 49, 2, "GRASS");
+  fillRect(grid, 14, 3, 49, 5, "PARKING");
+  fillRect(grid, 63, 2, 93, 2, "GRASS");
+  fillRect(grid, 63, 3, 89, 5, "PARKING");
+  fillRect(grid, 11, 22, 53, 37, "GRASS");
+  fillRect(grid, 48, 15, 52, 18, "GRASS");
+  fillRect(grid, 17, 50, 94, 56, "GRASS");
+
+  // Main Gate & Outdoor Zone metadata records
+  rooms.push(
+    {
+      id: "room-sman1-gerbang-utama",
+      map_id: SMAN1_NGORO_MAP_ID,
+      floor_id: SMAN1_NGORO_FLOOR_ID,
+      name: "Gerbang Utama (Jl. Candi Jolotundo)",
+      type: "gate",
+      x: 51,
+      y: 0,
+      width: 11,
+      height: 3,
+      capacity: 120,
+      metadata: {
+        shortName: "GERBANG",
+        color: "#fed7aa",
+        category: "access",
+      },
+    },
+    {
+      id: "room-sman1-parkir-guru",
+      map_id: SMAN1_NGORO_MAP_ID,
+      floor_id: SMAN1_NGORO_FLOOR_ID,
+      name: "Tempat Parkir Guru",
+      type: "parking",
+      x: 63,
+      y: 3,
+      width: 27,
+      height: 4,
+      capacity: 80,
+      metadata: {
+        shortName: "TEMPAT PARKIR GURU",
+        color: "#bbf7d0",
+        category: "outdoor",
+      },
+    },
+    {
+      id: "room-sman1-lapangan-upacara",
+      map_id: SMAN1_NGORO_MAP_ID,
+      floor_id: SMAN1_NGORO_FLOOR_ID,
+      name: "Lapangan Upacara",
+      type: "assembly",
+      x: 11,
+      y: 22,
+      width: 43,
+      height: 16,
+      capacity: 650,
+      metadata: {
+        shortName: "LAPANGAN UPACARA",
+        color: "#d9f99d",
+        category: "assembly",
+        flagpole: { x: 35, y: 22, width: 3, height: 1 },
+      },
+    },
+    {
+      id: "room-sman1-taman-selatan",
+      map_id: SMAN1_NGORO_MAP_ID,
+      floor_id: SMAN1_NGORO_FLOOR_ID,
+      name: "Taman Selatan",
+      type: "garden",
+      x: 17,
+      y: 50,
+      width: 78,
+      height: 7,
+      capacity: 150,
+      metadata: {
+        shortName: "TAMAN",
+        color: "#86efac",
+        category: "outdoor",
+      },
+    },
+  );
+
+  // Far-West Sports & Utility Column
+  placeWalledRoom(grid, rooms, {
+    id: "room-sman1-gor",
+    name: "GOR",
+    shortName: "GOR",
+    type: "sports",
+    x1: 0,
+    y1: 7,
+    x2: 7,
+    y2: 19,
+    floorType: "COURT_VOLI",
+    doors: [
+      [3, 7],
+      [4, 7],
+      [3, 19],
+      [4, 19],
+    ],
+    capacity: 120,
+    color: "#fdba74",
+    category: "sports",
+  });
+  placeWalledRoom(grid, rooms, {
+    id: "room-sman1-wc-gor-1",
+    name: "WC (GOR Utara)",
+    shortName: "WC",
+    type: "restroom",
+    x1: 7,
+    y1: 7,
+    x2: 11,
+    y2: 10,
+    doors: [[9, 7]],
+    capacity: 4,
+    color: "#f8fafc",
+    category: "utility",
+  });
+  placeWalledRoom(grid, rooms, {
+    id: "room-sman1-wc-gor-2",
+    name: "WC (GOR Tengah)",
+    shortName: "WC",
+    type: "restroom",
+    x1: 7,
+    y1: 10,
+    x2: 11,
+    y2: 13,
+    doors: [[7, 11]],
+    capacity: 4,
+    color: "#f8fafc",
+    category: "utility",
+  });
+  placeWalledRoom(grid, rooms, {
+    id: "room-sman1-ms",
+    name: "MS (Musholla / Gudang Olahraga)",
+    shortName: "MS",
+    type: "utility",
+    x1: 7,
+    y1: 13,
+    x2: 11,
+    y2: 16,
+    doors: [[7, 14]],
+    capacity: 6,
+    color: "#f8fafc",
+    category: "utility",
+  });
+  placeWalledRoom(grid, rooms, {
+    id: "room-sman1-g",
+    name: "G (Gudang Barat)",
+    shortName: "G",
+    type: "storage",
+    x1: 7,
+    y1: 16,
+    x2: 11,
+    y2: 19,
+    doors: [[9, 19]],
+    capacity: 6,
+    color: "#f8fafc",
+    category: "utility",
+  });
+
+  // West Perimeter Wing (South of GOR corridor)
+  placeWalledRoom(grid, rooms, {
+    id: "room-sman1-lab-fisika",
+    name: "Lab. Fisika",
+    shortName: "LAB. FISIKA",
+    type: "lab",
+    x1: 0,
+    y1: 22,
+    x2: 8,
+    y2: 32,
+    doors: [
+      [8, 26],
+      [8, 27],
+    ],
+    capacity: 36,
+    color: "#d9f99d",
+    category: "academic",
+  });
+  placeWalledRoom(grid, rooms, {
+    id: "room-sman1-wc-barat",
+    name: "WC (Barat)",
+    shortName: "WC",
+    type: "restroom",
+    x1: 0,
+    y1: 35,
+    x2: 7,
+    y2: 39,
+    doors: [[7, 37]],
+    capacity: 8,
+    color: "#f8fafc",
+    category: "utility",
+  });
+  placeWalledRoom(grid, rooms, {
+    id: "room-sman1-ruang-26",
+    name: "Ruang 26",
+    shortName: "26",
+    type: "classroom",
+    x1: 0,
+    y1: 41,
+    x2: 8,
+    y2: 49,
+    doors: [
+      [4, 41],
+      [8, 45],
+    ],
+    capacity: 34,
+    color: "#fef08a",
+    category: "classroom",
+  });
+  placeWalledRoom(grid, rooms, {
+    id: "room-sman1-penunjang-26a",
+    name: "Ruang Penunjang Barat A",
+    shortName: "R. BARAT A",
+    type: "utility",
+    x1: 0,
+    y1: 49,
+    x2: 4,
+    y2: 57,
+    doors: [
+      [2, 49],
+      [4, 53],
+    ],
+    capacity: 12,
+    color: "#fef08a",
+    category: "classroom",
+  });
+  placeWalledRoom(grid, rooms, {
+    id: "room-sman1-penunjang-26b",
+    name: "Ruang Penunjang Barat B",
+    shortName: "R. BARAT B",
+    type: "utility",
+    x1: 4,
+    y1: 49,
+    x2: 8,
+    y2: 57,
+    doors: [
+      [4, 53],
+      [8, 53],
+    ],
+    capacity: 12,
+    color: "#fef08a",
+    category: "classroom",
+  });
+
+  // North Building Wing (West -> East)
+  placeWalledRoom(grid, rooms, {
+    id: "room-sman1-ruang-1",
+    name: "Ruang 1",
+    shortName: "1",
+    type: "classroom",
+    x1: 11,
+    y1: 7,
+    x2: 17,
+    y2: 15,
+    doors: [
+      [14, 7],
+      [13, 15],
+      [14, 15],
+    ],
+    capacity: 34,
+    color: "#fef08a",
+    category: "classroom",
+  });
+  placeWalledRoom(grid, rooms, {
+    id: "room-sman1-ruang-2",
+    name: "Ruang 2",
+    shortName: "2",
+    type: "classroom",
+    x1: 17,
+    y1: 7,
+    x2: 23,
+    y2: 15,
+    doors: [
+      [20, 7],
+      [19, 15],
+      [20, 15],
+    ],
+    capacity: 34,
+    color: "#fef08a",
+    category: "classroom",
+  });
+  // Porch planters beneath Ruang 1 & 2 (matching PDF terrace blocks while keeping wide paths)
+  for (const px of [12, 16, 18, 22]) {
+    grid[17][px] = "GRASS";
+  }
+
+  placeWalledRoom(grid, rooms, {
+    id: "room-sman1-ruang-guru",
+    name: "Ruang Guru",
+    shortName: "RUANG GURU",
+    type: "office",
+    x1: 23,
+    y1: 7,
+    x2: 29,
+    y2: 18,
+    doors: [
+      [26, 7],
+      [25, 18],
+      [26, 18],
+    ],
+    capacity: 45,
+    color: "#f8fafc",
+    category: "admin",
+  });
+  placeWalledRoom(grid, rooms, {
+    id: "room-sman1-lobi",
+    name: "Lobi",
+    shortName: "LOBI",
+    type: "lobby",
+    x1: 29,
+    y1: 7,
+    x2: 35,
+    y2: 18,
+    doors: [
+      [32, 7],
+      [32, 18],
+      [35, 12],
+    ],
+    capacity: 25,
+    color: "#fed7aa",
+    category: "admin",
+  });
+
+  // Center-North Administration, Secretariat, BK & Masjid
+  placeWalledRoom(grid, rooms, {
+    id: "room-sman1-kasek",
+    name: "R. Kasek",
+    shortName: "R.KASEK",
+    type: "office",
+    x1: 39,
+    y1: 7,
+    x2: 46,
+    y2: 13,
+    doors: [
+      [39, 10],
+      [41, 7],
+    ],
+    capacity: 8,
+    color: "#f8fafc",
+    category: "admin",
+  });
+  placeWalledRoom(grid, rooms, {
+    id: "room-sman1-wc-kasek",
+    name: "WC (R. Kasek)",
+    shortName: "WC",
+    type: "restroom",
+    x1: 42,
+    y1: 7,
+    x2: 46,
+    y2: 10,
+    doors: [[42, 8]],
+    capacity: 2,
+    color: "#f8fafc",
+    category: "utility",
+  });
+  placeWalledRoom(grid, rooms, {
+    id: "room-sman1-ruang-3",
+    name: "Ruang 3",
+    shortName: "3",
+    type: "classroom",
+    x1: 46,
+    y1: 7,
+    x2: 53,
+    y2: 13,
+    doors: [
+      [49, 7],
+      [50, 13],
+    ],
+    capacity: 34,
+    color: "#fef08a",
+    category: "classroom",
+  });
+  placeWalledRoom(grid, rooms, {
+    id: "room-sman1-meeting",
+    name: "R. Meeting",
+    shortName: "R. MEETING",
+    type: "meeting",
+    x1: 39,
+    y1: 13,
+    x2: 47,
+    y2: 18,
+    doors: [
+      [39, 15],
+      [43, 18],
+    ],
+    capacity: 20,
+    color: "#f8fafc",
+    category: "admin",
+  });
+  placeWalledRoom(grid, rooms, {
+    id: "room-sman1-sekretariat",
+    name: "Ruang Sekretariat",
+    shortName: "R. SEKRETARIAT",
+    type: "office",
+    x1: 53,
+    y1: 7,
+    x2: 57,
+    y2: 18,
+    doors: [
+      [55, 7],
+      [55, 18],
+    ],
+    capacity: 15,
+    color: "#38bdf8",
+    category: "admin",
+  });
+  placeWalledRoom(grid, rooms, {
+    id: "room-sman1-bk",
+    name: "Ruang BK",
+    shortName: "RUANG BK",
+    type: "office",
+    x1: 57,
+    y1: 7,
+    x2: 62,
+    y2: 18,
+    doors: [
+      [59, 7],
+      [59, 18],
+    ],
+    capacity: 14,
+    color: "#f8fafc",
+    category: "admin",
+  });
+  placeWalledRoom(grid, rooms, {
+    id: "room-sman1-masjid",
+    name: "Masjid Sabilunnajah",
+    shortName: "MASJID SABILUNNAJAH",
+    type: "worship",
+    x1: 62,
+    y1: 7,
+    x2: 73,
+    y2: 18,
+    floorType: "MOSQUE",
+    doors: [
+      [67, 7],
+      [68, 7],
+      [67, 18],
+      [68, 18],
+      [73, 12],
+    ],
+    capacity: 140,
+    color: "#15803d",
+    category: "worship",
+  });
+
+  // North-East Classrooms 4, 5, 6 + NE WC & East Parking
+  placeWalledRoom(grid, rooms, {
+    id: "room-sman1-ruang-4",
+    name: "Ruang 4",
+    shortName: "4",
+    type: "classroom",
+    x1: 76,
+    y1: 9,
+    x2: 82,
+    y2: 17,
+    doors: [
+      [79, 9],
+      [79, 17],
+    ],
+    capacity: 34,
+    color: "#fef08a",
+    category: "classroom",
+  });
+  placeWalledRoom(grid, rooms, {
+    id: "room-sman1-ruang-5",
+    name: "Ruang 5",
+    shortName: "5",
+    type: "classroom",
+    x1: 82,
+    y1: 9,
+    x2: 88,
+    y2: 17,
+    doors: [
+      [85, 9],
+      [85, 17],
+    ],
+    capacity: 34,
+    color: "#fef08a",
+    category: "classroom",
+  });
+  placeWalledRoom(grid, rooms, {
+    id: "room-sman1-ruang-6",
+    name: "Ruang 6",
+    shortName: "6",
+    type: "classroom",
+    x1: 88,
+    y1: 9,
+    x2: 94,
+    y2: 17,
+    doors: [
+      [91, 9],
+      [91, 17],
+    ],
+    capacity: 34,
+    color: "#fef08a",
+    category: "classroom",
+  });
+
+  placeWalledRoom(grid, rooms, {
+    id: "room-sman1-wc-utara-1",
+    name: "WC (Timur Laut Atas)",
+    shortName: "WC",
+    type: "restroom",
+    x1: 94,
+    y1: 1,
+    x2: 101,
+    y2: 4,
+    doors: [[94, 2]],
+    capacity: 4,
+    color: "#f8fafc",
+    category: "utility",
+  });
+  placeWalledRoom(grid, rooms, {
+    id: "room-sman1-wc-utara-2",
+    name: "WC (Timur Laut Bawah)",
+    shortName: "WC",
+    type: "restroom",
+    x1: 94,
+    y1: 4,
+    x2: 101,
+    y2: 7,
+    doors: [[94, 5]],
+    capacity: 4,
+    color: "#f8fafc",
+    category: "utility",
+  });
+
+  // East Tempat Parkir bay (open West onto corridor x=95)
+  fillRect(grid, 96, 8, 101, 8, "WALL");
+  fillRect(grid, 96, 19, 101, 19, "WALL");
+  fillRect(grid, 101, 8, 101, 19, "WALL");
+  grid[9][96] = "WALL";
+  grid[17][96] = "WALL";
+  grid[18][96] = "WALL";
+  fillRect(grid, 97, 9, 100, 18, "PARKING");
+  rooms.push({
+    id: "room-sman1-parkir-timur",
+    map_id: SMAN1_NGORO_MAP_ID,
+    floor_id: SMAN1_NGORO_FLOOR_ID,
+    name: "Tempat Parkir (Timur)",
+    type: "parking",
+    x: 96,
+    y: 8,
+    width: 6,
+    height: 12,
+    capacity: 40,
+    metadata: {
+      shortName: "TEMPAT PARKIR",
+      color: "#e2e8f0",
+      category: "outdoor",
+    },
+  });
+
+  // Central Service Strip immediately East of Lapangan Upacara
+  placeWalledRoom(grid, rooms, {
+    id: "room-sman1-gudang",
+    name: "Gudang",
+    shortName: "GUDANG",
+    type: "storage",
+    x1: 54,
+    y1: 22,
+    x2: 59,
+    y2: 26,
+    doors: [[59, 24]],
+    capacity: 6,
+    color: "#fed7aa",
+    category: "utility",
+  });
+  placeWalledRoom(grid, rooms, {
+    id: "room-sman1-operator",
+    name: "Ruang Operator",
+    shortName: "R. OPERATOR",
+    type: "office",
+    x1: 54,
+    y1: 26,
+    x2: 59,
+    y2: 34,
+    doors: [
+      [59, 30],
+      [54, 30],
+    ],
+    capacity: 10,
+    color: "#0ea5e9",
+    category: "admin",
+  });
+  placeWalledRoom(grid, rooms, {
+    id: "room-sman1-uks",
+    name: "UKS",
+    shortName: "UKS",
+    type: "medical",
+    x1: 54,
+    y1: 34,
+    x2: 59,
+    y2: 38,
+    doors: [
+      [59, 36],
+      [56, 38],
+    ],
+    capacity: 10,
+    color: "#bef264",
+    category: "medical",
+  });
+
+  // East-Center Dual Classroom Wings: 12..7 (Upper) & 13..18 (Lower)
+  const eastColumns = [
+    [62, 68, 12, 13],
+    [68, 74, 11, 14],
+    [74, 81, 10, 15],
+    [81, 87, 9, 16],
+    [87, 94, 8, 17],
+    [94, 101, 7, 18],
+  ];
+
+  for (const [x1, x2, upperNum, lowerNum] of eastColumns) {
+    const midX = Math.floor((x1 + x2) / 2);
+    placeWalledRoom(grid, rooms, {
+      id: `room-sman1-ruang-${upperNum}`,
+      name: `Ruang ${upperNum}`,
+      shortName: `${upperNum}`,
+      type: "classroom",
+      x1,
+      y1: 22,
+      x2,
+      y2: 27,
+      doors: [
+        [midX, 22],
+        [midX, 27],
+      ],
+      capacity: 34,
+      color: "#fef08a",
+      category: "classroom",
+    });
+    placeWalledRoom(grid, rooms, {
+      id: `room-sman1-ruang-${lowerNum}`,
+      name: `Ruang ${lowerNum}`,
+      shortName: `${lowerNum}`,
+      type: "classroom",
+      x1,
+      y1: 32,
+      x2,
+      y2: 37,
+      doors: [
+        [midX, 32],
+        [midX, 37],
+      ],
+      capacity: 34,
+      color: "#fef08a",
+      category: "classroom",
+    });
+  }
+
+  // South Building Wing (West -> East)
+  placeWalledRoom(grid, rooms, {
+    id: "room-sman1-ruang-25",
+    name: "Ruang 25",
+    shortName: "25",
+    type: "classroom",
+    x1: 11,
+    y1: 41,
+    x2: 17,
+    y2: 49,
+    doors: [[14, 41]],
+    capacity: 34,
+    color: "#fef08a",
+    category: "classroom",
+  });
+  placeWalledRoom(grid, rooms, {
+    id: "room-sman1-tandon",
+    name: "Tandon",
+    shortName: "TANDON",
+    type: "utility",
+    x1: 11,
+    y1: 49,
+    x2: 16,
+    y2: 57,
+    doors: [[11, 53]],
+    capacity: 4,
+    color: "#f8fafc",
+    category: "utility",
+  });
+  placeWalledRoom(grid, rooms, {
+    id: "room-sman1-ruang-24",
+    name: "Ruang 24",
+    shortName: "24",
+    type: "classroom",
+    x1: 17,
+    y1: 41,
+    x2: 23,
+    y2: 49,
+    doors: [[20, 41]],
+    capacity: 34,
+    color: "#fef08a",
+    category: "classroom",
+  });
+  placeWalledRoom(grid, rooms, {
+    id: "room-sman1-osis",
+    name: "R. OSIS",
+    shortName: "R. OSIS",
+    type: "office",
+    x1: 23,
+    y1: 41,
+    x2: 30,
+    y2: 49,
+    doors: [[26, 41]],
+    capacity: 18,
+    color: "#f8fafc",
+    category: "student_org",
+  });
+  placeWalledRoom(grid, rooms, {
+    id: "room-sman1-perpustakaan",
+    name: "Perpustakaan",
+    shortName: "PERPUSTAKAAN",
+    type: "library",
+    x1: 30,
+    y1: 41,
+    x2: 48,
+    y2: 49,
+    doors: [
+      [36, 41],
+      [42, 41],
+      [39, 49],
+    ],
+    capacity: 75,
+    color: "#f8fafc",
+    category: "academic",
+  });
+
+  // Note: x=49, y=41..49 remains an open paving walkway seam to Taman Selatan
+  placeWalledRoom(grid, rooms, {
+    id: "room-sman1-wc-selatan-1",
+    name: "WC (Selatan 1)",
+    shortName: "WC",
+    type: "restroom",
+    x1: 50,
+    y1: 41,
+    x2: 53,
+    y2: 49,
+    doors: [[51, 41]],
+    capacity: 4,
+    color: "#f8fafc",
+    category: "utility",
+  });
+  placeWalledRoom(grid, rooms, {
+    id: "room-sman1-wc-selatan-2",
+    name: "WC (Selatan 2)",
+    shortName: "WC",
+    type: "restroom",
+    x1: 53,
+    y1: 41,
+    x2: 56,
+    y2: 49,
+    doors: [[54, 41]],
+    capacity: 4,
+    color: "#f8fafc",
+    category: "utility",
+  });
+  placeWalledRoom(grid, rooms, {
+    id: "room-sman1-wc-selatan-3",
+    name: "WC (Selatan 3)",
+    shortName: "WC",
+    type: "restroom",
+    x1: 56,
+    y1: 41,
+    x2: 59,
+    y2: 49,
+    doors: [[57, 41]],
+    capacity: 4,
+    color: "#f8fafc",
+    category: "utility",
+  });
+  placeWalledRoom(grid, rooms, {
+    id: "room-sman1-kop",
+    name: "KOP (Koperasi Siswa)",
+    shortName: "KOP",
+    type: "commercial",
+    x1: 59,
+    y1: 41,
+    x2: 64,
+    y2: 49,
+    doors: [[61, 41]],
+    capacity: 15,
+    color: "#f8fafc",
+    category: "utility",
+  });
+
+  const southRooms = [
+    [64, 70, 23],
+    [70, 76, 22],
+    [76, 82, 21],
+    [82, 88, 20],
+    [88, 95, 19],
+  ];
+  for (const [x1, x2, num] of southRooms) {
+    const midX = Math.floor((x1 + x2) / 2);
+    placeWalledRoom(grid, rooms, {
+      id: `room-sman1-ruang-${num}`,
+      name: `Ruang ${num}`,
+      shortName: `${num}`,
+      type: "classroom",
+      x1,
+      y1: 41,
+      x2,
+      y2: 49,
+      doors: [[midX, 41]],
+      capacity: 34,
+      color: "#fef08a",
+      category: "classroom",
+    });
+  }
+
+  placeWalledRoom(grid, rooms, {
+    id: "room-sman1-kantin",
+    name: "Kantin Sekolah",
+    shortName: "KANTIN SEKOLAH",
+    type: "canteen",
+    x1: 95,
+    y1: 41,
+    x2: 101,
+    y2: 57,
+    doors: [
+      [97, 41],
+      [98, 41],
+      [95, 52],
+    ],
+    capacity: 60,
+    color: "#f8fafc",
+    category: "utility",
+  });
+
+  const tiles = [];
+  for (let y = 0; y < MAP_HEIGHT; y++) {
+    for (let x = 0; x < MAP_WIDTH; x++) {
+      tiles.push({
+        id: `tile-${x}-${y}`,
+        floor_id: SMAN1_NGORO_FLOOR_ID,
+        x,
+        y,
+        tile_type: grid[y][x],
+        rotation: 0,
+        variant: 0,
+        metadata: null,
+      });
+    }
+  }
+
+  return { grid, tiles, rooms, floorObjects };
+}
+
+function buildScenarioObjects() {
+  const safeZonesAndExits = [
+    {
+      object_type: "SAFE_ZONE",
+      x: 24,
+      y: 26,
+      width: 14,
+      height: 8,
+      properties: {
+        name: "Titik Kumpul Utama (Lapangan Upacara)",
+        capacity: 600,
+      },
+    },
+    {
+      object_type: "SAFE_ZONE",
+      x: 68,
+      y: 3,
+      width: 12,
+      height: 3,
+      properties: {
+        name: "Titik Kumpul Utara (Tempat Parkir Guru)",
+        capacity: 150,
+      },
+    },
+    {
+      object_type: "SAFE_ZONE",
+      x: 26,
+      y: 51,
+      width: 12,
+      height: 4,
+      properties: {
+        name: "Titik Kumpul Taman Selatan",
+        capacity: 120,
+      },
+    },
+    {
+      object_type: "EXIT",
+      x: 54,
+      y: 1,
+      width: 4,
+      height: 2,
+      properties: {
+        name: "Gerbang Utama (Jl. Candi Jolotundo)",
+        destination: "Jl. Candi Jolotundo",
+      },
+    },
+  ];
+
+  // Key spawns centered inside walkable interiors of real PDF classrooms & buildings
+  const classroomSpawns = [
+    { x: 14, y: 11, label: "Ruang 1" },
+    { x: 20, y: 11, label: "Ruang 2" },
+    { x: 49, y: 10, label: "Ruang 3" },
+    { x: 79, y: 13, label: "Ruang 4" },
+    { x: 85, y: 13, label: "Ruang 5" },
+    { x: 91, y: 13, label: "Ruang 6" },
+    { x: 97, y: 24, label: "Ruang 7" },
+    { x: 90, y: 24, label: "Ruang 8" },
+    { x: 84, y: 24, label: "Ruang 9" },
+    { x: 77, y: 24, label: "Ruang 10" },
+    { x: 71, y: 24, label: "Ruang 11" },
+    { x: 65, y: 24, label: "Ruang 12" },
+    { x: 65, y: 34, label: "Ruang 13" },
+    { x: 71, y: 34, label: "Ruang 14" },
+    { x: 77, y: 34, label: "Ruang 15" },
+    { x: 84, y: 34, label: "Ruang 16" },
+    { x: 90, y: 34, label: "Ruang 17" },
+    { x: 97, y: 34, label: "Ruang 18" },
+    { x: 91, y: 45, label: "Ruang 19" },
+    { x: 85, y: 45, label: "Ruang 20" },
+    { x: 79, y: 45, label: "Ruang 21" },
+    { x: 73, y: 45, label: "Ruang 22" },
+    { x: 67, y: 45, label: "Ruang 23" },
+    { x: 20, y: 45, label: "Ruang 24" },
+    { x: 14, y: 45, label: "Ruang 25" },
+    { x: 4, y: 45, label: "Ruang 26" },
+    { x: 26, y: 12, label: "Ruang Guru" },
+    { x: 4, y: 27, label: "Lab. Fisika" },
+    { x: 39, y: 45, label: "Perpustakaan" },
+    { x: 3, y: 13, label: "GOR" },
+  ];
+
+  const buildObjects = (scenarioId, rawList) =>
+    rawList.map((obj, idx) => ({
+      id: `${scenarioId}-obj-${idx + 1}`,
+      scenario_id: scenarioId,
+      floor_id: SMAN1_NGORO_FLOOR_ID,
+      object_type: obj.object_type,
+      x: obj.x,
+      y: obj.y,
+      width: obj.width || 1,
+      height: obj.height || 1,
+      rotation: 0,
+      properties: obj.properties || {},
+    }));
+
+  const gempaSpawns = [
+    // Primary player spawn in central Ruang 11 first, followed by all other rooms
+    {
+      object_type: "SPAWN",
+      x: 71,
+      y: 24,
+      properties: { label: "Ruang 11 (Utama)" },
+    },
+    ...classroomSpawns
+      .filter((s) => s.label !== "Ruang 11")
+      .map((s) => ({
+        object_type: "SPAWN",
+        x: s.x,
+        y: s.y,
+        properties: { label: s.label },
+      })),
+  ];
+
+  const gempaHazards = [
+    {
+      object_type: "BLOCKED_AREA",
+      x: 24,
+      y: 19,
+      width: 2,
+      height: 1,
+      properties: { reason: "Runtuhan kanopi teras Ruang Guru" },
+    },
+    {
+      object_type: "DAMAGE_ZONE",
+      x: 75,
+      y: 28,
+      width: 3,
+      height: 1,
+      properties: { reason: "Retakan atap koridor tengah" },
+    },
+  ];
+
+  const kebakaranSpawns = [
+    {
+      object_type: "SPAWN",
+      x: 91,
+      y: 45,
+      properties: { label: "Ruang 19 (Utama)" },
+    },
+    {
+      object_type: "SPAWN",
+      x: 85,
+      y: 45,
+      properties: { label: "Ruang 20" },
+    },
+    {
+      object_type: "SPAWN",
+      x: 97,
+      y: 34,
+      properties: { label: "Ruang 18" },
+    },
+    {
+      object_type: "SPAWN",
+      x: 65,
+      y: 34,
+      properties: { label: "Ruang 13" },
+    },
+    {
+      object_type: "SPAWN",
+      x: 39,
+      y: 45,
+      properties: { label: "Perpustakaan" },
+    },
+    {
+      object_type: "SPAWN",
+      x: 26,
+      y: 12,
+      properties: { label: "Ruang Guru" },
+    },
+    {
+      object_type: "SPAWN",
+      x: 14,
+      y: 11,
+      properties: { label: "Ruang 1" },
+    },
+    {
+      object_type: "SPAWN",
+      x: 4,
+      y: 27,
+      properties: { label: "Lab. Fisika" },
+    },
+  ];
+
+  const kebakaranHazards = [
+    {
+      object_type: "FIRE",
+      x: 97,
+      y: 48,
+      width: 3,
+      height: 3,
+      properties: { source: "Dapur Kantin Sekolah" },
+    },
+    {
+      object_type: "SMOKE",
+      x: 96,
+      y: 43,
+      width: 3,
+      height: 2,
+      properties: { source: "Asap Kantin & Koridor Tenggara" },
+    },
+    {
+      object_type: "FIRE",
+      x: 56,
+      y: 23,
+      width: 2,
+      height: 2,
+      properties: { source: "Gudang Tengah" },
+    },
+    {
+      object_type: "SMOKE",
+      x: 60,
+      y: 23,
+      width: 2,
+      height: 2,
+      properties: { source: "Kepulan Asap Koridor Tengah" },
+    },
+  ];
+
+  const pasSpawns = classroomSpawns
+    .filter((s) => s.label.startsWith("Ruang "))
+    .map((s) => ({
+      object_type: "SPAWN",
+      x: s.x,
+      y: s.y,
+      properties: { label: s.label },
+    }));
+
+  const pasHazards = [
+    {
+      object_type: "DAMAGE_ZONE",
+      x: 36,
+      y: 18,
+      width: 2,
+      height: 1,
+      properties: { reason: "Kaca pecah lorong Lobi" },
+    },
+    {
+      object_type: "BLOCKED_AREA",
+      x: 69,
+      y: 28,
+      width: 2,
+      height: 1,
+      properties: { reason: "Puing koridor antara Ruang 11 dan 14" },
+    },
+  ];
+
+  return [
+    {
+      id: SCENARIO_IDS.GEMPA,
+      map_id: SMAN1_NGORO_MAP_ID,
+      name: "Simulasi Evakuasi Gempa Bumi (SMAN 1 Ngoro)",
+      disaster_type: "Gempa",
+      status: "published",
+      version: 2,
+      config: {
+        sourceDocument: "DENAH LOKASI DAN RUANG PAS GASAL 2023/2024 SMAN 1 NGORO",
+        address: "Jl. Candi Jolotundo, Kutogirang, Ngoro, Mojokerto 61385",
+        hazardSpeed: 1,
+        evacuationTarget: "Lapangan Upacara & Gerbang Utama",
+      },
+      objects: buildObjects(SCENARIO_IDS.GEMPA, [
+        ...safeZonesAndExits,
+        ...gempaSpawns,
+        ...gempaHazards,
+      ]),
+    },
+    {
+      id: SCENARIO_IDS.KEBAKARAN,
+      map_id: SMAN1_NGORO_MAP_ID,
+      name: "Simulasi Kebakaran Kantin & Gudang (SMAN 1 Ngoro)",
+      disaster_type: "Kebakaran",
+      status: "published",
+      version: 2,
+      config: {
+        sourceDocument: "DENAH LOKASI DAN RUANG PAS GASAL 2023/2024 SMAN 1 NGORO",
+        address: "Jl. Candi Jolotundo, Kutogirang, Ngoro, Mojokerto 61385",
+        hazardSpeed: 1.15,
+        evacuationTarget: "Lapangan Upacara / Tempat Parkir Guru -> Gerbang Utama",
+      },
+      objects: buildObjects(SCENARIO_IDS.KEBAKARAN, [
+        ...safeZonesAndExits,
+        ...kebakaranSpawns,
+        ...kebakaranHazards,
+      ]),
+    },
+    {
+      id: SCENARIO_IDS.PAS_DRILL,
+      map_id: SMAN1_NGORO_MAP_ID,
+      name: "Simulasi Evakuasi Ruang Ujian PAS 1–26 (SMAN 1 Ngoro)",
+      disaster_type: "Gempa",
+      status: "published",
+      version: 1,
+      config: {
+        sourceDocument: "DENAH LOKASI DAN RUANG PAS GASAL 2023/2024 SMAN 1 NGORO",
+        address: "Jl. Candi Jolotundo, Kutogirang, Ngoro, Mojokerto 61385",
+        hazardSpeed: 1,
+        evacuationTarget: "Semua peserta ruang 1–26 menuju Lapangan Upacara",
+      },
+      objects: buildObjects(SCENARIO_IDS.PAS_DRILL, [
+        ...safeZonesAndExits,
+        ...pasSpawns,
+        ...pasHazards,
+      ]),
+    },
+  ];
+}
+
+/**
+ * Converts the Phase 1–3 tile grid + scenario objects into a legacy GridMap
+ * & DisasterSimulation dataset so Teacher/Student legacy views stay synchronized.
+ */
+function buildLegacyGridAndSimulations(grid, rooms, scenarios) {
+  const cells = {};
+  const doors = [];
+
+  for (let y = 0; y < MAP_HEIGHT; y++) {
+    for (let x = 0; x < MAP_WIDTH; x++) {
+      const tile = grid[y][x];
+      const key = `${x},${y}`;
+      let type = "CORRIDOR";
+      let walkable = true;
+
+      if (tile === "WALL" || tile === "BORDER") {
+        type = "WALL";
+        walkable = false;
+      } else if (tile === "DOOR") {
+        type = "DOOR";
+        walkable = true;
+        doors.push({ id: `door_${x}_${y}`, x, y, state: "open", breakable: true });
+      } else if (tile === "FLOOR" || tile === "COURT_VOLI" || tile === "MOSQUE") {
+        type = "ROOM";
+        walkable = true;
+      } else {
+        type = "CORRIDOR";
+        walkable = true;
+      }
+
+      cells[key] = { x, y, type, walkable };
+    }
+  }
+
+  // Mark Lapangan Upacara assembly center & Gerbang Utama in legacy safePoints
+  const safePoints = [
+    {
+      id: "sp_sman1_lapangan",
+      name: "Lapangan Upacara (Titik Aman Utama)",
+      x: 31,
+      y: 29,
+      capacity: 600,
+      enabled: true,
+      priority: 1,
+    },
+    {
+      id: "sp_sman1_parkir_guru",
+      name: "Tempat Parkir Guru",
+      x: 74,
+      y: 4,
+      capacity: 150,
+      enabled: true,
+      priority: 2,
+    },
+    {
+      id: "sp_sman1_gerbang",
+      name: "Gerbang Utama (Jl. Candi Jolotundo)",
+      x: 56,
+      y: 1,
+      capacity: 200,
+      enabled: true,
+      priority: 3,
+    },
+  ];
+
+  for (const sp of safePoints) {
+    cells[`${sp.x},${sp.y}`] = { x: sp.x, y: sp.y, type: "SAFE_POINT", walkable: true };
+  }
+
+  const spawnPoints = [
+    { id: "spawn_sman1_r11", name: "Ruang 11", x: 71, y: 24 },
+    { id: "spawn_sman1_r1", name: "Ruang 1", x: 14, y: 11 },
+    { id: "spawn_sman1_r26", name: "Ruang 26", x: 4, y: 45 },
+  ];
+
+  const now = new Date().toISOString();
+  const legacyGridMap = {
+    id: SMAN1_NGORO_MAP_ID,
+    schoolId: SMAN1_NGORO_SCHOOL_ID,
+    name: "Denah SMAN 1 Ngoro (Resmi PAS 2023/2024)",
+    gridWidth: MAP_WIDTH,
+    gridHeight: MAP_HEIGHT,
+    cellScale: 2,
+    cells,
+    rooms: rooms.map((r) => ({
+      id: r.id,
+      name: r.name,
+      x: r.x,
+      y: r.y,
+      w: r.width,
+      h: r.height,
+    })),
+    safePoints,
+    spawnPoints,
+    doors,
+    createdAt: now,
+    updatedAt: now,
+  };
+
+  const legacySimulations = scenarios.map((sc) => ({
+    id: sc.id,
+    mapId: SMAN1_NGORO_MAP_ID,
+    schoolId: SMAN1_NGORO_SCHOOL_ID,
+    name: sc.name,
+    disasterType: sc.disaster_type.toUpperCase().includes("KEBAKARAN") ? "FIRE" : "EARTHQUAKE",
+    hazards: sc.objects
+      .filter((o) => ["FIRE", "SMOKE", "BLOCKED_AREA", "DAMAGE_ZONE"].includes(o.object_type))
+      .map((o) => ({
+        id: o.id,
+        type: o.object_type,
+        x: o.x,
+        y: o.y,
+        radius: Math.max(o.width, o.height),
+        active: true,
+        spreadRate: sc.disaster_type === "Kebakaran" ? 0.5 : 0.2,
+      })),
+    createdAt: now,
+    updatedAt: now,
+  }));
+
+  return { legacyGridMap, legacySimulations };
+}
+
+/**
+ * Generates the complete SMAN 1 Ngoro PDF Digital Twin dataset including Phase 1-3
+ * database records, disaster scenarios, and legacy grid_maps compatibility records.
+ */
+export function buildSman1NgoroPdfDigitalTwin() {
+  const { grid, tiles, rooms, floorObjects } = buildSman1NgoroTileAndRoomLayout();
+  const scenarios = buildScenarioObjects();
+  const { legacyGridMap, legacySimulations } = buildLegacyGridAndSimulations(
+    grid,
+    rooms,
+    scenarios,
+  );
+
+  const map = {
+    id: SMAN1_NGORO_MAP_ID,
+    school_id: SMAN1_NGORO_SCHOOL_ID,
+    name: "Denah SMAN 1 Ngoro (Jl. Candi Jolotundo — PAS 2023/2024)",
+    description:
+      "Digital Twin berbasis denah resmi SMAN 1 Ngoro (Jl. Candi Jolotundo, Kutogirang, Ngoro, Mojokerto 61385). Memuat Ruang 1–26, Lapangan Upacara, Masjid Sabilunnajah, GOR, Lab. Fisika, Perpustakaan, Ruang Guru/Kasek/Sekretariat/BK/Operator/UKS/OSIS, Kantin Sekolah, Koperasi, Tandon, Parkir Guru/Timur, dan Gerbang Utama di Utara.",
+    width: MAP_WIDTH,
+    height: MAP_HEIGHT,
+    active_floor_id: SMAN1_NGORO_FLOOR_ID,
+    status: "published",
+    version: 2,
+    border: {
+      minX: 0,
+      minY: 0,
+      maxX: MAP_WIDTH - 1,
+      maxY: MAP_HEIGHT - 1,
+      width: MAP_WIDTH,
+      height: MAP_HEIGHT,
+    },
+    is_public: true,
+    author_name: "Tim Tanggap Darurat SMAN 1 Ngoro",
+    school_name: "SMAN 1 Ngoro",
+  };
+
+  const floors = [
+    {
+      id: SMAN1_NGORO_FLOOR_ID,
+      map_id: SMAN1_NGORO_MAP_ID,
+      floor_number: 1,
+      name: "Lantai 1 (Kampus Utama SMAN 1 Ngoro)",
+      width: MAP_WIDTH,
+      height: MAP_HEIGHT,
+    },
+  ];
+
+  const boundaries = [
+    {
+      id: "boundary-sman1-perimeter",
+      map_id: SMAN1_NGORO_MAP_ID,
+      floor_id: SMAN1_NGORO_FLOOR_ID,
+      geometry: [
+        { x: 0, y: 1 },
+        { x: MAP_WIDTH - 1, y: 1 },
+        { x: MAP_WIDTH - 1, y: MAP_HEIGHT - 1 },
+        { x: 0, y: MAP_HEIGHT - 1 },
+      ],
+      closed: true,
+    },
+  ];
+
+  return {
+    map,
+    floors,
+    grid,
+    tiles,
+    rooms,
+    boundaries,
+    objects: floorObjects,
+    scenarios,
+    legacyGridMap,
+    legacySimulations,
+  };
+}

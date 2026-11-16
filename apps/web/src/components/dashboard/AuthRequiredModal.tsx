@@ -59,7 +59,7 @@ export function AuthRequiredModal({
         await finalizeLogin(result.account);
         const ngoro = await getSchoolById("ffdcdf34-fc99-4209-913e-5a6042e957ad");
         setSelection(ngoro || SMAN_1_NGORO_FALLBACK);
-        show(`Selamat datang di Mode Demo SMAN 1 Ngoro! Akses penuh seluruh fitur terbuka.`, "success");
+        show(`Masuk Mode Demo SMAN 1 Ngoro.`, "success");
         onClose();
         navigate(targetPath);
       } else {
@@ -110,30 +110,17 @@ export function AuthRequiredModal({
               <GraduationCap className="h-7 w-7" />
             </div>
 
-            <div className="mt-4 inline-flex items-center gap-1.5 rounded-full bg-brand-50 px-3 py-1 text-[11px] font-bold text-brand-700 ring-1 ring-inset ring-brand-500/20 dark:bg-brand-950/60 dark:text-brand-300">
-              <Sparkles className="h-3 w-3" />
-              <span>Modul Edukasi & Penelitian</span>
-            </div>
+            <span className="mt-4 inline-flex items-center rounded-full bg-brand-50 px-3 py-1 text-[11px] font-semibold text-brand-700 ring-1 ring-inset ring-brand-500/20 dark:bg-brand-950/60 dark:text-brand-300">
+              Portal Pembelajaran & Simulasi
+            </span>
 
             <h3 className="mt-2.5 font-display text-lg font-extrabold tracking-tight text-ink-900 dark:text-white">
-              Akses {itemName} Memerlukan Akun
+              Masuk untuk Membuka {itemName}
             </h3>
 
             <p className="mt-2 text-xs leading-relaxed text-ink-500 dark:text-slate-400">
-              Fitur <span className="font-semibold text-ink-800 dark:text-slate-200">{itemName}</span> memerlukan akun terdaftar untuk menyimpan riwayat kesiapsiagaan, simulasi SPAB, dan capaian pembelajaran Anda.
+              Masuk dengan akun Google atau gunakan Mode Demo SMAN 1 Ngoro untuk mencoba seluruh modul dan simulasi.
             </p>
-
-            <div className="mt-3.5 w-full rounded-2xl border border-indigo-100 bg-indigo-50/70 p-3 text-left text-xs text-indigo-900 dark:border-indigo-900/50 dark:bg-indigo-950/40 dark:text-indigo-200">
-              <div className="flex items-start gap-2.5">
-                <ShieldCheck className="h-4 w-4 shrink-0 text-indigo-600 dark:text-indigo-400 mt-0.5" />
-                <div>
-                  <p className="font-semibold">Apakah Anda ingin melanjutkan dan login atau daftar akun?</p>
-                  <p className="mt-0.5 text-[11px] text-indigo-700 dark:text-indigo-300">
-                    Gunakan akun Google Anda untuk masuk atau mendaftar otomatis ke modul sekolah.
-                  </p>
-                </div>
-              </div>
-            </div>
           </div>
 
           {/* Action Buttons */}
@@ -141,42 +128,34 @@ export function AuthRequiredModal({
             <button
               type="button"
               onClick={handleProceedLogin}
-              className="group flex w-full items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-brand-600 to-indigo-600 px-4 py-3 text-sm font-semibold text-white shadow-md shadow-brand-500/25 transition-all hover:from-brand-700 hover:to-indigo-700 hover:shadow-lg active:scale-[0.99]"
+              className="group flex w-full items-center justify-center gap-2 rounded-xl bg-brand-600 hover:bg-brand-700 px-4 py-3 text-sm font-semibold text-white shadow-sm transition-colors"
             >
               <LogIn className="h-4 w-4" />
-              <span>Lanjutkan Masuk / Daftar Akun</span>
+              <span>Masuk / Daftar Akun</span>
               <ArrowRight className="h-4 w-4 transition-transform group-hover:translate-x-0.5" />
             </button>
-
-            {/* Quick test login for fast evaluation */}
-            <div className="relative my-1 flex items-center justify-center">
-              <div className="w-full border-t border-slate-200 dark:border-slate-800" />
-              <span className="absolute bg-white px-2 text-[10px] font-bold uppercase tracking-wider text-slate-400 dark:bg-slate-900 dark:text-slate-500">
-                Akses Cepat Pengujian
-              </span>
-            </div>
 
             <button
               type="button"
               disabled={isLoadingDemo}
               onClick={handleQuickLogin}
-              className="flex w-full items-center justify-center gap-2 rounded-xl border border-brand-200 bg-brand-50/70 px-4 py-2.5 text-xs font-semibold text-brand-700 transition-all hover:bg-brand-100 hover:text-brand-800 hover:border-brand-300 disabled:opacity-50 dark:border-brand-900/50 dark:bg-brand-950/40 dark:text-brand-300 dark:hover:bg-brand-900/50"
+              className="flex w-full items-center justify-center gap-2 rounded-xl border border-brand-200 bg-brand-50/70 px-4 py-2.5 text-xs font-semibold text-brand-700 transition-colors hover:bg-brand-100 hover:text-brand-800 disabled:opacity-50 dark:border-brand-900/50 dark:bg-brand-950/40 dark:text-brand-300 dark:hover:bg-brand-900/50"
             >
               {isLoadingDemo ? (
                 <Loader2 className="h-3.5 w-3.5 animate-spin text-brand-600 dark:text-brand-400" />
               ) : (
-                <Sparkles className="h-3.5 w-3.5 text-brand-500" />
+                <ShieldCheck className="h-3.5 w-3.5 text-brand-600 dark:text-brand-400" />
               )}
-              <span>Masuk Mode Demo SMAN 1 Ngoro (Akses Penuh)</span>
+              <span>Mode Demo — SMAN 1 Ngoro</span>
             </button>
 
             <button
               type="button"
               onClick={onClose}
-              className="mt-1 flex w-full items-center justify-center gap-1.5 rounded-xl border border-slate-200/80 bg-white px-3 py-2.5 text-xs font-medium text-ink-500 transition-colors hover:bg-slate-50 hover:text-ink-700 dark:border-slate-800 dark:bg-slate-900/60 dark:text-slate-400 dark:hover:bg-slate-800 dark:hover:text-slate-200"
+              className="mt-0.5 flex w-full items-center justify-center gap-1.5 rounded-xl border border-slate-200/80 bg-white px-3 py-2.5 text-xs font-medium text-ink-500 transition-colors hover:bg-slate-50 hover:text-ink-700 dark:border-slate-800 dark:bg-slate-900/60 dark:text-slate-400 dark:hover:bg-slate-800 dark:hover:text-slate-200"
             >
               <Map className="h-3.5 w-3.5 text-slate-400" />
-              <span>Tetap di Peta Interaktif (Batal)</span>
+              <span>Kembali ke Peta</span>
             </button>
           </div>
         </motion.div>

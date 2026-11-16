@@ -243,14 +243,19 @@ export function FloatingAICopilot() {
   const { currentUser, currentProfile } = useAuth();
 
   const isMapsRoute = location.pathname.includes("/app/maps");
+  const isHiddenRoute =
+    location.pathname.startsWith("/login") ||
+    location.pathname.startsWith("/school-selection") ||
+    location.pathname.includes("/app/ai-learning") ||
+    location.pathname.includes("/app/digital-twin");
 
   const [chatMessages, setChatMessages] = useState<ChatMessage[]>(() => [
     {
       id: "welcome",
       role: "ai",
       text: currentUser
-        ? `Halo ${currentUser.name}! 👋 Harmony AI Copilot siap membantu. Tanya cuaca real-time, pantau gempa & gunung api, cek elevasi lokasi, atau ketik navigasi fitur.`
-        : "Halo! 👋 Harmony AI Copilot siap membantu. Tanya cuaca real-time, pantau gempa & gunung api, cek elevasi lokasi, atau ketik navigasi fitur.",
+        ? `Halo ${currentUser.name}. Ada yang ingin ditanyakan seputar cuaca, gempa, atau navigasi fitur Harmony?`
+        : "Asisten Harmony siap membantu informasi cuaca, gempa, atau navigasi fitur.",
       timestamp: new Date().toLocaleTimeString("id-ID", {
         hour: "2-digit",
         minute: "2-digit",
@@ -439,26 +444,28 @@ export function FloatingAICopilot() {
   };
 
   const quickPrompts = [
-    { label: "Cuaca Hari Ini ⛅", query: "gimana cuaca hari ini?" },
-    { label: "Daerah Hujan 🌧️", query: "daerah mana saja yang hujan saat ini?" },
-    { label: "Lokasi & Ketinggian 📍", query: "dimana lokasi saya dan ketinggian?" },
-    { label: "Semua Fitur 📋", query: "apa saja fiturnya?" },
-    { label: "Buka Peta 🗺️", query: "buka peta" },
-    { label: "Tips Gempa 🚨", query: "bagaimana mitigasi saat gempa bumi?" },
+    { label: "Cuaca Hari Ini", query: "gimana cuaca hari ini?" },
+    { label: "Daerah Hujan", query: "daerah mana saja yang hujan saat ini?" },
+    { label: "Lokasi & Elevasi", query: "dimana lokasi saya dan ketinggian?" },
+    { label: "Daftar Fitur", query: "apa saja fiturnya?" },
+    { label: "Buka Peta", query: "buka peta" },
+    { label: "Panduan Gempa", query: "bagaimana mitigasi saat gempa bumi?" },
   ];
+
+  if (isHiddenRoute) return null;
 
   return (
     <>
       {/* Floating Small Square Trigger Button */}
       <div
-        className={`fixed z-[100010] transition-all duration-300 pointer-events-auto right-6 ${
-          isMapsRoute ? "bottom-[88px] sm:bottom-[94px]" : "bottom-6"
+        className={`fixed z-[100010] transition-all duration-300 pointer-events-auto right-4 sm:right-6 ${
+          isMapsRoute ? "bottom-[98px] sm:bottom-[104px]" : "bottom-4 sm:bottom-6"
         }`}
       >
         <button
           type="button"
           onClick={() => setIsOpen((prev) => !prev)}
-          className={`relative flex items-center justify-center w-12 h-12 rounded-2xl backdrop-blur-xl border shadow-2xl transition-all duration-300 hover:scale-105 active:scale-95 cursor-pointer group ${
+          className={`relative flex items-center justify-center w-11 h-11 sm:w-12 sm:h-12 rounded-2xl backdrop-blur-xl border shadow-2xl transition-all duration-300 hover:scale-105 active:scale-95 cursor-pointer group ${
             isOpen
               ? "bg-brand-600 border-brand-400 text-white shadow-brand-500/30"
               : "bg-slate-900/90 dark:bg-slate-900/95 hover:bg-slate-900 border-white/20 dark:border-slate-700/80 text-white shadow-indigo-500/20"
@@ -471,10 +478,8 @@ export function FloatingAICopilot() {
           ) : (
             <>
               <Bot className="w-5 h-5 text-indigo-300 group-hover:text-white transition-colors" />
-              {/* Online Pulse Indicator */}
-              <span className="absolute -top-1 -right-1 flex h-3 w-3">
-                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
-                <span className="relative inline-flex rounded-full h-3 w-3 bg-emerald-500"></span>
+              <span className="absolute -top-1 -right-1 flex h-2.5 w-2.5">
+                <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-emerald-500 border border-slate-900"></span>
               </span>
             </>
           )}
@@ -483,8 +488,8 @@ export function FloatingAICopilot() {
           {!isOpen && (
             <div className="pointer-events-none absolute right-full mr-2.5 top-1/2 -translate-y-1/2 opacity-0 -translate-x-2 group-hover:opacity-100 group-hover:translate-x-0 transition-all duration-200 whitespace-nowrap z-[100030] hidden sm:block">
               <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-slate-900/95 backdrop-blur-md text-white text-xs font-semibold shadow-xl border border-slate-700/80">
-                <Sparkles className="w-3.5 h-3.5 text-amber-300 animate-spin" />
-                <span>AI Copilot & Navigasi</span>
+                <Sparkles className="w-3.5 h-3.5 text-brand-300" />
+                <span>Asisten Harmony</span>
               </div>
             </div>
           )}

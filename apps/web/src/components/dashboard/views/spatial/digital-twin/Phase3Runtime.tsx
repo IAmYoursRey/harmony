@@ -373,7 +373,7 @@ export function Phase3Runtime({
 
             <div className="bg-slate-900/80 backdrop-blur border border-slate-700 text-white rounded-xl px-3 py-1 sm:px-4 sm:py-2 font-bold shadow-xl inline-flex w-max items-center gap-2 text-xs sm:text-base">
               <span className="text-slate-400 text-[10px] sm:text-xs uppercase">
-                Floor:
+                Lantai:
               </span>{" "}
               {activeFloorName}
             </div>
@@ -382,7 +382,7 @@ export function Phase3Runtime({
           {/* Center HUD: Objective */}
           <div className="bg-slate-900/80 backdrop-blur border border-slate-700 rounded-xl px-3 py-1.5 sm:px-6 sm:py-3 flex flex-col items-center gap-0.5 sm:gap-1 shadow-xl">
             <span className="text-slate-400 text-[10px] sm:text-xs font-bold uppercase tracking-wider">
-              Current Objective
+              Misi Saat Ini
             </span>
             <span className="text-yellow-400 font-bold text-sm sm:text-lg">
               {playerState.objectiveProgress}
@@ -459,39 +459,39 @@ export function Phase3Runtime({
 
       {/* GAME OVER / SUCCESS SCREENS */}
       {(simState === "FAILED" || simState === "SUCCESS") && (
-        <div className="absolute inset-0 z-30 bg-black/80 backdrop-blur-sm flex items-center justify-center flex-col gap-6">
+        <div className="absolute inset-0 z-30 bg-black/80 backdrop-blur-sm flex items-center justify-center flex-col gap-6 p-4">
           {simState === "SUCCESS" ? (
             <div className="text-center space-y-2">
-              <h1 className="text-6xl font-black text-green-400 mb-4">
-                EVACUATED
+              <h1 className="text-4xl sm:text-6xl font-black text-green-400 mb-4">
+                BERHASIL DIEVAKUASI
               </h1>
-              <p className="text-xl text-slate-300 font-medium">
-                You reached safety in {formatTime(timeMs)}.
+              <p className="text-lg sm:text-xl text-slate-300 font-medium">
+                Anda mencapai titik aman dalam {formatTime(timeMs)}.
               </p>
             </div>
           ) : (
             <div className="text-center space-y-2">
-              <h1 className="text-6xl font-black text-red-500 mb-4">
-                HAZARD OVERWHELMED
+              <h1 className="text-4xl sm:text-6xl font-black text-red-500 mb-4">
+                EVAKUASI GAGAL
               </h1>
-              <p className="text-xl text-slate-300 font-medium">
-                You did not survive the scenario.
+              <p className="text-lg sm:text-xl text-slate-300 font-medium">
+                Skenario bahaya belum terlewati. Silakan coba lagi.
               </p>
             </div>
           )}
 
-          <div className="flex gap-4 mt-8">
+          <div className="flex flex-wrap justify-center gap-4 mt-8">
             <button
               onClick={handleRestart}
               className="px-8 py-3 bg-brand-600 hover:bg-brand-700 text-white rounded-xl font-bold shadow-lg transition-colors flex items-center gap-2 text-lg"
             >
-              <RotateCcw className="h-5 w-5" /> Retry Scenario
+              <RotateCcw className="h-5 w-5" /> Ulangi Skenario
             </button>
             <button
               onClick={onClose}
               className="px-8 py-3 bg-slate-800 hover:bg-slate-700 text-white rounded-xl font-bold shadow-lg transition-colors flex items-center gap-2 text-lg"
             >
-              <ArrowLeft className="h-5 w-5" /> Back to Dashboard
+              <ArrowLeft className="h-5 w-5" /> Kembali
             </button>
           </div>
         </div>
@@ -507,8 +507,8 @@ export function Phase3Runtime({
 
         {/* Helper text overlay for WASD */}
         {simState === "RUNNING" && timeMs < 5000 && (
-          <div className="absolute bottom-8 left-1/2 -translate-x-1/2 text-white/50 font-bold text-sm bg-black/30 px-4 py-2 rounded-lg pointer-events-none transition-opacity duration-1000">
-            Use W A S D or Arrow Keys to move
+          <div className="hidden sm:block absolute bottom-8 left-1/2 -translate-x-1/2 text-white/70 font-bold text-sm bg-black/45 px-4 py-2 rounded-lg pointer-events-none transition-opacity duration-1000">
+            Gunakan W A S D atau tombol panah untuk bergerak
           </div>
         )}
 
@@ -605,7 +605,7 @@ export function Phase3Runtime({
       {simState === "READY" && !avatarSelected && (
         <div className="absolute inset-0 z-50 bg-slate-900/90 backdrop-blur flex items-center justify-center flex-col gap-6 text-white p-6">
           <div className="bg-slate-800 p-8 rounded-2xl border border-slate-700 max-w-sm w-full shadow-2xl flex flex-col items-center">
-            <h2 className="text-2xl font-black mb-6">Select Avatar</h2>
+            <h2 className="text-2xl font-black mb-6">Pilih Avatar</h2>
 
             <div
               className="w-24 h-24 rounded-full border-4 shadow-inner mb-6 transition-colors"
@@ -617,7 +617,7 @@ export function Phase3Runtime({
 
             <div className="w-full mb-4">
               <label className="block text-xs font-bold text-slate-400 mb-1">
-                Name
+                Nama
               </label>
               <input name="avatarName" id="phase3runtime-avatarname"
                 type="text"
@@ -629,7 +629,7 @@ export function Phase3Runtime({
 
             <div className="w-full mb-8">
               <label className="block text-xs font-bold text-slate-400 mb-2">
-                Color
+                Warna
               </label>
               <div className="flex justify-between">
                 {[
@@ -655,13 +655,13 @@ export function Phase3Runtime({
               onClick={() => setAvatarSelected(true)}
               className="w-full py-3 bg-brand-600 hover:bg-brand-700 text-white rounded-xl font-bold transition-colors text-lg shadow-lg"
             >
-              Start Simulation
+              Mulai Simulasi
             </button>
             <button
               onClick={onClose}
               className="w-full py-2 mt-2 text-slate-400 hover:text-white rounded-xl font-bold transition-colors text-sm"
             >
-              Cancel
+              Batal
             </button>
           </div>
         </div>

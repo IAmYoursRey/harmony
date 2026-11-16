@@ -42,15 +42,15 @@ export const pool = dbUrl
   ? new pg.Pool({
       connectionString: dbUrl,
       ssl: { rejectUnauthorized: false },
-      max: 5,
-      idleTimeoutMillis: 5000,
-      connectionTimeoutMillis: 5000,
-      queryTimeout: 15000,
+      max: 10,
+      idleTimeoutMillis: 15000,
+      connectionTimeoutMillis: 15000,
+      queryTimeout: 25000,
       allowExitOnIdle: true,
     })
   : null;
 
-export const timeoutQuery = (queryPromise, ms = 15000) => {
+export const timeoutQuery = (queryPromise, ms = 25000) => {
   return Promise.race([
     queryPromise,
     new Promise((_, reject) =>
@@ -63,9 +63,12 @@ export const timeoutQuery = (queryPromise, ms = 15000) => {
 };
 
 let pgInitialized = false;
+let pgInitPromise = null;
 async function initPg() {
   if (!pool || pgInitialized) return;
-  try {
+  if (pgInitPromise) return pgInitPromise;
+  pgInitPromise = (async () => {
+    try {
     await timeoutQuery(
       pool.query(`
       CREATE TABLE IF NOT EXISTS accounts ( id VARCHAR(255) PRIMARY KEY, data JSONB NOT NULL );
@@ -374,10 +377,14 @@ async function initPg() {
     `),
     );
     pgInitialized = true;
-  } catch (err) {
-    console.error("Failed to initialize PostgreSQL tables:", err);
-    throw err;
-  }
+    } catch (err) {
+      console.error("Failed to initialize PostgreSQL tables:", err);
+      throw err;
+    } finally {
+      pgInitPromise = null;
+    }
+  })();
+  return pgInitPromise;
 }
 
 export async function uploadBase64(base64Str, filename) {
@@ -502,6 +509,65 @@ export async function readDB() {
     }
   }
   return DEFAULT_DB;
+}
+
+export async function getAccountById(id) {
+  if (!id) return null;
+  if (pool) {
+    try {
+      await initPg();
+      const res = await timeoutQuery(
+        pool.query("SELECT data FROM accounts WHERE id = $1 LIMIT 1", [id]),
+      );
+      return res.rows[0]?.data || null;
+    } catch (e) {
+      if (isVercel) throw e;
+    }
+  }
+  const db = await readDB();
+  return (db.accounts || []).find((a) => a.id === id) || null;
+}
+
+export async function getAccountByEmail(email) {
+  if (!email) return null;
+  const target = String(email).toLowerCase();
+  if (pool) {
+    try {
+      await initPg();
+      const res = await timeoutQuery(
+        pool.query(
+          "SELECT data FROM accounts WHERE lower(data->>'email') = $1 LIMIT 1",
+          [target],
+        ),
+      );
+      return res.rows[0]?.data || null;
+    } catch (e) {
+      if (isVercel) throw e;
+    }
+  }
+  const db = await readDB();
+  return (
+    (db.accounts || []).find((a) => a.email?.toLowerCase() === target) || null
+  );
+}
+
+export async function getProfileByUserId(userId) {
+  if (!userId) return null;
+  if (pool) {
+    try {
+      await initPg();
+      const res = await timeoutQuery(
+        pool.query("SELECT data FROM profiles WHERE user_id = $1 LIMIT 1", [
+          userId,
+        ]),
+      );
+      return res.rows[0]?.data || null;
+    } catch (e) {
+      if (isVercel) throw e;
+    }
+  }
+  const db = await readDB();
+  return (db.profiles || []).find((p) => p.userId === userId) || null;
 }
 
 export async function saveAccount(account) {

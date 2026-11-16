@@ -1,7 +1,14 @@
 import express from "express";
 import bcrypt from "bcryptjs";
 import jwt from "jsonwebtoken";
-import { readDB, writeDB, saveAccount, saveProfile } from "../repositories/repository.js";
+import {
+  readDB,
+  saveAccount,
+  saveProfile,
+  getAccountById,
+  getAccountByEmail,
+  getProfileByUserId,
+} from "../repositories/repository.js";
 import { verifyToken } from "../middleware/authMiddleware.js";
 import dotenv from "dotenv";
 import { OAuth2Client } from "google-auth-library";
@@ -16,13 +23,24 @@ if (!process.env.JWT_SECRET) {
     "[WARNING] JWT_SECRET is not defined in environment variables. Using fallback.",
   );
 }
+const SMAN1_NGORO_META = {
+  schoolId: "ffdcdf34-fc99-4209-913e-5a6042e957ad",
+  schoolName: "SMAN 1 Ngoro",
+  province: "Jawa Timur",
+  regency: "Kabupaten Mojokerto",
+};
+
+function isFixedDemoEmail(email) {
+  const lower = String(email || "").toLowerCase();
+  return lower === "raihanansari3345@gmail.com" || lower.endsWith("@sman1ngoro.sch.id");
+}
+
 router.post("/login", async (req, res) => {
   try {
     const { token, role, email: credEmail, password } = req.body || {};
 
     if (credEmail && password) {
-      const db = await readDB();
-      const account = db.accounts.find((a) => a.email.toLowerCase() === credEmail.toLowerCase());
+      const account = await getAccountByEmail(credEmail);
       if (!account) {
         return res.status(401).json({ error: "Akun tidak ditemukan atau password salah" });
       }
@@ -68,13 +86,10 @@ router.post("/login", async (req, res) => {
     const { email, name, sub: googleId, picture } = payload;
     if (!email) return res.status(400).json({ error: "Google token does not contain email" });
 
-    const db = await readDB();
-    let account = db.accounts.find((a) => a.email.toLowerCase() === email.toLowerCase());
+    let account = await getAccountByEmail(email);
 
     const isDemoAccount =
-      email.toLowerCase() === "raihanansari3345@gmail.com" ||
-      email.toLowerCase().endsWith("@sman1ngoro.sch.id") ||
-      Boolean(payload.isDemo);
+      isFixedDemoEmail(email) || Boolean(payload.isDemo);
 
     if (!account && isDemoAccount) {
       const demoId = payload.sub || `usr-demo-${Date.now()}`;
@@ -101,12 +116,11 @@ router.post("/login", async (req, res) => {
         picture: picture || "https://api.dicebear.com/7.x/avataaars/svg?seed=" + encodeURIComponent(email),
         createdAt: new Date().toISOString(),
       };
-      db.accounts.push(account);
       await saveAccount(account);
 
-      let profile = db.profiles.find((p) => p.userId === account.id);
-      if (!profile) {
-        profile = {
+      const existingProfile = await getProfileByUserId(account.id);
+      if (!existingProfile) {
+        const profile = {
           userId: account.id,
           name: account.name,
           role: account.role,
@@ -114,17 +128,13 @@ router.post("/login", async (req, res) => {
           grade: "X",
           section: "1",
           classSection: "1",
-          schoolId: "ffdcdf34-fc99-4209-913e-5a6042e957ad",
-          schoolName: "SMAN 1 Ngoro",
-          province: "Jawa Timur",
-          regency: "Kabupaten Mojokerto",
+          ...SMAN1_NGORO_META,
           xp: 1250,
           level: 2,
           achievements: [],
           joinedAt: new Date().toISOString(),
           lastUpdated: new Date().toISOString(),
         };
-        db.profiles.push(profile);
         await saveProfile(profile);
       }
     }
@@ -140,9 +150,9 @@ router.post("/login", async (req, res) => {
     }
 
     if (isDemoAccount) {
-      let profile = db.profiles.find((p) => p.userId === account.id);
+      const profile = await getProfileByUserId(account.id);
       if (!profile) {
-        profile = {
+        await saveProfile({
           userId: account.id,
           name: account.name,
           role: account.role,
@@ -150,23 +160,15 @@ router.post("/login", async (req, res) => {
           grade: "X",
           section: "1",
           classSection: "1",
-          schoolId: "ffdcdf34-fc99-4209-913e-5a6042e957ad",
-          schoolName: "SMAN 1 Ngoro",
-          province: "Jawa Timur",
-          regency: "Kabupaten Mojokerto",
+          ...SMAN1_NGORO_META,
           xp: 1250,
           level: 2,
           achievements: [],
           joinedAt: new Date().toISOString(),
           lastUpdated: new Date().toISOString(),
-        };
-        db.profiles.push(profile);
-        await saveProfile(profile);
-      } else if (!profile.schoolId || profile.schoolId === "unknown") {
-        profile.schoolId = "ffdcdf34-fc99-4209-913e-5a6042e957ad";
-        profile.schoolName = "SMAN 1 Ngoro";
-        profile.regency = "Kabupaten Mojokerto";
-        profile.province = "Jawa Timur";
+        });
+      } else if (profile.schoolId !== SMAN1_NGORO_META.schoolId || profile.schoolName !== SMAN1_NGORO_META.schoolName) {
+        Object.assign(profile, SMAN1_NGORO_META, { lastUpdated: new Date().toISOString() });
         await saveProfile(profile);
       }
     }
@@ -324,8 +326,7 @@ router.post("/register-google", async (req, res) => {
 
 router.get("/me", verifyToken, async (req, res) => {
   try {
-    const db = await readDB();
-    const account = db.accounts.find((a) => a.id === req.user.id);
+    const account = await getAccountById(req.user.id);
     if (!account) return res.status(404).json({ error: "User not found" });
     const { passwordHash: _, ...safeAccount } = account;
     res.json({ account: safeAccount });

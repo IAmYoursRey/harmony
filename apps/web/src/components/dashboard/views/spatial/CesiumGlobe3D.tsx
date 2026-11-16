@@ -51,6 +51,7 @@ import {
   CesiumCosmicEngine 
 } from './celestial/CesiumCosmicEngine';
 import { CelestialInfoPanel } from './celestial/CelestialInfoPanel';
+import { PlanetarySurfaceExplorerModal } from './celestial/PlanetarySurfaceExplorerModal';
 import type { TrafficCorridor } from '@/services/trafficTelemetryService';
 import { trafficCctvService, type TrafficCctvCamera } from '@/services/trafficCctvService';
 import { trafficSignalsService, type TrafficSignalIntersection } from '@/services/trafficSignalsService';
@@ -206,6 +207,11 @@ export function CesiumGlobe3D({
   const [planetCategoryFilter, setPlanetCategoryFilter] = useState<'all' | 'star' | 'terrestrial' | 'giant' | 'moon'>('all');
   const [planetSearchTerm, setPlanetSearchTerm] = useState<string>('');
   const [isTourActive, setIsTourActive] = useState<boolean>(false);
+
+  // Planetary Surface & Cartography Explorer Modal State
+  const [isPlanetaryExplorerOpen, setIsPlanetaryExplorerOpen] = useState<boolean>(false);
+  const [planetaryExplorerMode, setPlanetaryExplorerMode] = useState<'map' | 'globe3d' | 'surface'>('surface');
+  const [planetaryExplorerBodyId, setPlanetaryExplorerBodyId] = useState<string>('earth');
 
   // Sync props changes to local state
   useEffect(() => {
@@ -374,36 +380,13 @@ export function CesiumGlobe3D({
         (window as any).__cesiumViewer = viewer;
         (window as any).__cosmicEngine = cosmicEngine;
 
-        // Dynamically toggle GIS data source visibility and lighting (hide ground pins in deep space, eliminate glare on close zoom)
+        // Dynamically toggle GIS data source visibility (hide ground pins in deep space)
         disposeCamera = viewer.camera.changed.addEventListener(() => {
           if (cancelled || viewer.isDestroyed() || !dataRef.current) return;
           const height = viewer.camera.positionCartographic?.height ?? 1e7;
           const isViewingEarthSurface = height < 25_000_000 && (!cosmicEngine.lockedTargetId || cosmicEngine.lockedTargetId === 'earth');
           if (dataRef.current.show !== isViewingEarthSurface) {
             dataRef.current.show = isViewingEarthSurface;
-          }
-
-          const isCloseMapZoom = height < 8_500_000 && (!cosmicEngine.lockedTargetId || cosmicEngine.lockedTargetId === 'earth');
-          if (isCloseMapZoom) {
-            if (viewer.scene.globe.enableLighting) viewer.scene.globe.enableLighting = false;
-            if (viewer.scene.globe.showGroundAtmosphere) viewer.scene.globe.showGroundAtmosphere = false;
-            if (viewer.scene.postProcessStages?.bloom?.enabled) viewer.scene.postProcessStages.bloom.enabled = false;
-            if (viewer.scene.skyAtmosphere?.show) viewer.scene.skyAtmosphere.show = false;
-            viewer.scene.globe.atmosphereLightIntensity = 0.0;
-          } else {
-            if (!viewer.scene.globe.enableLighting) viewer.scene.globe.enableLighting = true;
-            // Keep ground atmosphere OFF to avoid washing out oceans and continents in white fog
-            if (viewer.scene.globe.showGroundAtmosphere) viewer.scene.globe.showGroundAtmosphere = false;
-            // Keep bloom OFF to prevent blinding overexposure glare on Earth's day side
-            if (viewer.scene.postProcessStages?.bloom?.enabled) viewer.scene.postProcessStages.bloom.enabled = false;
-            if (viewer.scene.skyAtmosphere && !viewer.scene.skyAtmosphere.show) {
-              viewer.scene.skyAtmosphere.show = true;
-              try {
-                viewer.scene.skyAtmosphere.brightnessShift = -0.10;
-                viewer.scene.skyAtmosphere.saturationShift = 0.15;
-              } catch {}
-            }
-            viewer.scene.globe.atmosphereLightIntensity = 0.25;
           }
         });
 
@@ -1693,6 +1676,20 @@ export function CesiumGlobe3D({
                 </button>
                 <button
                   type="button"
+                  onClick={() => {
+                    const targetId = activeCelestialId === 'overview' ? 'mars' : activeCelestialId;
+                    setPlanetaryExplorerBodyId(targetId);
+                    setPlanetaryExplorerMode('surface');
+                    setIsPlanetaryExplorerOpen(true);
+                  }}
+                  className="px-2.5 py-1 rounded-xl bg-gradient-to-r from-amber-600 to-rose-600 hover:from-amber-500 hover:to-rose-500 text-white text-[10px] font-bold transition-all shadow-sm flex items-center gap-1 cursor-pointer"
+                  title="Buka Peta & Masuk ke Permukaan Planet (3D)"
+                >
+                  <Navigation className="w-3 h-3" />
+                  <span>Masuk Planet</span>
+                </button>
+                <button
+                  type="button"
                   onClick={handleReturnToEarth}
                   className="px-2.5 py-1 rounded-xl bg-sky-600 hover:bg-sky-500 text-white text-[10px] font-bold transition-all shadow-sm flex items-center gap-1 cursor-pointer"
                   title="Kembali ke Peta Permukaan Bumi Indonesia (GIS)"
@@ -1939,7 +1936,26 @@ export function CesiumGlobe3D({
           }}
           onFocusTarget={handleFlyToCelestial}
           onReturnToEarth={handleReturnToEarth}
+          onOpenPlanetaryExplorer={(bodyId, mode) => {
+            setPlanetaryExplorerBodyId(bodyId);
+            setPlanetaryExplorerMode(mode || 'surface');
+            setIsPlanetaryExplorerOpen(true);
+          }}
           onClose={() => setShowCelestialPanel(false)}
+        />
+      )}
+
+      {/* ================= PLANETARY SURFACE & CARTOGRAPHY MODAL ================= */}
+      {isPlanetaryExplorerOpen && (
+        <PlanetarySurfaceExplorerModal
+          initialBodyId={planetaryExplorerBodyId}
+          initialMode={planetaryExplorerMode}
+          isOpen={isPlanetaryExplorerOpen}
+          onClose={() => setIsPlanetaryExplorerOpen(false)}
+          onSelectBody={(bId) => {
+            setActiveCelestialId(bId);
+            handleFlyToCelestial(bId);
+          }}
         />
       )}
 
@@ -2094,7 +2110,21 @@ export function CesiumGlobe3D({
                       className="flex-1 flex items-center justify-center gap-1.5 py-1.5 px-3 rounded-xl bg-gradient-to-r from-sky-500 to-indigo-600 hover:from-sky-400 hover:to-indigo-500 text-white font-bold text-xs shadow-md transition-all cursor-pointer"
                     >
                       <Navigation size={13} />
-                      <span>Kunjungi Planet</span>
+                      <span>Kunjungi</span>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setPlanetaryExplorerBodyId(id);
+                        setPlanetaryExplorerMode('surface');
+                        setIsPlanetaryExplorerOpen(true);
+                        setIsPlanetDrawerOpen(false);
+                      }}
+                      className="flex items-center justify-center gap-1 py-1.5 px-2.5 rounded-xl bg-gradient-to-r from-amber-600 to-rose-600 hover:from-amber-500 hover:to-rose-500 text-white font-bold text-xs shadow-md transition-all cursor-pointer"
+                      title={`Buka Peta & Masuk ke Permukaan ${body.name} (3D)`}
+                    >
+                      <Navigation size={13} />
+                      <span>Masuk (3D)</span>
                     </button>
                     <button
                       type="button"

@@ -196,7 +196,7 @@ export function Navbar() {
 
       <div
         className={`md:hidden overflow-hidden transition-all duration-300 ${
-          open ? "max-h-96 opacity-100" : "max-h-0 opacity-0"
+          open ? "block max-h-96 opacity-100" : "hidden max-h-0 opacity-0 pointer-events-none"
         }`}
       >
         <div className="section-container pb-5">

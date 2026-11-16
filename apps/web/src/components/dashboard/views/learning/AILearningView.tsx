@@ -22,8 +22,8 @@ export function AILearningView() {
       id: "welcome",
       role: "ai",
       text: currentUser
-        ? `Halo ${currentUser.name}! 👋 Saya GeoBot, asisten belajar mitigasi bencana Anda. Tanya apa saja seputar gempa bumi, banjir, tsunami, kebakaran, dan bencana alam lainnya!`
-        : "Halo! 👋 Saya GeoBot. Tanya apa saja seputar mitigasi bencana!",
+        ? `Halo ${currentUser.name}. Ajukan pertanyaan terkait mitigasi gempa, banjir, kebakaran, atau prosedur evakuasi sekolah.`
+        : "Asisten GeoBot siap membantu pertanyaan seputar mitigasi bencana dan prosedur evakuasi.",
     },
   ]);
   const [chatInput, setChatInput] = useState("");
@@ -88,9 +88,9 @@ export function AILearningView() {
   };
 
   return (
-    <div className="flex h-[calc(100vh-4rem)] flex-col overflow-hidden">
+    <div className="flex h-[calc(100dvh-8.5rem)] min-h-[480px] flex-col overflow-hidden rounded-2xl border border-slate-200/80 dark:border-slate-800 shadow-sm">
       {/* Header */}
-      <div className="bg-gradient-to-br from-brand-600 via-brand-700 to-brand-900 px-4 py-4 text-white shadow-glass sm:px-6">
+      <div className="bg-gradient-to-br from-brand-600 via-brand-700 to-brand-900 px-4 py-3.5 text-white sm:px-6 shrink-0">
         <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
           <div>
             <div className="inline-flex items-center gap-1.5 rounded-full bg-white/15 px-3 py-1 text-xs font-semibold backdrop-blur-sm">
@@ -98,8 +98,8 @@ export function AILearningView() {
             </div>
             <h2 className="mt-2 font-display text-xl font-extrabold">
               {currentUser
-                ? `Halo, ${currentUser.name} 👋`
-                : "GeoBot — Asisten Bencana"}
+                ? `Halo, ${currentUser.name}`
+                : "GeoBot — Asisten Mitigasi"}
             </h2>
             {currentProfile && (
               <p className="text-xs text-brand-100 mt-0.5">

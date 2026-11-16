@@ -16,7 +16,7 @@ export default function LandingPage() {
       <Stats />
       <Technology />
       <SDGs />
-      <AboutSection />
+      <AboutSection compact />
       <CTA />
     </>
   );

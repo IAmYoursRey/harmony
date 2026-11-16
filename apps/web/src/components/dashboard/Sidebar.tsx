@@ -81,19 +81,14 @@ export function Sidebar({
 
         {/* Nav */}
         <nav className="flex-1 overflow-y-auto px-3 py-4">
-          {/* ── Standalone Top-Level Geospatial Feature: Harmony Maps ── */}
           {mapsItem && (
             <div className="mb-4">
               <div className="mb-1.5 flex items-center justify-between px-2">
-                <span className="flex items-center gap-1.5 text-[10px] font-extrabold uppercase tracking-wider text-indigo-600 dark:text-indigo-400">
-                  <span className="relative flex h-2 w-2">
-                    <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-indigo-400 opacity-75" />
-                    <span className="relative inline-flex h-2 w-2 rounded-full bg-indigo-500" />
-                  </span>
-                  Geospatial & Spasial
+                <span className="text-[10px] font-bold uppercase tracking-wider text-indigo-600 dark:text-indigo-400">
+                  Pemetaan Spasial
                 </span>
-                <span className="rounded-full bg-indigo-50 px-2 py-0.5 text-[9px] font-bold text-indigo-700 ring-1 ring-inset ring-indigo-500/20 dark:bg-indigo-950/60 dark:text-indigo-300">
-                  Interactive GIS
+                <span className="rounded-full bg-indigo-50 px-2 py-0.5 text-[9px] font-semibold text-indigo-700 ring-1 ring-inset ring-indigo-500/20 dark:bg-indigo-950/60 dark:text-indigo-300">
+                  WebGIS
                 </span>
               </div>
 
@@ -187,21 +182,20 @@ export function Sidebar({
                 </Link>
               )}
 
-              {/* Distinct separation divider */}
-              <div className="mt-4 mb-2 flex items-center gap-2 px-2">
-                <div className="h-[1px] flex-1 bg-slate-200/80 dark:bg-slate-800" />
-                <span className="text-[9px] font-bold uppercase tracking-widest text-slate-400 dark:text-slate-500">
-                  Portal Menu
-                </span>
-                <div className="h-[1px] flex-1 bg-slate-200/80 dark:bg-slate-800" />
+              <div className="mt-4 mb-2 border-t border-slate-200/80 pt-3 dark:border-slate-800">
+                <p className="px-3 text-[10px] font-bold uppercase tracking-wider text-ink-400 dark:text-slate-500">
+                  {t("sidebar.portal")}
+                </p>
               </div>
             </div>
           )}
 
-          <p className="px-3 pb-2 text-[10px] font-bold uppercase tracking-wider text-ink-400 dark:text-slate-500">
-            {t("sidebar.portal")}
-          </p>
-          <ul className="space-y-1">
+          {!mapsItem && (
+            <p className="px-3 pb-2 text-[10px] font-bold uppercase tracking-wider text-ink-400 dark:text-slate-500">
+              {t("sidebar.portal")}
+            </p>
+          )}
+          <ul className="space-y-0.5">
             {regularNavItems.map((item) => {
               const isActive = active === item.id;
               const targetPath = item.id === "dashboard" ? "/app/dashboard" : `/app/${item.id}`;
@@ -224,7 +218,7 @@ export function Sidebar({
                   <Link
                     to={targetPath}
                     onClick={handleClick}
-                    className={`group flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium transition-all ${
+                    className={`group flex w-full items-center gap-3 rounded-xl px-3 py-2 text-sm font-medium transition-all ${
                       isActive
                         ? "bg-brand-600 text-white shadow-glass"
                         : "text-ink-600 hover:bg-brand-50 hover:text-brand-700 dark:text-slate-300 dark:hover:bg-slate-800 dark:hover:text-white"

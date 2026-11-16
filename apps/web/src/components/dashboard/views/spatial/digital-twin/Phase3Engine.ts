@@ -7,6 +7,7 @@ import {
   Phase1ScenarioObject,
   Phase1Stairs,
 } from "./Phase1Types";
+import { renderRoomOverlays } from "./Phase1RoomRenderer";
 
 export type SimState =
   "LOADING" | "READY" | "RUNNING" | "PAUSED" | "SUCCESS" | "FAILED" | "EXITED";
@@ -841,6 +842,12 @@ export class Phase3Engine {
         );
       }
     }
+
+    renderRoomOverlays(this.ctx, this.map.rooms, TILE_SIZE, {
+      showZoneTint: true,
+      showLabels: true,
+      currentFloorId: floor.id,
+    });
 
     for (const obj of floor.objects) {
       this.ctx.fillStyle = "#94a3b8";

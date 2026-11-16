@@ -62,9 +62,9 @@ export const SOLAR_SCALE_CONFIG = {
   /** Minimum safe camera factor relative to bounding radius (prevents mesh penetration) */
   CAMERA_MIN_SAFE_FACTOR: 1.28,
   /** Optimal framing multiplier for comfortable view */
-  CAMERA_FRAMING_MULTIPLIER: 3.2,
+  CAMERA_FRAMING_MULTIPLIER: 2.3,
   /** Additional ring padding for Saturn */
-  SATURN_RING_FRAMING_MULTIPLIER: 1.45,
+  SATURN_RING_FRAMING_MULTIPLIER: 1.0,
 } as const;
 
 /**
@@ -130,10 +130,8 @@ export function calculateSafeFramingDistance(
   const fovRad = (fovDeg * Math.PI) / 180;
   const baseDistance = boundingRadius / Math.tan(fovRad / 2);
 
-  const multiplier = id === 'saturn' 
-    ? SOLAR_SCALE_CONFIG.CAMERA_FRAMING_MULTIPLIER * SOLAR_SCALE_CONFIG.SATURN_RING_FRAMING_MULTIPLIER
-    : id === 'sun'
-    ? 2.8
+  const multiplier = id === 'sun'
+    ? 2.2
     : SOLAR_SCALE_CONFIG.CAMERA_FRAMING_MULTIPLIER;
 
   const framingDistance = baseDistance * multiplier;

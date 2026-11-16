@@ -16,37 +16,37 @@ import { HeroIllustration } from "@/components/HeroIllustration";
 import { useI18n } from "@/hooks/useI18n";
 
 const pillars = [
-  { icon: Brain, label: "Artificial Intelligence" },
-  { icon: Boxes, label: "Harmony Twin" },
-  { icon: Satellite, label: "Geospatial Technology" },
+  { icon: Brain, label: "Pembelajaran Adaptif" },
+  { icon: Boxes, label: "Denah Digital Twin" },
+  { icon: Satellite, label: "Pemetaan Geospasial" },
 ];
 
 const featureCards = [
   {
     icon: Brain,
     title: "AI Learning Engine",
-    description: "Adaptive learning sesuai kemampuan peserta didik.",
+    description: "Latihan materi bencana sesuai tingkat pemahaman siswa.",
     to: "/app/ai-learning",
     accent: "from-brand-500 to-brand-700",
   },
   {
     icon: Map,
     title: "GeoSpatial Risk Mapping",
-    description: "Materi disesuaikan berdasarkan lokasi sekolah.",
+    description: "Pemetaan bahaya langsung pada koordinat sekitar sekolah.",
     to: "/app/geo-risk-map",
     accent: "from-brand-500 to-brand-600",
   },
   {
     icon: Boxes,
     title: "Harmony Twin School",
-    description: "Simulasi 2D virtual lingkungan sekolah & rute evakuasi.",
+    description: "Simulasi evakuasi interaktif di atas denah sekolah nyata.",
     to: "/app/digital-twin",
     accent: "from-brand-500 to-brand-600",
   },
   {
     icon: Gauge,
     title: "Smart Readiness Index",
-    description: "Evaluasi kesiapsiagaan berbasis AI.",
+    description: "Pengukuran skor kesiapsiagaan siswa dan satuan pendidikan.",
     to: "/app/gss",
     accent: "from-brand-500 to-brand-600",
   },
@@ -86,58 +86,31 @@ export function Hero() {
           <div className="text-center lg:text-left">
             {/* Badge */}
             <motion.div
-              initial={{ opacity: 0, y: 20 }}
+              initial={{ opacity: 0, y: 12 }}
               animate={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.5 }}
-              className="inline-flex items-center gap-2 rounded-full border border-brand-200 bg-white/70 px-4 py-1.5 text-xs font-semibold text-brand-700 backdrop-blur-md dark:border-slate-700 dark:bg-slate-800/70 dark:text-brand-400"
+              transition={{ duration: 0.4 }}
+              className="inline-flex items-center gap-2 rounded-full border border-brand-200 bg-white/80 px-4 py-1.5 text-xs font-semibold text-brand-700 backdrop-blur-md dark:border-slate-700 dark:bg-slate-800/80 dark:text-brand-400"
             >
-              <span className="relative flex h-2 w-2">
-                <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-brand-400 opacity-75" />
-                <span className="relative inline-flex h-2 w-2 rounded-full bg-brand-500" />
-              </span>
-              Platform Pendidikan Tangguh Bencana
+              Sistem Edukasi & Simulasi Kebencanaan SPAB
             </motion.div>
 
-            <motion.h1
-              initial={{ opacity: 0, y: 30 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.6, delay: 0.1 }}
-              className="mt-6 font-display text-4xl font-extrabold leading-[1.12] tracking-tight text-ink-900 sm:text-5xl lg:text-6xl dark:text-white"
-            >
+            <h1 className="mt-6 font-display text-4xl font-extrabold leading-[1.12] tracking-tight text-ink-900 sm:text-5xl lg:text-6xl dark:text-white">
               Harmony
-            </motion.h1>
+            </h1>
 
-            <motion.p
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.6, delay: 0.15 }}
-              className="mt-3 font-display text-lg font-bold text-brand-600 sm:text-xl dark:text-brand-400"
-            >
-              AI-Based Disaster & Geospatial Ecosystem
-            </motion.p>
+            <p className="mt-3 font-display text-lg font-bold text-brand-600 sm:text-xl dark:text-brand-400">
+              Ekosistem Simulasi Bencana & Geospasial Sekolah
+            </p>
 
-            <motion.p
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.6, delay: 0.2 }}
-              className="mx-auto mt-5 max-w-xl text-sm leading-relaxed text-ink-600 sm:text-base lg:mx-0 dark:text-slate-300"
-            >
-              Platform pembelajaran kebencanaan berbasis Artificial Intelligence
-              (AI), Harmony Twin, dan Data Geospasial yang mendukung peningkatan
-              literasi kebencanaan, kesiapsiagaan peserta didik, serta
-              implementasi Program Satuan Pendidikan Aman Bencana (SPAB).
-            </motion.p>
+            <p className="mx-auto mt-5 max-w-xl text-sm leading-relaxed text-ink-600 sm:text-base lg:mx-0 dark:text-slate-300">
+              Memadukan data geospasial, denah digital sekolah, dan latihan evakuasi terukur untuk mendukung program Satuan Pendidikan Aman Bencana.
+            </p>
 
             {/* CTAs */}
-            <motion.div
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.6, delay: 0.3 }}
-              className="mt-8 flex flex-col items-center justify-center gap-3 sm:flex-row lg:justify-start"
-            >
+            <div className="mt-8 flex flex-col items-center justify-center gap-3 sm:flex-row lg:justify-start">
               <Link
                 to="/app/maps"
-                className="group inline-flex items-center gap-2 rounded-full bg-brand-600 px-7 py-3.5 text-sm font-semibold text-white shadow-glass transition-all hover:bg-brand-700 hover:shadow-glow hover:-translate-y-0.5"
+                className="group inline-flex items-center gap-2 rounded-full bg-brand-600 px-7 py-3.5 text-sm font-semibold text-white shadow-glass transition-colors hover:bg-brand-700"
               >
                 <Play className="h-4 w-4 fill-white" />
                 {t("landing.start_learning")}
@@ -145,12 +118,12 @@ export function Hero() {
               </Link>
               <Link
                 to="/login"
-                className="group inline-flex items-center gap-2 rounded-full border border-brand-200 bg-white/70 px-7 py-3.5 text-sm font-semibold text-brand-700 backdrop-blur-md transition-all hover:border-brand-300 hover:bg-white hover:-translate-y-0.5 dark:border-slate-700 dark:bg-slate-800/70 dark:text-brand-400"
+                className="inline-flex items-center gap-2 rounded-full border border-brand-200 bg-white/80 px-7 py-3.5 text-sm font-semibold text-brand-700 backdrop-blur-md transition-colors hover:border-brand-300 hover:bg-white dark:border-slate-700 dark:bg-slate-800/80 dark:text-brand-400"
               >
                 <GraduationCap className="h-4 w-4" />
-                {t("landing.teacher_login")}
+                Masuk Demo SMAN 1 Ngoro
               </Link>
-            </motion.div>
+            </div>
 
             {/* Tech pillars */}
             <motion.div

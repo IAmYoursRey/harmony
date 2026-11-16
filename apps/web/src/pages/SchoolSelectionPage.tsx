@@ -26,7 +26,9 @@ import {
   fetchSchools,
   fetchProvinces,
   fetchRegencies,
+  SMAN_1_NGORO_FALLBACK,
 } from "@/services/schoolService";
+import { isDemoNgoroUser } from "@/utils/demoSchool";
 import { riskStyles, type School, type RiskCategory } from "@/data/schools";
 
 type Step = 1 | 2 | 3 | 4;
@@ -45,6 +47,9 @@ export default function SchoolSelectionPage() {
     if (!isLoading) {
       if (!currentUser) {
         navigate("/login");
+      } else if (isDemoNgoroUser(currentUser)) {
+        setSelection(SMAN_1_NGORO_FALLBACK);
+        navigate("/app/digital-twin", { replace: true });
       } else if (
         currentUser.role !== "developer" &&
         currentProfile?.schoolId &&
@@ -53,7 +58,7 @@ export default function SchoolSelectionPage() {
         navigate("/app/maps");
       }
     }
-  }, [isLoading, currentUser, currentProfile, navigate]);
+  }, [isLoading, currentUser, currentProfile, navigate, setSelection]);
   const [provinceId, setProvinceId] = useState("");
   const [regencyId, setRegencyId] = useState("");
   const [school, setSchool] = useState<School | null>(null);
