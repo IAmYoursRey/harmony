@@ -953,7 +953,7 @@ export class Phase3Engine {
         const revealPx =
           Number(
             obj.properties.revealRadius ||
-              SIMULATION_PHYSICS.DEFAULT_HIDDEN_REVEAL_TILES,
+            SIMULATION_PHYSICS.DEFAULT_HIDDEN_REVEAL_TILES,
           ) *
           TILE_SIZE *
           profile.revealMultiplier;
@@ -1018,7 +1018,7 @@ export class Phase3Engine {
             const burst = Math.round(
               Number(
                 obj.properties.burstDamage ??
-                  SIMULATION_PHYSICS.DEFAULT_HIDDEN_BURST,
+                SIMULATION_PHYSICS.DEFAULT_HIDDEN_BURST,
               ) * profile.damageMultiplier,
             );
             this.player.health = Math.max(0, this.player.health - burst);
@@ -1325,11 +1325,16 @@ export class Phase3Engine {
           const cellH = ph / rows;
           for (let ry = 0; ry < rows; ry++) {
             for (let rx = 0; rx < cols; rx++) {
-              const cellCx = px + (rx + 0.5) * cellW;
-              const cellCy = py + (ry + 0.5) * cellH;
+              const seed = (rx * 7 + ry * 13) % 10;
+              const jitterX = Math.sin(seed * 1.7 + this.simTimeMs * 0.003) * (cellW * 0.08);
+              const jitterY = Math.cos(seed * 2.3 + this.simTimeMs * 0.0025) * (cellH * 0.08);
+              const cellCx = px + (rx + 0.5) * cellW + jitterX;
+              const cellCy = py + (ry + 0.5) * cellH + jitterY;
               const rot =
-                Math.sin(this.simTimeMs / 320 + rx * 1.7 + ry * 2.3) * 0.22;
-              const s = Math.min(cellW, cellH) * (0.98 + pulse * 0.14);
+                seed * 0.63 +
+                Math.sin(this.simTimeMs / 290 + rx * 1.9 + ry * 2.7) * 0.28;
+              const breath = Math.sin(this.simTimeMs / 130 + seed) * 0.09 + 1.0;
+              const s = Math.min(cellW, cellH) * 1.24 * breath;
               ctx.save();
               ctx.translate(cellCx, cellCy);
               ctx.rotate(rot);
@@ -1359,19 +1364,20 @@ export class Phase3Engine {
       }
 
       case "SMOKE": {
+        const pad = TILE_SIZE * 0.35;
         ctx.beginPath();
-        ctx.rect(px, py, pw, ph);
+        ctx.rect(px - pad, py - pad, pw + pad * 2, ph + pad * 2);
         ctx.clip();
         const driftX = (this.simTimeMs * 0.018) % TILE_SIZE;
         const driftY = (this.simTimeMs * 0.012) % TILE_SIZE;
-        for (let ix = -1; ix <= pw / TILE_SIZE + 1; ix++) {
-          for (let iy = -1; iy <= ph / TILE_SIZE + 1; iy++) {
-            const sx = px + ix * TILE_SIZE + driftX;
-            const sy = py + iy * TILE_SIZE + driftY;
-            const r = TILE_SIZE * 0.92;
+        for (let ix = 0; ix <= Math.max(1, Math.floor(pw / TILE_SIZE)); ix++) {
+          for (let iy = 0; iy <= Math.max(1, Math.floor(ph / TILE_SIZE)); iy++) {
+            const sx = px + Math.min(pw - 8, ix * TILE_SIZE + driftX * 0.65);
+            const sy = py + Math.min(ph - 8, iy * TILE_SIZE + driftY * 0.65);
+            const r = TILE_SIZE * 0.85;
             const smokeGrad = ctx.createRadialGradient(sx, sy, 2, sx, sy, r);
             smokeGrad.addColorStop(0, "rgba(71, 85, 105, 0.72)");
-            smokeGrad.addColorStop(0.65, "rgba(51, 65, 85, 0.45)");
+            smokeGrad.addColorStop(0.55, "rgba(51, 65, 85, 0.42)");
             smokeGrad.addColorStop(1, "rgba(30, 41, 59, 0)");
             ctx.fillStyle = smokeGrad;
             ctx.beginPath();
@@ -1487,7 +1493,7 @@ export class Phase3Engine {
       }
 
       case "BLOCKED_AREA": {
-        ctx.fillStyle = "rgba(15, 23, 42, 0.42)";
+        ctx.fillStyle = "rgba(15, 23, 42, 0.36)";
         ctx.fillRect(px, py, pw, ph);
 
         const rubbleImg = getDigitalTwinAssetImage("hazardRubble");
@@ -1498,13 +1504,16 @@ export class Phase3Engine {
           const ch = ph / rows;
           for (let ry = 0; ry < rows; ry++) {
             for (let rx = 0; rx < cols; rx++) {
-              ctx.drawImage(
-                rubbleImg,
-                px + rx * cw + 1,
-                py + ry * ch + 1,
-                cw - 2,
-                ch - 2,
-              );
+              const cx = px + (rx + 0.5) * cw;
+              const cy = py + (ry + 0.5) * ch;
+              const rot = (((rx * 5 + ry * 11) % 4) * Math.PI) / 2;
+              const sw = cw * 1.14;
+              const sh = ch * 1.14;
+              ctx.save();
+              ctx.translate(cx, cy);
+              ctx.rotate(rot);
+              ctx.drawImage(rubbleImg, -sw / 2, -sh / 2, sw, sh);
+              ctx.restore();
             }
           }
         } else {
@@ -1512,8 +1521,8 @@ export class Phase3Engine {
           ctx.fillRect(px + 3, py + 3, pw - 6, ph - 6);
         }
 
-        ctx.strokeStyle = "rgba(245, 158, 11, 0.85)";
-        ctx.lineWidth = 2;
+        ctx.strokeStyle = "rgba(245, 158, 11, 0.75)";
+        ctx.lineWidth = 1.5;
         ctx.strokeRect(px + 1, py + 1, pw - 2, ph - 2);
         break;
       }

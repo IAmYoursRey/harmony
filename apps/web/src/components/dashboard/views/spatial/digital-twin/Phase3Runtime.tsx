@@ -373,114 +373,123 @@ export function Phase3Runtime({
     <div className="h-[100dvh] w-full bg-black flex flex-col font-sans overflow-hidden select-none touch-none">
       {/* HUD TOP LAYER */}
       {(simState === "RUNNING" || simState === "PAUSED") && playerState && (
-        <div className="absolute top-0 left-0 right-0 p-2 sm:p-4 flex flex-wrap sm:flex-nowrap justify-between items-start z-10 pointer-events-none gap-2">
-          {/* Left HUD: HP & Floor */}
-          <div className="flex flex-col gap-2 w-full sm:w-auto">
-            <div className="bg-slate-900/80 backdrop-blur border border-slate-700 rounded-xl p-2 sm:p-3 flex flex-col gap-1 sm:gap-2 w-full sm:w-64 shadow-xl">
-              <div className="flex flex-col gap-1">
-                <div className="flex justify-between items-center text-white font-bold text-[10px] sm:text-xs">
-                  <span>HP</span>
-                  <span>
-                    {Math.ceil(playerState.health)} / {playerState.maxHealth}
-                  </span>
+        <div className="absolute top-0 left-0 right-0 p-2 sm:p-4 flex flex-col gap-1.5 z-10 pointer-events-none">
+          <div className="flex items-start justify-between gap-2 w-full">
+            {/* Left HUD: HP, Stamina & Floor */}
+            <div className="flex flex-col gap-1.5 min-w-0">
+              <div className="bg-slate-900/85 backdrop-blur border border-slate-700 rounded-xl p-2 sm:p-3 flex flex-col gap-1 sm:gap-1.5 w-44 sm:w-64 shadow-xl">
+                <div className="flex flex-col gap-0.5">
+                  <div className="flex justify-between items-center text-white font-bold text-[10px] sm:text-xs">
+                    <span>HP</span>
+                    <span>
+                      {Math.ceil(playerState.health)} / {playerState.maxHealth}
+                    </span>
+                  </div>
+                  <div className="w-full bg-slate-800 h-1.5 sm:h-2 rounded-full overflow-hidden">
+                    <div
+                      className="h-full bg-green-500 transition-all duration-200"
+                      style={{
+                        width: `${Math.max(0, (playerState.health / playerState.maxHealth) * 100)}%`,
+                        backgroundColor:
+                          playerState.health < 30 ? "#ef4444" : "#22c55e",
+                      }}
+                    ></div>
+                  </div>
                 </div>
-                <div className="w-full bg-slate-800 h-1.5 sm:h-2 rounded-full overflow-hidden">
-                  <div
-                    className="h-full bg-green-500 transition-all duration-200"
-                    style={{
-                      width: `${Math.max(0, (playerState.health / playerState.maxHealth) * 100)}%`,
-                      backgroundColor:
-                        playerState.health < 30 ? "#ef4444" : "#22c55e",
-                    }}
-                  ></div>
+
+                <div className="flex flex-col gap-0.5">
+                  <div className="flex justify-between items-center text-slate-300 font-bold text-[10px] sm:text-xs">
+                    <span>STAMINA</span>
+                    <span>
+                      {Math.ceil(playerState.stamina)} / {playerState.maxStamina}
+                    </span>
+                  </div>
+                  <div className="w-full bg-slate-800 h-1 sm:h-1.5 rounded-full overflow-hidden">
+                    <div
+                      className="h-full bg-blue-500 transition-all duration-200"
+                      style={{
+                        width: `${Math.max(0, (playerState.stamina / playerState.maxStamina) * 100)}%`,
+                      }}
+                    ></div>
+                  </div>
                 </div>
               </div>
 
-              <div className="flex flex-col gap-1">
-                <div className="flex justify-between items-center text-slate-300 font-bold text-[10px] sm:text-xs">
-                  <span>STAMINA</span>
-                  <span>
-                    {Math.ceil(playerState.stamina)} / {playerState.maxStamina}
-                  </span>
-                </div>
-                <div className="w-full bg-slate-800 h-1 sm:h-1.5 rounded-full overflow-hidden">
-                  <div
-                    className="h-full bg-blue-500 transition-all duration-200"
-                    style={{
-                      width: `${Math.max(0, (playerState.stamina / playerState.maxStamina) * 100)}%`,
-                    }}
-                  ></div>
-                </div>
+              <div className="hidden sm:inline-flex bg-slate-900/80 backdrop-blur border border-slate-700 text-white rounded-xl px-4 py-1.5 font-bold shadow-xl w-max items-center gap-2 text-sm">
+                <span className="text-slate-400 text-xs uppercase">
+                  Lantai:
+                </span>{" "}
+                {activeFloorName}
               </div>
             </div>
 
-            <div className="bg-slate-900/80 backdrop-blur border border-slate-700 text-white rounded-xl px-3 py-1 sm:px-4 sm:py-2 font-bold shadow-xl inline-flex w-max items-center gap-2 text-xs sm:text-base">
-              <span className="text-slate-400 text-[10px] sm:text-xs uppercase">
-                Lantai:
-              </span>{" "}
-              {activeFloorName}
+            {/* Center HUD (Desktop): Pure Escape Objective */}
+            <div className="hidden md:flex bg-slate-900/85 backdrop-blur border border-slate-700 rounded-xl px-6 py-2.5 flex-col items-center gap-0.5 shadow-xl">
+              <span className="text-slate-400 text-[11px] font-bold uppercase tracking-wider">
+                Misi Evakuasi
+              </span>
+              <span className="text-emerald-400 font-bold text-base text-center">
+                {playerState.objectiveProgress}
+              </span>
+            </div>
+
+            {/* Right HUD: Timer & Controls */}
+            <div className="flex flex-col items-end gap-1.5 pointer-events-auto shrink-0">
+              <div className="bg-slate-900/85 backdrop-blur border border-slate-700 text-white rounded-xl px-3 py-1 sm:px-5 sm:py-2 font-mono font-bold text-base sm:text-2xl shadow-xl tracking-wider">
+                {formatTime(timeMs)}
+              </div>
+              <div className="flex gap-1 sm:gap-2">
+                <button
+                  onClick={toggleMute}
+                  className="w-8 h-8 sm:w-10 sm:h-10 bg-slate-800 hover:bg-slate-700 text-white rounded-full flex items-center justify-center transition-colors shadow-lg"
+                  title={isMuted ? "Aktifkan Suara" : "Bisukan Suara"}
+                >
+                  {isMuted ? (
+                    <VolumeX className="h-3.5 w-3.5 sm:h-4 sm:w-4 text-slate-400" />
+                  ) : (
+                    <Volume2 className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
+                  )}
+                </button>
+                <button
+                  onClick={() => setShowDebug(!showDebug)}
+                  className="w-8 h-8 sm:w-10 sm:h-10 bg-slate-800 hover:bg-slate-700 text-white rounded-full flex items-center justify-center transition-colors shadow-lg font-bold text-[9px] sm:text-xs"
+                  title="Toggle Debug"
+                >
+                  DEV
+                </button>
+                <button
+                  onClick={handlePauseToggle}
+                  className="w-8 h-8 sm:w-10 sm:h-10 bg-slate-800 hover:bg-slate-700 text-white rounded-full flex items-center justify-center transition-colors shadow-lg"
+                >
+                  {simState === "PAUSED" ? (
+                    <Play className="h-3 w-3 sm:h-4 sm:w-4" />
+                  ) : (
+                    <Pause className="h-3 w-3 sm:h-4 sm:w-4" />
+                  )}
+                </button>
+                <button
+                  onClick={handleRestart}
+                  className="w-8 h-8 sm:w-10 sm:h-10 bg-slate-800 hover:bg-slate-700 text-white rounded-full flex items-center justify-center transition-colors shadow-lg"
+                  title="Restart Simulation"
+                >
+                  <RotateCcw className="h-3 w-3 sm:h-4 sm:w-4" />
+                </button>
+                <button
+                  onClick={onClose}
+                  className="w-8 h-8 sm:w-10 sm:h-10 bg-rose-600 hover:bg-rose-700 text-white rounded-full flex items-center justify-center transition-colors shadow-lg"
+                  title="Exit Simulation"
+                >
+                  <ArrowLeft className="h-3 w-3 sm:h-4 sm:w-4" />
+                </button>
+              </div>
             </div>
           </div>
 
-          {/* Center HUD: Objective */}
-          <div className="bg-slate-900/80 backdrop-blur border border-slate-700 rounded-xl px-3 py-1.5 sm:px-6 sm:py-2.5 flex flex-col items-center gap-0.5 shadow-xl">
-            <span className="text-slate-400 text-[10px] sm:text-xs font-bold uppercase tracking-wider">
-              Misi Evakuasi
-            </span>
-            <span className="text-emerald-400 font-bold text-xs sm:text-base text-center">
+          {/* Mobile compact mission pill */}
+          <div className="md:hidden self-center bg-slate-900/80 backdrop-blur border border-slate-700/80 rounded-full px-3.5 py-1 shadow-lg">
+            <span className="text-emerald-400 font-bold text-[11px]">
               {playerState.objectiveProgress}
             </span>
-          </div>
-
-          {/* Right HUD: Timer & Controls */}
-          <div className="flex flex-col items-end gap-1 sm:gap-2 pointer-events-auto">
-            <div className="bg-slate-900/80 backdrop-blur border border-slate-700 text-white rounded-xl px-3 py-1 sm:px-6 sm:py-2 font-mono font-bold text-lg sm:text-2xl shadow-xl tracking-wider">
-              {formatTime(timeMs)}
-            </div>
-            <div className="flex gap-1.5 sm:gap-2 mt-1 sm:mt-2">
-              <button
-                onClick={toggleMute}
-                className="w-8 h-8 sm:w-10 sm:h-10 bg-slate-800 hover:bg-slate-700 text-white rounded-full flex items-center justify-center transition-colors shadow-lg"
-                title={isMuted ? "Aktifkan Suara" : "Bisukan Suara"}
-              >
-                {isMuted ? (
-                  <VolumeX className="h-3.5 w-3.5 sm:h-4 sm:w-4 text-slate-400" />
-                ) : (
-                  <Volume2 className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
-                )}
-              </button>
-              <button
-                onClick={() => setShowDebug(!showDebug)}
-                className="w-8 h-8 sm:w-10 sm:h-10 bg-slate-800 hover:bg-slate-700 text-white rounded-full flex items-center justify-center transition-colors shadow-lg font-bold text-[9px] sm:text-xs"
-                title="Toggle Debug"
-              >
-                DEV
-              </button>
-              <button
-                onClick={handlePauseToggle}
-                className="w-8 h-8 sm:w-10 sm:h-10 bg-slate-800 hover:bg-slate-700 text-white rounded-full flex items-center justify-center transition-colors shadow-lg"
-              >
-                {simState === "PAUSED" ? (
-                  <Play className="h-3 w-3 sm:h-4 sm:w-4" />
-                ) : (
-                  <Pause className="h-3 w-3 sm:h-4 sm:w-4" />
-                )}
-              </button>
-              <button
-                onClick={handleRestart}
-                className="w-8 h-8 sm:w-10 sm:h-10 bg-slate-800 hover:bg-slate-700 text-white rounded-full flex items-center justify-center transition-colors shadow-lg"
-                title="Restart Simulation"
-              >
-                <RotateCcw className="h-3 w-3 sm:h-4 sm:w-4" />
-              </button>
-              <button
-                onClick={onClose}
-                className="w-8 h-8 sm:w-10 sm:h-10 bg-rose-600 hover:bg-rose-700 text-white rounded-full flex items-center justify-center transition-colors shadow-lg"
-                title="Exit Simulation"
-              >
-                <ArrowLeft className="h-3 w-3 sm:h-4 sm:w-4" />
-              </button>
-            </div>
           </div>
         </div>
       )}
@@ -547,12 +556,12 @@ export function Phase3Runtime({
                 </div>
                 <div
                   className={`w-12 h-12 rounded-xl flex items-center justify-center font-black text-2xl border ${report.grade === "S"
-                      ? "bg-amber-500/20 text-amber-300 border-amber-400"
-                      : report.grade === "A"
-                        ? "bg-emerald-500/20 text-emerald-300 border-emerald-400"
-                        : report.grade === "B"
-                          ? "bg-sky-500/20 text-sky-300 border-sky-400"
-                          : "bg-rose-500/20 text-rose-300 border-rose-500"
+                    ? "bg-amber-500/20 text-amber-300 border-amber-400"
+                    : report.grade === "A"
+                      ? "bg-emerald-500/20 text-emerald-300 border-emerald-400"
+                      : report.grade === "B"
+                        ? "bg-sky-500/20 text-sky-300 border-sky-400"
+                        : "bg-rose-500/20 text-rose-300 border-rose-500"
                     }`}
                 >
                   {report.grade}
@@ -741,17 +750,16 @@ export function Phase3Runtime({
                     key={preset.id}
                     type="button"
                     onClick={() => setAvatarStyle(preset.id)}
-                    className={`rounded-xl p-3 border-2 transition-all flex flex-col items-center gap-2 ${
-                      selected
+                    className={`rounded-xl p-3 border-2 transition-all flex flex-col items-center gap-2 ${selected
                         ? "bg-slate-900/90 shadow-lg scale-[1.02]"
                         : "bg-slate-900/45 border-slate-700/80 opacity-75 hover:opacity-100"
-                    }`}
+                      }`}
                     style={
                       selected
                         ? {
-                            borderColor: avatarColor,
-                            boxShadow: `0 0 18px ${avatarColor}33`,
-                          }
+                          borderColor: avatarColor,
+                          boxShadow: `0 0 18px ${avatarColor}33`,
+                        }
                         : undefined
                     }
                   >
@@ -821,12 +829,12 @@ export function Phase3Runtime({
                     type="button"
                     onClick={() => setDifficulty(d.id)}
                     className={`py-2 rounded-lg text-xs font-bold transition-colors ${difficulty === d.id
-                        ? d.id === "sulit"
-                          ? "bg-rose-600 text-white"
-                          : d.id === "sedang"
-                            ? "bg-amber-600 text-white"
-                            : "bg-emerald-600 text-white"
-                        : "text-slate-400 hover:text-white"
+                      ? d.id === "sulit"
+                        ? "bg-rose-600 text-white"
+                        : d.id === "sedang"
+                          ? "bg-amber-600 text-white"
+                          : "bg-emerald-600 text-white"
+                      : "text-slate-400 hover:text-white"
                       }`}
                   >
                     {d.label}
