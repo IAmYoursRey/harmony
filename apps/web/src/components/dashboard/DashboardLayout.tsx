@@ -153,7 +153,7 @@ export function DashboardLayout() {
             />
           )}
 
-          <main className={activeId === "maps" ? "flex-1 relative overflow-hidden" : "flex-1 overflow-y-auto px-4 pt-6 pb-24 sm:px-6 sm:py-8 lg:px-8"}>
+          <main className={activeId === "maps" ? "flex-1 relative overflow-hidden" : "flex-1 overflow-y-auto overscroll-y-contain px-3.5 pt-5 pb-[calc(5.5rem+env(safe-area-inset-bottom))] sm:px-6 sm:py-8 lg:px-8"}>
             <div key={activeId} className={activeId === "maps" ? "h-full w-full" : "page-enter"}>
               <Outlet context={{ setMobileOpen }} />
             </div>

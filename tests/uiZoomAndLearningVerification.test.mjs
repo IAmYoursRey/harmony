@@ -74,4 +74,22 @@ test("Geospatial weather & maps views wire SMAN 1 Ngoro school defaults, native 
   assert.match(mapsSrc, /curZoom <= 2\.3/);
   assert.match(mapsSrc, /onOpenDetails=\{\(\) => openStudioDomain\(['"]weather['"]\)\}/);
   assert.match(mapsSrc, /Radar &amp; Citra Native/);
+  assert.match(mapsSrc, /hidden xl:flex items-center gap-2/);
+  assert.match(mapsSrc, /env\(safe-area-inset-top\)/);
+  assert.match(mapsSrc, /env\(safe-area-inset-bottom\)/);
 });
+
+test("Cross-platform safe-area CSS, lightweight click feedback, and responsive shell ergonomics exist", () => {
+  const cssSrc = readSrc("apps/web/src/index.css");
+  assert.match(cssSrc, /env\(safe-area-inset-bottom/);
+  assert.match(cssSrc, /prefers-reduced-motion:\s*reduce/);
+  assert.match(cssSrc, /scale\(0\.965\)/);
+
+  const topbarSrc = readSrc("apps/web/src/components/dashboard/Topbar.tsx");
+  assert.match(topbarSrc, /env\(safe-area-inset-top\)/);
+  assert.match(topbarSrc, /whitespace-nowrap/);
+
+  const sandboxSrc = readSrc("apps/web/src/components/dashboard/views/spatial/digital-twin/GameGridSandbox.tsx");
+  assert.match(sandboxSrc, /mobileLayersOpen/);
+});
+

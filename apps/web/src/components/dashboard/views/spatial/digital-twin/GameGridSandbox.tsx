@@ -54,6 +54,7 @@ export function GameGridSandbox({
   const [showSpawns, setShowSpawns] = useState(true);
   const [showExits, setShowExits] = useState(true);
   const [isFullscreen, setIsFullscreen] = useState(false);
+  const [mobileLayersOpen, setMobileLayersOpen] = useState(false);
 
   // Animation frame & stable camera refs (prevents RAF churn and stale closures)
   const animFrameRef = useRef<number | null>(null);
@@ -602,11 +603,11 @@ export function GameGridSandbox({
         }`}
     >
       {/* HUD Header Bar */}
-      <div className="absolute top-0 inset-x-0 z-20 flex flex-wrap items-center justify-between gap-2 p-3 sm:p-4 bg-gradient-to-b from-slate-950/95 via-slate-950/75 to-transparent pointer-events-none">
-        <div className="flex items-center gap-2 min-w-0 max-w-full sm:max-w-[65%] pointer-events-auto">
+      <div className="absolute top-0 inset-x-0 z-20 flex items-center justify-between gap-2 p-2.5 sm:p-4 bg-gradient-to-b from-slate-950/95 via-slate-950/75 to-transparent pointer-events-none">
+        <div className="flex items-center gap-2 min-w-0 flex-1 sm:flex-initial sm:max-w-[65%] pointer-events-auto">
           <div className="flex items-center gap-2 px-3 py-1.5 rounded-xl bg-slate-900/90 border border-slate-700/80 backdrop-blur-md shadow-lg text-xs font-bold text-white min-w-0">
             <span className="w-2 h-2 shrink-0 rounded-full bg-emerald-500" />
-            <span className="text-brand-400 font-bold shrink-0">HARMONY TWIN</span>
+            <span className="hidden sm:inline text-brand-400 font-bold shrink-0">HARMONY TWIN</span>
             <span className="text-slate-500 hidden sm:inline">|</span>
             <span className="text-slate-200 truncate">{map?.name || "Denah Sekolah"}</span>
           </div>
@@ -617,18 +618,19 @@ export function GameGridSandbox({
         </div>
 
         {/* Action Controls & Play Button */}
-        <div className="flex items-center gap-2 pointer-events-auto">
+        <div className="flex items-center gap-1.5 sm:gap-2 shrink-0 pointer-events-auto">
           <button
             onClick={handleStartPlay}
-            className="flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs shadow-lg transition-colors"
+            className="flex items-center gap-1.5 px-3 sm:px-3.5 py-2 min-h-[38px] rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs shadow-lg transition-colors whitespace-nowrap"
           >
             <Play className="h-3.5 w-3.5 fill-white" />
-            <span>Mulai Simulasi</span>
+            <span className="sm:hidden">Mulai</span>
+            <span className="hidden sm:inline">Mulai Simulasi</span>
           </button>
 
           <button
             onClick={() => setIsFullscreen(!isFullscreen)}
-            className="p-2 rounded-xl bg-slate-900/80 hover:bg-slate-800 border border-slate-700 text-slate-300 transition-colors"
+            className="p-2 min-h-[38px] min-w-[38px] flex items-center justify-center rounded-xl bg-slate-900/80 hover:bg-slate-800 border border-slate-700 text-slate-300 transition-colors"
             title={isFullscreen ? "Keluar Layar Penuh" : "Layar Penuh"}
           >
             {isFullscreen ? <Minimize2 className="h-4 w-4" /> : <Maximize2 className="h-4 w-4" />}
@@ -648,9 +650,49 @@ export function GameGridSandbox({
         <canvas ref={canvasRef} className="block w-full h-full" />
       </div>
 
-      {/* Floating Tactical Layer Toggles & Zoom Toolbar (Bottom-Left) */}
-      <div className="absolute bottom-3 left-3 right-3 sm:bottom-4 sm:left-4 sm:right-auto z-20 flex flex-wrap items-center gap-2 pointer-events-auto max-w-[calc(100%-1.5rem)]">
-        <div className="flex flex-wrap items-center gap-1 p-1 rounded-xl bg-slate-900/90 border border-slate-700/80 backdrop-blur-md shadow-xl text-xs max-w-full">
+      {/* Floating Tactical Layer Toggles & Zoom Toolbar (Compact on Mobile, Single Bar on Desktop) */}
+      <div className="absolute bottom-3 inset-x-3 sm:bottom-4 sm:left-4 sm:right-auto z-20 flex items-end justify-between sm:justify-start gap-2 pointer-events-none">
+        {/* Mobile Collapsible Layer Drawer Button */}
+        <div className="relative sm:hidden pointer-events-auto">
+          <button
+            type="button"
+            onClick={() => setMobileLayersOpen((v) => !v)}
+            className="flex items-center gap-2 px-3 py-2 min-h-[40px] rounded-xl bg-slate-900/95 border border-slate-700/80 backdrop-blur-md shadow-xl text-xs font-bold text-white"
+          >
+            <Layers className="h-4 w-4 text-brand-400" />
+            <span>Layer ({[showSafeZones, showExits, showSpawns, showGrid, showRooms, showEffects].filter(Boolean).length})</span>
+          </button>
+          {mobileLayersOpen && (
+            <div className="absolute bottom-full left-0 mb-2 w-52 rounded-2xl bg-slate-900/95 border border-slate-700/80 p-2 backdrop-blur-xl shadow-2xl space-y-1">
+              {[
+                { active: showSafeZones, toggle: () => setShowSafeZones(!showSafeZones), label: `Titik Aman (${safeCount})`, dot: "bg-emerald-400" },
+                { active: showExits, toggle: () => setShowExits(!showExits), label: `Gerbang (${exitCount})`, dot: "bg-teal-400" },
+                { active: showSpawns, toggle: () => setShowSpawns(!showSpawns), label: `Spawn (${spawnCount})`, dot: "bg-amber-400" },
+                { active: showGrid, toggle: () => setShowGrid(!showGrid), label: "Grid Lantai", dot: "bg-blue-400" },
+                { active: showRooms, toggle: () => setShowRooms(!showRooms), label: "Label Ruangan", dot: "bg-amber-300" },
+                { active: showEffects, toggle: () => setShowEffects(!showEffects), label: "Efek Hologram", dot: "bg-purple-400" },
+              ].map((item) => (
+                <button
+                  key={item.label}
+                  type="button"
+                  onClick={item.toggle}
+                  className={`flex w-full items-center justify-between px-3 py-2 rounded-xl text-xs font-semibold ${
+                    item.active ? "bg-slate-800 text-white" : "text-slate-400 hover:bg-slate-800/50"
+                  }`}
+                >
+                  <span className="flex items-center gap-2">
+                    <span className={`h-2 w-2 rounded-full ${item.dot}`} />
+                    {item.label}
+                  </span>
+                  <span className="text-[10px]">{item.active ? "Aktif" : "Mati"}</span>
+                </button>
+              ))}
+            </div>
+          )}
+        </div>
+
+        {/* Tablet/Desktop Horizontal Single-Row Layer Toggles */}
+        <div className="hidden sm:flex pointer-events-auto items-center gap-1 p-1 rounded-xl bg-slate-900/90 border border-slate-700/80 backdrop-blur-md shadow-xl text-xs max-w-[calc(100vw-22rem)] overflow-x-auto no-scrollbar">
           <button
             onClick={() => setShowSafeZones(!showSafeZones)}
             className={`shrink-0 whitespace-nowrap flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg transition-colors font-medium text-[11px] ${showSafeZones
@@ -724,24 +766,24 @@ export function GameGridSandbox({
         </div>
 
         {/* Zoom Controls */}
-        <div className="flex items-center gap-1 p-1 rounded-xl bg-slate-900/90 border border-slate-700/80 backdrop-blur-md shadow-xl">
+        <div className="pointer-events-auto flex items-center gap-1 p-1 rounded-xl bg-slate-900/90 border border-slate-700/80 backdrop-blur-md shadow-xl">
           <button
             onClick={() => handleZoom("in")}
-            className="p-1.5 rounded-lg hover:bg-slate-800 text-slate-300 transition-colors"
+            className="flex h-8 w-8 sm:h-7 sm:w-7 items-center justify-center rounded-lg hover:bg-slate-800 text-slate-300 transition-colors"
             title="Zoom In"
           >
             <ZoomIn className="h-3.5 w-3.5" />
           </button>
           <button
             onClick={() => handleZoom("out")}
-            className="p-1.5 rounded-lg hover:bg-slate-800 text-slate-300 transition-colors"
+            className="flex h-8 w-8 sm:h-7 sm:w-7 items-center justify-center rounded-lg hover:bg-slate-800 text-slate-300 transition-colors"
             title="Zoom Out"
           >
             <ZoomOut className="h-3.5 w-3.5" />
           </button>
           <button
             onClick={centerCamera}
-            className="p-1.5 rounded-lg hover:bg-slate-800 text-slate-300 transition-colors"
+            className="flex h-8 w-8 sm:h-7 sm:w-7 items-center justify-center rounded-lg hover:bg-slate-800 text-slate-300 transition-colors"
             title="Reset View"
           >
             <RotateCcw className="h-3.5 w-3.5" />

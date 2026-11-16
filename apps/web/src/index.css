@@ -148,12 +148,24 @@ html {
   --brand-950: 0, 0%, 5%;
 }
 
+/* Safe-area tokens for notched iOS / Android edge-to-edge displays */
+:root {
+  --safe-top: env(safe-area-inset-top, 0px);
+  --safe-right: env(safe-area-inset-right, 0px);
+  --safe-bottom: env(safe-area-inset-bottom, 0px);
+  --safe-left: env(safe-area-inset-left, 0px);
+}
+
 @layer base {
   html {
     scroll-behavior: smooth;
+    -webkit-text-size-adjust: 100%;
+    overscroll-behavior-y: none;
   }
   body {
     @apply bg-white font-sans text-ink-800 antialiased;
+    overscroll-behavior-y: contain;
+    -webkit-overflow-scrolling: touch;
   }
   .dark body {
     @apply bg-slate-950 text-slate-200;
@@ -164,6 +176,37 @@ html {
   .dark ::selection {
     @apply bg-brand-700 text-white;
   }
+}
+
+/* Lightweight GPU-composited tactile feedback across mouse, trackpad, and touch */
+@layer components {
+  button:not(:disabled),
+  a[role="button"],
+  [role="button"]:not([aria-disabled="true"]) {
+    transition-property: transform, opacity, background-color, border-color, color, box-shadow;
+    transition-duration: 150ms;
+    transition-timing-function: cubic-bezier(0.22, 1, 0.36, 1);
+  }
+
+  button:not(:disabled):not([data-no-press]):active,
+  [role="button"]:not([aria-disabled="true"]):not([data-no-press]):active {
+    transform: scale(0.965);
+  }
+}
+
+.no-scrollbar {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+.no-scrollbar::-webkit-scrollbar {
+  display: none;
+}
+
+.safe-pt {
+  padding-top: var(--safe-top);
+}
+.safe-pb {
+  padding-bottom: var(--safe-bottom);
 }
 
 @layer components {
@@ -332,6 +375,16 @@ html.harmony-perf-lite * {
   outline-offset: 2px;
 }
 
+/* Accessibility & reduced motion guardrails */
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}
+
 /* Touch device optimizations (Android, iOS tablets & phones) */
 @media (hover: none) and (pointer: coarse) {
   * {
@@ -339,6 +392,10 @@ html.harmony-perf-lite * {
   }
   button, a, input, select, textarea {
     touch-action: manipulation;
+  }
+  /* Prevent iOS Safari auto-zoom when focusing compact inputs */
+  input, select, textarea {
+    font-size: 16px;
   }
 }
 

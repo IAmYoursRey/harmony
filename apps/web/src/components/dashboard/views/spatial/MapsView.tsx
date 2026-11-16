@@ -5832,7 +5832,7 @@ export function MapsView() {
       {/* Top Left Menu Button */}
       <button 
         onClick={() => setMobileOpen(true)}
-        className="absolute top-4 left-4 z-20 flex h-11 w-11 items-center justify-center rounded-xl bg-white shadow-glass backdrop-blur-md hover:bg-slate-50 dark:bg-slate-900/90 dark:border dark:border-slate-800 text-ink-700 dark:text-slate-300 transition-colors"
+        className="absolute top-[calc(1rem+env(safe-area-inset-top))] left-3 sm:left-4 z-20 flex h-11 w-11 items-center justify-center rounded-xl bg-white shadow-glass backdrop-blur-md hover:bg-slate-50 dark:bg-slate-900/90 dark:border dark:border-slate-800 text-ink-700 dark:text-slate-300 transition-colors"
         aria-label="Buka Menu"
       >
         <Menu className="h-5 w-5" />
@@ -5947,7 +5947,7 @@ export function MapsView() {
       )}
 
       {/* Map Mode Switcher & Tools (Top Right) */}
-      <div className="absolute top-4 right-4 z-20 flex flex-col items-end gap-2.5">
+      <div className="absolute top-[calc(1rem+env(safe-area-inset-top))] right-3 sm:right-4 z-20 flex flex-col items-end gap-2">
         {/* Desktop View: Full Segmented Tabs */}
         <div className="hidden md:flex items-center gap-1 bg-white/90 dark:bg-slate-900/90 backdrop-blur-md rounded-2xl shadow-glass border border-slate-200/50 dark:border-slate-800/50 p-1.5">
           <button 
@@ -6088,15 +6088,15 @@ export function MapsView() {
         </div>
 
         {/* Navigasi Geospasial Terpadu: GPS Realtime & Orientasi Kompas 360 */}
-        <div className="relative flex items-stretch gap-1.5 mt-1 p-1.5 rounded-2xl bg-white/90 dark:bg-slate-900/90 shadow-glass backdrop-blur-xl border border-slate-200/80 dark:border-slate-800 shadow-lg select-none">
+        <div className="relative flex items-stretch gap-1 sm:gap-1.5 mt-0.5 p-1 sm:p-1.5 rounded-2xl bg-white/90 dark:bg-slate-900/90 shadow-glass backdrop-blur-xl border border-slate-200/80 dark:border-slate-800 shadow-lg select-none">
           {/* Sisi Kiri: GPS Location Finder & Realtime Accuracy Tracking */}
-          <div className="relative flex flex-col items-center justify-between gap-1 w-14">
+          <div className="relative flex flex-col items-center justify-between gap-1 w-11 sm:w-14">
             {/* Tombol GPS Utama dengan Animasi Deteksi */}
             <button
               type="button"
               onClick={handleFindUserLocation}
               disabled={isLocatingUser}
-              className={`relative flex h-12 w-12 items-center justify-center rounded-xl transition-all active:scale-95 group cursor-pointer border ${
+              className={`relative flex h-10 w-10 sm:h-12 sm:w-12 items-center justify-center rounded-xl transition-all active:scale-95 group cursor-pointer border ${
                 isTrackingLive && userCoords
                   ? 'bg-gradient-to-br from-blue-600 via-indigo-600 to-emerald-600 text-white border-blue-400/60 shadow-lg shadow-indigo-500/30 ring-2 ring-emerald-400/40 animate-[pulse_3s_ease-in-out_infinite]'
                   : isLocatingUser
@@ -6185,7 +6185,7 @@ export function MapsView() {
 
             {/* Pill Info Wilayah / Presisi */}
             <div
-              className={`w-full text-center px-1 py-0.5 rounded text-[8px] font-medium truncate ${
+              className={`hidden sm:block w-full text-center px-1 py-0.5 rounded text-[8px] font-medium truncate ${
                 isTrackingLive && userPreciseLocation?.village
                   ? 'bg-indigo-50/80 dark:bg-indigo-950/40 text-indigo-700 dark:text-indigo-300 font-semibold'
                   : 'bg-slate-100/60 dark:bg-slate-800/60 text-slate-400 dark:text-slate-500'
@@ -6202,12 +6202,12 @@ export function MapsView() {
           <div className="w-px self-stretch bg-slate-200/80 dark:bg-slate-800 my-0.5" />
 
           {/* Sisi Kanan: Interactive 360 Compass & Wind Direction Rose */}
-          <div className="relative flex flex-col items-center justify-between gap-1 w-14">
+          <div className="relative flex flex-col items-center justify-between gap-1 w-11 sm:w-14">
             {/* Compass Dial Face */}
             <button
               type="button"
               onClick={resetRotationNorth}
-              className="relative flex h-12 w-12 items-center justify-center rounded-xl bg-slate-50 dark:bg-slate-800/80 border border-slate-200/60 dark:border-slate-700/60 transition-transform active:scale-95 group cursor-pointer"
+              className="relative flex h-10 w-10 sm:h-12 sm:w-12 items-center justify-center rounded-xl bg-slate-50 dark:bg-slate-800/80 border border-slate-200/60 dark:border-slate-700/60 transition-transform active:scale-95 group cursor-pointer"
               title={`Orientasi Kompas: ${currentRotation}° (${getCardinalDirection(currentRotation).name}). Klik untuk reset ke arah Utara (0°).`}
             >
               {/* Rotating Ring with Cardinal Marks */}
@@ -6247,7 +6247,7 @@ export function MapsView() {
             </div>
 
             {/* Rotation Buttons */}
-            <div className="flex items-center gap-1">
+            <div className="hidden sm:flex items-center gap-1">
               <button
                 type="button"
                 onClick={() => rotateMapBy(-15)}
@@ -6280,12 +6280,12 @@ export function MapsView() {
         </div>
 
         {/* Tombol Cepat: Cuaca & Navigasi Rute (Tepat di Bawah GPS & Kompas) */}
-        <div className="relative flex items-stretch gap-1.5 p-1.5 rounded-2xl bg-white/90 dark:bg-slate-900/90 shadow-glass backdrop-blur-xl border border-slate-200/80 dark:border-slate-800 shadow-lg select-none">
+        <div className="relative flex items-stretch gap-1 sm:gap-1.5 p-1 sm:p-1.5 rounded-2xl bg-white/90 dark:bg-slate-900/90 shadow-glass backdrop-blur-xl border border-slate-200/80 dark:border-slate-800 shadow-lg select-none">
           {/* Tombol Cuaca */}
           <button
             type="button"
             onClick={() => openStudioDomain('weather')}
-            className="relative flex flex-col items-center justify-between gap-1 w-14 py-2 px-1 rounded-xl bg-gradient-to-b from-sky-500/10 via-indigo-500/5 to-transparent hover:from-sky-500/20 hover:via-indigo-500/15 border border-sky-500/25 hover:border-sky-500/40 text-slate-800 dark:text-slate-100 transition-all hover:scale-[1.03] active:scale-95 group cursor-pointer shadow-xs"
+            className="relative flex flex-col items-center justify-between gap-1 w-11 sm:w-14 py-1.5 sm:py-2 px-1 rounded-xl bg-gradient-to-b from-sky-500/10 via-indigo-500/5 to-transparent hover:from-sky-500/20 hover:via-indigo-500/15 border border-sky-500/25 hover:border-sky-500/40 text-slate-800 dark:text-slate-100 transition-all hover:scale-[1.03] active:scale-95 group cursor-pointer shadow-xs"
             title="Buka Studio Cuaca, Presipitasi & Radar Doppler 16 Sumber"
             aria-label="Buka Studio Cuaca"
           >
@@ -6298,7 +6298,7 @@ export function MapsView() {
             </div>
             <div className="text-center w-full">
               <span className="text-[10px] font-bold block text-slate-800 dark:text-white leading-tight">Cuaca</span>
-              <span className="text-[8px] font-mono font-semibold text-sky-600 dark:text-sky-400 block truncate">16 Sumber</span>
+              <span className="hidden sm:block text-[8px] font-mono font-semibold text-sky-600 dark:text-sky-400 truncate">16 Sumber</span>
             </div>
           </button>
 
@@ -6318,7 +6318,7 @@ export function MapsView() {
                 handleFindUserLocation();
               }
             }}
-            className="relative flex flex-col items-center justify-between gap-1 w-14 py-2 px-1 rounded-xl bg-gradient-to-b from-emerald-500/10 via-teal-500/5 to-transparent hover:from-emerald-500/20 hover:via-teal-500/15 border border-emerald-500/25 hover:border-emerald-500/40 text-slate-800 dark:text-slate-100 transition-all hover:scale-[1.03] active:scale-95 group cursor-pointer shadow-xs"
+            className="relative flex flex-col items-center justify-between gap-1 w-11 sm:w-14 py-1.5 sm:py-2 px-1 rounded-xl bg-gradient-to-b from-emerald-500/10 via-teal-500/5 to-transparent hover:from-emerald-500/20 hover:via-teal-500/15 border border-emerald-500/25 hover:border-emerald-500/40 text-slate-800 dark:text-slate-100 transition-all hover:scale-[1.03] active:scale-95 group cursor-pointer shadow-xs"
             title="Buka Panel Lintasan & Trafik Jalan"
             aria-label="Buka Lintasan & Trafik Jalan"
           >
@@ -6331,7 +6331,7 @@ export function MapsView() {
             </div>
             <div className="text-center w-full">
               <span className="text-[10px] font-bold block text-slate-800 dark:text-white leading-tight">Rute</span>
-              <span className="text-[8px] font-mono font-semibold text-emerald-600 dark:text-emerald-400 block truncate">Navigasi</span>
+              <span className="hidden sm:block text-[8px] font-mono font-semibold text-emerald-600 dark:text-emerald-400 truncate">Navigasi</span>
             </div>
           </button>
         </div>
@@ -6355,8 +6355,8 @@ export function MapsView() {
         .ol-zoom {
           ${weatherMapOverlay !== 'none' ? 'display: none !important;' : `
           top: auto !important;
-          bottom: 8.5rem !important;
-          left: 1rem !important;
+          bottom: calc(8.25rem + env(safe-area-inset-bottom)) !important;
+          left: 0.75rem !important;
           z-index: 10 !important;
           `}
         }
@@ -6403,7 +6403,7 @@ export function MapsView() {
       )}
 
       {/* Top Search Bar (Beside Menu Button, leaving room for right-side switcher on mobile) */}
-      <div className="absolute top-4 left-16 z-10 w-[calc(100%-8.5rem)] md:w-80 lg:w-96 transition-all duration-300">
+      <div className="absolute top-[calc(1rem+env(safe-area-inset-top))] left-16 z-10 w-[calc(100%-8.25rem)] sm:max-w-[260px] md:w-72 lg:w-80 xl:w-96 transition-all duration-300">
         <div className="relative">
           <div className="flex h-11 w-full items-center overflow-hidden rounded-full bg-white px-4 shadow-glass backdrop-blur-md dark:bg-slate-900/90 dark:border dark:border-slate-800 focus-within:ring-2 focus-within:ring-brand-500 transition-shadow">
             <Search className="h-4 w-4 text-slate-400" />
@@ -6455,7 +6455,7 @@ export function MapsView() {
       </div>
 
       {/* Top Quick Actions: Daerah Rawan Bencana, Panduan WebGIS & Experience Mode Switcher */}
-      <div className="absolute top-4 left-[calc(4rem+20.5rem)] lg:left-[calc(4rem+24.5rem)] z-20 hidden md:flex items-center gap-2">
+      <div className="absolute top-[calc(1rem+env(safe-area-inset-top))] left-[calc(4rem+25.5rem)] z-20 hidden xl:flex items-center gap-2">
         <button
           type="button"
           onClick={() => setShowDisasterRiskCenter(true)}
@@ -8812,7 +8812,7 @@ export function MapsView() {
 
       {/* Tombol Bulat Pojok Kiri: Transparansi Sumber Data Resmi (BMKG, PVMBG, BIG, BNPB, Kemendikbud) */}
       {weatherMapOverlay === 'none' && (
-        <div className="absolute bottom-14 sm:bottom-16 left-3 sm:left-4 z-30 pointer-events-auto">
+        <div className="absolute bottom-[calc(3.5rem+env(safe-area-inset-bottom))] sm:bottom-[calc(4rem+env(safe-area-inset-bottom))] left-3 sm:left-4 z-30 pointer-events-auto">
           <div className="relative group">
             <button
               type="button"
@@ -9750,7 +9750,7 @@ export function MapsView() {
               setShowObservationCoverage(false);
               setShowPanel(true);
             }}
-            className="absolute bottom-6 right-6 z-20 flex items-center gap-3 rounded-2xl bg-white/95 dark:bg-slate-900/95 px-4 py-2.5 sm:py-3 shadow-2xl backdrop-blur-xl border border-slate-200/90 dark:border-slate-800 text-slate-800 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-800/90 transition-all hover:scale-[1.02] active:scale-95 group cursor-pointer shadow-brand-500/10"
+            className="absolute bottom-[calc(1rem+env(safe-area-inset-bottom))] sm:bottom-[calc(1.25rem+env(safe-area-inset-bottom))] right-3 sm:right-6 z-20 flex items-center gap-2.5 sm:gap-3 rounded-2xl bg-white/95 dark:bg-slate-900/95 px-3.5 sm:px-4 py-2.5 sm:py-3 shadow-2xl backdrop-blur-xl border border-slate-200/90 dark:border-slate-800 text-slate-800 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-800/90 transition-all hover:scale-[1.02] active:scale-95 group cursor-pointer shadow-brand-500/10"
             title="Klik untuk membuka Pengaturan Lapisan Peta (Harmony Maps)"
           >
             <div className="relative flex h-8 w-8 items-center justify-center rounded-xl bg-brand-50 dark:bg-brand-950/60 border border-brand-200/60 dark:border-brand-800/60 text-brand-600 dark:text-brand-400 shadow-xs">

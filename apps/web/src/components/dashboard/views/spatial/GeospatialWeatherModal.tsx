@@ -54,6 +54,8 @@ import {
   Lock,
   History,
   Droplets,
+  CloudSun,
+  BarChart3,
 } from 'lucide-react';
 import {
   ResponsiveContainer,
@@ -2437,13 +2439,14 @@ export const GeospatialWeatherModal: React.FC<GeospatialWeatherModalProps> = ({
                     setActiveDomain('remote_sensing');
                   }
                 }}
-                className={`px-2.5 py-1 rounded-xl text-[11px] font-bold whitespace-nowrap transition-all ${
+                className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-xl text-[11px] font-bold whitespace-nowrap transition-all ${
                   domainPillarFilter === 'observasi'
                     ? 'bg-emerald-600 text-white shadow-xs'
                     : 'bg-white/60 dark:bg-slate-800/60 text-slate-600 dark:text-slate-400 hover:bg-white dark:hover:bg-slate-800'
                 }`}
               >
-                🛰️ Observasi Bumi ({STUDIO_DOMAINS.filter(d => d.pillar === 'observasi').length})
+                <Satellite className="w-3 h-3 shrink-0" />
+                <span>Observasi Bumi ({STUDIO_DOMAINS.filter(d => d.pillar === 'observasi').length})</span>
               </button>
               <button
                 onClick={() => {
@@ -2452,13 +2455,14 @@ export const GeospatialWeatherModal: React.FC<GeospatialWeatherModalProps> = ({
                     setActiveDomain('weather');
                   }
                 }}
-                className={`px-2.5 py-1 rounded-xl text-[11px] font-bold whitespace-nowrap transition-all ${
+                className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-xl text-[11px] font-bold whitespace-nowrap transition-all ${
                   domainPillarFilter === 'atmosfer'
                     ? 'bg-sky-600 text-white shadow-xs'
                     : 'bg-white/60 dark:bg-slate-800/60 text-slate-600 dark:text-slate-400 hover:bg-white dark:hover:bg-slate-800'
                 }`}
               >
-                🌦️ Atmosfer & MKG ({STUDIO_DOMAINS.filter(d => d.pillar === 'atmosfer').length})
+                <CloudSun className="w-3 h-3 shrink-0" />
+                <span>Atmosfer &amp; MKG ({STUDIO_DOMAINS.filter(d => d.pillar === 'atmosfer').length})</span>
               </button>
               <button
                 onClick={() => {
@@ -2467,13 +2471,14 @@ export const GeospatialWeatherModal: React.FC<GeospatialWeatherModalProps> = ({
                     setActiveDomain('analytics');
                   }
                 }}
-                className={`px-2.5 py-1 rounded-xl text-[11px] font-bold whitespace-nowrap transition-all ${
+                className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-xl text-[11px] font-bold whitespace-nowrap transition-all ${
                   domainPillarFilter === 'analitik'
                     ? 'bg-purple-600 text-white shadow-xs'
                     : 'bg-white/60 dark:bg-slate-800/60 text-slate-600 dark:text-slate-400 hover:bg-white dark:hover:bg-slate-800'
                 }`}
               >
-                📊 Analitik & Data ({STUDIO_DOMAINS.filter(d => d.pillar === 'analitik').length})
+                <BarChart3 className="w-3 h-3 shrink-0" />
+                <span>Analitik &amp; Data ({STUDIO_DOMAINS.filter(d => d.pillar === 'analitik').length})</span>
               </button>
             </div>
 

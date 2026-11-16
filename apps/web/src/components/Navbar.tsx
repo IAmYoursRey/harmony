@@ -109,9 +109,9 @@ export function Navbar() {
 
   return (
     <header
-      className={`fixed inset-x-0 top-0 z-50 transition-all duration-300 ${
+      className={`fixed inset-x-0 top-0 z-50 pt-[env(safe-area-inset-top)] transition-all duration-300 ${
         scrolled
-          ? "bg-white/70 backdrop-blur-xl border-b border-white/70 shadow-glass dark:border-slate-700/60 dark:bg-slate-900/70"
+          ? "bg-white/75 backdrop-blur-xl border-b border-white/70 shadow-glass dark:border-slate-700/60 dark:bg-slate-900/75"
           : "bg-transparent"
       }`}
     >

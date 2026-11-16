@@ -458,8 +458,10 @@ export function FloatingAICopilot() {
     <>
       {/* Floating Small Square Trigger Button */}
       <div
-        className={`fixed z-[100010] transition-all duration-300 pointer-events-auto right-4 sm:right-6 ${
-          isMapsRoute ? "bottom-[98px] sm:bottom-[104px]" : "bottom-4 sm:bottom-6"
+        className={`fixed z-[100010] transition-all duration-300 pointer-events-auto right-3 sm:right-6 ${
+          isMapsRoute
+            ? "bottom-[calc(5.35rem+env(safe-area-inset-bottom))] sm:bottom-[calc(5.75rem+env(safe-area-inset-bottom))]"
+            : "bottom-[calc(1rem+env(safe-area-inset-bottom))] sm:bottom-[calc(1.5rem+env(safe-area-inset-bottom))]"
         }`}
       >
         <button
@@ -505,10 +507,10 @@ export function FloatingAICopilot() {
             animate={{ opacity: 1, scale: 1, y: 0 }}
             exit={{ opacity: 0, scale: 0.9, y: 20 }}
             transition={{ type: "spring", stiffness: 350, damping: 28 }}
-            className={`fixed z-[100020] right-4 sm:right-6 rounded-3xl bg-white/95 dark:bg-slate-900/95 backdrop-blur-2xl border border-slate-200/90 dark:border-slate-800 shadow-2xl flex flex-col overflow-hidden text-slate-800 dark:text-slate-100 pointer-events-auto ${
+            className={`fixed z-[100020] right-3 sm:right-6 rounded-3xl bg-white/95 dark:bg-slate-900/95 backdrop-blur-2xl border border-slate-200/90 dark:border-slate-800 shadow-2xl flex flex-col overflow-hidden text-slate-800 dark:text-slate-100 pointer-events-auto ${
               isExpanded
-                ? "bottom-4 sm:bottom-6 w-[94vw] sm:w-[540px] h-[85vh]"
-                : `${isMapsRoute ? "bottom-[148px] sm:bottom-[154px]" : "bottom-20 sm:bottom-22"} w-[92vw] sm:w-[410px] h-[540px] max-h-[82vh]`
+                ? "bottom-[calc(1rem+env(safe-area-inset-bottom))] w-[calc(100vw-1.5rem)] sm:w-[540px] h-[min(85dvh,calc(100dvh-2rem-env(safe-area-inset-top)-env(safe-area-inset-bottom)))]"
+                : `${isMapsRoute ? "bottom-[calc(9rem+env(safe-area-inset-bottom))]" : "bottom-[calc(4.75rem+env(safe-area-inset-bottom))] sm:bottom-[calc(5.5rem+env(safe-area-inset-bottom))]"} w-[calc(100vw-1.5rem)] sm:w-[410px] h-[520px] max-h-[calc(100dvh-7.5rem-env(safe-area-inset-top)-env(safe-area-inset-bottom))]`
             }`}
             style={{ fontFamily: "Inter, system-ui, sans-serif" }}
           >

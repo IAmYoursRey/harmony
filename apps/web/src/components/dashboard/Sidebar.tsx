@@ -2,6 +2,7 @@ import { X, LogOut, Map, LogIn, Satellite } from "lucide-react";
 import { Link } from "react-router-dom";
 import { navItems } from "@/components/dashboard/nav";
 import { Logo } from "@/components/Logo";
+import { ThemePicker } from "@/components/ThemePicker";
 import { useI18n } from "@/hooks/useI18n";
 import { useAuth } from "@/hooks/useAuth";
 
@@ -52,7 +53,7 @@ export function Sidebar({
       />
 
       <aside
-        className={`fixed inset-y-0 left-0 z-50 flex w-72 flex-col bg-white/80 backdrop-blur-xl border-r border-brand-100 transition-transform duration-300 dark:border-slate-700 dark:bg-slate-900/80 ${
+        className={`fixed inset-y-0 left-0 z-50 flex w-72 max-w-[85vw] flex-col bg-white/85 pt-[env(safe-area-inset-top)] pb-[env(safe-area-inset-bottom)] backdrop-blur-xl border-r border-brand-100 transition-transform duration-300 dark:border-slate-700 dark:bg-slate-900/85 ${
           forceOverlay ? "" : "lg:static lg:z-0 lg:translate-x-0"
         } ${
           mobileOpen ? "translate-x-0" : "-translate-x-full"
@@ -70,13 +71,18 @@ export function Sidebar({
               Harmony
             </span>
           </Link>
-          <button
-            onClick={onCloseMobile}
-            className={`flex h-9 w-9 items-center justify-center rounded-lg text-ink-500 hover:bg-brand-50 dark:text-slate-400 dark:hover:bg-slate-800 ${forceOverlay ? "" : "lg:hidden"}`}
-            aria-label="Close menu"
-          >
-            <X className="h-5 w-5" />
-          </button>
+          <div className="flex items-center gap-1.5">
+            <div className="sm:hidden">
+              <ThemePicker />
+            </div>
+            <button
+              onClick={onCloseMobile}
+              className={`flex h-10 w-10 items-center justify-center rounded-xl text-ink-500 hover:bg-brand-50 dark:text-slate-400 dark:hover:bg-slate-800 ${forceOverlay ? "" : "lg:hidden"}`}
+              aria-label="Close menu"
+            >
+              <X className="h-5 w-5" />
+            </button>
+          </div>
         </div>
 
         {/* Nav */}
@@ -218,7 +224,7 @@ export function Sidebar({
                   <Link
                     to={targetPath}
                     onClick={handleClick}
-                    className={`group flex w-full items-center gap-3 rounded-xl px-3 py-2 text-sm font-medium transition-all ${
+                    className={`group flex w-full min-h-[42px] items-center gap-3 rounded-xl px-3 py-2 text-sm font-medium transition-all ${
                       isActive
                         ? "bg-brand-600 text-white shadow-glass"
                         : "text-ink-600 hover:bg-brand-50 hover:text-brand-700 dark:text-slate-300 dark:hover:bg-slate-800 dark:hover:text-white"

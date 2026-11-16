@@ -37,16 +37,16 @@ export function Topbar({ onOpenMobile, title }: TopbarProps) {
     : "User";
 
   return (
-    <header className="sticky top-0 z-30 flex h-16 items-center gap-3 border-b border-brand-100 bg-white/80 px-4 backdrop-blur-xl dark:border-slate-700 dark:bg-slate-900/80 sm:px-6">
+    <header className="sticky top-0 z-30 flex min-h-[4rem] pt-[env(safe-area-inset-top)] items-center gap-2 sm:gap-3 border-b border-brand-100 bg-white/85 px-3 sm:px-6 backdrop-blur-xl dark:border-slate-700 dark:bg-slate-900/85">
       <button
         onClick={onOpenMobile}
-        className="flex h-10 w-10 items-center justify-center rounded-lg text-ink-600 hover:bg-brand-50 dark:text-slate-300 dark:hover:bg-slate-800 lg:hidden"
+        className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl text-ink-600 hover:bg-brand-50 dark:text-slate-300 dark:hover:bg-slate-800 lg:hidden"
         aria-label="Open menu"
       >
         <Menu className="h-5 w-5" />
       </button>
 
-      <h1 className="font-display text-lg font-bold tracking-tight text-ink-900 dark:text-white sm:text-xl truncate">
+      <h1 className="font-display text-base sm:text-xl font-bold tracking-tight text-ink-900 dark:text-white truncate min-w-0 flex-1 md:flex-none">
         {title}
       </h1>
 
@@ -131,15 +131,15 @@ export function Topbar({ onOpenMobile, title }: TopbarProps) {
         </div>
       </div>
 
-      {/* Theme picker */}
-      <ThemePicker />
-
-
+      {/* Theme picker (tucked into sidebar on narrow phones to keep Topbar spacious) */}
+      <div className="hidden sm:block shrink-0">
+        <ThemePicker />
+      </div>
 
       {/* Dark mode toggle */}
       <button
         onClick={toggle}
-        className="flex h-10 w-10 items-center justify-center rounded-full text-ink-600 transition-colors hover:bg-brand-50 dark:text-slate-300 dark:hover:bg-slate-800"
+        className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full text-ink-600 transition-colors hover:bg-brand-50 dark:text-slate-300 dark:hover:bg-slate-800"
         aria-label="Toggle dark mode"
       >
         {theme === "light" ? (
@@ -210,10 +210,11 @@ export function Topbar({ onOpenMobile, title }: TopbarProps) {
       ) : (
         <button
           onClick={() => navigate("/login?redirect=/app/dashboard")}
-          className="flex items-center gap-2 rounded-full bg-gradient-to-r from-brand-600 to-indigo-600 px-4 py-2 text-xs font-semibold text-white shadow-sm transition-all hover:from-brand-700 hover:to-indigo-700 hover:shadow-md active:scale-[0.99]"
+          className="flex shrink-0 whitespace-nowrap items-center gap-1.5 sm:gap-2 rounded-full bg-gradient-to-r from-brand-600 to-indigo-600 px-3.5 sm:px-4 py-2 text-xs font-semibold text-white shadow-sm hover:from-brand-700 hover:to-indigo-700 hover:shadow-md"
         >
-          <LogIn className="h-3.5 w-3.5" />
-          <span>Masuk / Daftar</span>
+          <LogIn className="h-3.5 w-3.5 shrink-0" />
+          <span className="sm:hidden">Masuk</span>
+          <span className="hidden sm:inline">Masuk / Daftar</span>
         </button>
       )}
     </header>

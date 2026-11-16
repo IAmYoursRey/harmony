@@ -197,7 +197,7 @@ export function Phase1Workspace() {
           <div className="flex items-center gap-2 shrink-0">
             <button
               onClick={() => navigate(`/app/digital-twin/editor/${map.id}`)}
-              className="flex items-center gap-2 bg-slate-800 hover:bg-slate-900 text-white px-4 py-2 rounded-xl transition-colors font-medium shadow-sm text-sm"
+              className="flex min-h-[42px] items-center justify-center gap-2 bg-slate-800 hover:bg-slate-900 text-white px-4 py-2 rounded-xl transition-colors font-medium shadow-sm text-sm whitespace-nowrap"
             >
               <Edit className="h-4 w-4" /> Edit Denah Dasar
             </button>
@@ -219,7 +219,7 @@ export function Phase1Workspace() {
               Pilih skenario untuk menampilkan zona bahaya dan jalur evakuasi pada denah.
             </p>
           </div>
-          <div className="flex flex-wrap items-center gap-2 self-start sm:self-auto">
+          <div className="grid grid-cols-2 sm:flex sm:flex-wrap items-center gap-2 w-full sm:w-auto">
             <button
               onClick={() => {
                 setOnlineDefaultScenarioId(
@@ -227,15 +227,17 @@ export function Phase1Workspace() {
                 );
                 setShowOnlineModal(true);
               }}
-              className="flex items-center gap-2 bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-2 rounded-xl transition-colors font-bold text-sm shadow-sm"
+              className="flex min-h-[42px] items-center justify-center gap-2 bg-indigo-600 hover:bg-indigo-700 text-white px-3.5 sm:px-4 py-2 rounded-xl transition-colors font-bold text-xs sm:text-sm shadow-sm whitespace-nowrap"
             >
-              <Users className="h-4 w-4" /> Mabar / Gabung Online
+              <Users className="h-4 w-4 shrink-0" />
+              <span className="sm:hidden">Mabar Online</span>
+              <span className="hidden sm:inline">Mabar / Gabung Online</span>
             </button>
             <button
               onClick={() => setShowCreateScenario(true)}
-              className="flex items-center gap-2 bg-brand-600 hover:bg-brand-700 text-white px-4 py-2 rounded-xl transition-colors font-medium text-sm"
+              className="flex min-h-[42px] items-center justify-center gap-2 bg-brand-600 hover:bg-brand-700 text-white px-3.5 sm:px-4 py-2 rounded-xl transition-colors font-medium text-xs sm:text-sm whitespace-nowrap"
             >
-              <Plus className="h-4 w-4" /> Buat Skenario
+              <Plus className="h-4 w-4 shrink-0" /> Buat Skenario
             </button>
           </div>
         </div>
