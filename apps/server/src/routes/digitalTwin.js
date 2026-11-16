@@ -2,6 +2,19 @@ import express from "express";
 import { readDB, writeDB, saveProfile, pool, timeoutQuery } from "../repositories/repository.js";
 import { verifyToken } from "../middleware/authMiddleware.js";
 import { initGameSession, endGameSession } from "../game/gameManager.js";
+import {
+  buildSman1NgoroPdfDigitalTwin,
+  SMAN1_NGORO_SCHOOL_ID,
+  SMAN1_NGORO_MAP_ID,
+} from "../data/sman1NgoroPdfMapBuilder.js";
+
+let cachedCanonicalSman1Twin = null;
+function getCanonicalSman1Twin() {
+  if (!cachedCanonicalSman1Twin) {
+    cachedCanonicalSman1Twin = buildSman1NgoroPdfDigitalTwin();
+  }
+  return cachedCanonicalSman1Twin;
+}
 
 const router = express.Router();
 function generateId(prefix) {
@@ -824,8 +837,32 @@ router.get("/phase1/maps", verifyToken, async (req, res) => {
   const { schoolId } = req.query;
   if (!schoolId) return res.status(400).json({ error: "schoolId required" });
 
+  const ensureCanonicalSman1Map = (list) => {
+    if (schoolId !== SMAN1_NGORO_SCHOOL_ID) return list;
+    const idx = list.findIndex((m) => m.id === SMAN1_NGORO_MAP_ID);
+    if (idx > 0) {
+      const [official] = list.splice(idx, 1);
+      list.unshift(official);
+      return list;
+    }
+    if (idx === -1) {
+      const canonical = getCanonicalSman1Twin();
+      list.unshift({
+        ...canonical.map,
+        scenarios: canonical.scenarios.map(({ id, name, disaster_type, status, version }) => ({
+          id,
+          name,
+          disaster_type,
+          status,
+          version,
+        })),
+      });
+    }
+    return list;
+  };
+
   if (!pool)
-    return res.json({ data: [] });
+    return res.json({ data: ensureCanonicalSman1Map([]) });
   try {
     const result = await timeoutQuery(
       pool.query(
@@ -843,7 +880,7 @@ router.get("/phase1/maps", verifyToken, async (req, res) => {
       );
       map.scenarios = scenariosRes.rows;
     }
-    res.json({ data: maps });
+    res.json({ data: ensureCanonicalSman1Map(maps) });
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
@@ -874,15 +911,39 @@ router.post("/phase1/maps", verifyToken, async (req, res) => {
 
 router.get("/phase1/maps/:mapId", verifyToken, async (req, res) => {
   const { mapId } = req.params;
-  if (!pool)
+  const buildCanonicalMapPayload = () => {
+    const canonical = getCanonicalSman1Twin();
+    return {
+      ...canonical.map,
+      rooms: canonical.rooms,
+      boundaries: canonical.boundaries,
+      stairs: [],
+      scenarios: canonical.scenarios,
+      floors: canonical.floors.map((floor) => ({
+        ...floor,
+        tiles: canonical.tiles,
+        objects: canonical.objects,
+      })),
+    };
+  };
+
+  if (!pool) {
+    if (mapId === SMAN1_NGORO_MAP_ID) {
+      return res.json({ data: buildCanonicalMapPayload() });
+    }
     return res.json({ data: [] });
+  }
 
   try {
     const mapRes = await timeoutQuery(
       pool.query("SELECT * FROM digital_twin_maps WHERE id = $1", [mapId]),
     );
-    if (mapRes.rows.length === 0)
+    if (mapRes.rows.length === 0) {
+      if (mapId === SMAN1_NGORO_MAP_ID) {
+        return res.json({ data: buildCanonicalMapPayload() });
+      }
       return res.status(404).json({ error: "Map not found" });
+    }
 
     const map = mapRes.rows[0];
     const floorsRes = await timeoutQuery(
@@ -1176,8 +1237,13 @@ router.post("/phase1/maps/:mapId/scenarios", verifyToken, async (req, res) => {
 
 router.get("/phase1/scenarios/:scenarioId", verifyToken, async (req, res) => {
   const { scenarioId } = req.params;
-  if (!pool)
+  const canonicalScenario = getCanonicalSman1Twin().scenarios.find(
+    (sc) => sc.id === scenarioId,
+  );
+  if (!pool) {
+    if (canonicalScenario) return res.json({ data: canonicalScenario });
     return res.json({ data: [] });
+  }
 
   try {
     const scnRes = await timeoutQuery(
@@ -1185,8 +1251,10 @@ router.get("/phase1/scenarios/:scenarioId", verifyToken, async (req, res) => {
         scenarioId,
       ]),
     );
-    if (scnRes.rows.length === 0)
+    if (scnRes.rows.length === 0) {
+      if (canonicalScenario) return res.json({ data: canonicalScenario });
       return res.status(404).json({ error: "Scenario not found" });
+    }
 
     const scenario = scnRes.rows[0];
     const objsRes = await timeoutQuery(

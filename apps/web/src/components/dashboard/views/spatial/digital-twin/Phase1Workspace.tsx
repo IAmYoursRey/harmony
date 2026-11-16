@@ -62,7 +62,8 @@ export function Phase1Workspace() {
       const data = await phase1Api.getMaps(activeSchool.id);
       setMaps(data);
       if (data && data.length > 0 && !selectedMapId) {
-        setSelectedMapId(data[0].id);
+        const officialMap = data.find((m) => m.id === "map-sman1-denah");
+        setSelectedMapId(officialMap ? officialMap.id : data[0].id);
       }
     } catch (err: any) {
       show(`Gagal memuat map: ${err.message}`, "error");
