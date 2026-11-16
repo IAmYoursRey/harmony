@@ -692,7 +692,7 @@ export function GameGridSandbox({
         </div>
 
         {/* Tablet/Desktop Horizontal Single-Row Layer Toggles */}
-        <div className="hidden sm:flex pointer-events-auto items-center gap-1 p-1 rounded-xl bg-slate-900/90 border border-slate-700/80 backdrop-blur-md shadow-xl text-xs max-w-[calc(100vw-22rem)] overflow-x-auto no-scrollbar">
+        <div className="hidden sm:flex pointer-events-auto items-center gap-1 p-1 rounded-xl bg-slate-900/90 border border-slate-700/80 backdrop-blur-md shadow-xl text-xs max-w-[calc(100%-9.5rem)] overflow-x-auto no-scrollbar">
           <button
             onClick={() => setShowSafeZones(!showSafeZones)}
             className={`shrink-0 whitespace-nowrap flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg transition-colors font-medium text-[11px] ${showSafeZones

@@ -219,7 +219,7 @@ export function Phase1Workspace() {
               Pilih skenario untuk menampilkan zona bahaya dan jalur evakuasi pada denah.
             </p>
           </div>
-          <div className="grid grid-cols-2 sm:flex sm:flex-wrap items-center gap-2 w-full sm:w-auto">
+          <div className="grid grid-cols-2 sm:flex sm:flex-nowrap items-center gap-2 w-full sm:w-auto shrink-0">
             <button
               onClick={() => {
                 setOnlineDefaultScenarioId(
