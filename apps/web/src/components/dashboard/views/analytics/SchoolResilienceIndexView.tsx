@@ -33,6 +33,10 @@ import {
   type LucideIcon,
 } from "lucide-react";
 import { SmartReadinessIndex } from "@/components/SmartReadinessIndex";
+import {
+  classifySpabReadiness,
+  OFFICIAL_PREPAREDNESS_REFERENCES,
+} from "@/data/disasterPreparednessRubric";
 import { motion } from "framer-motion";
 import {
   RadarChart,
@@ -132,18 +136,26 @@ export function SchoolResilienceIndexView() {
               siswa terdaftar di 8 kelas dalam modul kebencanaan dan simulasi digital twin.
             </p>
           </div>
-          {metrics && (
-            <div className="shrink-0 flex items-center justify-center h-28 w-28 rounded-full border-4 border-white/20 bg-white/10 backdrop-blur-md shadow-xl">
-              <div className="text-center">
-                <span className="block text-3xl font-black">
-                  {metrics.overall}
-                </span>
-                <span className="block text-[10px] font-bold uppercase tracking-wider text-brand-100">
-                  Indeks
+          {metrics && (() => {
+            const schoolSpab = classifySpabReadiness(metrics.overall);
+            return (
+              <div className="shrink-0 flex flex-col items-center gap-2">
+                <div className="flex items-center justify-center h-28 w-28 rounded-full border-4 border-white/20 bg-white/10 backdrop-blur-md shadow-xl">
+                  <div className="text-center">
+                    <span className="block text-3xl font-black">
+                      {metrics.overall}
+                    </span>
+                    <span className="block text-[10px] font-bold uppercase tracking-wider text-brand-100">
+                      {schoolSpab.levelLabel} · {schoolSpab.lipiCategory}
+                    </span>
+                  </div>
+                </div>
+                <span className="text-[10px] font-semibold px-2.5 py-0.5 rounded-full bg-white/15 border border-white/20 text-white">
+                  {schoolSpab.smabStageTitle}
                 </span>
               </div>
-            </div>
-          )}
+            );
+          })()}
         </div>
       </div>
 
@@ -489,6 +501,28 @@ export function SchoolResilienceIndexView() {
                 ))}
               </tbody>
             </table>
+          </div>
+        </Card>
+        {/* Metodologi Penilaian Berbasis Standar SPAB & LIPI-UNESCO */}
+        <Card className="border-brand-100 dark:border-slate-800 bg-brand-50/40 dark:bg-slate-900/60">
+          <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-3">
+            <div>
+              <h4 className="font-display text-sm font-bold text-ink-900 dark:text-white flex items-center gap-2">
+                <ShieldCheck className="h-4 w-4 text-brand-600" />
+                Standar Penilaian Level 1–4 &amp; Kategori LIPI–UNESCO/ISDR
+              </h4>
+              <p className="text-xs text-ink-600 dark:text-slate-300 mt-1">
+                Skor dan level ketahanan sekolah diukur memakai ambang standar nasional SPAB (80–100: Level 4 Sangat Siap, 65–79: Level 3 Siap, 40–64: Level 2 Kurang/Hampir Siap, 0–39: Level 1 Belum Siap):
+              </p>
+              <ul className="mt-2 space-y-1 text-[11px] text-ink-500 dark:text-slate-400">
+                {OFFICIAL_PREPAREDNESS_REFERENCES.map((ref) => (
+                  <li key={ref.code}>
+                    <strong className="text-ink-800 dark:text-slate-200">{ref.code}:</strong>{" "}
+                    {ref.title}
+                  </li>
+                ))}
+              </ul>
+            </div>
           </div>
         </Card>
       </div>

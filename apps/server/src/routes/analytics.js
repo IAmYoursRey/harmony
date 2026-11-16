@@ -288,53 +288,55 @@ router.get("/sri", verifyToken, async (req, res) => {
   const participation =
     Math.round((uniqueStudentsWithResults / schoolProfiles.length) * 100) || 0;
 
+  // Thresholds follow LIPI–UNESCO/ISDR (2006) readiness bands & BNPB No. 4/2012 SPAB Levels:
+  // >= 80 Sangat Siap (Level 4), 65-79 Siap (Level 3), < 65 Tahap Rintisan / Kurang Siap (Level 1-2).
   const recommendations = [];
-  if (evacuation < 60) {
+  if (evacuation < 65) {
     recommendations.push({
       icon: "Route",
-      titleKey: "Jalur Evakuasi",
-      detailKey: `Waktu rata-rata evakuasi kelas lambat (${evacuation}%). Banyak siswa kesulitan merespons tepat waktu.`,
+      titleKey: "Jalur Evakuasi (Belum Memenuhi Ambang Siap >= 65)",
+      detailKey: `Indeks waktu evakuasi kelas (${evacuation}/100, Level ${evacuation >= 40 ? 2 : 1}). Latih respons keluar ruang tertutup lebih cepat menuju titik aman.`,
       accent: "from-red-500 to-orange-500",
     });
   } else {
     recommendations.push({
       icon: "Route",
-      titleKey: "Jalur Evakuasi Cepat",
+      titleKey: evacuation >= 80 ? "Jalur Evakuasi Optimal (Level 4)" : "Jalur Evakuasi Efektif (Level 3)",
       detailKey:
-        "Evakuasi berjalan efisien. Pertahankan atau tingkatkan dengan skenario bencana ganda.",
+        "Waktu evakuasi memenuhi ambang Siap LIPI–UNESCO (>= 65). Pertahankan dengan skenario bencana adaptif.",
       accent: "from-emerald-500 to-teal-500",
     });
   }
 
-  if (knowledge < 70) {
+  if (knowledge < 65) {
     recommendations.push({
       icon: "GraduationCap",
-      titleKey: "Peningkatan Pengetahuan",
-      detailKey: `Skor pemahaman kuis (${knowledge}%) di bawah target. Perlu intervensi materi gempa.`,
+      titleKey: "Penguatan Pilar 3 SPAB (Pengetahuan)",
+      detailKey: `Skor literasi kebencanaan (${knowledge}/100) di bawah ambang Siap (65). Perlu penguatan materi adaptasi risiko per jenis bencana.`,
       accent: "from-amber-500 to-orange-600",
     });
   } else {
     recommendations.push({
       icon: "GraduationCap",
-      titleKey: "Pemahaman Kuat",
-      detailKey: "Siswa memahami teori dengan baik. Fokuskan ke simulasi.",
+      titleKey: knowledge >= 80 ? "Literasi Bencana Sangat Siap (Level 4)" : "Literasi Bencana Siap (Level 3)",
+      detailKey: "Pemahaman konsep SPAB memenuhi standar nasional (>= 65). Lanjutkan praktik evakuasi terpadu.",
       accent: "from-brand-500 to-brand-600",
     });
   }
 
-  if (simulation < 75) {
+  if (simulation < 65) {
     recommendations.push({
       icon: "Shield",
-      titleKey: "Latihan Kembaran Digital",
-      detailKey: "Banyak kesalahan (HP rendah) saat mengambil rute darurat.",
+      titleKey: "Latihan Keselamatan Kembaran Digital",
+      detailKey: `Skor keselamatan simulasi (${simulation}/100) masih di Level ${simulation >= 40 ? 2 : 1}. Fokus menghindari jebakan ruang tertutup.`,
       accent: "from-rose-500 to-red-600",
     });
   } else {
     recommendations.push({
       icon: "Trophy",
-      titleKey: "Kesiapsiagaan Sangat Baik",
+      titleKey: simulation >= 80 ? "Kesiapsiagaan Sangat Siap (Level 4)" : "Kesiapsiagaan Siap (Level 3)",
       detailKey:
-        "Akurasi simulasi tinggi, siswa dapat mengambil keputusan yang aman.",
+        "Akurasi pemilihan rute aman memenuhi kriteria Perka BNPB No. 4/2012 & LIPI–UNESCO.",
       accent: "from-brand-400 to-brand-600",
     });
   }

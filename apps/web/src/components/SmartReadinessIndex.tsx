@@ -8,8 +8,14 @@ import {
   Activity,
   ArrowUp,
   Gauge,
+  BookOpen,
 } from "lucide-react";
 import { useI18n } from "@/hooks/useI18n";
+import {
+  classifySpabReadiness,
+  OFFICIAL_PREPAREDNESS_REFERENCES,
+  type SpabClassification,
+} from "@/data/disasterPreparednessRubric";
 
 export interface ReadinessFactors {
   knowledge: number;
@@ -24,6 +30,7 @@ export interface ReadinessResult {
   previousScore: number;
   improvement: number;
   category: ReadinessCategory;
+  spab: SpabClassification;
   breakdown: {
     label: string;
     value: number;
@@ -34,7 +41,11 @@ export interface ReadinessResult {
 }
 
 export type ReadinessCategory =
-  "Very Ready" | "Ready" | "Needs Improvement" | "Needs Assistance";
+  | "Very Ready"
+  | "Ready"
+  | "Almost Ready"
+  | "Needs Improvement"
+  | "Needs Assistance";
 
 export function calculateReadinessIndex(f: ReadinessFactors): ReadinessResult {
   const breakdown = [
@@ -71,11 +82,13 @@ export function calculateReadinessIndex(f: ReadinessFactors): ReadinessResult {
 
   const previousScore = Math.max(0, score - Math.round(f.improvement * 0.3));
   const improvement = score - previousScore;
+  const spab = classifySpabReadiness(score);
 
   let category: ReadinessCategory;
-  if (score >= 85) category = "Very Ready";
-  else if (score >= 70) category = "Ready";
-  else if (score >= 50) category = "Needs Improvement";
+  if (score >= 80) category = "Very Ready";
+  else if (score >= 65) category = "Ready";
+  else if (score >= 55) category = "Almost Ready";
+  else if (score >= 40) category = "Needs Improvement";
   else category = "Needs Assistance";
 
   return {
@@ -83,6 +96,7 @@ export function calculateReadinessIndex(f: ReadinessFactors): ReadinessResult {
     previousScore,
     improvement,
     category,
+    spab,
     breakdown: breakdown.map((b) => ({
       ...b,
       weighted: Math.round(b.value * b.weight),
@@ -92,10 +106,11 @@ export function calculateReadinessIndex(f: ReadinessFactors): ReadinessResult {
 
 const categoryStyles: Record<ReadinessCategory, { bg: string; text: string }> =
   {
-    "Very Ready": { bg: "bg-brand-100", text: "text-brand-700" },
-    Ready: { bg: "bg-brand-100", text: "text-brand-700" },
-    "Needs Improvement": { bg: "bg-brand-200", text: "text-brand-800" },
-    "Needs Assistance": { bg: "bg-brand-300", text: "text-brand-900" },
+    "Very Ready": { bg: "bg-emerald-100 dark:bg-emerald-950/60", text: "text-emerald-700 dark:text-emerald-300" },
+    Ready: { bg: "bg-sky-100 dark:bg-sky-950/60", text: "text-sky-700 dark:text-sky-300" },
+    "Almost Ready": { bg: "bg-amber-100 dark:bg-amber-950/60", text: "text-amber-700 dark:text-amber-300" },
+    "Needs Improvement": { bg: "bg-orange-100 dark:bg-orange-950/60", text: "text-orange-700 dark:text-orange-300" },
+    "Needs Assistance": { bg: "bg-rose-100 dark:bg-rose-950/60", text: "text-rose-700 dark:text-rose-300" },
   };
 
 export function SmartReadinessIndex({ result }: { result: ReadinessResult }) {
@@ -111,6 +126,8 @@ export function SmartReadinessIndex({ result }: { result: ReadinessResult }) {
         return t("sri.cat.very_ready");
       case "Ready":
         return t("sri.cat.ready");
+      case "Almost Ready":
+        return t("sri.cat.almost_ready");
       case "Needs Improvement":
         return t("sri.cat.needs_imp");
       case "Needs Assistance":
@@ -272,43 +289,68 @@ export function SmartReadinessIndex({ result }: { result: ReadinessResult }) {
             </motion.div>
           ))}
         </div>
-        <div className="mt-4 rounded-xl bg-brand-50/60 p-4 text-xs text-ink-600 dark:bg-slate-800/60 dark:text-slate-300">
-          <p className="font-semibold text-ink-900 dark:text-white">
-            {t("sri.formula")}
-          </p>
-          <p className="mt-1">{t("sri.formula_desc")}</p>
+        <div className="mt-4 rounded-xl bg-brand-50/60 p-4 text-xs text-ink-600 dark:bg-slate-800/60 dark:text-slate-300 space-y-2">
+          <div>
+            <p className="font-semibold text-ink-900 dark:text-white">
+              {t("sri.formula")}
+            </p>
+            <p className="mt-1">{t("sri.formula_desc")}</p>
+          </div>
+          <div className="pt-2 border-t border-brand-200/60 dark:border-slate-700/70">
+            <p className="font-semibold text-ink-900 dark:text-white flex items-center gap-1.5">
+              <BookOpen className="h-3.5 w-3.5 text-brand-500" />
+              Landasan Penilaian Pendidikan Bencana (Bukan Ambang Acak)
+            </p>
+            <ul className="mt-1.5 space-y-1 text-[11px] text-ink-500 dark:text-slate-400">
+              {OFFICIAL_PREPAREDNESS_REFERENCES.map((ref) => (
+                <li key={ref.code}>
+                  <strong className="text-ink-800 dark:text-slate-200">{ref.code}:</strong>{" "}
+                  {ref.title}
+                </li>
+              ))}
+            </ul>
+          </div>
         </div>
       </div>
 
-      {/* Category scale */}
+      {/* Category scale (LIPI–UNESCO 5-band index mapped to Perka BNPB 4/2012 Level 1–4) */}
       <div className="glass rounded-2xl p-5 dark:bg-slate-900/60">
-        <h3 className="mb-4 font-display text-base font-bold text-ink-900 dark:text-white">
+        <h3 className="mb-1 font-display text-base font-bold text-ink-900 dark:text-white">
           {t("sri.categories")}
         </h3>
-        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+        <p className="mb-4 text-xs text-ink-500 dark:text-slate-400">
+          {result.spab.smabStageTitle} — {result.spab.summary}
+        </p>
+        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-5">
           {[
             {
               label: t("sri.cat.very_ready"),
-              range: "85-100",
-              color: "bg-brand-600",
+              range: "80–100",
+              color: "bg-emerald-500",
               active: result.category === "Very Ready",
             },
             {
               label: t("sri.cat.ready"),
-              range: "70-84",
-              color: "bg-brand-500",
+              range: "65–79",
+              color: "bg-sky-500",
               active: result.category === "Ready",
             },
             {
+              label: t("sri.cat.almost_ready"),
+              range: "55–64",
+              color: "bg-amber-500",
+              active: result.category === "Almost Ready",
+            },
+            {
               label: t("sri.cat.needs_imp"),
-              range: "50-69",
-              color: "bg-brand-400",
+              range: "40–54",
+              color: "bg-orange-500",
               active: result.category === "Needs Improvement",
             },
             {
               label: t("sri.cat.needs_ast"),
-              range: "0-49",
-              color: "bg-brand-300",
+              range: "0–39",
+              color: "bg-rose-500",
               active: result.category === "Needs Assistance",
             },
           ].map((c) => (

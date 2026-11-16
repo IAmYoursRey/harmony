@@ -27,7 +27,14 @@ import {
   VolumeX,
   Trophy,
   Users,
+  Gamepad2,
+  BookOpen,
+  ShieldCheck,
 } from "lucide-react";
+import {
+  evaluateSimulationRubric,
+  OFFICIAL_PREPAREDNESS_REFERENCES,
+} from "@/data/disasterPreparednessRubric";
 import { useAuth } from "@/hooks/useAuth";
 import { io, Socket } from "socket.io-client";
 
@@ -103,48 +110,53 @@ export function Phase3Runtime({
   const [debugInfo, setDebugInfo] = useState<any>(null);
 
   const joystickRef = useRef<HTMLDivElement>(null);
+  const joystickPointerIdRef = useRef<number | null>(null);
   const [joystickActive, setJoystickActive] = useState(false);
   const [joystickPos, setJoystickPos] = useState({ x: 0, y: 0 });
+  const [showTouchControls, setShowTouchControls] = useState<boolean>(() => {
+    if (typeof window === "undefined") return false;
+    const hasCoarse =
+      typeof window.matchMedia === "function" &&
+      window.matchMedia("(pointer: coarse)").matches;
+    return hasCoarse || navigator.maxTouchPoints > 0 || window.innerWidth < 1024;
+  });
+  const [isRunToggled, setIsRunToggled] = useState(false);
 
-  const handleJoystickMove = (e: React.TouchEvent | React.MouseEvent) => {
-    if (!joystickActive || !joystickRef.current) return;
+  const updateJoystickFromPoint = (clientX: number, clientY: number) => {
+    if (!joystickRef.current) return;
     const rect = joystickRef.current.getBoundingClientRect();
     const centerX = rect.left + rect.width / 2;
     const centerY = rect.top + rect.height / 2;
+    const maxRadius = Math.max(32, rect.width * 0.36);
 
-    let clientX, clientY;
-    if ("touches" in e) {
-      clientX = (e as React.TouchEvent).touches[0].clientX;
-      clientY = (e as React.TouchEvent).touches[0].clientY;
-    } else {
-      clientX = (e as React.MouseEvent).clientX;
-      clientY = (e as React.MouseEvent).clientY;
-    }
+    const rawDx = clientX - centerX;
+    const rawDy = clientY - centerY;
+    const dist = Math.hypot(rawDx, rawDy);
+    const clamped = Math.min(dist, maxRadius);
+    const angle = Math.atan2(rawDy, rawDx);
 
-    let dx = clientX - centerX;
-    let dy = clientY - centerY;
-
-    const distance = Math.sqrt(dx * dx + dy * dy);
-    const maxRadius = rect.width / 2;
-
-    if (distance > maxRadius) {
-      dx = (dx / distance) * maxRadius;
-      dy = (dy / distance) * maxRadius;
-    }
-
-    setJoystickPos({ x: dx, y: dy });
+    setJoystickPos({
+      x: clamped * Math.cos(angle),
+      y: clamped * Math.sin(angle),
+    });
 
     if (engineRef.current) {
-      const normDist = Math.min(distance / maxRadius, 1);
-      const angle = Math.atan2(dy, dx);
-      engineRef.current.setJoystick(
-        Math.cos(angle) * normDist,
-        Math.sin(angle) * normDist,
-      );
+      const norm = clamped / maxRadius;
+      // Deadzone prevents unintended drift when a thumb rests near the center.
+      if (norm < 0.14) {
+        engineRef.current.setJoystick(0, 0);
+      } else {
+        const scaled = (norm - 0.14) / 0.86;
+        engineRef.current.setJoystick(
+          Math.cos(angle) * scaled,
+          Math.sin(angle) * scaled,
+        );
+      }
     }
   };
 
   const handleJoystickEnd = () => {
+    joystickPointerIdRef.current = null;
     setJoystickActive(false);
     setJoystickPos({ x: 0, y: 0 });
     if (engineRef.current) {
@@ -157,6 +169,18 @@ export function Phase3Runtime({
       engineRef.current.setVirtualButton(action, isDown);
     }
   };
+
+  useEffect(() => {
+    if (simState !== "RUNNING") {
+      setIsRunToggled(false);
+      joystickPointerIdRef.current = null;
+      setJoystickActive(false);
+      setJoystickPos({ x: 0, y: 0 });
+      engineRef.current?.setVirtualButton("run", false);
+      engineRef.current?.setVirtualButton("interact", false);
+      engineRef.current?.setJoystick(0, 0);
+    }
+  }, [simState]);
 
   const [avatarColor, setAvatarColor] = useState(
     initialAvatarColor || "#3b82f6",
@@ -517,13 +541,13 @@ export function Phase3Runtime({
 
   return (
     <div className="h-[100dvh] w-full bg-black flex flex-col font-sans overflow-hidden select-none touch-none">
-      {/* HUD TOP LAYER */}
+      {/* HUD TOP & PERIMETER GUIDANCE LAYER */}
       {(simState === "RUNNING" || simState === "PAUSED") && playerState && (
-        <div className="absolute top-0 left-0 right-0 p-2 sm:p-4 flex flex-col gap-1.5 z-10 pointer-events-none">
+        <div className="absolute top-0 left-0 right-0 pt-[max(0.5rem,env(safe-area-inset-top))] px-[max(0.5rem,env(safe-area-inset-left))] sm:px-4 flex flex-col gap-1.5 z-20 pointer-events-none">
           <div className="flex items-start justify-between gap-2 w-full">
             {/* Left HUD: HP, Stamina & Floor */}
-            <div className="flex flex-col gap-1.5 min-w-0">
-              <div className="bg-slate-900/85 backdrop-blur border border-slate-700 rounded-xl p-2 sm:p-3 flex flex-col gap-1 sm:gap-1.5 w-44 sm:w-64 shadow-xl">
+            <div className="flex flex-col gap-1 min-w-0 shrink-0">
+              <div className="bg-slate-900/88 backdrop-blur border border-slate-700/90 rounded-xl p-2 sm:p-2.5 flex flex-col gap-1 w-36 sm:w-52 lg:w-60 shadow-xl">
                 <div className="flex flex-col gap-0.5">
                   <div className="flex justify-between items-center text-white font-bold text-[10px] sm:text-xs">
                     <span>HP</span>
@@ -562,17 +586,17 @@ export function Phase3Runtime({
               </div>
 
               <div className="flex flex-wrap items-center gap-1.5">
-                <div className="hidden sm:inline-flex bg-slate-900/80 backdrop-blur border border-slate-700 text-white rounded-xl px-4 py-1.5 font-bold shadow-xl w-max items-center gap-2 text-sm">
-                  <span className="text-slate-400 text-xs uppercase">
+                <div className="hidden sm:inline-flex bg-slate-900/82 backdrop-blur border border-slate-700/90 text-white rounded-xl px-3 py-1 font-bold shadow-xl w-max items-center gap-1.5 text-xs">
+                  <span className="text-slate-400 text-[10px] uppercase">
                     Lantai:
                   </span>{" "}
-                  {activeFloorName}
+                  <span className="truncate max-w-[160px]">{activeFloorName}</span>
                 </div>
                 {sessionId && (
                   <button
                     type="button"
                     onClick={() => setShowLeaderboard((v) => !v)}
-                    className="pointer-events-auto inline-flex items-center gap-1.5 bg-indigo-950/90 hover:bg-indigo-900/90 backdrop-blur border border-indigo-500/40 text-indigo-200 rounded-xl px-3 py-1.5 text-xs font-bold shadow-xl transition-colors"
+                    className="pointer-events-auto inline-flex items-center gap-1.5 bg-indigo-950/90 hover:bg-indigo-900/90 backdrop-blur border border-indigo-500/40 text-indigo-200 rounded-xl px-2.5 py-1 text-[11px] font-bold shadow-xl transition-colors"
                   >
                     <Users className="h-3.5 w-3.5 text-indigo-400" />
                     <span>
@@ -630,25 +654,38 @@ export function Phase3Runtime({
               )}
             </div>
 
-            {/* Center HUD (Desktop): Pure Escape Objective */}
-            <div className="hidden md:flex bg-slate-900/85 backdrop-blur border border-slate-700 rounded-xl px-6 py-2.5 flex-col items-center gap-0.5 shadow-xl">
-              <span className="text-slate-400 text-[11px] font-bold uppercase tracking-wider">
+            {/* Center HUD (Desktop >=1024px only so tablet/phone never collide) */}
+            <div className="hidden lg:flex bg-slate-900/85 backdrop-blur border border-slate-700/90 rounded-xl px-5 py-2 flex-col items-center gap-0.5 shadow-xl min-w-0 max-w-md">
+              <span className="text-slate-400 text-[10px] font-bold uppercase tracking-wider">
                 Misi Evakuasi
               </span>
-              <span className="text-emerald-400 font-bold text-base text-center">
+              <span className="text-emerald-400 font-bold text-sm text-center leading-snug">
                 {playerState.objectiveProgress}
               </span>
             </div>
 
             {/* Right HUD: Timer & Controls */}
             <div className="flex flex-col items-end gap-1.5 pointer-events-auto shrink-0">
-              <div className="bg-slate-900/85 backdrop-blur border border-slate-700 text-white rounded-xl px-3 py-1 sm:px-5 sm:py-2 font-mono font-bold text-base sm:text-2xl shadow-xl tracking-wider">
+              <div className="bg-slate-900/88 backdrop-blur border border-slate-700/90 text-white rounded-xl px-3 py-1 sm:px-4 sm:py-1.5 font-mono font-bold text-sm sm:text-xl shadow-xl tracking-wider">
                 {formatTime(timeMs)}
               </div>
-              <div className="flex gap-1 sm:gap-2">
+              <div className="flex gap-1 sm:gap-1.5">
+                <button
+                  type="button"
+                  onClick={() => setShowTouchControls((prev) => !prev)}
+                  className={`w-8 h-8 sm:w-9 sm:h-9 rounded-full flex items-center justify-center transition-colors shadow-lg ${
+                    showTouchControls
+                      ? "bg-brand-600 text-white border border-brand-400/60"
+                      : "bg-slate-800 hover:bg-slate-700 text-slate-300"
+                  }`}
+                  title={showTouchControls ? "Sembunyikan Kontrol Sentuh" : "Tampilkan Kontrol Sentuh"}
+                  aria-label="Toggle Kontrol Sentuh"
+                >
+                  <Gamepad2 className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
+                </button>
                 <button
                   onClick={toggleMute}
-                  className="w-8 h-8 sm:w-10 sm:h-10 bg-slate-800 hover:bg-slate-700 text-white rounded-full flex items-center justify-center transition-colors shadow-lg"
+                  className="w-8 h-8 sm:w-9 sm:h-9 bg-slate-800 hover:bg-slate-700 text-white rounded-full flex items-center justify-center transition-colors shadow-lg"
                   title={isMuted ? "Aktifkan Suara" : "Bisukan Suara"}
                 >
                   {isMuted ? (
@@ -659,14 +696,14 @@ export function Phase3Runtime({
                 </button>
                 <button
                   onClick={() => setShowDebug(!showDebug)}
-                  className="w-8 h-8 sm:w-10 sm:h-10 bg-slate-800 hover:bg-slate-700 text-white rounded-full flex items-center justify-center transition-colors shadow-lg font-bold text-[9px] sm:text-xs"
+                  className="w-8 h-8 sm:w-9 sm:h-9 bg-slate-800 hover:bg-slate-700 text-white rounded-full flex items-center justify-center transition-colors shadow-lg font-bold text-[9px] sm:text-[10px]"
                   title="Toggle Debug"
                 >
                   DEV
                 </button>
                 <button
                   onClick={handlePauseToggle}
-                  className="w-8 h-8 sm:w-10 sm:h-10 bg-slate-800 hover:bg-slate-700 text-white rounded-full flex items-center justify-center transition-colors shadow-lg"
+                  className="w-8 h-8 sm:w-9 sm:h-9 bg-slate-800 hover:bg-slate-700 text-white rounded-full flex items-center justify-center transition-colors shadow-lg"
                 >
                   {simState === "PAUSED" ? (
                     <Play className="h-3 w-3 sm:h-4 sm:w-4" />
@@ -676,14 +713,14 @@ export function Phase3Runtime({
                 </button>
                 <button
                   onClick={handleRestart}
-                  className="w-8 h-8 sm:w-10 sm:h-10 bg-slate-800 hover:bg-slate-700 text-white rounded-full flex items-center justify-center transition-colors shadow-lg"
+                  className="w-8 h-8 sm:w-9 sm:h-9 bg-slate-800 hover:bg-slate-700 text-white rounded-full flex items-center justify-center transition-colors shadow-lg"
                   title="Restart Simulation"
                 >
                   <RotateCcw className="h-3 w-3 sm:h-4 sm:w-4" />
                 </button>
                 <button
                   onClick={onClose}
-                  className="w-8 h-8 sm:w-10 sm:h-10 bg-rose-600 hover:bg-rose-700 text-white rounded-full flex items-center justify-center transition-colors shadow-lg"
+                  className="w-8 h-8 sm:w-9 sm:h-9 bg-rose-600 hover:bg-rose-700 text-white rounded-full flex items-center justify-center transition-colors shadow-lg"
                   title="Exit Simulation"
                 >
                   <ArrowLeft className="h-3 w-3 sm:h-4 sm:w-4" />
@@ -692,35 +729,37 @@ export function Phase3Runtime({
             </div>
           </div>
 
-          {/* Mobile compact mission pill */}
-          <div className="md:hidden self-center bg-slate-900/80 backdrop-blur border border-slate-700/80 rounded-full px-3.5 py-1 shadow-lg">
-            <span className="text-emerald-400 font-bold text-[11px]">
-              {playerState.objectiveProgress}
+          {/* Perimeter Mission Strip (< 1024px) */}
+          <div className="lg:hidden self-center bg-slate-900/82 backdrop-blur border border-slate-700/80 rounded-full px-3 py-0.5 shadow-md max-w-[94vw]">
+            <span className="text-emerald-400 font-bold text-[10px] sm:text-xs block truncate">
+              Misi: {playerState.objectiveProgress}
             </span>
           </div>
 
-          {/* Live Indoor Hazard Alert Banner */}
-          {playerState.indoorDanger && (
-            <div className="self-center max-w-xl bg-rose-950/95 border border-rose-500/80 text-rose-100 rounded-xl px-4 py-1.5 shadow-xl text-center animate-pulse">
-              <span className="text-[11px] sm:text-xs font-extrabold tracking-wide">
+          {/* Unified Single-Line Perimeter Guidance & Hazard Strip (keeps central viewport 100% clear) */}
+          {simState === "RUNNING" && playerState.interactionPrompt && (
+            <div className="self-center max-w-[92vw] sm:max-w-lg bg-amber-500/95 text-slate-950 rounded-full px-4 py-1 shadow-xl text-center">
+              <span className="text-[11px] sm:text-xs font-extrabold tracking-tight block truncate">
+                {playerState.interactionPrompt}
+              </span>
+            </div>
+          )}
+
+          {simState === "RUNNING" && playerState.indoorDanger && (
+            <div className="self-center max-w-[94vw] sm:max-w-xl bg-rose-950/92 border border-rose-500/75 text-rose-100 rounded-xl px-3.5 py-1 shadow-xl text-center">
+              <span className="text-[10px] sm:text-xs font-bold leading-snug line-clamp-2">
                 {playerState.indoorDanger}
               </span>
             </div>
           )}
-        </div>
-      )}
 
-      {/* CENTER HUD NOTIFICATION */}
-      {message && simState === "RUNNING" && (
-        <div className="absolute top-1/4 left-1/2 -translate-x-1/2 bg-slate-900/90 text-white px-8 py-3 rounded-full font-bold shadow-2xl border border-slate-700 z-20 transition-all">
-          {message}
-        </div>
-      )}
-
-      {/* INTERACTION PROMPT */}
-      {simState === "RUNNING" && playerState?.interactionPrompt && (
-        <div className="absolute bottom-16 left-1/2 -translate-x-1/2 bg-amber-500/90 backdrop-blur text-black px-6 py-2 rounded-lg font-bold shadow-2xl z-20 animate-bounce">
-          {playerState.interactionPrompt}
+          {simState === "RUNNING" && message && (
+            <div className="self-center max-w-[92vw] sm:max-w-lg bg-slate-900/92 border border-slate-700/90 text-slate-100 rounded-full px-4 py-1 shadow-lg text-center transition-all">
+              <span className="text-[11px] sm:text-xs font-semibold block truncate">
+                {message}
+              </span>
+            </div>
+          )}
         </div>
       )}
 
@@ -759,69 +798,145 @@ export function Phase3Runtime({
             </div>
           )}
 
-          {report && (
-            <div className="w-full max-w-md rounded-2xl bg-slate-900/95 border border-slate-700 p-5 shadow-2xl text-white space-y-4">
-              <div className="flex items-center justify-between border-b border-slate-800 pb-3">
-                <div>
-                  <p className="text-[11px] uppercase tracking-wider text-slate-400 font-bold">
-                    Rapor Evaluasi Evakuasi
-                  </p>
-                  <p className="text-sm font-bold text-slate-200 capitalize mt-0.5">
-                    Kesulitan: {report.difficulty} · Skor: {report.score}/100
-                  </p>
+          {report && (() => {
+            const evalResult =
+              report.rubric ??
+              evaluateSimulationRubric({
+                succeeded: report.succeeded,
+                timeMs: report.timeMs,
+                healthRemaining: report.healthRemaining,
+                maxHealth: 100,
+                trapsTriggered: report.trapsTriggered,
+                totalTraps: report.totalTraps,
+                indoorsTimeSec: report.indoorsTimeSec ?? 0,
+                difficulty: report.difficulty,
+              });
+            const cls = evalResult.classification;
+            return (
+              <div className="w-full max-w-lg rounded-2xl bg-slate-900/95 border border-slate-700 p-4 sm:p-5 shadow-2xl text-white space-y-3.5">
+                <div className="flex items-start justify-between gap-3 border-b border-slate-800 pb-3">
+                  <div>
+                    <p className="text-[10px] uppercase tracking-wider text-slate-400 font-bold flex items-center gap-1.5">
+                      <ShieldCheck className="h-3.5 w-3.5 text-emerald-400" />
+                      Evaluasi Kesiapsiagaan SPAB (Level 1–4)
+                    </p>
+                    <p className="text-base sm:text-lg font-black text-white mt-0.5">
+                      {cls.levelLabel} · {cls.lipiCategory}
+                    </p>
+                    <p className="text-[11px] text-slate-400 capitalize">
+                      Skor Indeks: <strong className="text-slate-200">{evalResult.score}/100</strong> (Rentang {cls.rangeLabel}) · Mode {report.difficulty}
+                    </p>
+                  </div>
+                  <div
+                    className={`shrink-0 px-3 py-2 rounded-xl flex flex-col items-center justify-center border ${cls.badgeClasses}`}
+                  >
+                    <span className="text-[10px] font-bold uppercase tracking-wider opacity-80">
+                      BNPB SMAB
+                    </span>
+                    <span className="text-xl font-black leading-tight">
+                      Lv.{cls.level}
+                    </span>
+                  </div>
                 </div>
-                <div
-                  className={`w-12 h-12 rounded-xl flex items-center justify-center font-black text-2xl border ${report.grade === "S"
-                    ? "bg-amber-500/20 text-amber-300 border-amber-400"
-                    : report.grade === "A"
-                      ? "bg-emerald-500/20 text-emerald-300 border-emerald-400"
-                      : report.grade === "B"
-                        ? "bg-sky-500/20 text-sky-300 border-sky-400"
-                        : "bg-rose-500/20 text-rose-300 border-rose-500"
-                    }`}
-                >
-                  {report.grade}
-                </div>
-              </div>
 
-              <div className="grid grid-cols-2 gap-2.5 text-xs">
-                <div className="rounded-xl bg-slate-800/80 p-3">
-                  <span className="text-slate-400 block">Waktu Evakuasi</span>
-                  <span className="text-base font-extrabold text-sky-300">
-                    {formatTime(report.timeMs)}
-                  </span>
+                {/* 4 Research-Weighted Rubric Criteria */}
+                <div className="space-y-2">
+                  <p className="text-[11px] font-bold uppercase tracking-wider text-slate-400">
+                    Rincian 4 Indikator Terukur
+                  </p>
+                  {evalResult.criteria.map((c) => (
+                    <div
+                      key={c.id}
+                      className="rounded-xl bg-slate-800/75 px-3 py-2 border border-slate-700/60"
+                    >
+                      <div className="flex items-center justify-between gap-2 text-[11px] sm:text-xs">
+                        <span className="font-bold text-slate-100">
+                          {c.label}{" "}
+                          <span className="text-[10px] font-normal text-slate-400">
+                            ({c.weightPercent}%)
+                          </span>
+                        </span>
+                        <span className="font-mono font-extrabold text-sky-300 shrink-0">
+                          {c.score}/100
+                        </span>
+                      </div>
+                      <div className="mt-1 h-1.5 w-full rounded-full bg-slate-900 overflow-hidden">
+                        <div
+                          className="h-full rounded-full transition-all duration-500"
+                          style={{
+                            width: `${c.score}%`,
+                            backgroundColor:
+                              c.score >= 80
+                                ? "#10b981"
+                                : c.score >= 65
+                                  ? "#0ea5e9"
+                                  : c.score >= 40
+                                    ? "#f59e0b"
+                                    : "#f43f5e",
+                          }}
+                        />
+                      </div>
+                      <div className="mt-1 flex items-center justify-between text-[10px] text-slate-400 gap-2">
+                        <span>{c.detail}</span>
+                        <span className="shrink-0 font-mono text-indigo-300">
+                          {c.pillarRef}
+                        </span>
+                      </div>
+                    </div>
+                  ))}
                 </div>
-                <div className="rounded-xl bg-slate-800/80 p-3">
-                  <span className="text-slate-400 block">Sisa HP</span>
-                  <span className="text-base font-extrabold text-emerald-400">
-                    {report.healthRemaining} / 100
-                  </span>
-                </div>
-                <div className="rounded-xl bg-slate-800/80 p-3">
-                  <span className="text-slate-400 block">Jebakan Dihindari</span>
-                  <span className="text-base font-extrabold text-amber-300">
-                    {Math.max(0, report.totalTraps - report.trapsTriggered)} /{" "}
-                    {report.totalTraps}
-                  </span>
-                </div>
-                <div className="rounded-xl bg-slate-800/80 p-3">
-                  <span className="text-slate-400 block">Mode Simulasi</span>
-                  <span className="text-base font-extrabold text-purple-300 capitalize">
-                    {report.difficulty}
-                  </span>
-                </div>
-              </div>
 
-              {report.winTakeaway && (
-                <div className="rounded-xl bg-indigo-950/70 border border-indigo-500/40 p-3 text-xs text-indigo-100 leading-relaxed">
-                  <span className="font-bold text-indigo-300 block mb-0.5">
-                    Analisis Adaptasi Bencana
-                  </span>
-                  {report.winTakeaway}
+                <div className="grid grid-cols-3 gap-2 text-[11px]">
+                  <div className="rounded-xl bg-slate-800/80 p-2.5 text-center">
+                    <span className="text-slate-400 block">Waktu</span>
+                    <span className="text-sm font-extrabold text-sky-300">
+                      {formatTime(report.timeMs)}
+                    </span>
+                  </div>
+                  <div className="rounded-xl bg-slate-800/80 p-2.5 text-center">
+                    <span className="text-slate-400 block">Sisa HP</span>
+                    <span className="text-sm font-extrabold text-emerald-400">
+                      {report.healthRemaining} / 100
+                    </span>
+                  </div>
+                  <div className="rounded-xl bg-slate-800/80 p-2.5 text-center">
+                    <span className="text-slate-400 block">Jebakan Aman</span>
+                    <span className="text-sm font-extrabold text-amber-300">
+                      {Math.max(0, report.totalTraps - report.trapsTriggered)} /{" "}
+                      {report.totalTraps}
+                    </span>
+                  </div>
                 </div>
-              )}
-            </div>
-          )}
+
+                {report.winTakeaway && (
+                  <div className="rounded-xl bg-indigo-950/70 border border-indigo-500/40 p-3 text-xs text-indigo-100 leading-relaxed">
+                    <span className="font-bold text-indigo-300 block mb-0.5">
+                      Analisis Adaptasi Bencana
+                    </span>
+                    {report.winTakeaway}
+                  </div>
+                )}
+
+                <details className="rounded-xl bg-slate-800/50 border border-slate-700/70 px-3 py-2 text-[11px] text-slate-300">
+                  <summary className="cursor-pointer font-bold text-slate-200 flex items-center gap-1.5 select-none">
+                    <BookOpen className="h-3.5 w-3.5 text-amber-400 shrink-0" />
+                    <span>Rujukan Akademik &amp; Standar Level 1–4</span>
+                  </summary>
+                  <div className="mt-2 space-y-1.5 text-[10.5px] leading-relaxed text-slate-400">
+                    <p>{cls.summary}</p>
+                    <ul className="list-disc pl-4 space-y-1">
+                      {OFFICIAL_PREPAREDNESS_REFERENCES.map((ref) => (
+                        <li key={ref.code}>
+                          <strong className="text-slate-200">{ref.code}:</strong>{" "}
+                          {ref.title}
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                </details>
+              </div>
+            );
+          })()}
 
           {sessionId && leaderboard.length > 0 && (
             <div className="w-full max-w-md rounded-2xl bg-slate-900/95 border border-indigo-500/40 p-4 shadow-2xl text-white space-y-2.5">
@@ -930,10 +1045,10 @@ export function Phase3Runtime({
           className="absolute inset-0 w-full h-full cursor-crosshair"
         />
 
-        {/* Helper text overlay for WASD */}
-        {simState === "RUNNING" && timeMs < 5000 && (
-          <div className="hidden sm:block absolute bottom-8 left-1/2 -translate-x-1/2 text-white/70 font-bold text-sm bg-black/45 px-4 py-2 rounded-lg pointer-events-none transition-opacity duration-1000">
-            Gunakan W A S D atau tombol panah untuk bergerak
+        {/* Helper text overlay for keyboard desktop users only */}
+        {simState === "RUNNING" && !showTouchControls && timeMs < 5000 && (
+          <div className="hidden lg:block absolute bottom-6 left-1/2 -translate-x-1/2 text-white/75 font-bold text-xs bg-black/50 px-4 py-1.5 rounded-full pointer-events-none">
+            Gunakan W A S D / Panah untuk gerak · Shift Lari · E Aksi Pintu
           </div>
         )}
 
@@ -951,75 +1066,83 @@ export function Phase3Runtime({
           </div>
         )}
 
-        {/* Mobile Controls (Only visible on small screens / touch devices if needed, but we'll show it fixed at bottom corners for demonstration) */}
-        {simState === "RUNNING" && (
-          <div className="absolute inset-0 pointer-events-none z-40 sm:hidden">
-            {/* Virtual Joystick - Left Side */}
+        {/* Cross-platform Touch & Tablet Pointer-Capture Controls */}
+        {simState === "RUNNING" && showTouchControls && (
+          <div className="absolute inset-0 pointer-events-none z-40">
+            {/* Pointer-Captured Analog Joystick (Bottom Left) */}
             <div
-              className="absolute bottom-6 left-6 w-28 h-28 bg-white/10 rounded-full border-2 border-white/20 pointer-events-auto flex items-center justify-center backdrop-blur-sm"
+              className={`absolute bottom-[max(1rem,env(safe-area-inset-bottom))] left-[max(1rem,env(safe-area-inset-left))] w-32 h-32 sm:w-36 sm:h-36 rounded-full border-2 pointer-events-auto flex items-center justify-center backdrop-blur-sm touch-none select-none transition-colors ${
+                joystickActive
+                  ? "bg-white/18 border-emerald-400/70 shadow-lg shadow-emerald-500/20"
+                  : "bg-slate-900/45 border-white/25"
+              }`}
               ref={joystickRef}
-              onTouchStart={(e) => {
+              onPointerDown={(e) => {
                 e.preventDefault();
+                joystickPointerIdRef.current = e.pointerId;
+                e.currentTarget.setPointerCapture(e.pointerId);
                 setJoystickActive(true);
-                handleJoystickMove(e);
+                updateJoystickFromPoint(e.clientX, e.clientY);
               }}
-              onTouchMove={(e) => {
+              onPointerMove={(e) => {
+                if (joystickPointerIdRef.current !== e.pointerId) return;
                 e.preventDefault();
-                handleJoystickMove(e);
+                updateJoystickFromPoint(e.clientX, e.clientY);
               }}
-              onTouchEnd={(e) => {
-                e.preventDefault();
-                handleJoystickEnd();
+              onPointerUp={(e) => {
+                if (joystickPointerIdRef.current === e.pointerId) {
+                  handleJoystickEnd();
+                }
               }}
-              onMouseDown={(e) => {
-                setJoystickActive(true);
-                handleJoystickMove(e);
-              }}
-              onMouseMove={handleJoystickMove}
-              onMouseUp={handleJoystickEnd}
-              onMouseLeave={handleJoystickEnd}
+              onPointerCancel={handleJoystickEnd}
             >
               <div
-                className="w-10 h-10 bg-white/50 rounded-full shadow-lg pointer-events-none transition-transform duration-75"
+                className="w-12 h-12 sm:w-14 sm:h-14 rounded-full bg-white/75 border-2 border-white shadow-xl pointer-events-none"
                 style={{
                   transform: `translate(${joystickPos.x}px, ${joystickPos.y}px)`,
                 }}
               />
             </div>
 
-            {/* Action Buttons - Right Side */}
-            <div className="absolute bottom-6 right-6 flex gap-3 pointer-events-auto">
+            {/* Right-Thumb Action Deck: Ergonomic Run Toggle + Interact */}
+            <div className="absolute bottom-[max(1rem,env(safe-area-inset-bottom))] right-[max(1rem,env(safe-area-inset-right))] flex items-end gap-3 pointer-events-auto touch-none select-none">
               <button
-                className="w-14 h-14 bg-white/10 rounded-full border-2 border-white/20 text-white font-bold backdrop-blur-sm active:bg-white/30 active:scale-95 transition-all flex items-center justify-center"
-                onTouchStart={(e) => {
+                type="button"
+                aria-pressed={isRunToggled}
+                onPointerDown={(e) => {
                   e.preventDefault();
-                  setVirtualButton("run", true);
+                  const next = !isRunToggled;
+                  setIsRunToggled(next);
+                  setVirtualButton("run", next);
                 }}
-                onTouchEnd={(e) => {
-                  e.preventDefault();
-                  setVirtualButton("run", false);
-                }}
-                onMouseDown={() => setVirtualButton("run", true)}
-                onMouseUp={() => setVirtualButton("run", false)}
-                onMouseLeave={() => setVirtualButton("run", false)}
+                className={`w-14 h-14 sm:w-16 sm:h-16 rounded-full border-2 font-extrabold text-xs sm:text-sm backdrop-blur-sm transition-all active:scale-95 flex flex-col items-center justify-center shadow-lg ${
+                  isRunToggled
+                    ? "bg-amber-500/90 border-amber-200 text-slate-950 shadow-amber-500/40"
+                    : "bg-slate-900/55 border-white/30 text-white"
+                }`}
+                title="Ketuk untuk aktif/nonaktif Mode Lari"
               >
-                RUN
+                <span>LARI</span>
+                <span className="text-[9px] font-mono opacity-85">
+                  {isRunToggled ? "ON" : "OFF"}
+                </span>
               </button>
               <button
-                className="w-14 h-14 bg-white/10 rounded-full border-2 border-white/20 text-white font-bold backdrop-blur-sm active:bg-white/30 active:scale-95 transition-all flex items-center justify-center"
-                onTouchStart={(e) => {
+                type="button"
+                onPointerDown={(e) => {
                   e.preventDefault();
+                  e.currentTarget.setPointerCapture(e.pointerId);
                   setVirtualButton("interact", true);
                 }}
-                onTouchEnd={(e) => {
+                onPointerUp={(e) => {
                   e.preventDefault();
                   setVirtualButton("interact", false);
                 }}
-                onMouseDown={() => setVirtualButton("interact", true)}
-                onMouseUp={() => setVirtualButton("interact", false)}
-                onMouseLeave={() => setVirtualButton("interact", false)}
+                onPointerCancel={() => setVirtualButton("interact", false)}
+                className="w-16 h-16 sm:w-[72px] sm:h-[72px] bg-emerald-600/85 hover:bg-emerald-500/90 rounded-full border-2 border-emerald-200/80 text-white font-black text-xs sm:text-sm backdrop-blur-sm active:scale-95 transition-all flex items-center justify-center shadow-xl shadow-emerald-900/40"
+                title="Buka atau tutup pintu darurat (AKSI)"
               >
-                ACT
+                AKSI
               </button>
             </div>
           </div>

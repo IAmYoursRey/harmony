@@ -6086,7 +6086,10 @@ export function MapsView() {
             )}
           </AnimatePresence>
         </div>
+      </div>
 
+      {/* Navigasi Geospasial & Pintasan Cepat Kanan (terpisah dari Mode Switcher agar bebas tabrakan pada HP) */}
+      <div className="absolute top-[calc(4.75rem+env(safe-area-inset-top))] sm:top-[calc(5.25rem+env(safe-area-inset-top))] right-3 sm:right-4 z-20 flex flex-col items-end gap-2">
         {/* Navigasi Geospasial Terpadu: GPS Realtime & Orientasi Kompas 360 */}
         <div className="relative flex items-stretch gap-1 sm:gap-1.5 mt-0.5 p-1 sm:p-1.5 rounded-2xl bg-white/90 dark:bg-slate-900/90 shadow-glass backdrop-blur-xl border border-slate-200/80 dark:border-slate-800 shadow-lg select-none">
           {/* Sisi Kiri: GPS Location Finder & Realtime Accuracy Tracking */}
@@ -6390,6 +6393,14 @@ export function MapsView() {
           background-color: transparent !important;
           padding: 0 !important;
         }
+        .ol-attribution {
+          bottom: 0.25rem !important;
+          left: 0.5rem !important;
+          right: auto !important;
+          max-width: calc(100vw - 12rem) !important;
+          font-size: 9px !important;
+          opacity: 0.78 !important;
+        }
       `}</style>
 
       {mapMode === 'spatial' && (
@@ -6403,7 +6414,7 @@ export function MapsView() {
       )}
 
       {/* Top Search Bar (Beside Menu Button, leaving room for right-side switcher on mobile) */}
-      <div className="absolute top-[calc(1rem+env(safe-area-inset-top))] left-16 z-10 w-[calc(100%-8.25rem)] sm:max-w-[260px] md:w-72 lg:w-80 xl:w-96 transition-all duration-300">
+      <div className="absolute top-[calc(1rem+env(safe-area-inset-top))] left-16 z-10 w-[calc(100%-8.75rem)] sm:max-w-[260px] md:w-72 lg:w-80 xl:w-96 transition-all duration-300">
         <div className="relative">
           <div className="flex h-11 w-full items-center overflow-hidden rounded-full bg-white px-4 shadow-glass backdrop-blur-md dark:bg-slate-900/90 dark:border dark:border-slate-800 focus-within:ring-2 focus-within:ring-brand-500 transition-shadow">
             <Search className="h-4 w-4 text-slate-400" />
@@ -6742,7 +6753,7 @@ export function MapsView() {
             initial={{ opacity: 0, y: -10, scale: 0.95 }}
             animate={{ opacity: 1, y: 0, scale: 1 }}
             exit={{ opacity: 0, y: -10, scale: 0.95 }}
-            className="absolute top-44 right-20 z-30 w-72 rounded-2xl bg-white/95 dark:bg-slate-900/95 p-3.5 shadow-2xl backdrop-blur-xl border border-slate-200 dark:border-slate-800 text-xs text-slate-700 dark:text-slate-300 space-y-2"
+            className="absolute top-48 right-3 sm:right-36 z-30 w-[min(18rem,calc(100vw-1.5rem))] rounded-2xl bg-white/95 dark:bg-slate-900/95 p-3.5 shadow-2xl backdrop-blur-xl border border-slate-200 dark:border-slate-800 text-xs text-slate-700 dark:text-slate-300 space-y-2"
           >
             <div className="flex items-center justify-between border-b border-slate-100 dark:border-slate-800 pb-2">
               <div className="flex items-center gap-1.5 font-bold text-slate-800 dark:text-white">
@@ -8853,7 +8864,7 @@ export function MapsView() {
 
       {/* Bottom Center: Unified Navigation, Geospatial Intel & Traffic Dock */}
       {weatherMapOverlay === 'none' && (showBottomDock || showGeospatialIntelBar || showTrafficControlBar) && (
-        <div className="absolute bottom-4 sm:bottom-5 left-1/2 -translate-x-1/2 z-30 flex flex-col items-center gap-2 pointer-events-none max-w-[96vw]">
+        <div className="absolute bottom-[calc(4.75rem+env(safe-area-inset-bottom))] sm:bottom-5 left-1/2 -translate-x-1/2 z-30 flex flex-col items-center gap-2 pointer-events-none max-w-[calc(100vw-1.5rem)] sm:max-w-[calc(100vw-16rem)]">
           {/* Top Tier: Geospatial Intel Bar (Lintasan & Iklim) */}
           <AnimatePresence mode="wait">
             {showGeospatialIntelBar ? (

@@ -489,14 +489,14 @@ export function FloatingAICopilot() {
       <div
         className={`fixed z-[100010] transition-all duration-300 pointer-events-auto right-3 sm:right-6 ${
           isMapsRoute
-            ? "bottom-[calc(5.35rem+env(safe-area-inset-bottom))] sm:bottom-[calc(5.75rem+env(safe-area-inset-bottom))]"
+            ? "bottom-[calc(5.5rem+env(safe-area-inset-bottom))] sm:bottom-[calc(6rem+env(safe-area-inset-bottom))]"
             : "bottom-[calc(1rem+env(safe-area-inset-bottom))] sm:bottom-[calc(1.5rem+env(safe-area-inset-bottom))]"
         }`}
       >
         <button
           type="button"
           onClick={() => setIsOpen((prev) => !prev)}
-          className={`relative flex items-center justify-center w-11 h-11 sm:w-12 sm:h-12 rounded-2xl backdrop-blur-xl border shadow-2xl transition-all duration-300 hover:scale-105 active:scale-95 cursor-pointer group ${
+          className={`relative flex items-center justify-center w-10 h-10 sm:w-12 sm:h-12 rounded-2xl backdrop-blur-xl border shadow-2xl transition-all duration-300 hover:scale-105 active:scale-95 cursor-pointer group ${
             isOpen
               ? "bg-brand-600 border-brand-400 text-white shadow-brand-500/30"
               : "bg-slate-900/90 dark:bg-slate-900/95 hover:bg-slate-900 border-white/20 dark:border-slate-700/80 text-white shadow-indigo-500/20"

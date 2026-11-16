@@ -24,6 +24,10 @@ import {
   resolveDisasterStrategy,
   type DisasterStrategyProfile,
 } from "./disasterStrategyRules";
+import {
+  evaluateSimulationRubric,
+  type SimulationRubricEvaluation,
+} from "@/data/disasterPreparednessRubric";
 
 export type SimState =
   | "LOADING"
@@ -49,6 +53,7 @@ export interface SimulationReport {
   strategyKey?: string;
   winTakeaway?: string;
   indoorsTimeSec?: number;
+  rubric?: SimulationRubricEvaluation;
 }
 
 export interface PlayerState {
@@ -635,34 +640,21 @@ export class Phase3Engine {
       (o) => o.properties?.hidden,
     ).length;
     const trapsTriggered = this.triggeredHazards.size;
-    const profile = DIFFICULTY_PROFILES[this.difficulty];
 
-    let baseScore = succeeded ? 55 : 10;
-    baseScore += Math.round((this.player.health / this.player.maxHealth) * 22);
-    baseScore += Math.round(
-      ((totalTraps - trapsTriggered) / Math.max(1, totalTraps)) * 13,
-    );
-    const timeSec = this.simTimeMs / 1000;
-    if (succeeded && timeSec < 140) {
-      baseScore += Math.round(((140 - timeSec) / 140) * 10);
-    }
-
-    const finalScore = Math.max(
-      0,
-      Math.min(100, Math.round(baseScore * profile.scoreMultiplier)),
-    );
-
-    let grade: SimulationReport["grade"] = "D";
-    if (succeeded) {
-      if (finalScore >= 88) grade = "S";
-      else if (finalScore >= 74) grade = "A";
-      else if (finalScore >= 58) grade = "B";
-      else grade = "C";
-    }
+    const rubric = evaluateSimulationRubric({
+      succeeded,
+      timeMs: this.simTimeMs,
+      healthRemaining: this.player.health,
+      maxHealth: this.player.maxHealth,
+      trapsTriggered,
+      totalTraps,
+      indoorsTimeSec: this.indoorsTimeSec,
+      difficulty: this.difficulty,
+    });
 
     this.callbacks.onReportReady({
-      grade,
-      score: finalScore,
+      grade: rubric.legacyGrade,
+      score: rubric.score,
       succeeded,
       timeMs: this.simTimeMs,
       healthRemaining: Math.ceil(this.player.health),
@@ -672,6 +664,7 @@ export class Phase3Engine {
       strategyKey: this.strategy.key,
       winTakeaway: this.strategy.winTakeaway,
       indoorsTimeSec: Math.round(this.indoorsTimeSec),
+      rubric,
     });
   }
 
