@@ -4,6 +4,14 @@ import { verifyToken, verifyOptionalToken } from "../middleware/authMiddleware.j
 import { GoogleGenAI } from "@google/genai";
 import { saveWeatherInterval, getWeatherIntervals, readDB } from "../repositories/repository.js";
 import { synthesizeSchoolRisk } from "../services/spatialRiskEngine.js";
+import {
+  MAX_CHAT_MEMORY,
+  buildUserDatabaseContext,
+  buildHarmonyGeoSystemPrompt,
+  trimChatMemoryForGemini,
+  extractMessageText,
+  detectUserLanguageTone,
+} from "../services/geoAiContextService.js";
 import dotenv from "dotenv";
 import path from "path";
 import { fileURLToPath } from "url";
@@ -179,6 +187,23 @@ router.get("/weather-models-comparison", verifyOptionalToken, async (req, res) =
 });
 
 
+router.get("/context-preview", verifyOptionalToken, async (req, res) => {
+  try {
+    const context = await buildUserDatabaseContext(req.user);
+    res.json({
+      success: true,
+      maxChatMemory: MAX_CHAT_MEMORY,
+      ...context,
+    });
+  } catch (err) {
+    console.error("[AI] context-preview error:", err.message);
+    res.status(500).json({
+      success: false,
+      error: "Gagal memuat ringkasan konteks pengguna.",
+    });
+  }
+});
+
 router.post("/generate", verifyOptionalToken, async (req, res) => {
   const { contents, jsonMode, type, systemInstruction } = req.body;
 
@@ -207,26 +232,82 @@ router.post("/generate", verifyOptionalToken, async (req, res) => {
     });
   }
 
+  const isConversational = type === "chatbot" || (type === "chat" && !jsonMode);
+  const boundedContents = isConversational
+    ? trimChatMemoryForGemini(contents, MAX_CHAT_MEMORY)
+    : contents;
+
+  if (!boundedContents.length) {
+    return res.status(400).json({
+      success: false,
+      error: "No valid conversational messages after memory trimming",
+    });
+  }
+
   try {
     const config = {
-      temperature: 0.7,
+      temperature: isConversational ? 0.75 : 0.7,
     };
     if (jsonMode) {
       config.responseMimeType = "application/json";
     }
-    if (systemInstruction) {
-      config.systemInstruction = systemInstruction;
+
+    let resolvedInstruction = systemInstruction;
+    let dialectTag = "default";
+    let isAuthUser = false;
+
+    if (isConversational) {
+      const userContext = await buildUserDatabaseContext(req.user);
+      const latestUserText = extractMessageText(boundedContents[boundedContents.length - 1]);
+      dialectTag = detectUserLanguageTone(latestUserText);
+      isAuthUser = Boolean(userContext?.authenticated);
+      resolvedInstruction = buildHarmonyGeoSystemPrompt({
+        userContext,
+        customInstruction: systemInstruction,
+        latestUserText,
+      });
     }
 
-    console.log(`[AI] feature=${type} keyConfigured=true`);
+    if (resolvedInstruction) {
+      config.systemInstruction = resolvedInstruction;
+    }
 
-    const response = await ai.models.generateContent({
-      model: MODEL_NAME,
-      contents,
-      config,
+    console.log(
+      `[AI] feature=${type} memory=${boundedContents.length}/${MAX_CHAT_MEMORY} auth=${isAuthUser} dialect=${dialectTag}`,
+    );
+
+    let response = null;
+    let lastError = null;
+    for (const modelCandidate of CANDIDATE_MODELS) {
+      try {
+        response = await ai.models.generateContent({
+          model: modelCandidate,
+          contents: boundedContents,
+          config,
+        });
+        break;
+      } catch (modelErr) {
+        lastError = modelErr;
+        if (modelErr?.status === 429 || modelErr?.name === "AbortError") {
+          throw modelErr;
+        }
+      }
+    }
+
+    if (!response) {
+      throw lastError || new Error("Model AI tidak merespons.");
+    }
+
+    res.json({
+      success: true,
+      data: {
+        text: response.text ?? "",
+        memoryCount: boundedContents.length,
+        maxChatMemory: MAX_CHAT_MEMORY,
+        dialect: dialectTag,
+        authenticatedContext: isAuthUser,
+      },
     });
-
-    res.json({ success: true, data: { text: response.text ?? "" } });
   } catch (err) {
     console.error(`[AI] Error (${type}):`, err.message);
     if (err.name === "AbortError") {

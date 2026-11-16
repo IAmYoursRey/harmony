@@ -1,6 +1,6 @@
 import { X, LogOut, Map, LogIn, Satellite } from "lucide-react";
 import { Link } from "react-router-dom";
-import { navItems } from "@/components/dashboard/nav";
+import { filterVisibleNavItems, navItems, resolveNavLabel } from "@/components/dashboard/nav";
 import { Logo } from "@/components/Logo";
 import { ThemePicker } from "@/components/ThemePicker";
 import { useI18n } from "@/hooks/useI18n";
@@ -26,15 +26,7 @@ export function Sidebar({
   const { t } = useI18n();
   const { currentUser, logout } = useAuth();
 
-  const visibleNavItems = navItems.filter((item) => {
-    if (item.roles && currentUser) {
-      return item.roles.includes(currentUser.role);
-    }
-    if (!currentUser && item.roles && !item.roles.includes("student")) {
-      return false;
-    }
-    return true;
-  });
+  const visibleNavItems = filterVisibleNavItems(navItems, currentUser?.role);
 
   const mapsItem = visibleNavItems.find((item) => item.id === "maps");
   const geospatialItem = visibleNavItems.find((item) => item.id === "geospatial");
@@ -91,7 +83,7 @@ export function Sidebar({
             <div className="mb-4">
               <div className="mb-1.5 flex items-center justify-between px-2">
                 <span className="text-[10px] font-bold uppercase tracking-wider text-indigo-600 dark:text-indigo-400">
-                  Pemetaan Spasial
+                  Peta &amp; Cuaca
                 </span>
                 <span className="rounded-full bg-indigo-50 px-2 py-0.5 text-[9px] font-semibold text-indigo-700 ring-1 ring-inset ring-indigo-500/20 dark:bg-indigo-950/60 dark:text-indigo-300">
                   WebGIS
@@ -101,7 +93,7 @@ export function Sidebar({
               <Link
                 to="/app/maps"
                 onClick={onSelect}
-                className={`group relative flex items-center gap-3 overflow-hidden rounded-2xl p-3 transition-all duration-300 ${
+                className={`group press-bounce relative flex items-center gap-3 overflow-hidden rounded-2xl p-3 transition-all duration-300 ${
                   isMapsActive
                     ? "bg-gradient-to-r from-indigo-600 via-indigo-700 to-brand-600 text-white shadow-glass shadow-indigo-500/25 ring-2 ring-indigo-400/50"
                     : "border border-indigo-200/70 bg-gradient-to-br from-indigo-50/70 via-white to-blue-50/40 text-ink-900 shadow-sm hover:border-indigo-300 hover:shadow-md hover:-translate-y-0.5 dark:border-indigo-900/50 dark:bg-slate-800/80 dark:text-white dark:hover:border-indigo-700 dark:hover:bg-slate-800"
@@ -120,7 +112,7 @@ export function Sidebar({
                 <div className="min-w-0 flex-1">
                   <div className="flex items-center justify-between">
                     <span className="font-display text-sm font-extrabold tracking-tight">
-                      Harmony Maps
+                      Peta Utama
                     </span>
                     {isMapsActive ? (
                       <span className="flex h-2 w-2 rounded-full bg-white animate-pulse" />
@@ -137,7 +129,7 @@ export function Sidebar({
                         : "text-ink-500 dark:text-slate-400"
                     }`}
                   >
-                    Eksplorasi Peta Interaktif
+                    Peta Bencana &amp; Rute Aman
                   </p>
                 </div>
               </Link>
@@ -146,7 +138,7 @@ export function Sidebar({
                 <Link
                   to="/app/geospatial"
                   onClick={onSelect}
-                  className={`mt-2 group relative flex items-center gap-3 overflow-hidden rounded-2xl p-3 transition-all duration-300 ${
+                  className={`mt-2 group press-bounce relative flex items-center gap-3 overflow-hidden rounded-2xl p-3 transition-all duration-300 ${
                     isGeospatialActive
                       ? "bg-gradient-to-r from-teal-600 via-teal-700 to-cyan-700 text-white shadow-glass shadow-teal-500/25 ring-2 ring-teal-400/50"
                       : "border border-teal-200/60 bg-gradient-to-br from-teal-50/60 via-white to-cyan-50/40 text-ink-900 shadow-sm hover:border-teal-300 hover:shadow-md hover:-translate-y-0.5 dark:border-teal-900/50 dark:bg-slate-800/80 dark:text-white dark:hover:border-teal-700 dark:hover:bg-slate-800"
@@ -165,13 +157,13 @@ export function Sidebar({
                   <div className="min-w-0 flex-1">
                     <div className="flex items-center justify-between">
                       <span className="font-display text-sm font-extrabold tracking-tight">
-                        Geospatial Studio
+                        Cuaca &amp; Satelit
                       </span>
                       {isGeospatialActive ? (
                         <span className="flex h-2 w-2 rounded-full bg-white animate-pulse" />
                       ) : (
                         <span className="rounded-md bg-teal-500/10 px-1.5 py-0.5 text-[9px] font-bold text-teal-700 dark:bg-teal-400/20 dark:text-teal-300">
-                          Analisis Peta
+                          BMKG
                         </span>
                       )}
                     </div>
@@ -182,7 +174,7 @@ export function Sidebar({
                           : "text-ink-500 dark:text-slate-400"
                       }`}
                     >
-                      Earth Intelligence & Cuaca
+                      Prakiraan Cuaca &amp; Wilayah
                     </p>
                   </div>
                 </Link>
@@ -205,9 +197,7 @@ export function Sidebar({
             {regularNavItems.map((item) => {
               const isActive = active === item.id;
               const targetPath = item.id === "dashboard" ? "/app/dashboard" : `/app/${item.id}`;
-              const itemLabel = item.labelOverrides?.[
-                currentUser?.role as keyof typeof item.labelOverrides
-              ] || t(`nav.${item.id}`, item.label);
+              const itemLabel = resolveNavLabel(item, currentUser?.role, t);
 
               const handleClick = (e: React.MouseEvent) => {
                 if (!currentUser) {
@@ -224,7 +214,7 @@ export function Sidebar({
                   <Link
                     to={targetPath}
                     onClick={handleClick}
-                    className={`group flex w-full min-h-[42px] items-center gap-3 rounded-xl px-3 py-2 text-sm font-medium transition-all ${
+                    className={`group press-bounce flex w-full min-h-[42px] items-center gap-3 rounded-xl px-3 py-2 text-sm font-medium transition-all ${
                       isActive
                         ? "bg-brand-600 text-white shadow-glass"
                         : "text-ink-600 hover:bg-brand-50 hover:text-brand-700 dark:text-slate-300 dark:hover:bg-slate-800 dark:hover:text-white"

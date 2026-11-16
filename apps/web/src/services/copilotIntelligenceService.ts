@@ -419,21 +419,20 @@ export class CopilotIntelligenceService {
    * Ringkasan seluruh arsitektur fitur Harmony yang simpel dan padat
    */
   public getAllFeaturesSummary(): { text: string; action: CopilotNavigationAction } {
-    const text = `🏛️ **Arsitektur Fitur Platform Harmony**:\n` +
-      `1. 🗺️ **Harmony Maps**: Pantau gempa BMKG, 68 gunung api PVMBG, karhutla NASA, radar cuaca, 700+ CCTV jalan/tol, lampu lalu lintas ATCS, & elevasi GPS.\n` +
-      `2. ⛅ **Intelijen Cuaca**: Radar awan hujan real-time & konsensus 5 model NWP atmosfer.\n` +
-      `3. 🛰️ **Geospatial Studio**: Citra satelit Sentinel-2/Landsat & indeks vegetasi NDVI.\n` +
-      `4. 📦 **Digital Twin 3D**: Simulasi fisika skenario gempa bumi, tsunami, & evakuasi sekolah.\n` +
-      `5. ⚡ **AI Learning & Simulasi**: Kuis mitigasi bencana adaptif & penilaian esai otomatis.\n` +
-      `6. 🎮 **Game Edukasi**: Game multiplayer kuis mitigasi real-time untuk siswa.\n` +
-      `7. 🛡️ **Harmony Score (GSS)**: Penilaian ketahanan bencana sekolah standar BNPB/UNESCO.\n` +
-      `8. 🏆 **Events & Lomba**: Agenda simulasi kebencanaan dan kompetisi sekolah.\n\n` +
-      `Ketik 'buka [nama fitur]' untuk langsung berpindah ke menu yang Anda tuju!`;
+    const text = `**Menu Utama Platform Harmony**:\n` +
+      `1. **Peta Utama** (Harmony Maps): Pantau gempa BMKG, gunung api aktif, titik panas, cuaca, CCTV jalan, & rute aman.\n` +
+      `2. **Cuaca & Satelit**: Prakiraan cuaca harian, radar hujan, & info BMKG sekitar sekolah.\n` +
+      `3. **Tanya GeoBot**: Ngobrol dengan GeoBot (Indonesia / Jawa) & cek progres belajarmu.\n` +
+      `4. **Latihan Soal**: Kuis materi kebencanaan adaptif beserta pembahasan.\n` +
+      `5. **Simulasi Denah & Main Bareng**: Latihan evakuasi 2D di denah nyata SMAN 1 Ngoro (bisa mabar sekelas).\n` +
+      `6. **Skor Harmony & Ketahanan Sekolah**: Penilaian kesiapan sekolah standar BNPB.\n` +
+      `7. **Agenda & Lomba**: Info kegiatan simulasi dan lomba kebencanaan.\n\n` +
+      `Ketik saja *"buka peta"*, *"buka cuaca"*, atau *"buka latihan soal"* buat langsung pindah halaman.`;
 
     return {
       text,
       action: {
-        label: 'Jelajahi Harmony Maps 🗺️',
+        label: 'Buka Peta Utama',
         path: '/app/maps',
         icon: '🗺️',
       },
@@ -445,7 +444,7 @@ export class CopilotIntelligenceService {
    */
   public getUnavailableFeatureResponse(): { text: string } {
     return {
-      text: 'Fitur tersebut saat ini belum tersedia di Harmony dan masih dalam tahap pengembangan. Kami akan segera menambahkan fitur tersebut pada pembaruan mendatang! 🚀',
+      text: 'Fitur itu saat ini belum ada di Harmony ya. Kamu bisa pakai menu kebencanaan, peta cuaca, latihan soal, atau simulasi evakuasi yang sudah tersedia.',
     };
   }
 }

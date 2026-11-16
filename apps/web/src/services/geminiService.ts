@@ -321,45 +321,49 @@ Format output HARUS berupa JSON array valid (boleh dibungkus markdown \`\`\`json
   });
 }
 
+export const MAX_CHAT_MEMORY = 6;
+
+/**
+ * Enforces the strict 6-message rolling FIFO memory cap on chat arrays.
+ * When a 7th+ message is added, the earliest top entries are evicted cleanly.
+ */
+export function trimRollingChatMemory<T>(
+  items: T[],
+  maxMessages = MAX_CHAT_MEMORY,
+): T[] {
+  if (!Array.isArray(items)) return [];
+  const cap = Math.max(1, maxMessages);
+  return items.length > cap ? items.slice(-cap) : items;
+}
+
 export async function askChatbotAI(
   userMessage: string,
   history: { role: "user" | "model"; parts: { text: string }[] }[],
   userProfileSummary?: string,
 ): Promise<string> {
-  const systemContext = `Anda adalah Harmony AI Copilot, asisten cerdas untuk platform Harmony (Sistem Mitigasi Bencana, Intelijen Geospasial, dan Edukasi Ketahanan Sekolah Indonesia).
-
-PANDUAN GAYA KOMUNIKASI & PERILAKU:
-1. Jawab secara SINGKAT, PADAT, dan JELAS (to the point). Jangan menyapa dengan kalimat panjang yang bertele-tele atau basa-basi pembuka yang membuang waktu.
-2. Pahami seluruh arsitektur fitur Harmony:
-   - Harmony Maps (/app/maps): Peta GIS 2D/3D interaktif, data real-time Gempa Bumi BMKG, 68 Gunung Berapi PVMBG, Hotspot Karhutla Satelit NASA/BRIN, Radar Cuaca & Angin, 700+ CCTV lalu lintas Dishub & Bina Marga, Lampu Lalu Lintas ATCS, dan Altimeter Elevasi GNSS SRTM 30m.
-   - Intelijen Cuaca (/app/maps?open=weather): Pantauan cuaca real-time, perbandingan 5 model NWP (ECMWF, GFS, ICON, JMA, BMKG), dan radar hujan.
-   - Geospatial Studio (/app/geospatial): Citra satelit STAC Sentinel-2 & Landsat, indeks vegetasi NDVI/NDWI, dan analisis poligon AOI.
-   - Digital Twin 3D (/app/digital-twin): Simulasi 3D fisika skenario gempa bumi (PGA/MMI), tsunami, dan evakuasi sekolah.
-   - AI Learning & Simulasi (/app/ai-learning, /app/simulation): Kuis mitigasi bencana adaptif dan evaluasi esai otomatis.
-   - Game Siswa (/app/student-game): Game multiplayer edukasi mitigasi real-time.
-   - Harmony Score GSS (/app/gss, /app/resilience): Penilaian ketahanan bencana sekolah standar BNPB/UNESCO.
-   - Dashboard & Guru (/app/dashboard, /app/teacher): Analitik sekolah dan manajemen pembelajaran.
-   - Events (/app/events): Agenda simulasi akbar dan lomba kebencanaan.
-3. ATURAN PENGECEKAN FITUR (PENTING!):
-   Cek terlebih dahulu apakah fitur yang ditanyakan ada dalam arsitektur Harmony di atas.
-   Jika pengguna menanyakan fitur yang TIDAK ADA / BELUM TERSEDIA di Harmony (misalnya: beli tiket pesawat/kereta, pembayaran e-toll, e-commerce/belanja barang, streaming musik, pesan makanan/ojol, transaksi perbankan/crypto, kontrol fisik drone lewat remote, ramalan zodiak, dll.):
-   Anda WAJIB menjawab dengan kalimat:
-   "Fitur tersebut saat ini belum tersedia di Harmony dan masih dalam tahap pengembangan. Kami akan segera menambahkan fitur tersebut pada pembaruan mendatang! 🚀"
-   JANGAN membuat kesimpulan sendiri atau berhalusinasi mengklaim fitur tersebut ada.
-4. Gunakan Bahasa Indonesia yang lugas, profesional, dan ramah.${
-    userProfileSummary ? `\nProfil pengguna: ${userProfileSummary}` : ""
+  const cleanUserMessage = userMessage.trim();
+  const systemContext = `Kamu adalah GeoBot, asisten AI kebencanaan platform HARMONY (Edukasi & Kesiapsiagaan Bencana SPAB berbasis Peta Spasial WebGIS, AI Learning, dan Simulasi Denah 2D SMAN 1 Ngoro).
+Jawab hangat dan natural layaknya teman/mentor manusia dalam ragam Bahasa Indonesia sehari-hari, Bahasa Jawa padinan/krama sesuai bahasa pengguna, atau Bahasa Inggris jika ditanya dalam Bahasa Inggris.
+Jika pengguna menanyakan fitur di luar platform Harmony atau data yang belum tersedia di akunnya, sampaikan terus terang tanpa mengarang dan ajukan 1-2 pertanyaan klarifikasi singkat bila maksudnya masih umum.${
+    userProfileSummary ? `\nRingkasan Profil Lokal: ${userProfileSummary}` : ""
   }`;
 
-  const contents = [
-    ...history,
-    { role: "user", parts: [{ text: userMessage }] },
-  ];
+  const lastEntry = history[history.length - 1];
+  const lastText = lastEntry?.parts?.[0]?.text?.trim();
+  const rawContents =
+    lastEntry?.role === "user" && lastText === cleanUserMessage
+      ? history
+      : [...history, { role: "user" as const, parts: [{ text: cleanUserMessage }] }];
+
+  const trimmed = trimRollingChatMemory(rawContents, MAX_CHAT_MEMORY);
+  const firstUserIdx = trimmed.findIndex((item) => item.role === "user");
+  const contents = firstUserIdx > 0 ? trimmed.slice(firstUserIdx) : trimmed;
 
   try {
     return await callGemini(contents, "chatbot", false, systemContext);
   } catch (err) {
     console.error("ChatbotAI error:", err);
-    return "Maaf, koneksi ke layanan AI sedang sibuk. Silakan gunakan perintah navigasi atau coba sesaat lagi.";
+    return "Maaf, koneksi ke GeoBot sedang sibuk. Coba kirim ulang sebentar lagi ya.";
   }
 }
 

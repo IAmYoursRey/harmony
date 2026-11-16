@@ -41,7 +41,10 @@ test("Phase1Canvas wheel zoom anchors to pointer in canvas coordinates", () => {
 
 test("AILearningView handles multi-turn error rollback, retry, and markdown rendering", () => {
   const src = readSrc("apps/web/src/components/dashboard/views/learning/AILearningView.tsx");
-  assert.match(src, /chatHistory\.current\.pop\(\)/);
+  assert.match(
+    src,
+    /chatHistory\.current\s*=\s*chatHistory\.current\.slice\(0,\s*-1\)|chatHistory\.current\.pop\(\)/,
+  );
   assert.match(src, /renderFormattedText/);
   assert.match(src, /errorPrompt\?: string/);
   assert.match(src, /handleResetChat/);

@@ -10,7 +10,7 @@ import {
 } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { useState } from "react";
-import { navItems } from "@/components/dashboard/nav";
+import { filterVisibleNavItems, navItems, resolveNavLabel } from "@/components/dashboard/nav";
 import { useTheme } from "@/hooks/useTheme";
 import { ThemePicker } from "@/components/ThemePicker";
 import { useAuth } from "@/hooks/useAuth";
@@ -24,10 +24,19 @@ interface TopbarProps {
 export function Topbar({ onOpenMobile, title }: TopbarProps) {
   const { theme, toggle } = useTheme();
   const { currentUser } = useAuth();
-  const { locale } = useI18n();
+  const { locale, t } = useI18n();
   const navigate = useNavigate();
   const [search, setSearch] = useState("");
   const [notificationsOpen, setNotificationsOpen] = useState(false);
+
+  const searchableNavItems = filterVisibleNavItems(navItems, currentUser?.role);
+  const normalizedQuery = search.trim().toLowerCase();
+  const matchedNavItems = normalizedQuery
+    ? searchableNavItems.filter((item) => {
+        const displayLabel = resolveNavLabel(item, currentUser?.role, t).toLowerCase();
+        return displayLabel.includes(normalizedQuery) || item.id.includes(normalizedQuery);
+      })
+    : [];
 
   const displayName = currentUser?.name
     ? currentUser.name
@@ -40,7 +49,7 @@ export function Topbar({ onOpenMobile, title }: TopbarProps) {
     <header className="sticky top-0 z-30 flex min-h-[4rem] pt-[env(safe-area-inset-top)] items-center gap-2 sm:gap-3 border-b border-brand-100 bg-white/85 px-3 sm:px-6 backdrop-blur-xl dark:border-slate-700 dark:bg-slate-900/85">
       <button
         onClick={onOpenMobile}
-        className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl text-ink-600 hover:bg-brand-50 dark:text-slate-300 dark:hover:bg-slate-800 lg:hidden"
+        className="press-bounce flex h-10 w-10 shrink-0 items-center justify-center rounded-xl text-ink-600 hover:bg-brand-50 dark:text-slate-300 dark:hover:bg-slate-800 lg:hidden"
         aria-label="Open menu"
       >
         <Menu className="h-5 w-5" />
@@ -62,13 +71,8 @@ export function Topbar({ onOpenMobile, title }: TopbarProps) {
             onChange={(e) => setSearch(e.target.value)}
             onKeyDown={(e) => {
               if (e.key !== "Enter") return;
-              const query = search.trim().toLowerCase();
-              if (!query) return;
-              const match = navItems.find(
-                (item) =>
-                  item.label.toLowerCase().includes(query) ||
-                  item.id.includes(query),
-              );
+              if (!normalizedQuery) return;
+              const match = matchedNavItems[0];
               if (match) {
                 if (!currentUser && match.id !== "maps") {
                   navigate(`/app/maps?authRequired=${match.id}`);
@@ -84,18 +88,11 @@ export function Topbar({ onOpenMobile, title }: TopbarProps) {
             aria-label="Cari menu"
             className="w-56 rounded-full border border-brand-100 bg-white/70 py-2 pl-9 pr-4 text-sm text-ink-700 outline-none transition-all placeholder:text-ink-400 focus:w-72 focus:border-brand-300 focus:ring-2 focus:ring-brand-100 dark:border-slate-700 dark:bg-slate-800/70 dark:text-slate-200 dark:placeholder:text-slate-500 lg:w-64"
           />
-          {search.trim() && (
+          {normalizedQuery && (
             <div className="absolute right-0 top-full mt-2 w-72 overflow-hidden rounded-2xl border border-brand-100 bg-white p-1.5 shadow-glass-lg dark:border-slate-700 dark:bg-slate-900">
-              {navItems
-                .filter(
-                  (item) =>
-                    item.label
-                      .toLowerCase()
-                      .includes(search.trim().toLowerCase()) ||
-                    item.id.includes(search.trim().toLowerCase()),
-                )
-                .slice(0, 5)
-                .map((item) => (
+              {matchedNavItems.slice(0, 5).map((item) => {
+                const displayLabel = resolveNavLabel(item, currentUser?.role, t);
+                return (
                   <button
                     key={item.id}
                     type="button"
@@ -109,19 +106,14 @@ export function Topbar({ onOpenMobile, title }: TopbarProps) {
                       }
                       setSearch("");
                     }}
-                    className="flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-left text-sm font-medium text-ink-700 transition-colors hover:bg-brand-50 hover:text-brand-700 dark:text-slate-200 dark:hover:bg-slate-800"
+                    className="press-bounce flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-left text-sm font-medium text-ink-700 transition-colors hover:bg-brand-50 hover:text-brand-700 dark:text-slate-200 dark:hover:bg-slate-800"
                   >
                     <item.icon className="h-4 w-4 text-brand-500" />
-                    {item.label}
+                    {displayLabel}
                   </button>
-                ))}
-              {navItems.every(
-                (item) =>
-                  !item.label
-                    .toLowerCase()
-                    .includes(search.trim().toLowerCase()) &&
-                  !item.id.includes(search.trim().toLowerCase()),
-              ) && (
+                );
+              })}
+              {matchedNavItems.length === 0 && (
                 <p className="px-3 py-2.5 text-xs text-ink-400 dark:text-slate-500">
                   Menu tidak ditemukan
                 </p>
@@ -139,7 +131,7 @@ export function Topbar({ onOpenMobile, title }: TopbarProps) {
       {/* Dark mode toggle */}
       <button
         onClick={toggle}
-        className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full text-ink-600 transition-colors hover:bg-brand-50 dark:text-slate-300 dark:hover:bg-slate-800"
+        className="press-bounce flex h-10 w-10 shrink-0 items-center justify-center rounded-full text-ink-600 transition-colors hover:bg-brand-50 dark:text-slate-300 dark:hover:bg-slate-800"
         aria-label="Toggle dark mode"
       >
         {theme === "light" ? (

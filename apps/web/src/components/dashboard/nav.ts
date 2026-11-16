@@ -17,47 +17,78 @@ import {
   type LucideIcon,
 } from "lucide-react";
 
+export type UserNavRole = "student" | "teacher" | "developer";
+
 export interface NavItem {
   id: string;
   label: string;
   icon: LucideIcon;
-  roles?: ("student" | "teacher" | "developer")[];
-  labelOverrides?: Partial<Record<"student" | "teacher" | "developer", string>>;
+  roles?: UserNavRole[];
+  labelOverrides?: Partial<Record<UserNavRole, string>>;
+}
+
+export function filterVisibleNavItems(
+  items: NavItem[],
+  role?: UserNavRole | string | null,
+): NavItem[] {
+  return items.filter((item) => {
+    if (item.roles && role) {
+      return item.roles.includes(role as UserNavRole);
+    }
+    if (!role && item.roles && !item.roles.includes("student")) {
+      return false;
+    }
+    return true;
+  });
+}
+
+export function resolveNavLabel(
+  item: NavItem,
+  role: UserNavRole | string | undefined | null,
+  translate: (key: string, fallback?: string) => string,
+): string {
+  const override = role
+    ? item.labelOverrides?.[role as UserNavRole]
+    : undefined;
+  return override || translate(`nav.${item.id}`, item.label);
 }
 
 export const navItems: NavItem[] = [
-  { id: "maps", label: "Harmony Maps", icon: Map },
-  { id: "geospatial", label: "Geospatial Studio", icon: Satellite },
+  { id: "maps", label: "Peta Utama", icon: Map },
+  { id: "geospatial", label: "Cuaca & Satelit", icon: Satellite },
   {
     id: "dev-dashboard",
-    label: "User Account",
+    label: "Kelola Akun",
     icon: ShieldAlert,
     roles: ["developer"],
   },
-  { id: "dashboard", label: "Dashboard", icon: LayoutDashboard },
-  { id: "events", label: "Events", icon: Trophy },
-  { id: "ai-learning", label: "AI Learning", icon: Brain },
+  { id: "dashboard", label: "Beranda", icon: LayoutDashboard },
+  { id: "events", label: "Agenda & Lomba", icon: Trophy },
+  { id: "ai-learning", label: "Tanya GeoBot", icon: Brain },
   {
     id: "digital-twin",
-    label: "Harmony Twin",
+    label: "Simulasi Denah",
     icon: Boxes,
     roles: ["teacher", "developer", "student"],
+    labelOverrides: {
+      student: "Simulasi Evakuasi",
+    },
   },
   {
     id: "student-game",
-    label: "Join Room / Game",
+    label: "Main Bareng",
     icon: Swords,
     roles: ["student"],
   },
-  { id: "simulation", label: "Disaster Question", icon: CloudLightning },
-  { id: "gss", label: "Harmony Score", icon: Gauge },
-  { id: "resilience", label: "School Resilience", icon: ShieldCheck },
-  { id: "survey", label: "Survey Analytics", icon: BarChart3 },
+  { id: "simulation", label: "Latihan Soal", icon: CloudLightning },
+  { id: "gss", label: "Skor Harmony", icon: Gauge },
+  { id: "resilience", label: "Ketahanan Sekolah", icon: ShieldCheck },
+  { id: "survey", label: "Survei Sekolah", icon: BarChart3 },
   {
     id: "teacher",
-    label: "Teacher Dashboard",
+    label: "Dasbor Guru",
     icon: GraduationCap,
     roles: ["teacher", "developer"],
   },
-  { id: "profile", label: "Profile", icon: User },
+  { id: "profile", label: "Profil Saya", icon: User },
 ];

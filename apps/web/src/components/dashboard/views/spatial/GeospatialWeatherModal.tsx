@@ -2322,14 +2322,14 @@ export const GeospatialWeatherModal: React.FC<GeospatialWeatherModalProps> = ({
           <div className="min-w-0">
             <div className="flex items-center gap-2">
               <h2 className="text-base font-bold text-slate-800 dark:text-white truncate">
-                Harmony Geospatial & Earth Intelligence Studio
+                Cuaca &amp; Studio Satelit Harmony
               </h2>
               <span className="hidden xl:inline-flex shrink-0 whitespace-nowrap items-center gap-1 text-[10px] font-extrabold uppercase px-2 py-0.5 rounded-full bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 border border-indigo-500/20">
-                <Sparkles className="w-3 h-3" /> BIG & ESA Standards
+                <Sparkles className="w-3 h-3" /> BMKG &amp; Satelit
               </span>
             </div>
             <p className="text-xs text-slate-500 dark:text-slate-400 truncate">
-              Akuisisi → Posisi → Pengolahan Spektral → Analisis Spasial → Keputusan
+              Pantauan cuaca lokal, info BMKG, peta wilayah, dan analisis keselamatan sekolah
             </p>
           </div>
         </div>
@@ -2892,9 +2892,9 @@ export const GeospatialWeatherModal: React.FC<GeospatialWeatherModalProps> = ({
                   }`}
                 >
                   <Cpu className="w-3.5 h-3.5 text-sky-500" />
-                  <span>Diagnostik Atmosfer</span>
+                  <span>Analisis Cuaca AI</span>
                   <span className="text-[9px] px-1.5 py-0.2 rounded-full bg-sky-500/20 text-sky-600 dark:text-sky-400 font-extrabold">
-                    GEMINI
+                    AI
                   </span>
                 </button>
                 <button
@@ -4728,10 +4728,10 @@ export const GeospatialWeatherModal: React.FC<GeospatialWeatherModalProps> = ({
                       <div>
                         <div className="flex items-center gap-2 flex-wrap">
                           <span className="px-2 py-0.5 rounded-md bg-sky-500/20 text-sky-400 text-[10px] font-mono font-bold tracking-wider uppercase border border-sky-500/40">
-                            Diagnostik Atmosfer
+                            Analisis Cuaca AI
                           </span>
                           <span className="text-[11px] text-slate-400">
-                            Vilhelm Bjerknes (1904) & Lewis Fry Richardson (1922)
+                            Model Bjerknes &amp; Richardson (Atmosfer Dasar)
                           </span>
                         </div>
                         <h3 className="text-base sm:text-lg font-black text-white mt-1 flex items-center gap-2">

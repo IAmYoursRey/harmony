@@ -1,8 +1,12 @@
 import { useState, useRef, useEffect, useCallback, Fragment } from "react";
-import { Bot, SendHorizonal, Loader2, MessageSquare, RotateCcw, AlertCircle } from "lucide-react";
+import { Bot, SendHorizonal, Loader2, MessageSquare, RotateCcw, AlertCircle, Trash2 } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
 import { buildAISummary } from "@/data/userProfiles";
-import { askChatbotAI } from "@/services/geminiService";
+import {
+  askChatbotAI,
+  MAX_CHAT_MEMORY,
+  trimRollingChatMemory,
+} from "@/services/geminiService";
 
 interface ChatMessage {
   id: string;
@@ -13,11 +17,11 @@ interface ChatMessage {
 }
 
 const SUGGESTED_PROMPTS = [
-  "Prosedur drop, cover, hold saat gempa susulan?",
-  "Cara menggunakan APAR saat kebakaran sekolah?",
-  "Tindakan aman menghadapi badai petir & korsleting?",
-  "Mitigasi kebocoran gas kimia di laboratorium?",
-  "Langkah mengevakuasi korban luka ringan dengan P3K?",
+  "Cek progres kuis dan simulasi belajarku sekarang",
+  "Piye carane nylametne awak pas lindu nang SMAN 1 Ngoro?",
+  "Cara menggunakan APAR saat kebakaran kecil di sekolah?",
+  "Rute evakuasi terdekat menuju Lapangan Upacara?",
+  "Jelaskan singkat semua fitur Harmony untuk pemula",
 ];
 
 function renderInlineFormatting(text: string) {
@@ -95,8 +99,8 @@ export function AILearningView() {
     id: "welcome",
     role: "ai",
     text: currentUser
-      ? `Halo ${currentUser.name}. Ajukan pertanyaan terkait mitigasi gempa, banjir, kebakaran, atau prosedur evakuasi sekolah.`
-      : "Asisten GeoBot siap membantu pertanyaan seputar mitigasi bencana dan prosedur evakuasi.",
+      ? `Halo ${currentUser.name}! Aku GeoBot — teman ngobrol seputar kebencanaan, progres belajarmu di database, sampai simulasi evakuasi SMAN 1 Ngoro. Tanya pakai Bahasa Indonesia santai atau Bahasa Jawa sehari-hari juga boleh.`
+      : "Halo! Aku GeoBot. Tanyakan apa saja soal kebencanaan, peta cuaca, atau simulasi sekolah — pakai Bahasa Indonesia maupun Bahasa Jawa sehari-hari juga aman.",
   }), [currentUser]);
 
   const [chatMessages, setChatMessages] = useState<ChatMessage[]>(() => [createWelcomeMessage()]);
@@ -138,11 +142,17 @@ export function AILearningView() {
         text: "",
         loading: true,
       };
-      setChatMessages((prev) => [...prev, userMsg, loadingMsg]);
+      setChatMessages((prev) => {
+        const conversational = prev.filter((m) => m.id !== "welcome");
+        return trimRollingChatMemory([...conversational, userMsg, loadingMsg], MAX_CHAT_MEMORY);
+      });
     }
 
     setChatLoading(true);
-    chatHistory.current.push({ role: "user", parts: [{ text }] });
+    chatHistory.current = trimRollingChatMemory(
+      [...chatHistory.current, { role: "user", parts: [{ text }] }],
+      MAX_CHAT_MEMORY,
+    );
 
     try {
       const reply = await askChatbotAI(
@@ -150,21 +160,27 @@ export function AILearningView() {
         chatHistory.current,
         getProfileSummary(),
       );
-      chatHistory.current.push({ role: "model", parts: [{ text: reply }] });
+      chatHistory.current = trimRollingChatMemory(
+        [...chatHistory.current, { role: "model", parts: [{ text: reply }] }],
+        MAX_CHAT_MEMORY,
+      );
       setChatMessages((prev) =>
-        prev.map((m) =>
-          m.id === loadingId ? { ...m, text: reply, loading: false, errorPrompt: undefined } : m,
+        trimRollingChatMemory(
+          prev.map((m) =>
+            m.id === loadingId ? { ...m, text: reply, loading: false, errorPrompt: undefined } : m,
+          ),
+          MAX_CHAT_MEMORY,
         ),
       );
     } catch {
       // Roll back the failed user turn so subsequent messages keep valid alternating roles.
-      chatHistory.current.pop();
+      chatHistory.current = chatHistory.current.slice(0, -1);
       setChatMessages((prev) =>
         prev.map((m) =>
           m.id === loadingId
             ? {
                 ...m,
-                text: "Koneksi ke layanan AI sedang bermasalah. Silakan coba kirim ulang.",
+                text: "Koneksi ke GeoBot lagi terganggu. Coba klik kirim ulang ya.",
                 loading: false,
                 errorPrompt: text,
               }
@@ -183,13 +199,17 @@ export function AILearningView() {
     setChatInput("");
   };
 
+  const memoryCount = chatMessages.some((m) => m.id !== "welcome")
+    ? Math.min(chatMessages.filter((m) => m.id !== "welcome").length, MAX_CHAT_MEMORY)
+    : 0;
+
   return (
     <div className="flex h-[calc(100dvh-7.5rem)] min-h-[480px] flex-col overflow-hidden rounded-2xl border border-slate-200/80 dark:border-slate-800 bg-white dark:bg-slate-900 shadow-sm">
       <div className="bg-gradient-to-br from-brand-600 via-brand-700 to-brand-900 px-4 py-3.5 text-white sm:px-6 shrink-0">
         <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
           <div>
             <div className="inline-flex items-center gap-1.5 rounded-full bg-white/15 px-3 py-1 text-xs font-semibold backdrop-blur-sm">
-              <Bot className="h-3.5 w-3.5" /> Harmony AI Assistant
+              <Bot className="h-3.5 w-3.5" /> Tanya GeoBot · Indonesia &amp; Jawa
             </div>
             <h2 className="mt-2 font-display text-xl font-extrabold">
               {currentUser
@@ -199,25 +219,29 @@ export function AILearningView() {
             {currentProfile && (
               <p className="text-xs text-brand-100 mt-0.5">
                 Kelas {currentProfile.grade} · {currentProfile.totalPoints || 0} poin
-                · {currentProfile.badges?.length || 0} lencana
+                · {currentProfile.badges?.length || 0} lencana · Terhubung Data Akun
               </p>
             )}
           </div>
-          <div className="flex items-center gap-2 self-start sm:self-center">
-            {chatMessages.length > 1 && (
+          <div className="flex flex-wrap items-center gap-2 self-start sm:self-center">
+            <div
+              className="flex items-center gap-1.5 rounded-full bg-white/10 px-3 py-1.5 text-[11px] font-bold"
+              title="Batas riwayat obrolan maksimal 6 pesan agar tetap ringan"
+            >
+              <MessageSquare className="h-3.5 w-3.5" />
+              <span>Memori {memoryCount}/{MAX_CHAT_MEMORY}</span>
+            </div>
+            {memoryCount > 0 && (
               <button
                 type="button"
                 onClick={handleResetChat}
                 disabled={chatLoading}
                 className="inline-flex items-center gap-1.5 rounded-full bg-white/15 hover:bg-white/25 px-3 py-1.5 text-xs font-semibold text-white transition-colors disabled:opacity-50"
-                title="Mulai percakapan baru"
+                title="Bersihkan riwayat memori obrolan"
               >
-                <RotateCcw className="h-3.5 w-3.5" /> Percakapan Baru
+                <Trash2 className="h-3.5 w-3.5" /> Clear Memory
               </button>
             )}
-            <div className="flex items-center gap-1.5 rounded-full bg-white/10 px-3.5 py-1.5 text-xs font-bold">
-              <MessageSquare className="h-3.5 w-3.5" /> GeoBot Chat
-            </div>
           </div>
         </div>
       </div>

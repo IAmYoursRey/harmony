@@ -22,7 +22,7 @@ import {
 } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
 import { buildAISummary } from "@/data/userProfiles";
-import { askChatbotAI } from "@/services/geminiService";
+import { askChatbotAI, MAX_CHAT_MEMORY, trimRollingChatMemory } from "@/services/geminiService";
 import { copilotIntelligenceService } from "@/services/copilotIntelligenceService";
 
 interface NavigationAction {
@@ -249,19 +249,22 @@ export function FloatingAICopilot() {
     location.pathname.includes("/app/ai-learning") ||
     location.pathname.includes("/app/digital-twin");
 
-  const [chatMessages, setChatMessages] = useState<ChatMessage[]>(() => [
-    {
+  const createCopilotWelcome = useCallback(
+    (): ChatMessage => ({
       id: "welcome",
       role: "ai",
       text: currentUser
-        ? `Halo ${currentUser.name}. Ada yang ingin ditanyakan seputar cuaca, gempa, atau navigasi fitur Harmony?`
-        : "Asisten Harmony siap membantu informasi cuaca, gempa, atau navigasi fitur.",
+        ? `Halo ${currentUser.name}! Mau tanya cuaca, progres akunmu, atau simulasi evakuasi SMAN 1 Ngoro? Boleh pakai Bahasa Indonesia atau Jawa sehari-hari.`
+        : "Halo! Aku GeoBot Harmony. Tanya cuaca, peta, atau prosedur evakuasi sekolah aja — santai pakai Indonesia atau Jawa.",
       timestamp: new Date().toLocaleTimeString("id-ID", {
         hour: "2-digit",
         minute: "2-digit",
       }),
-    },
-  ]);
+    }),
+    [currentUser],
+  );
+
+  const [chatMessages, setChatMessages] = useState<ChatMessage[]>(() => [createCopilotWelcome()]);
   const [chatInput, setChatInput] = useState<string>("");
   const [chatLoading, setChatLoading] = useState<boolean>(false);
   const chatHistory = useRef<
@@ -269,6 +272,13 @@ export function FloatingAICopilot() {
   >([]);
   const chatEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
+
+  const handleClearCopilotMemory = useCallback(() => {
+    if (chatLoading) return;
+    chatHistory.current = [];
+    setChatMessages([createCopilotWelcome()]);
+    setChatInput("");
+  }, [chatLoading, createCopilotWelcome]);
 
   useEffect(() => {
     const handleOpenCopilot = () => {
@@ -338,10 +348,16 @@ export function FloatingAICopilot() {
       timestamp: nowTime,
     };
 
-    setChatMessages((prev) => [...prev, userMsg, loadingMsg]);
+    setChatMessages((prev) => {
+      const conversational = prev.filter((m) => m.id !== "welcome");
+      return trimRollingChatMemory([...conversational, userMsg, loadingMsg], MAX_CHAT_MEMORY);
+    });
     setChatLoading(true);
 
-    chatHistory.current.push({ role: "user", parts: [{ text }] });
+    chatHistory.current = trimRollingChatMemory(
+      [...chatHistory.current, { role: "user", parts: [{ text }] }],
+      MAX_CHAT_MEMORY,
+    );
 
     try {
       let reply = "";
@@ -407,35 +423,45 @@ export function FloatingAICopilot() {
         }
       }
 
-      chatHistory.current.push({ role: "model", parts: [{ text: reply }] });
+      chatHistory.current = trimRollingChatMemory(
+        [...chatHistory.current, { role: "model", parts: [{ text: reply }] }],
+        MAX_CHAT_MEMORY,
+      );
 
       setChatMessages((prev) =>
-        prev.map((m) =>
-          m.loading
-            ? {
-                ...m,
-                text: reply,
-                loading: false,
-                action: actionToAttach,
-              }
-            : m,
+        trimRollingChatMemory(
+          prev.map((m) =>
+            m.loading
+              ? {
+                  ...m,
+                  text: reply,
+                  loading: false,
+                  action: actionToAttach,
+                }
+              : m,
+          ),
+          MAX_CHAT_MEMORY,
         ),
       );
     } catch {
+      chatHistory.current = chatHistory.current.slice(0, -1);
       const fallbackReply = navIntent
         ? `Membuka **${navIntent.label}** untuk Anda. ${navIntent.icon}`
-        : "Maaf, koneksi ke asisten AI sedang sibuk. Silakan gunakan perintah navigasi seperti 'buka peta' atau 'buka cuaca'.";
+        : "Maaf, koneksi ke asisten AI sedang sibuk. Coba ulangi atau pakai perintah seperti 'buka peta'.";
 
       setChatMessages((prev) =>
-        prev.map((m) =>
-          m.loading
-            ? {
-                ...m,
-                text: fallbackReply,
-                loading: false,
-                action: navIntent || undefined,
-              }
-            : m,
+        trimRollingChatMemory(
+          prev.map((m) =>
+            m.loading
+              ? {
+                  ...m,
+                  text: fallbackReply,
+                  loading: false,
+                  action: navIntent || undefined,
+                }
+              : m,
+          ),
+          MAX_CHAT_MEMORY,
         ),
       );
     } finally {
@@ -444,10 +470,10 @@ export function FloatingAICopilot() {
   };
 
   const quickPrompts = [
+    { label: "Progres Saya", query: "cek progres kuis dan data akunku sekarang" },
+    { label: "Jawa: Pas Lindu", query: "piye carane nylametne awak pas lindu nang kelas?" },
     { label: "Cuaca Hari Ini", query: "gimana cuaca hari ini?" },
-    { label: "Daerah Hujan", query: "daerah mana saja yang hujan saat ini?" },
-    { label: "Lokasi & Elevasi", query: "dimana lokasi saya dan ketinggian?" },
-    { label: "Daftar Fitur", query: "apa saja fiturnya?" },
+    { label: "Daftar Menu", query: "apa saja fiturnya?" },
     { label: "Buka Peta", query: "buka peta" },
     { label: "Panduan Gempa", query: "bagaimana mitigasi saat gempa bumi?" },
   ];
@@ -523,18 +549,30 @@ export function FloatingAICopilot() {
                 </div>
                 <div>
                   <h3 className="text-xs sm:text-[13px] font-bold text-slate-900 dark:text-white leading-tight flex items-center gap-1.5">
-                    <span>Harmony AI Copilot</span>
+                    <span>GeoBot Harmony</span>
                     <span className="text-[9px] px-1.5 py-0.2 rounded-full font-bold bg-indigo-100 dark:bg-indigo-950/80 text-indigo-600 dark:text-indigo-400 border border-indigo-200 dark:border-indigo-800">
-                      Auto-Nav
+                      Memori {Math.min(chatMessages.filter((m) => m.id !== "welcome").length, MAX_CHAT_MEMORY)}/{MAX_CHAT_MEMORY}
                     </span>
                   </h3>
                   <p className="text-[10px] text-slate-400 dark:text-slate-500">
-                    Bisa tanya bencana & buka tab aplikasi
+                    Ngobrol santai Indonesia/Jawa &amp; buka menu
                   </p>
                 </div>
               </div>
 
               <div className="flex items-center gap-1">
+                {chatMessages.some((m) => m.id !== "welcome") && (
+                  <button
+                    type="button"
+                    onClick={handleClearCopilotMemory}
+                    disabled={chatLoading}
+                    className="inline-flex items-center gap-1 px-2 py-1 rounded-lg text-[10px] font-bold text-slate-500 hover:text-rose-600 dark:text-slate-400 dark:hover:text-rose-400 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors cursor-pointer disabled:opacity-50"
+                    title="Hapus memori chat (maks 6 pesan)"
+                  >
+                    <RefreshCw className="h-3 w-3" />
+                    <span className="hidden sm:inline">Clear</span>
+                  </button>
+                )}
                 <button
                   type="button"
                   onClick={() => setIsExpanded((prev) => !prev)}
