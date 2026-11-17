@@ -525,6 +525,32 @@ export function DashboardView() {
         </div>
       </div>
 
+      {/* ── Slide 13 Empirical Validation & Learning Gain Banner ──────────── */}
+      <div className="relative overflow-hidden rounded-3xl border border-indigo-200/80 bg-gradient-to-r from-indigo-950 via-brand-950 to-slate-900 p-6 text-white shadow-lg dark:border-indigo-800/60">
+        <div className="absolute inset-0 bg-grid-pattern bg-[size:32px_32px] opacity-10" />
+        <div className="relative flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+          <div className="space-y-1.5">
+            <div className="inline-flex items-center gap-1.5 rounded-full bg-emerald-500/20 px-3 py-1 text-xs font-bold text-emerald-300 ring-1 ring-inset ring-emerald-400/40">
+              <Sparkles className="h-3.5 w-3.5" />
+              <span>Validasi Empiris Slide 13 PPT — Uji Efektivitas 128 Siswa</span>
+            </div>
+            <h3 className="font-display text-lg sm:text-xl font-extrabold text-white">
+              Capaian N-Gain 0,74 (Kategori Tinggi) &amp; Akurasi 85%
+            </h3>
+            <p className="max-w-2xl text-xs sm:text-sm text-indigo-100/90 leading-relaxed">
+              Data empiris 128 siswa SMAN 1 Ngoro membuktikan peningkatan pemahaman mitigasi bencana dari Pre-Test 46,5 ke Post-Test 86,1. Tersedia Mode Privasi (inisial a*** b***) demi perlindungan data.
+            </p>
+          </div>
+          <Link
+            to="/app/learning-gain"
+            className="inline-flex items-center justify-center gap-2 rounded-2xl bg-white px-5 py-3 text-xs sm:text-sm font-bold text-brand-900 shadow-md hover:bg-brand-50 active:scale-95 transition-all shrink-0"
+          >
+            <span>Buka Laporan Validasi (Mode Demo)</span>
+            <ArrowRight className="h-4 w-4 text-brand-700" />
+          </Link>
+        </div>
+      </div>
+
       {/* ── SMAN 1 Ngoro Digital Twin Scenarios Quick Launch ───────────────── */}
       <Card>
         <SectionTitle action="Semua 8 Skenario" to="/app/digital-twin">

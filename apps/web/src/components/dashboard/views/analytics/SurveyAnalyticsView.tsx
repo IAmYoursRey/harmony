@@ -197,7 +197,7 @@ export function SurveyAnalyticsView() {
             </p>
           </div>
           <Link
-            to="/app/teacher?tab=learning-gain"
+            to="/app/learning-gain"
             className="inline-flex items-center justify-center gap-1.5 rounded-xl bg-brand-600 px-4 py-2 text-xs font-bold text-white shadow-sm hover:bg-brand-700 transition-all shrink-0"
           >
             <span>Buka Laporan Validasi 128 Siswa</span>

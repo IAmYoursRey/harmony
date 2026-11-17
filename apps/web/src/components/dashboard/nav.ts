@@ -14,6 +14,7 @@ import {
   ShieldCheck,
   Trophy,
   Satellite,
+  TrendingUp,
   type LucideIcon,
 } from "lucide-react";
 
@@ -84,6 +85,11 @@ export const navItems: NavItem[] = [
   { id: "gss", label: "Skor Harmony", icon: Gauge },
   { id: "resilience", label: "Ketahanan Sekolah", icon: ShieldCheck },
   { id: "survey", label: "Survei Sekolah", icon: BarChart3 },
+  {
+    id: "learning-gain",
+    label: "Validasi Empiris",
+    icon: TrendingUp,
+  },
   {
     id: "teacher",
     label: "Dasbor Guru",

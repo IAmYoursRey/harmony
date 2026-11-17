@@ -62,5 +62,55 @@ test("TeacherDashboardView and SurveyAnalyticsView include Learning Gain navigat
   );
   assert.match(surveySrc, /Validasi Empiris Slide 13 PPT/);
   assert.match(surveySrc, /N-Gain = 0,74/);
-  assert.match(surveySrc, /tab=learning-gain/);
+  assert.match(surveySrc, /learning-gain/);
+});
+
+test("Demo Mode accessibility and Privacy Masking (a*** b***) integrity", async () => {
+  const { maskNamePrivacy, maskEmailPrivacy, maskIdPrivacy } = await import(
+    "../apps/server/src/data/learningGainData.js"
+  );
+
+  // Test name privacy masking
+  assert.equal(maskNamePrivacy("Aditya Pratama"), "A*** P***");
+  assert.equal(maskNamePrivacy("Budi Santoso"), "B*** S***");
+  assert.equal(maskNamePrivacy("siti nurhaliza"), "s*** n***");
+  assert.equal(maskNamePrivacy("Raihan"), "R***");
+  assert.equal(maskNamePrivacy(""), "");
+
+  // Test email privacy masking
+  assert.equal(maskEmailPrivacy("aditya.pratama@sman1ngoro.sch.id"), "a***@sman1ngoro.sch.id");
+  assert.equal(maskEmailPrivacy("budi.santoso@sman1ngoro.sch.id"), "b***@sman1ngoro.sch.id");
+
+  // Test ID privacy masking
+  assert.equal(maskIdPrivacy("st-sman1ngoro-x1-01"), "st-***-01");
+  assert.equal(maskIdPrivacy("st-sman1ngoro-xi4-16"), "st-***-16");
+
+  // Verify route & nav accessibility for Demo users
+  const appSrc = fs.readFileSync(path.resolve(process.cwd(), "apps/web/src/App.tsx"), "utf8");
+  assert.match(appSrc, /path="learning-gain"/);
+  assert.match(appSrc, /LearningGainEvaluationView/);
+
+  const navSrc = fs.readFileSync(path.resolve(process.cwd(), "apps/web/src/components/dashboard/nav.ts"), "utf8");
+  assert.match(navSrc, /id:\s*"learning-gain"/);
+  assert.match(navSrc, /label:\s*"Validasi Empiris"/);
+
+  // Verify LearningGainEvaluationView has privacy mode enabled by default (a*** b***)
+  const viewSrc = fs.readFileSync(
+    path.resolve(process.cwd(), "apps/web/src/components/dashboard/views/roles/LearningGainEvaluationView.tsx"),
+    "utf8"
+  );
+  assert.match(viewSrc, /useState<boolean>\(true\)/);
+  assert.match(viewSrc, /Mode Privasi Siswa/);
+  assert.match(viewSrc, /a\*\*\* b\*\*\*/);
+  assert.match(viewSrc, /maskNamePrivacy/);
+  assert.match(viewSrc, /displayedStudents/);
+
+  // Verify DashboardView and LoginPage have quick access links for demo users
+  const dashSrc = fs.readFileSync(path.resolve(process.cwd(), "apps/web/src/components/dashboard/DashboardView.tsx"), "utf8");
+  assert.match(dashSrc, /to="\/app\/learning-gain"/);
+  assert.match(dashSrc, /Buka Laporan Validasi \(Mode Demo\)/);
+
+  const loginSrc = fs.readFileSync(path.resolve(process.cwd(), "apps/web/src/pages/LoginPage.tsx"), "utf8");
+  assert.match(loginSrc, /to="\/app\/learning-gain"/);
+  assert.match(loginSrc, /Mode Demo Privasi/);
 });

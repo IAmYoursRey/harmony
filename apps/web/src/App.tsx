@@ -71,6 +71,11 @@ const TeacherDashboardView = lazy(() =>
     default: m.TeacherDashboardView,
   })),
 );
+const LearningGainEvaluationView = lazy(() =>
+  import("@/components/dashboard/views/RoleDashboards").then((m) => ({
+    default: m.LearningGainEvaluationView,
+  })),
+);
 const DevDashboardView = lazy(() =>
   import("@/components/dashboard/views/RoleDashboards").then((m) => ({
     default: m.DevDashboardView,
@@ -229,6 +234,14 @@ export default function App() {
             element={
               <Suspense fallback={<PageSkeleton />}>
                 <SurveyAnalyticsView />
+              </Suspense>
+            }
+          />
+          <Route
+            path="learning-gain"
+            element={
+              <Suspense fallback={<PageSkeleton />}>
+                <LearningGainEvaluationView />
               </Suspense>
             }
           />

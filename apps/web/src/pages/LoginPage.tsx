@@ -1,7 +1,7 @@
 import { useState, useEffect, useMemo, useRef } from "react";
-import { useNavigate, useSearchParams } from "react-router-dom";
+import { useNavigate, useSearchParams, Link } from "react-router-dom";
 import { motion, AnimatePresence } from "framer-motion";
-import { Brain, Satellite, Boxes, ShieldCheck, ArrowLeft, LogOut, CheckCircle2, GraduationCap, BookOpen, Shield, MapPin, Building2, School as SchoolIcon, Loader2, Sparkles, User } from "lucide-react";
+import { Brain, Satellite, Boxes, ShieldCheck, ArrowLeft, LogOut, CheckCircle2, GraduationCap, BookOpen, Shield, MapPin, Building2, School as SchoolIcon, Loader2, Sparkles, User, TrendingUp } from "lucide-react";
 import { Logo } from "@/components/Logo";
 import { useToast } from "@/hooks/useToast";
 import { ThemePicker } from "@/components/ThemePicker";
@@ -380,6 +380,16 @@ export default function LoginPage() {
                       <p className="text-[11px] text-center text-slate-500 dark:text-slate-400 leading-tight pt-1">
                         ✨ Setiap akun demo digenerate unik &amp; terisolasi agar <strong className="text-brand-600 dark:text-brand-400">tidak saling bertabrakan</strong> saat bermain bersama di multiplayer.
                       </p>
+
+                      <div className="pt-2 border-t border-slate-100 dark:border-slate-800 text-center">
+                        <Link
+                          to="/app/learning-gain"
+                          className="inline-flex items-center gap-1.5 text-xs font-semibold text-brand-600 hover:text-brand-700 dark:text-brand-400 dark:hover:text-brand-300 transition-colors"
+                        >
+                          <TrendingUp className="h-3.5 w-3.5" />
+                          <span>Lihat Validasi Empiris &amp; Learning Gain 0,74 (Mode Demo Privasi)</span>
+                        </Link>
+                      </div>
                     </div>
                   </div>
                 )}

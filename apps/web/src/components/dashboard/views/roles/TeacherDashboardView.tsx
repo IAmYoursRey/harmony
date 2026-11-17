@@ -92,6 +92,8 @@ import { TeacherSessionCreatorModal } from "../sessions/TeacherSessionCreatorMod
 import { useData } from "@/hooks/useData";
 import { LoadingState } from "@/components/ui/LoadingState";
 import { LearningGainEvaluationView } from "./LearningGainEvaluationView";
+import { isDemoNgoroUser } from "@/utils/demoSchool";
+import { maskNamePrivacy } from "@/data/learningGainData";
 
 function Card({
   children,
@@ -1379,8 +1381,8 @@ export function TeacherDashboardView() {
                                 {idx + 1}
                               </span>
                             </td>
-                            <td className="py-3 pr-4 font-semibold text-ink-900 dark:text-white">
-                              {s.name}
+                            <td className="py-3 pr-4 font-semibold text-ink-900 dark:text-white font-mono">
+                              {isDemoNgoroUser(currentUser) ? maskNamePrivacy(s.name) : s.name}
                             </td>
                             <td className="py-3 pr-4">
                               <span className="font-display font-bold text-brand-700 dark:text-brand-400">

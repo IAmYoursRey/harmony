@@ -2539,3 +2539,34 @@ export const HARMONY_EMPIRICAL_VALIDATION_SUMMARY = {
   }
 ],
 };
+
+export function maskNamePrivacy(name) {
+  if (!name) return "";
+  return name
+    .trim()
+    .split(/\s+/)
+    .map((word) => {
+      if (!word) return "";
+      const first = word.charAt(0);
+      return `${first}***`;
+    })
+    .join(" ");
+}
+
+export function maskEmailPrivacy(email) {
+  if (!email) return "";
+  const parts = email.split("@");
+  if (parts.length < 2) return `${email.charAt(0)}***`;
+  const [user, domain] = parts;
+  const userFirst = user.charAt(0) || "s";
+  return `${userFirst}***@${domain}`;
+}
+
+export function maskIdPrivacy(id) {
+  if (!id) return "";
+  const parts = id.split("-");
+  if (parts.length >= 3) {
+    return `${parts[0]}-***-${parts[parts.length - 1]}`;
+  }
+  return `${id.slice(0, 3)}***`;
+}

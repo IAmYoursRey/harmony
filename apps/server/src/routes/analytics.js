@@ -2,7 +2,12 @@ import express from "express";
 import { readDB } from "../repositories/repository.js";
 import { verifyToken } from "../middleware/authMiddleware.js";
 import { getBaseSchools } from "./schools.js";
-import { HARMONY_EMPIRICAL_VALIDATION_SUMMARY } from "../data/learningGainData.js";
+import {
+  HARMONY_EMPIRICAL_VALIDATION_SUMMARY,
+  maskNamePrivacy,
+  maskEmailPrivacy,
+  maskIdPrivacy,
+} from "../data/learningGainData.js";
 
 const router = express.Router();
 
@@ -414,24 +419,36 @@ router.get("/sri", verifyToken, async (req, res) => {
 
 router.get("/learning-gain", async (req, res) => {
   const classId = req.query.classId;
-  if (!classId) {
-    return res.json({
-      success: true,
-      data: HARMONY_EMPIRICAL_VALIDATION_SUMMARY,
-    });
+  const isPrivacyMode =
+    req.query.privacy === "true" ||
+    req.query.anonymize === "true" ||
+    req.query.demo === "true";
+
+  let students = HARMONY_EMPIRICAL_VALIDATION_SUMMARY.students;
+  if (classId) {
+    students = students.filter((s) => s.classId === classId);
   }
-  const filteredStudents = HARMONY_EMPIRICAL_VALIDATION_SUMMARY.students.filter(
-    (s) => s.classId === classId
-  );
-  const classSummary = HARMONY_EMPIRICAL_VALIDATION_SUMMARY.classes.find(
-    (c) => c.classId === classId
-  );
+
+  if (isPrivacyMode) {
+    students = students.map((s) => ({
+      ...s,
+      name: maskNamePrivacy(s.name),
+      email: maskEmailPrivacy(s.email),
+      id: maskIdPrivacy(s.id),
+    }));
+  }
+
+  const classSummary = classId
+    ? HARMONY_EMPIRICAL_VALIDATION_SUMMARY.classes.find((c) => c.classId === classId) || null
+    : null;
+
   return res.json({
     success: true,
     data: {
       ...HARMONY_EMPIRICAL_VALIDATION_SUMMARY,
-      selectedClass: classSummary || null,
-      students: filteredStudents,
+      isPrivacyMode,
+      selectedClass: classSummary,
+      students,
     },
   });
 });

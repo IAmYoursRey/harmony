@@ -392,6 +392,42 @@ export const HARMONY_EMPIRICAL_VALIDATION_SUMMARY: EmpiricalValidationSummary = 
   classes: HARMONY_CLASS_TRIAL_SUMMARIES,
   students: HARMONY_STUDENT_TRIAL_RECORDS,
 }};
+
+/**
+ * Privacy Masking Helpers for Demo Mode & External Presentations
+ * Keeps initials and masks remaining characters (e.g., "Aditya Pratama" -> "A*** P***")
+ * to preserve student privacy under PDP regulations & research ethics.
+ */
+export function maskNamePrivacy(name: string): string {{
+  if (!name) return "";
+  return name
+    .trim()
+    .split(/\\s+/)
+    .map((word) => {{
+      if (!word) return "";
+      const first = word.charAt(0);
+      return `${{first}}***`;
+    }})
+    .join(" ");
+}}
+
+export function maskEmailPrivacy(email: string): string {{
+  if (!email) return "";
+  const parts = email.split("@");
+  if (parts.length < 2) return `${{email.charAt(0)}}***`;
+  const [user, domain] = parts;
+  const userFirst = user.charAt(0) || "s";
+  return `${{userFirst}}***@${{domain}}`;
+}}
+
+export function maskIdPrivacy(id: string): string {{
+  if (!id) return "";
+  const parts = id.split("-");
+  if (parts.length >= 3) {{
+    return `${{parts[0]}}-***-${{parts[parts.length - 1]}}`;
+  }}
+  return `${{id.slice(0, 3)}}***`;
+}}
 '''
 
 out_path = os.path.join("apps", "web", "src", "data", "learningGainData.ts")
@@ -508,6 +544,37 @@ export const HARMONY_EMPIRICAL_VALIDATION_SUMMARY = {{
   classes: {json.dumps(class_summaries, indent=2)},
   students: {json.dumps(students, indent=2)},
 }};
+
+export function maskNamePrivacy(name) {{
+  if (!name) return "";
+  return name
+    .trim()
+    .split(/\\s+/)
+    .map((word) => {{
+      if (!word) return "";
+      const first = word.charAt(0);
+      return `${{first}}***`;
+    }})
+    .join(" ");
+}}
+
+export function maskEmailPrivacy(email) {{
+  if (!email) return "";
+  const parts = email.split("@");
+  if (parts.length < 2) return `${{email.charAt(0)}}***`;
+  const [user, domain] = parts;
+  const userFirst = user.charAt(0) || "s";
+  return `${{userFirst}}***@${{domain}}`;
+}}
+
+export function maskIdPrivacy(id) {{
+  if (!id) return "";
+  const parts = id.split("-");
+  if (parts.length >= 3) {{
+    return `${{parts[0]}}-***-${{parts[parts.length - 1]}}`;
+  }}
+  return `${{id.slice(0, 3)}}***`;
+}}
 '''
 
 server_out_path = os.path.join("apps", "server", "src", "data", "learningGainData.js")
