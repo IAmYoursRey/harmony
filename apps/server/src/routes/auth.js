@@ -95,9 +95,13 @@ router.post("/login", async (req, res) => {
       const demoId = payload.sub || `usr-demo-${Date.now()}`;
       const demoRole =
         payload.role ||
-        (email.toLowerCase().includes("siti") || email.toLowerCase().includes("teacher")
+        (email.toLowerCase().includes("siti") ||
+        email.toLowerCase().includes("teacher") ||
+        email.toLowerCase().includes("guru")
           ? "teacher"
-          : email.toLowerCase() === "raihanansari3345@gmail.com"
+          : email.toLowerCase() === "raihanansari3345@gmail.com" ||
+            email.toLowerCase().includes("developer") ||
+            email.toLowerCase().includes("dev")
           ? "developer"
           : "student");
 
@@ -125,7 +129,7 @@ router.post("/login", async (req, res) => {
           name: account.name,
           role: account.role,
           gender: "other",
-          grade: "X",
+          grade: account.role === "teacher" || account.role === "developer" ? "-" : "X",
           section: "1",
           classSection: "1",
           ...SMAN1_NGORO_META,
@@ -157,7 +161,7 @@ router.post("/login", async (req, res) => {
           name: account.name,
           role: account.role,
           gender: "other",
-          grade: "X",
+          grade: account.role === "teacher" || account.role === "developer" ? "-" : "X",
           section: "1",
           classSection: "1",
           ...SMAN1_NGORO_META,

@@ -15,6 +15,7 @@ import { useAuth } from "@/hooks/useAuth";
 import { useSchool } from "@/hooks/useSchool";
 import { useToast } from "@/hooks/useToast";
 import { getSchoolById, SMAN_1_NGORO_FALLBACK } from "@/services/schoolService";
+import { generateRandomDemoPayload } from "@/utils/demoSchool";
 
 interface AuthRequiredModalProps {
   isOpen: boolean;
@@ -45,21 +46,14 @@ export function AuthRequiredModal({
   const handleQuickLogin = async () => {
     setIsLoadingDemo(true);
     try {
-      const devPayload = {
-        email: "raihanansari3345@gmail.com",
-        name: "Raihan Ansari",
-        sub: "usr-1789435370447",
-        picture:
-          "https://lh3.googleusercontent.com/a/ACg8ocILCQOch6sL8tq_D5QC25Km3hcV9kb-m3kA0_5HBSnoie9Zjrg=s96-c",
-        isDemo: true,
-      };
+      const demoPayload = generateRandomDemoPayload("student");
 
-      const result = await login(JSON.stringify(devPayload));
+      const result = await login(JSON.stringify(demoPayload));
       if (result.success && result.account) {
         await finalizeLogin(result.account);
         const ngoro = await getSchoolById("ffdcdf34-fc99-4209-913e-5a6042e957ad");
         setSelection(ngoro || SMAN_1_NGORO_FALLBACK);
-        show(`Masuk Mode Demo SMAN 1 Ngoro.`, "success");
+        show(`Masuk Mode Demo SMAN 1 Ngoro (${result.account.name}).`, "success");
         onClose();
         navigate(targetPath);
       } else {
