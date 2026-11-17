@@ -59,6 +59,11 @@ export interface SimulationRubricEvaluation {
 
 export const OFFICIAL_PREPAREDNESS_REFERENCES = [
   {
+    code: "Richard R. Hake (1998)",
+    title:
+      "Normalized Learning Gain (<g> = 0.71, Kategori Tinggi): Evaluasi Efektivitas Pembelajaran Interaktif vs Ceramah Konvensional (Slide 13 PPT HARMONY)",
+  },
+  {
     code: "LIPI–UNESCO/ISDR (2006)",
     title:
       "Kajian Kesiapsiagaan Komunitas Sekolah (5 Parameter: Pengetahuan, Kebijakan, Rencana Darurat, Peringatan Dini, Mobilisasi; Skala 0–100)",

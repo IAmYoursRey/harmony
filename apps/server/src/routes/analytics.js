@@ -2,6 +2,7 @@ import express from "express";
 import { readDB } from "../repositories/repository.js";
 import { verifyToken } from "../middleware/authMiddleware.js";
 import { getBaseSchools } from "./schools.js";
+import { HARMONY_EMPIRICAL_VALIDATION_SUMMARY } from "../data/learningGainData.js";
 
 const router = express.Router();
 
@@ -407,6 +408,30 @@ router.get("/sri", verifyToken, async (req, res) => {
         { subject: "Tingkat Partisipasi", A: participation, fullMark: 100 },
       ],
       recommendations,
+    },
+  });
+});
+
+router.get("/learning-gain", async (req, res) => {
+  const classId = req.query.classId;
+  if (!classId) {
+    return res.json({
+      success: true,
+      data: HARMONY_EMPIRICAL_VALIDATION_SUMMARY,
+    });
+  }
+  const filteredStudents = HARMONY_EMPIRICAL_VALIDATION_SUMMARY.students.filter(
+    (s) => s.classId === classId
+  );
+  const classSummary = HARMONY_EMPIRICAL_VALIDATION_SUMMARY.classes.find(
+    (c) => c.classId === classId
+  );
+  return res.json({
+    success: true,
+    data: {
+      ...HARMONY_EMPIRICAL_VALIDATION_SUMMARY,
+      selectedClass: classSummary || null,
+      students: filteredStudents,
     },
   });
 });

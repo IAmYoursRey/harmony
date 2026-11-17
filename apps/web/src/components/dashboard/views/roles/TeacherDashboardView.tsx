@@ -91,6 +91,7 @@ import { ProgressRing } from "@/components/dashboard/Charts";
 import { TeacherSessionCreatorModal } from "../sessions/TeacherSessionCreatorModal";
 import { useData } from "@/hooks/useData";
 import { LoadingState } from "@/components/ui/LoadingState";
+import { LearningGainEvaluationView } from "./LearningGainEvaluationView";
 
 function Card({
   children,
@@ -497,7 +498,7 @@ export function TeacherDashboardView() {
 
   const [searchParams] = useSearchParams();
   const [activeTab, setActiveTab] = useState<
-    "overview" | "classes" | "students"
+    "overview" | "classes" | "students" | "learning-gain"
   >((searchParams.get("tab") as any) || "overview");
   const [studentFilterIdx, setStudentFilterIdx] = useState<number>(-1);
   const [selectedStudentForDetail, setSelectedStudentForDetail] = useState<any>(null);
@@ -693,24 +694,34 @@ export function TeacherDashboardView() {
         </div>
 
         {/* Navigation Tabs */}
-        <div className="relative z-10 mt-6 flex border-b border-brand-700/50">
+        <div className="relative z-10 mt-6 flex flex-wrap border-b border-brand-700/50">
           <button
             onClick={() => setActiveTab("overview")}
             className={`px-4 py-2 border-b-2 font-semibold text-sm transition-colors ${activeTab === "overview" ? "border-white text-white" : "border-transparent text-white/60 hover:text-white/80"}`}
           >
-            Overview & Analytics
+            Overview &amp; Analisis
           </button>
           <button
             onClick={() => setActiveTab("classes")}
             className={`px-4 py-2 border-b-2 font-semibold text-sm transition-colors ${activeTab === "classes" ? "border-white text-white" : "border-transparent text-white/60 hover:text-white/80"}`}
           >
-            Class Management
+            Manajemen Kelas
           </button>
           <button
             onClick={() => setActiveTab("students")}
             className={`px-4 py-2 border-b-2 font-semibold text-sm transition-colors ${activeTab === "students" ? "border-white text-white" : "border-transparent text-white/60 hover:text-white/80"}`}
           >
-            Student Management
+            Data Siswa
+          </button>
+          <button
+            onClick={() => setActiveTab("learning-gain")}
+            className={`px-4 py-2 border-b-2 font-semibold text-sm transition-colors flex items-center gap-1.5 ${activeTab === "learning-gain" ? "border-white text-white" : "border-transparent text-white/60 hover:text-white/80"}`}
+          >
+            <Sparkles className="h-4 w-4 text-amber-300 animate-pulse" />
+            <span>Efektivitas &amp; Learning Gain (0,7+)</span>
+            <span className="rounded-full bg-emerald-400/20 px-2 py-0.5 text-[10px] font-bold text-emerald-300 ring-1 ring-emerald-400/30">
+              Slide 13
+            </span>
           </button>
         </div>
       </div>
@@ -1499,6 +1510,10 @@ export function TeacherDashboardView() {
             </>
           )}
         </div>
+      )}
+
+      {activeTab === "learning-gain" && (
+        <LearningGainEvaluationView />
       )}
     </div>
   );

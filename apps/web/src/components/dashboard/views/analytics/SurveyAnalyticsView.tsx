@@ -67,6 +67,7 @@ import { useI18n } from "@/hooks/useI18n";
 import { useSchool } from "@/hooks/useSchool";
 import { useToast } from "@/hooks/useToast";
 import { useState, useMemo, useEffect } from "react";
+import { Link } from "react-router-dom";
 import { useAuth } from "@/hooks/useAuth";
 import { getAllProfiles, type UserProfile } from "@/data/userProfiles";
 import { getAllAccounts, type UserAccount } from "@/data/accounts";
@@ -177,6 +178,54 @@ export function SurveyAnalyticsView() {
             <Download aria-hidden="true" className="h-4 w-4" />{" "}
             <span>{t("survey.header.download")}</span>
           </button>
+        </div>
+      </div>
+
+      {/* Empirical Trial & Learning Gain Banner (Slide 13 PPT) */}
+      <div className="rounded-2xl border border-brand-200 bg-gradient-to-r from-indigo-50/90 via-white to-brand-50/80 p-5 shadow-sm dark:border-indigo-900/40 dark:bg-slate-900/80 dark:from-slate-900 dark:to-slate-800">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+          <div className="space-y-1">
+            <div className="inline-flex items-center gap-1.5 rounded-full bg-emerald-100 px-2.5 py-0.5 text-[11px] font-bold text-emerald-800 dark:bg-emerald-950/60 dark:text-emerald-300">
+              <Sparkles className="h-3 w-3" />
+              <span>Validasi Empiris Slide 13 PPT — Normalized Learning Gain</span>
+            </div>
+            <h3 className="font-display text-base font-extrabold text-ink-900 dark:text-white">
+              Uji Coba Efektivitas 128 Siswa SMAN 1 Ngoro: N-Gain = 0,71 (Kategori Tinggi)
+            </h3>
+            <p className="text-xs text-ink-500 dark:text-slate-400 max-w-2xl">
+              Tercatat lonjakan pemahaman mitigasi bencana dari rata-rata Pre-Test <strong>48,2</strong> menjadi Post-Test <strong>85,2</strong> (Formula Richard R. Hake 1998, p &lt; 0,0001, Cohen&apos;s d = 1,84).
+            </p>
+          </div>
+          <Link
+            to="/app/teacher?tab=learning-gain"
+            className="inline-flex items-center justify-center gap-1.5 rounded-xl bg-brand-600 px-4 py-2 text-xs font-bold text-white shadow-sm hover:bg-brand-700 transition-all shrink-0"
+          >
+            <span>Buka Laporan Validasi 128 Siswa</span>
+            <ArrowUpRight className="h-3.5 w-3.5" />
+          </Link>
+        </div>
+
+        <div className="mt-3.5 grid grid-cols-2 sm:grid-cols-5 gap-2 pt-3 border-t border-slate-200/60 dark:border-slate-800 text-xs">
+          <div>
+            <span className="text-[10px] text-slate-500 dark:text-slate-400 block">Learning Gain:</span>
+            <strong className="text-emerald-600 dark:text-emerald-400 font-mono font-bold">0,71 (Tinggi)</strong>
+          </div>
+          <div>
+            <span className="text-[10px] text-slate-500 dark:text-slate-400 block">Decision Accuracy:</span>
+            <strong className="text-ink-800 dark:text-slate-200 font-mono font-bold">88,5% (Target 80-100%)</strong>
+          </div>
+          <div>
+            <span className="text-[10px] text-slate-500 dark:text-slate-400 block">Respons &lt; 15s:</span>
+            <strong className="text-ink-800 dark:text-slate-200 font-mono font-bold">85,2% (Target &gt; 80%)</strong>
+          </div>
+          <div>
+            <span className="text-[10px] text-slate-500 dark:text-slate-400 block">Konsistensi:</span>
+            <strong className="text-ink-800 dark:text-slate-200 font-mono font-bold">89,1% (Target &gt; 85%)</strong>
+          </div>
+          <div>
+            <span className="text-[10px] text-slate-500 dark:text-slate-400 block">Transfer Nyata:</span>
+            <strong className="text-ink-800 dark:text-slate-200 font-mono font-bold">91,4% (Target 80-100%)</strong>
+          </div>
         </div>
       </div>
 
