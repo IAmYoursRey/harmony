@@ -131,16 +131,16 @@ export function LearningGainEvaluationView() {
     const link = document.createElement("a");
     link.href = url;
     link.download = privacyMode
-      ? `HARMONY_Uji_Learning_Gain_128_Siswa_Privasi_Inisial.csv`
-      : `HARMONY_Uji_Learning_Gain_128_Siswa_SMAN1_Ngoro.csv`;
+      ? `HARMONY_Uji_Learning_Gain_${summary.totalStudentsTested}_Siswa_Privasi_Inisial.csv`
+      : `HARMONY_Uji_Learning_Gain_${summary.totalStudentsTested}_Siswa_SMAN1_Ngoro.csv`;
     document.body.appendChild(link);
     link.click();
     link.remove();
     URL.revokeObjectURL(url);
     show(
       privacyMode
-        ? "Laporan CSV 128 siswa berhasil diunduh dengan Mode Privasi (inisial a*** b***)."
-        : "Laporan CSV 128 siswa berhasil diunduh dengan nama lengkap.",
+        ? `Laporan CSV ${summary.totalStudentsTested} siswa berhasil diunduh dengan Mode Privasi (inisial a*** b***).`
+        : `Laporan CSV ${summary.totalStudentsTested} siswa berhasil diunduh dengan nama lengkap.`,
       "success"
     );
   };
@@ -170,7 +170,7 @@ export function LearningGainEvaluationView() {
               Bukti Empiris &amp; Perhitungan Learning Gain Siswa
             </h2>
             <p className="max-w-2xl text-xs sm:text-sm text-indigo-100/90 leading-relaxed">
-              Data hasil uji coba empiris terhadap <strong>{summary.totalStudentsTested} siswa terdaftar</strong> pada 8 rombel SMAN 1 Ngoro (Kelas X-1 s/d XI-4) membuktikan efektivitas ekosistem HARMONY dengan capaian rata-rata <strong>Normalized Gain (N-Gain) = 0,74</strong> (Kategori Tinggi).
+              Data hasil uji coba empiris terhadap <strong>{summary.totalStudentsTested} siswa terdaftar</strong> pada {summary.totalClasses} rombel SMAN 1 Ngoro (Kelas X-1 s/d X-5 dan XI-1 s/d XI-5) membuktikan efektivitas ekosistem HARMONY dengan capaian rata-rata <strong>Normalized Gain (N-Gain) = 0,74</strong> (Kategori Tinggi).
             </p>
           </div>
 
@@ -186,7 +186,7 @@ export function LearningGainEvaluationView() {
         {/* Quick Badges */}
         <div className="relative mt-6 flex flex-wrap gap-2.5 pt-4 border-t border-white/10 text-xs">
           <span className="inline-flex items-center gap-1.5 rounded-lg bg-white/10 px-3 py-1 font-medium text-white">
-            <School className="h-3.5 w-3.5 text-brand-300" /> SMAN 1 Ngoro (8 Rombel)
+            <School className="h-3.5 w-3.5 text-brand-300" /> SMAN 1 Ngoro ({summary.totalClasses} Rombel)
           </span>
           <span className="inline-flex items-center gap-1.5 rounded-lg bg-white/10 px-3 py-1 font-medium text-white">
             <GraduationCap className="h-3.5 w-3.5 text-brand-300" /> {summary.totalStudentsTested} Siswa Terdaftar
@@ -383,7 +383,7 @@ export function LearningGainEvaluationView() {
               <div className="flex items-center justify-between border-b border-slate-100 dark:border-slate-800 pb-1.5">
                 <span className="text-slate-500 dark:text-slate-400">Sampel Uji:</span>
                 <strong className="text-ink-900 dark:text-white font-mono">
-                  N = {summary.totalStudentsTested} Siswa (8 Rombel)
+                  N = {summary.totalStudentsTested} Siswa ({summary.totalClasses} Rombel)
                 </strong>
               </div>
               <div className="flex items-center justify-between border-b border-slate-100 dark:border-slate-800 pb-1.5">
@@ -457,7 +457,7 @@ export function LearningGainEvaluationView() {
         </div>
       </div>
 
-      {/* Filterable Table of 128 Students */}
+      {/* Filterable Table of 320 Students */}
       <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm dark:border-slate-800 dark:bg-slate-900/80 space-y-4">
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-3">
           <div>
@@ -546,7 +546,7 @@ export function LearningGainEvaluationView() {
               </div>
               <p className="text-[11px] text-ink-500 dark:text-slate-400 mt-0.5">
                 {privacyMode
-                  ? "Identitas 128 siswa dilindungi: nama hanya menampilkan inisial awal (misal: Aditya Pratama → A*** P***) sesuai UU PDP & etika riset."
+                  ? `Identitas ${summary.totalStudentsTested} siswa dilindungi: nama hanya menampilkan inisial awal (misal: Aditya Pratama → A*** P***) sesuai UU PDP & etika riset.`
                   : "Menampilkan nama lengkap untuk verifikasi internal guru/admin SMAN 1 Ngoro."}
               </p>
             </div>

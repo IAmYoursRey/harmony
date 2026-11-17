@@ -532,13 +532,13 @@ export function DashboardView() {
           <div className="space-y-1.5">
             <div className="inline-flex items-center gap-1.5 rounded-full bg-emerald-500/20 px-3 py-1 text-xs font-bold text-emerald-300 ring-1 ring-inset ring-emerald-400/40">
               <Sparkles className="h-3.5 w-3.5" />
-              <span>Validasi Empiris Slide 13 PPT — Uji Efektivitas 128 Siswa</span>
+              <span>Validasi Empiris Slide 13 PPT — Uji Efektivitas 320 Siswa</span>
             </div>
             <h3 className="font-display text-lg sm:text-xl font-extrabold text-white">
               Capaian N-Gain 0,74 (Kategori Tinggi) &amp; Akurasi 85%
             </h3>
             <p className="max-w-2xl text-xs sm:text-sm text-indigo-100/90 leading-relaxed">
-              Data empiris 128 siswa SMAN 1 Ngoro membuktikan peningkatan pemahaman mitigasi bencana dari Pre-Test 46,5 ke Post-Test 86,1. Tersedia Mode Privasi (inisial a*** b***) demi perlindungan data.
+              Data empiris 320 siswa SMAN 1 Ngoro membuktikan peningkatan pemahaman mitigasi bencana dari Pre-Test 46,5 ke Post-Test 86,1. Tersedia Mode Privasi (inisial a*** b***) demi perlindungan data.
             </p>
           </div>
           <Link

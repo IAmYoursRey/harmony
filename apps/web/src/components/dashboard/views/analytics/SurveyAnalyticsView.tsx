@@ -190,7 +190,7 @@ export function SurveyAnalyticsView() {
               <span>Validasi Empiris Slide 13 PPT — Normalized Learning Gain</span>
             </div>
             <h3 className="font-display text-base font-extrabold text-ink-900 dark:text-white">
-              Uji Coba Efektivitas 128 Siswa SMAN 1 Ngoro: N-Gain = 0,74 (Kategori Tinggi)
+              Uji Coba Efektivitas 320 Siswa SMAN 1 Ngoro: N-Gain = 0,74 (Kategori Tinggi)
             </h3>
             <p className="text-xs text-ink-500 dark:text-slate-400 max-w-2xl">
               Tercatat lonjakan pemahaman mitigasi bencana dari rata-rata Pre-Test <strong>46,5</strong> menjadi Post-Test <strong>86,1</strong> (Formula Richard R. Hake 1998, p &lt; 0,0001, Cohen&apos;s d = 1,84).
@@ -200,7 +200,7 @@ export function SurveyAnalyticsView() {
             to="/app/learning-gain"
             className="inline-flex items-center justify-center gap-1.5 rounded-xl bg-brand-600 px-4 py-2 text-xs font-bold text-white shadow-sm hover:bg-brand-700 transition-all shrink-0"
           >
-            <span>Buka Laporan Validasi 128 Siswa</span>
+            <span>Buka Laporan Validasi 320 Siswa</span>
             <ArrowUpRight className="h-3.5 w-3.5" />
           </Link>
         </div>

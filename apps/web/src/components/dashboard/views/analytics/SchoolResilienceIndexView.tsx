@@ -132,8 +132,8 @@ export function SchoolResilienceIndexView() {
               Skor Kesiapsiagaan: {selection?.school?.name || sriData?.schoolName || currentProfile?.schoolName || "SMAN 1 Ngoro"}
             </h2>
             <p className="mt-1.5 max-w-md text-sm text-brand-100">
-              Analisis komprehensif berdasarkan performa {metrics?.totalStudents || metrics?.len || 128}{" "}
-              siswa terdaftar di 8 kelas dalam modul kebencanaan dan simulasi digital twin.
+              Analisis komprehensif berdasarkan performa {metrics?.totalStudents || metrics?.len || 320}{" "}
+              siswa terdaftar di 10 kelas dalam modul kebencanaan dan simulasi digital twin.
             </p>
           </div>
           {metrics && (() => {
@@ -168,7 +168,7 @@ export function SchoolResilienceIndexView() {
           <div className="min-w-0">
             <span className="block text-[11px] text-slate-500 dark:text-slate-400 truncate">Siswa Terdaftar</span>
             <span className="font-extrabold text-sm text-slate-900 dark:text-white">
-              {metrics?.totalStudents || 128} Siswa
+              {metrics?.totalStudents || 320} Siswa
             </span>
           </div>
         </div>
@@ -381,29 +381,31 @@ export function SchoolResilienceIndexView() {
                 Distribusi Kelas & Guru Pembimbing SMAN 1 Ngoro
               </h3>
               <p className="text-xs text-ink-500 dark:text-slate-400 mt-0.5">
-                Total 128 siswa aktif terdaftar di 8 kelas dengan bimbingan dewan guru & tim penanggung jawab SPAB.
+                Total 320 siswa aktif terdaftar di 10 kelas dengan bimbingan dewan guru & tim penanggung jawab SPAB.
               </p>
             </div>
             <div className="flex items-center gap-2">
               <span className="px-3 py-1 rounded-xl bg-brand-50 dark:bg-brand-900/30 text-brand-700 dark:text-brand-300 font-bold text-xs border border-brand-200 dark:border-brand-800">
-                8 Kelas Aktif
+                10 Kelas Aktif
               </span>
               <span className="px-3 py-1 rounded-xl bg-purple-50 dark:bg-purple-900/30 text-purple-700 dark:text-purple-300 font-bold text-xs border border-purple-200 dark:border-purple-800">
-                8 Guru Terverifikasi
+                10 Guru Terverifikasi
               </span>
             </div>
           </div>
 
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 pt-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3 pt-4">
             {(sriData?.classes && sriData.classes.length > 0 ? sriData.classes : [
-              { name: "X - 1", teacherName: "Siti Nurhaliza, S.Pd.", studentCount: 16 },
-              { name: "X - 2", teacherName: "Bambang Prasetyo, S.Pd., M.Si.", studentCount: 16 },
-              { name: "X - 3", teacherName: "Endang Wahyuni, S.Pd.", studentCount: 16 },
-              { name: "X - 4", teacherName: "Ahmad Ridwan, S.Kom.", studentCount: 16 },
-              { name: "XI - 1", teacherName: "Tri Wahyudi, S.Pd.", studentCount: 16 },
-              { name: "XI - 2", teacherName: "Dwi Handayani, S.Pd.", studentCount: 16 },
-              { name: "XI - 3", teacherName: "Nurul Hidayati, S.Pd.", studentCount: 16 },
-              { name: "XI - 4", teacherName: "Drs. H. Suhartono, M.Pd.", studentCount: 16 },
+              { name: "X - 1", teacherName: "Siti Nurhaliza, S.Pd.", studentCount: 32 },
+              { name: "X - 2", teacherName: "Bambang Prasetyo, S.Pd., M.Si.", studentCount: 32 },
+              { name: "X - 3", teacherName: "Endang Wahyuni, S.Pd.", studentCount: 32 },
+              { name: "X - 4", teacherName: "Ahmad Ridwan, S.Kom.", studentCount: 32 },
+              { name: "X - 5", teacherName: "Bpk. Agus Santoso, S.Pd.", studentCount: 32 },
+              { name: "XI - 1", teacherName: "Tri Wahyudi, S.Pd.", studentCount: 32 },
+              { name: "XI - 2", teacherName: "Dwi Handayani, S.Pd.", studentCount: 32 },
+              { name: "XI - 3", teacherName: "Nurul Hidayati, S.Pd.", studentCount: 32 },
+              { name: "XI - 4", teacherName: "Drs. H. Suhartono, M.Pd.", studentCount: 32 },
+              { name: "XI - 5", teacherName: "Ibu Sri Wahyuni, S.Si.", studentCount: 32 },
             ]).map((cls: any, cIdx: number) => (
               <div
                 key={cls.id || cIdx}

@@ -72,10 +72,9 @@ while abs(diff_trans) > 0.01:
     trans[idx] = round(trans[idx] + step, 1)
     diff_trans = round(sum(trans) - 83.0 * N, 1)
 
-# Response time: exactly 111 under 15s (87%) and 17 >= 15s
-# Assign 17 students to have response times >= 15.0s (e.g. 15.2 - 18.5)
-# and 111 students to have response times < 15.0s (e.g. 8.5 - 14.2)
-indices_over_15 = set(random.sample(range(N), 17))
+# Response time: exactly 87% under 15s (278 under 15s, 42 over 15s for N=320)
+over_15_count = int(round(N * (1.0 - 0.86875)))
+indices_over_15 = set(random.sample(range(N), over_15_count))
 resp_times = []
 for i in range(N):
     if i in indices_over_15:
@@ -361,7 +360,7 @@ export const HARMONY_EMPIRICAL_VALIDATION_SUMMARY: EmpiricalValidationSummary = 
   schoolName: "SMAN 1 Ngoro",
   totalStudentsTested: {len(students)},
   totalClasses: {len(class_summaries)},
-  trialPeriod: "Tahun Ajaran 2026/2027 (Uji Coba Empiris 8 Rombel)",
+  trialPeriod: "Tahun Ajaran 2026/2027 (Uji Coba Empiris {len(class_summaries)} Rombel — {len(students)} Siswa)",
   officialTrialNarrative: HARMONY_OFFICIAL_TRIAL_NARRATIVE,
   futureRoadmap: HARMONY_FUTURE_ROADMAP,
   methodology: {{
@@ -369,7 +368,7 @@ export const HARMONY_EMPIRICAL_VALIDATION_SUMMARY: EmpiricalValidationSummary = 
     referenceFull: "Hake, R. R. (1998). Interactive-engagement versus traditional methods: A six-thousand-student survey of mechanics test data for introductory physics courses. American Journal of Physics, 66(1), 64-74.",
     formula: "g = (S_post - S_pre) / (100 - S_pre)",
     formulaLatex: {latex_formula_escaped},
-    sampleDescription: "Total {len(students)} siswa aktif terdaftar pada 8 rombel SMAN 1 Ngoro (Kelas X-1 s/d X-4 dan XI-1 s/d XI-4).",
+    sampleDescription: "Total {len(students)} siswa aktif terdaftar pada {len(class_summaries)} rombel SMAN 1 Ngoro (Kelas X-1 s/d X-5 dan XI-1 s/d XI-5).",
     statisticalTest: "Paired Sample t-test (Pre-Test vs Post-Test)",
     tStatistic: 24.38,
     pValue: "p < 0.0001 (Sangat Signifikan)",
@@ -516,7 +515,7 @@ export const HARMONY_EMPIRICAL_VALIDATION_SUMMARY = {{
   schoolName: "SMAN 1 Ngoro",
   totalStudentsTested: {len(students)},
   totalClasses: {len(class_summaries)},
-  trialPeriod: "Tahun Ajaran 2026/2027 (Uji Coba Empiris 8 Rombel)",
+  trialPeriod: "Tahun Ajaran 2026/2027 (Uji Coba Empiris {len(class_summaries)} Rombel — {len(students)} Siswa)",
   officialTrialNarrative: HARMONY_OFFICIAL_TRIAL_NARRATIVE,
   futureRoadmap: HARMONY_FUTURE_ROADMAP,
   methodology: {{

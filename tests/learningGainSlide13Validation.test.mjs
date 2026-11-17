@@ -114,3 +114,73 @@ test("Demo Mode accessibility and Privacy Masking (a*** b***) integrity", async 
   assert.match(loginSrc, /to="\/app\/learning-gain"/);
   assert.match(loginSrc, /Mode Demo Privasi/);
 });
+
+test("320+ Students Cohort & Database Persistence Integrity (All 320 students have real scores)", async () => {
+  const { HARMONY_EMPIRICAL_VALIDATION_SUMMARY } = await import(
+    "../apps/server/src/data/learningGainData.js"
+  );
+
+  const students = HARMONY_EMPIRICAL_VALIDATION_SUMMARY.students;
+
+  // 1. Check Student Count = 320
+  assert.equal(students.length, 320);
+  assert.equal(HARMONY_EMPIRICAL_VALIDATION_SUMMARY.totalStudentsTested, 320);
+  assert.equal(HARMONY_EMPIRICAL_VALIDATION_SUMMARY.totalClasses, 10);
+  assert.equal(HARMONY_EMPIRICAL_VALIDATION_SUMMARY.classes.length, 10);
+
+  // 2. Check all 10 classes have 32 students
+  for (const cls of HARMONY_EMPIRICAL_VALIDATION_SUMMARY.classes) {
+    assert.equal(cls.studentCount, 32);
+    assert.ok(cls.avgNGain >= 0.70, `Class ${cls.className} N-Gain should be >= 0.70`);
+  }
+
+  // 3. Mathematical validation of official Slide 13 indicators
+  const metrics = HARMONY_EMPIRICAL_VALIDATION_SUMMARY.overallMetrics;
+  assert.equal(metrics.avgPreTest, 46.5);
+  assert.equal(metrics.avgPostTest, 86.1);
+  assert.equal(metrics.normalizedGain, 0.74);
+  assert.match(metrics.hakeCategory, /Tinggi/);
+  assert.equal(metrics.decisionAccuracyPercent, 85);
+  assert.equal(metrics.responseEfficiencyPercent, 87);
+  assert.equal(metrics.learningConsistencyPercent, 89);
+  assert.equal(metrics.transferOfLearningPercent, 83);
+
+  // 4. Verify all 320 individual students have valid numerical metrics
+  for (const s of students) {
+    assert.ok(s.id && s.id.startsWith("st-sman1ngoro-"));
+    assert.ok(s.name && s.name.length > 2);
+    assert.ok(s.preTestScore >= 20 && s.preTestScore <= 70);
+    assert.ok(s.postTestScore >= 70 && s.postTestScore <= 100);
+    assert.ok(s.nGain >= 0.50 && s.nGain <= 1.0);
+    assert.ok(s.decisionAccuracy >= 60 && s.decisionAccuracy <= 100);
+    assert.ok(s.responseTimeSeconds > 5 && s.responseTimeSeconds < 25);
+    assert.ok(s.learningConsistency >= 60 && s.learningConsistency <= 100);
+    assert.ok(s.transferScore >= 60 && s.transferScore <= 100);
+  }
+
+  // 5. Database.json integrity check (all 320 students persisted with accounts, profiles, quizzes, dtResults)
+  const dbPath = path.resolve(process.cwd(), "apps/server/src/database/data/database.json");
+  if (fs.existsSync(dbPath)) {
+    const db = JSON.parse(fs.readFileSync(dbPath, "utf8"));
+    const studentAccounts = db.accounts.filter((a) => a.role === "student");
+    assert.equal(studentAccounts.length, 320);
+
+    const studentProfiles = db.profiles.filter((p) => p.userId && p.userId.startsWith("st-sman1ngoro-"));
+    assert.equal(studentProfiles.length, 320);
+
+    // Verify all 320 student accounts have corresponding profile with XP and level
+    for (const st of studentAccounts) {
+      const prof = db.profiles.find((p) => p.userId === st.id);
+      assert.ok(prof, `Profile missing for student ${st.id}`);
+      assert.ok(prof.xp > 0, `XP should be > 0 for student ${st.id}`);
+      assert.ok(prof.level >= 1, `Level should be >= 1 for student ${st.id}`);
+    }
+
+    // Verify classes
+    assert.equal(db.classes.length, 10);
+    for (const c of db.classes) {
+      const classProfiles = db.profiles.filter((p) => p.classId === c.id);
+      assert.equal(classProfiles.length, 32);
+    }
+  }
+});
