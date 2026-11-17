@@ -113,3 +113,4 @@ test("LoginPage renders nickname input and randomized demo triggers", () => {
   assert.match(loginSrc, /Demo Pengembang \(Akun Acak\)/);
   assert.match(loginSrc, /tidak saling bertabrakan/);
 });
+

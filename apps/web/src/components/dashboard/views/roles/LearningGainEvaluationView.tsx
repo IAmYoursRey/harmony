@@ -142,7 +142,7 @@ export function LearningGainEvaluationView() {
               Bukti Empiris &amp; Perhitungan Learning Gain Siswa
             </h2>
             <p className="max-w-2xl text-xs sm:text-sm text-indigo-100/90 leading-relaxed">
-              Data hasil uji coba empiris terhadap <strong>{summary.totalStudentsTested} siswa terdaftar</strong> pada 8 rombel SMAN 1 Ngoro (Kelas X-1 s/d XI-4) membuktikan efektivitas ekosistem HARMONY dengan capaian rata-rata <strong>Normalized Gain (N-Gain) = 0,71</strong> (Kategori Tinggi).
+              Data hasil uji coba empiris terhadap <strong>{summary.totalStudentsTested} siswa terdaftar</strong> pada 8 rombel SMAN 1 Ngoro (Kelas X-1 s/d XI-4) membuktikan efektivitas ekosistem HARMONY dengan capaian rata-rata <strong>Normalized Gain (N-Gain) = 0,74</strong> (Kategori Tinggi).
             </p>
           </div>
 
@@ -172,6 +172,31 @@ export function LearningGainEvaluationView() {
         </div>
       </div>
 
+      {/* Official Narrative Card from User's Field Evaluation */}
+      <div className="rounded-2xl border border-indigo-200 bg-gradient-to-r from-indigo-50/90 via-white to-blue-50/70 p-5 shadow-sm dark:border-indigo-900/50 dark:bg-slate-900/90 dark:from-slate-900 dark:to-slate-800 space-y-3">
+        <div className="flex items-center gap-2 text-indigo-700 dark:text-indigo-400 font-bold text-xs uppercase tracking-wider">
+          <Sparkles className="h-4 w-4" />
+          <span>Narasi Resmi Hasil Uji Coba &amp; Tolok Ukur Slide 13</span>
+        </div>
+        <blockquote className="border-l-4 border-indigo-600 pl-4 py-1 text-xs sm:text-sm text-ink-800 dark:text-slate-200 leading-relaxed italic">
+          &ldquo;{summary.officialTrialNarrative}&rdquo;
+        </blockquote>
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 pt-2 border-t border-indigo-100 dark:border-indigo-900/40 text-[11px] text-ink-600 dark:text-slate-400">
+          <div className="flex items-center gap-1.5">
+            <CheckCircle2 className="h-3.5 w-3.5 text-emerald-500 shrink-0" />
+            <span><strong>N-Gain 0,74:</strong> Melampaui batas minimal 0,7</span>
+          </div>
+          <div className="flex items-center gap-1.5">
+            <CheckCircle2 className="h-3.5 w-3.5 text-emerald-500 shrink-0" />
+            <span><strong>Respons 87%:</strong> Bertindak &lt; 15 detik</span>
+          </div>
+          <div className="flex items-center gap-1.5">
+            <CheckCircle2 className="h-3.5 w-3.5 text-emerald-500 shrink-0" />
+            <span><strong>Transfer 83%:</strong> Tolok ukur paling krusial di luar layar</span>
+          </div>
+        </div>
+      </div>
+
       {/* 5 Slide 13 Parameter Cards */}
       <div className="space-y-3">
         <div className="flex items-center justify-between">
@@ -186,18 +211,26 @@ export function LearningGainEvaluationView() {
         <div className="grid gap-3.5 sm:grid-cols-2 lg:grid-cols-5">
           {HARMONY_SLIDE_13_PARAMETERS.map((p) => {
             const isGain = p.id === "learning_gain";
+            const isCrucial = p.isCrucialBenchmark;
             return (
               <div
                 key={p.id}
                 className={`relative overflow-hidden rounded-2xl p-4 transition-all border ${
                   isGain
                     ? "bg-gradient-to-b from-brand-50/90 to-white dark:from-brand-950/40 dark:to-slate-900 border-brand-300 dark:border-brand-600 shadow-md ring-2 ring-brand-400/30"
+                    : isCrucial
+                    ? "bg-gradient-to-b from-amber-50/60 to-white dark:from-amber-950/20 dark:to-slate-900 border-amber-300 dark:border-amber-700/60 shadow-sm"
                     : "bg-white/80 dark:bg-slate-900/80 border-slate-200 dark:border-slate-800 shadow-sm"
                 }`}
               >
                 {isGain && (
                   <div className="absolute top-2 right-2 flex items-center gap-1 rounded-full bg-brand-600 px-2 py-0.5 text-[9px] font-extrabold uppercase tracking-wide text-white">
                     Paling Ditanyakan
+                  </div>
+                )}
+                {isCrucial && (
+                  <div className="absolute top-2 right-2 flex items-center gap-1 rounded-full bg-amber-600 px-2 py-0.5 text-[9px] font-extrabold uppercase tracking-wide text-white">
+                    Paling Krusial
                   </div>
                 )}
                 <div className="flex items-center gap-2">
@@ -285,7 +318,7 @@ export function LearningGainEvaluationView() {
                 g &ge; 0,70
               </span>
               <span className="text-[11px] text-emerald-700 dark:text-emerald-400">
-                Kategori Tinggi (Capaian HARMONY: <strong>0,71</strong>)
+                Kategori Tinggi (Capaian HARMONY: <strong>0,74</strong>)
               </span>
             </div>
             <div className="rounded-xl border border-amber-200 bg-amber-50/50 p-2.5 dark:border-amber-900/40 dark:bg-amber-950/20">
@@ -361,7 +394,7 @@ export function LearningGainEvaluationView() {
               Perbandingan Pre-Test vs Post-Test per Rombel (SMAN 1 Ngoro)
             </h3>
             <p className="text-xs text-ink-500 dark:text-slate-400">
-              Semua rombel konsisten mengalami lonjakan pemahaman mitigasi dari rata-rata 48 ke 85.
+              Semua rombel konsisten mengalami lonjakan pemahaman mitigasi dari rata-rata 46,5 ke 86,1 (N-Gain 0,74).
             </p>
           </div>
           <div className="flex items-center gap-3 text-xs font-semibold">

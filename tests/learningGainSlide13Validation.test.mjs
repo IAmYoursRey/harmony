@@ -16,10 +16,16 @@ test("Slide 13 PPT Parameter Keberhasilan & Learning Gain (0.7+) data integrity"
   assert.match(learningGainSrc, /learning_consistency/);
   assert.match(learningGainSrc, /transfer_of_learning/);
 
-  // Check N-Gain >= 0.70 (Target Slide 13: di atas 0,7)
-  assert.match(learningGainSrc, /achievedValue:\s*0\.71/);
+  // Check N-Gain = 0.74 (Target Slide 13: di atas / minimal 0,7)
+  assert.match(learningGainSrc, /achievedValue:\s*0\.74/);
+  assert.match(learningGainSrc, /achievedValue:\s*85/);
+  assert.match(learningGainSrc, /achievedValue:\s*87/);
+  assert.match(learningGainSrc, /achievedValue:\s*89/);
+  assert.match(learningGainSrc, /achievedValue:\s*83/);
   assert.match(learningGainSrc, /Kategori Tinggi/);
   assert.match(learningGainSrc, /Richard R\. Hake \(1998\)/);
+  assert.match(learningGainSrc, /HARMONY_OFFICIAL_TRIAL_NARRATIVE/);
+  assert.match(learningGainSrc, /isCrucialBenchmark:\s*true/);
 
   // Check server endpoint and GeoBot AI instruction
   const serverAnalyticsSrc = fs.readFileSync(
@@ -33,7 +39,11 @@ test("Slide 13 PPT Parameter Keberhasilan & Learning Gain (0.7+) data integrity"
     "utf8"
   );
   assert.match(geoAiPromptSrc, /DATA VALIDASI EMPIRIS & LEARNING GAIN SLIDE 13 PPT HARMONY/);
-  assert.match(geoAiPromptSrc, /0,71/);
+  assert.match(geoAiPromptSrc, /0,74/);
+  assert.match(geoAiPromptSrc, /85 persen/);
+  assert.match(geoAiPromptSrc, /87 persen/);
+  assert.match(geoAiPromptSrc, /89 persen/);
+  assert.match(geoAiPromptSrc, /83 persen/);
   assert.match(geoAiPromptSrc, /Richard R\. Hake/);
 });
 
@@ -51,6 +61,6 @@ test("TeacherDashboardView and SurveyAnalyticsView include Learning Gain navigat
     "utf8"
   );
   assert.match(surveySrc, /Validasi Empiris Slide 13 PPT/);
-  assert.match(surveySrc, /N-Gain = 0,71/);
+  assert.match(surveySrc, /N-Gain = 0,74/);
   assert.match(surveySrc, /tab=learning-gain/);
 });

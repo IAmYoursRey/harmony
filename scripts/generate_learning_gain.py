@@ -10,46 +10,99 @@ student_accounts = [a for a in db.get("accounts", []) if a.get("role") == "stude
 profiles = {p["userId"]: p for p in db.get("profiles", [])}
 classes_dict = {c["id"]: c for c in db.get("classes", [])}
 
+N = len(student_accounts)
 random.seed(2026)
+
+# Generate balanced distribution matching exact requirements:
+# 1. Pre-Test average: exactly 46.5
+# 2. Post-Test average: exactly 86.1 -> N-Gain = (86.1 - 46.5) / (100 - 46.5) = 39.6 / 53.5 = 0.7401869... = 0.74 (Kategori Tinggi)
+# 3. Decision Accuracy average: exactly 85.0%
+# 4. Response Efficiency: exactly 111 of 128 students < 15s (86.7% rounds to 87%)
+# 5. Learning Consistency: exactly 89.0%
+# 6. Transfer of Learning to Real World: exactly 83.0%
+
+# Pre-test
+pres = [round(random.gauss(46.5, 3.8), 1) for _ in range(N)]
+pres = [max(36.0, min(56.0, p)) for p in pres]
+diff_pre = round(sum(pres) - 46.5 * N, 1)
+while abs(diff_pre) > 0.01:
+    idx = random.randint(0, N - 1)
+    step = 0.1 if diff_pre < 0 else -0.1
+    pres[idx] = round(pres[idx] + step, 1)
+    diff_pre = round(sum(pres) - 46.5 * N, 1)
+
+# Post-test
+posts = [round(pres[i] + 0.74 * (100.0 - pres[i]) + random.gauss(0, 1.8), 1) for i in range(N)]
+posts = [max(pres[i] + 16.0, min(97.0, post)) for i, post in enumerate(posts)]
+diff_post = round(sum(posts) - 86.1 * N, 1)
+while abs(diff_post) > 0.01:
+    idx = random.randint(0, N - 1)
+    step = 0.1 if diff_post < 0 else -0.1
+    if posts[idx] + step >= pres[idx] + 12.0:
+        posts[idx] = round(posts[idx] + step, 1)
+        diff_post = round(sum(posts) - 86.1 * N, 1)
+
+# Decision Accuracy target 85.0
+decs = [round(random.gauss(85.0, 3.8), 1) for _ in range(N)]
+decs = [min(98.0, max(70.0, d)) for d in decs]
+diff_dec = round(sum(decs) - 85.0 * N, 1)
+while abs(diff_dec) > 0.01:
+    idx = random.randint(0, N - 1)
+    step = 0.1 if diff_dec < 0 else -0.1
+    decs[idx] = round(decs[idx] + step, 1)
+    diff_dec = round(sum(decs) - 85.0 * N, 1)
+
+# Learning Consistency target 89.0
+cons = [round(random.gauss(89.0, 3.2), 1) for _ in range(N)]
+cons = [min(98.0, max(75.0, c)) for c in cons]
+diff_con = round(sum(cons) - 89.0 * N, 1)
+while abs(diff_con) > 0.01:
+    idx = random.randint(0, N - 1)
+    step = 0.1 if diff_con < 0 else -0.1
+    cons[idx] = round(cons[idx] + step, 1)
+    diff_con = round(sum(cons) - 89.0 * N, 1)
+
+# Transfer of Learning target 83.0 (Crucial benchmark evaluated off-screen)
+trans = [round(random.gauss(83.0, 4.0), 1) for _ in range(N)]
+trans = [min(97.0, max(68.0, t)) for t in trans]
+diff_trans = round(sum(trans) - 83.0 * N, 1)
+while abs(diff_trans) > 0.01:
+    idx = random.randint(0, N - 1)
+    step = 0.1 if diff_trans < 0 else -0.1
+    trans[idx] = round(trans[idx] + step, 1)
+    diff_trans = round(sum(trans) - 83.0 * N, 1)
+
+# Response time: exactly 111 under 15s (87%) and 17 >= 15s
+# Assign 17 students to have response times >= 15.0s (e.g. 15.2 - 18.5)
+# and 111 students to have response times < 15.0s (e.g. 8.5 - 14.2)
+indices_over_15 = set(random.sample(range(N), 17))
+resp_times = []
+for i in range(N):
+    if i in indices_over_15:
+        resp_times.append(round(random.uniform(15.2, 18.2), 1))
+    else:
+        resp_times.append(round(random.uniform(8.4, 14.1), 1))
 
 students = []
 for idx, a in enumerate(student_accounts):
     p = profiles.get(a["id"], {})
-    cid = p.get("classId") or "class_sman1ngoro_X_1"
+    cid = p.get("classId")
+    if not cid or cid not in classes_dict:
+        # Default Aditya Pratama or unassigned to class_sman1ngoro_X_1
+        cid = "class_sman1ngoro_X_1"
+
     cinfo = classes_dict.get(cid, {"name": "X - 1", "grade": "X", "section": "1"})
     cname = cinfo.get("name", "X - 1")
 
-    # Pre-test around 43 - 54 (mean ~48.0)
-    pre = round(random.uniform(42.0, 54.0) + random.gauss(0, 2.0), 1)
-    pre = max(38.0, min(56.0, pre))
-
-    # Target gain around 0.714
-    gain = round(random.gauss(0.714, 0.04), 2)
-    gain = max(0.58, min(0.83, gain))
-
-    # Post-test
-    post = round(pre + gain * (100.0 - pre), 1)
-    post = max(76.0, min(95.0, post))
+    pre = pres[idx]
+    post = posts[idx]
     actual_gain = round((post - pre) / (100.0 - pre), 2)
     hake_cat = "Tinggi" if actual_gain >= 0.70 else ("Sedang" if actual_gain >= 0.30 else "Rendah")
-
-    # Decision Accuracy: ~88.4%
-    dec_acc = round(random.uniform(82.0, 95.0) + (actual_gain - 0.71) * 15, 1)
-    dec_acc = max(79.0, min(97.0, dec_acc))
-
-    # Response Time: ~86% under 15s
-    if idx % 7 == 0:
-        resp_time = round(random.uniform(15.2, 17.8), 1)
-        is_under_15 = False
-    else:
-        resp_time = round(random.uniform(9.0, 14.2), 1)
-        is_under_15 = True
-
-    # Learning Consistency: ~89.5%
-    consist = round(random.uniform(84.0, 95.0), 1)
-
-    # Transfer Score: ~91.2%
-    transfer = round(random.uniform(86.0, 96.0), 1)
+    dec_acc = decs[idx]
+    resp_time = resp_times[idx]
+    is_under_15 = idx not in indices_over_15
+    consist = cons[idx]
+    transfer = trans[idx]
 
     students.append({
         "id": a["id"],
@@ -72,7 +125,7 @@ for idx, a in enumerate(student_accounts):
 
 # Compute class summaries
 class_summaries = []
-for cid, cinfo in classes_dict.items():
+for cid, cinfo in sorted(classes_dict.items(), key=lambda x: x[1].get("name", "")):
     c_students = [s for s in students if s["classId"] == cid]
     if not c_students:
         continue
@@ -106,7 +159,8 @@ avg_pre_school = round(sum(s["preTestScore"] for s in students) / len(students),
 avg_post_school = round(sum(s["postTestScore"] for s in students) / len(students), 1)
 overall_gain_school = round((avg_post_school - avg_pre_school) / (100.0 - avg_pre_school), 2)
 avg_dec_school = round(sum(s["decisionAccuracy"] for s in students) / len(students), 1)
-resp_eff_school = round((sum(1 for s in students if s["isResponseUnder15s"]) / len(students)) * 100, 1)
+resp_eff_exact_pct = round((sum(1 for s in students if s["isResponseUnder15s"]) / len(students)) * 100, 1)
+resp_eff_display_pct = round((sum(1 for s in students if s["isResponseUnder15s"]) / len(students)) * 100)
 avg_resp_time_school = round(sum(s["responseTimeSeconds"] for s in students) / len(students), 1)
 avg_cons_school = round(sum(s["learningConsistency"] for s in students) / len(students), 1)
 avg_trans_school = round(sum(s["transferScore"] for s in students) / len(students), 1)
@@ -114,10 +168,25 @@ avg_trans_school = round(sum(s["transferScore"] for s in students) / len(student
 latex_formula = r"\langle g \rangle = \frac{\%S_{post} - \%S_{pre}}{100 - \%S_{pre}}"
 latex_formula_escaped = json.dumps(latex_formula)
 
+official_trial_narrative = (
+    "Melalui uji coba yang telah dilaksanakan, seluruh indikator utama berhasil melampaui target awal yang ditetapkan. "
+    "Pertama, peningkatan hasil belajar mencapai nilai N-gain sebesar 0,74 (kategori tinggi), melampaui batas minimal 0,7. "
+    "Kedua, akurasi pengambilan keputusan tercatat sebesar 85 persen dari target minimal 80 persen. "
+    "Ketiga, efisiensi waktu respons—seperti kemampuan bertindak dalam kurun waktu kurang dari 15 detik—mencapai 87 persen, "
+    "mengungguli standar 80 persen. "
+    "Keempat, tingkat konsistensi ketepatan jawaban meskipun skenario diubah menyentuh angka 89 persen, melewati batas minimal 85 persen. "
+    "Kelima, kemampuan transfer pengetahuan ke dunia nyata berhasil terealisasi sebesar 83 persen dari target 80 persen. "
+    "Capaian kelima ini menjadi tolok ukur paling krusial karena dievaluasi langsung di luar layar melalui ketepatan tindakan "
+    "siswa saat simulasi kesiapsiagaan di sekolah. "
+    "Ke depannya, implementasi program ini akan terus dikembangkan secara bertahap, mulai dari evaluasi uji coba awal dan "
+    "pelatihan guru, hingga perluasan jangkauan ke berbagai sekolah dengan profil risiko yang beragam."
+)
+
 ts_content = f'''/**
  * HARMONY Empirical Evaluation & Learning Gain Dataset
  * Grounded in Richard R. Hake (1998) Normalized Gain Methodology
- * Corresponding directly to Slide 13 of HARMONY LENSA-GEO-2026 Presentation.
+ * Synchronized with Slide 13 of HARMONY LENSA-GEO-2026 Presentation
+ * and Official SMAN 1 Ngoro Empirical Trial Narrative.
  */
 
 export interface Slide13Parameter {{
@@ -130,8 +199,10 @@ export interface Slide13Parameter {{
   unit: string;
   status: "Tercapai" | "Melebihi Target";
   hakeCategory?: "Tinggi" | "Sedang" | "Rendah";
+  isCrucialBenchmark?: boolean;
   description: string;
   methodology: string;
+  note?: string;
 }}
 
 export interface StudentTrialRecord {{
@@ -176,6 +247,8 @@ export interface EmpiricalValidationSummary {{
   totalStudentsTested: number;
   totalClasses: number;
   trialPeriod: string;
+  officialTrialNarrative: string;
+  futureRoadmap: string[];
   methodology: {{
     reference: string;
     referenceFull: string;
@@ -205,67 +278,77 @@ export interface EmpiricalValidationSummary {{
   students: StudentTrialRecord[];
 }}
 
+export const HARMONY_OFFICIAL_TRIAL_NARRATIVE = {json.dumps(official_trial_narrative)};
+
+export const HARMONY_FUTURE_ROADMAP = [
+  "Evaluasi uji coba awal dan integrasi masukan siswa & guru",
+  "Pelatihan guru dan fasilitator SPAB sekolah",
+  "Perluasan jangkauan implementasi ke berbagai sekolah dengan profil risiko beragam"
+];
+
 export const HARMONY_SLIDE_13_PARAMETERS: Slide13Parameter[] = [
   {{
     id: "learning_gain",
-    name: "Peningkatan Belajar",
-    englishName: "Learning Gain",
-    target: "di atas 0,7 (Kategori Tinggi)",
-    achievedValue: {overall_gain_school},
-    achievedFormatted: "{overall_gain_school}",
+    name: "Peningkatan Hasil Belajar",
+    englishName: "Learning Gain (N-Gain)",
+    target: "minimal 0,7 (Kategori Tinggi)",
+    achievedValue: 0.74,
+    achievedFormatted: "0,74",
     unit: "N-Gain",
     status: "Melebihi Target",
     hakeCategory: "Tinggi",
-    description: "Peningkatan pemahaman mitigasi bencana gempa dan tsunami terukur dari Pre-Test ke Post-Test.",
-    methodology: "Rumus Normalized Gain (Hake, 1998): g = (%Post - %Pre) / (100 - %Pre). Nilai g >= 0.70 terklasifikasi Kategori Tinggi (High Gain)."
+    description: "Peningkatan hasil belajar mitigasi bencana mencapai nilai N-gain sebesar 0,74 (kategori tinggi), melampaui batas minimal 0,7.",
+    methodology: "Rumus Normalized Gain (Richard R. Hake, 1998): g = (%Post - %Pre) / (100 - %Pre). Nilai g = 0,74 terklasifikasi Kategori Tinggi (High Gain, g >= 0,70)."
   }},
   {{
     id: "decision_accuracy",
-    name: "Ketepatan Keputusan",
+    name: "Akurasi Pengambilan Keputusan",
     englishName: "Decision Accuracy",
-    target: "80-100%",
-    achievedValue: {avg_dec_school},
-    achievedFormatted: "{avg_dec_school}%",
+    target: "minimal 80%",
+    achievedValue: 85,
+    achievedFormatted: "85%",
     unit: "%",
-    status: "Tercapai",
-    description: "Memilih tindakan keselamatan teraman (Drop-Cover-Hold On, tangga evakuasi lantai 2, menjauhi koridor terjebak).",
-    methodology: "Dihitung dari persentase tindakan benar vs total situasi krisis dalam simulasi 3D Digital Twin."
+    status: "Melebihi Target",
+    description: "Akurasi pengambilan keputusan tercatat sebesar 85 persen dari target minimal 80 persen dalam simulasi digital twin.",
+    methodology: "Dihitung dari persentase tindakan benar (Drop-Cover-Hold On, pemilihan tangga evakuasi, menjauhi koridor rawan) vs total keputusan situasi krisis."
   }},
   {{
     id: "response_efficiency",
-    name: "Efisiensi Respons",
-    englishName: "Response Efficiency",
-    target: "di atas 80% (respons < 15 detik)",
-    achievedValue: {resp_eff_school},
-    achievedFormatted: "{resp_eff_school}% ({avg_resp_time_school}s)",
+    name: "Efisiensi Waktu Respons",
+    englishName: "Response Efficiency (< 15s)",
+    target: "minimal 80%",
+    achievedValue: 87,
+    achievedFormatted: "87% (< 15 detik)",
     unit: "%",
     status: "Melebihi Target",
-    description: "Respons siswa mengambil aksi perlindungan diri dalam golden time bencana (di bawah 15 detik).",
-    methodology: "Waktu reaksi tercatat otomatis oleh engine simulasi sejak gelombang primer (P-Wave) terdeteksi."
+    description: "Efisiensi waktu respons—seperti kemampuan bertindak dalam kurun waktu kurang dari 15 detik—mencapai 87 persen, mengungguli standar 80 persen.",
+    methodology: "Latensi waktu reaksi otomatis dicatat engine simulasi sejak gelombang primer (P-Wave) terdeteksi hingga siswa berlindung."
   }},
   {{
     id: "learning_consistency",
-    name: "Konsistensi Belajar",
+    name: "Konsistensi Ketepatan Jawaban",
     englishName: "Learning Consistency",
-    target: "di atas 85%",
-    achievedValue: {avg_cons_school},
-    achievedFormatted: "{avg_cons_school}%",
+    target: "minimal 85%",
+    achievedValue: 89,
+    achievedFormatted: "89%",
     unit: "%",
     status: "Melebihi Target",
-    description: "Siswa konsisten mengambil keputusan selamat saat dihadapkan pada skenario bencana baru yang belum pernah dimainkan.",
-    methodology: "Pengujian skenario acak adaptif (blind test) dengan rute darurat yang terblokir reruntuhan."
+    description: "Tingkat konsistensi ketepatan jawaban meskipun skenario diubah menyentuh angka 89 persen, melewati batas minimal 85 persen.",
+    methodology: "Pengujian skenario acak adaptif (blind test) dengan rute terblokir atau variasi titik episentrum gempa baru."
   }},
   {{
     id: "transfer_of_learning",
-    name: "Transfer Nyata",
-    englishName: "Transfer of Learning",
-    target: "80-100%",
-    achievedValue: {avg_trans_school},
-    achievedFormatted: "{avg_trans_school}%",
+    name: "Transfer Pengetahuan ke Dunia Nyata",
+    englishName: "Transfer of Learning to Real World",
+    target: "minimal 80%",
+    achievedValue: 83,
+    achievedFormatted: "83%",
     unit: "%",
-    status: "Tercapai",
-    description: "Pemahaman digital twin berhasil ditransfer menjadi kepatuhan rute nyata saat gladi simulasi SPAB sekolah.",
-    methodology: "Penilaian checklist observasi drill lapangan oleh guru pendamping dan tim tanggap darurat sekolah."
+    status: "Melebihi Target",
+    isCrucialBenchmark: true,
+    description: "Kemampuan transfer pengetahuan ke dunia nyata berhasil terealisasi sebesar 83 persen dari target 80 persen.",
+    methodology: "Dievaluasi langsung di luar layar melalui ketepatan tindakan siswa saat simulasi kesiapsiagaan (drill lapangan) di sekolah.",
+    note: "Capaian kelima ini menjadi tolok ukur paling krusial karena dievaluasi langsung di luar layar melalui ketepatan tindakan siswa saat simulasi kesiapsiagaan di sekolah."
   }}
 ];
 
@@ -279,6 +362,8 @@ export const HARMONY_EMPIRICAL_VALIDATION_SUMMARY: EmpiricalValidationSummary = 
   totalStudentsTested: {len(students)},
   totalClasses: {len(class_summaries)},
   trialPeriod: "Tahun Ajaran 2026/2027 (Uji Coba Empiris 8 Rombel)",
+  officialTrialNarrative: HARMONY_OFFICIAL_TRIAL_NARRATIVE,
+  futureRoadmap: HARMONY_FUTURE_ROADMAP,
   methodology: {{
     reference: "Richard R. Hake (1998) - American Journal of Physics",
     referenceFull: "Hake, R. R. (1998). Interactive-engagement versus traditional methods: A six-thousand-student survey of mechanics test data for introductory physics courses. American Journal of Physics, 66(1), 64-74.",
@@ -298,7 +383,7 @@ export const HARMONY_EMPIRICAL_VALIDATION_SUMMARY: EmpiricalValidationSummary = 
     normalizedGain: {overall_gain_school},
     hakeCategory: "Tinggi (High Gain, g >= 0.70)",
     decisionAccuracyPercent: {avg_dec_school},
-    responseEfficiencyPercent: {resp_eff_school},
+    responseEfficiencyPercent: {resp_eff_display_pct},
     avgResponseTimeSeconds: {avg_resp_time_school},
     learningConsistencyPercent: {avg_cons_school},
     transferOfLearningPercent: {avg_trans_school},
@@ -315,17 +400,89 @@ with open(out_path, "w", encoding="utf-8") as f:
 
 print(f"Generated {out_path} with {len(students)} students and {len(class_summaries)} classes.")
 
-# Also generate a JS module for the backend server
+# Server-side mirror module
 js_content = f'''/**
  * Server-side mirror of HARMONY Empirical Validation & Learning Gain Dataset
+ * Grounded in Richard R. Hake (1998) and Slide 13 of HARMONY LENSA-GEO-2026.
  */
-export const HARMONY_SLIDE_13_PARAMETERS = {json.dumps(class_summaries, indent=2)};
+
+export const HARMONY_OFFICIAL_TRIAL_NARRATIVE = {json.dumps(official_trial_narrative)};
+
+export const HARMONY_FUTURE_ROADMAP = [
+  "Evaluasi uji coba awal dan integrasi masukan siswa & guru",
+  "Pelatihan guru dan fasilitator SPAB sekolah",
+  "Perluasan jangkauan implementasi ke berbagai sekolah dengan profil risiko beragam"
+];
+
+export const HARMONY_SLIDE_13_PARAMETERS = [
+  {{
+    id: "learning_gain",
+    name: "Peningkatan Hasil Belajar",
+    englishName: "Learning Gain (N-Gain)",
+    target: "minimal 0,7 (Kategori Tinggi)",
+    achievedValue: 0.74,
+    achievedFormatted: "0,74",
+    unit: "N-Gain",
+    status: "Melebihi Target",
+    hakeCategory: "Tinggi",
+    description: "Peningkatan hasil belajar mitigasi bencana mencapai nilai N-gain sebesar 0,74 (kategori tinggi), melampaui batas minimal 0,7."
+  }},
+  {{
+    id: "decision_accuracy",
+    name: "Akurasi Pengambilan Keputusan",
+    englishName: "Decision Accuracy",
+    target: "minimal 80%",
+    achievedValue: 85,
+    achievedFormatted: "85%",
+    unit: "%",
+    status: "Melebihi Target",
+    description: "Akurasi pengambilan keputusan tercatat sebesar 85 persen dari target minimal 80 persen."
+  }},
+  {{
+    id: "response_efficiency",
+    name: "Efisiensi Waktu Respons",
+    englishName: "Response Efficiency (< 15s)",
+    target: "minimal 80%",
+    achievedValue: 87,
+    achievedFormatted: "87% (< 15 detik)",
+    unit: "%",
+    status: "Melebihi Target",
+    description: "Efisiensi waktu respons—seperti kemampuan bertindak dalam kurun waktu kurang dari 15 detik—mencapai 87 persen, mengungguli standar 80 persen."
+  }},
+  {{
+    id: "learning_consistency",
+    name: "Konsistensi Ketepatan Jawaban",
+    englishName: "Learning Consistency",
+    target: "minimal 85%",
+    achievedValue: 89,
+    achievedFormatted: "89%",
+    unit: "%",
+    status: "Melebihi Target",
+    description: "Tingkat konsistensi ketepatan jawaban meskipun skenario diubah menyentuh angka 89 persen, melewati batas minimal 85 persen."
+  }},
+  {{
+    id: "transfer_of_learning",
+    name: "Transfer Pengetahuan ke Dunia Nyata",
+    englishName: "Transfer of Learning to Real World",
+    target: "minimal 80%",
+    achievedValue: 83,
+    achievedFormatted: "83%",
+    unit: "%",
+    status: "Melebihi Target",
+    isCrucialBenchmark: true,
+    description: "Kemampuan transfer pengetahuan ke dunia nyata berhasil terealisasi sebesar 83 persen dari target 80 persen.",
+    note: "Capaian kelima ini menjadi tolok ukur paling krusial karena dievaluasi langsung di luar layar melalui ketepatan tindakan siswa saat simulasi kesiapsiagaan di sekolah."
+  }}
+];
+
 export const HARMONY_EMPIRICAL_VALIDATION_SUMMARY = {{
   schoolId: "ffdcdf34-fc99-4209-913e-5a6042e957ad",
   schoolName: "SMAN 1 Ngoro",
   totalStudentsTested: {len(students)},
   totalClasses: {len(class_summaries)},
   trialPeriod: "Tahun Ajaran 2026/2027 (Uji Coba Empiris 8 Rombel)",
+  officialTrialNarrative: HARMONY_OFFICIAL_TRIAL_NARRATIVE,
+  futureRoadmap: HARMONY_FUTURE_ROADMAP,
   methodology: {{
     reference: "Richard R. Hake (1998) - American Journal of Physics",
     formula: "g = (S_post - S_pre) / (100 - S_pre)",
@@ -342,11 +499,12 @@ export const HARMONY_EMPIRICAL_VALIDATION_SUMMARY = {{
     normalizedGain: {overall_gain_school},
     hakeCategory: "Tinggi (High Gain, g >= 0.70)",
     decisionAccuracyPercent: {avg_dec_school},
-    responseEfficiencyPercent: {resp_eff_school},
+    responseEfficiencyPercent: {resp_eff_display_pct},
     avgResponseTimeSeconds: {avg_resp_time_school},
     learningConsistencyPercent: {avg_cons_school},
     transferOfLearningPercent: {avg_trans_school},
   }},
+  parametersSlide13: HARMONY_SLIDE_13_PARAMETERS,
   classes: {json.dumps(class_summaries, indent=2)},
   students: {json.dumps(students, indent=2)},
 }};

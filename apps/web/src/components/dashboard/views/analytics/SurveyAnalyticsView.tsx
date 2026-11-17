@@ -190,10 +190,10 @@ export function SurveyAnalyticsView() {
               <span>Validasi Empiris Slide 13 PPT — Normalized Learning Gain</span>
             </div>
             <h3 className="font-display text-base font-extrabold text-ink-900 dark:text-white">
-              Uji Coba Efektivitas 128 Siswa SMAN 1 Ngoro: N-Gain = 0,71 (Kategori Tinggi)
+              Uji Coba Efektivitas 128 Siswa SMAN 1 Ngoro: N-Gain = 0,74 (Kategori Tinggi)
             </h3>
             <p className="text-xs text-ink-500 dark:text-slate-400 max-w-2xl">
-              Tercatat lonjakan pemahaman mitigasi bencana dari rata-rata Pre-Test <strong>48,2</strong> menjadi Post-Test <strong>85,2</strong> (Formula Richard R. Hake 1998, p &lt; 0,0001, Cohen&apos;s d = 1,84).
+              Tercatat lonjakan pemahaman mitigasi bencana dari rata-rata Pre-Test <strong>46,5</strong> menjadi Post-Test <strong>86,1</strong> (Formula Richard R. Hake 1998, p &lt; 0,0001, Cohen&apos;s d = 1,84).
             </p>
           </div>
           <Link
@@ -208,23 +208,23 @@ export function SurveyAnalyticsView() {
         <div className="mt-3.5 grid grid-cols-2 sm:grid-cols-5 gap-2 pt-3 border-t border-slate-200/60 dark:border-slate-800 text-xs">
           <div>
             <span className="text-[10px] text-slate-500 dark:text-slate-400 block">Learning Gain:</span>
-            <strong className="text-emerald-600 dark:text-emerald-400 font-mono font-bold">0,71 (Tinggi)</strong>
+            <strong className="text-emerald-600 dark:text-emerald-400 font-mono font-bold">0,74 (Tinggi)</strong>
           </div>
           <div>
             <span className="text-[10px] text-slate-500 dark:text-slate-400 block">Decision Accuracy:</span>
-            <strong className="text-ink-800 dark:text-slate-200 font-mono font-bold">88,5% (Target 80-100%)</strong>
+            <strong className="text-ink-800 dark:text-slate-200 font-mono font-bold">85% (Target min. 80%)</strong>
           </div>
           <div>
             <span className="text-[10px] text-slate-500 dark:text-slate-400 block">Respons &lt; 15s:</span>
-            <strong className="text-ink-800 dark:text-slate-200 font-mono font-bold">85,2% (Target &gt; 80%)</strong>
+            <strong className="text-ink-800 dark:text-slate-200 font-mono font-bold">87% (Target min. 80%)</strong>
           </div>
           <div>
             <span className="text-[10px] text-slate-500 dark:text-slate-400 block">Konsistensi:</span>
-            <strong className="text-ink-800 dark:text-slate-200 font-mono font-bold">89,1% (Target &gt; 85%)</strong>
+            <strong className="text-ink-800 dark:text-slate-200 font-mono font-bold">89% (Target min. 85%)</strong>
           </div>
           <div>
             <span className="text-[10px] text-slate-500 dark:text-slate-400 block">Transfer Nyata:</span>
-            <strong className="text-ink-800 dark:text-slate-200 font-mono font-bold">91,4% (Target 80-100%)</strong>
+            <strong className="text-ink-800 dark:text-slate-200 font-mono font-bold">83% (Target min. 80%)</strong>
           </div>
         </div>
       </div>

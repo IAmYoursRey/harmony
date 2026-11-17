@@ -172,10 +172,10 @@ router.get("/gss", verifyToken, async (req, res) => {
   );
 
   let knowledge = 82;
-  let decisionAccuracy = 88;
-  let responseTime = 85;
+  let decisionAccuracy = 85;
+  let responseTime = 87;
   let consistency = 89;
-  let improvement = 71;
+  let improvement = 74;
 
   if (dtResults.length > 0) {
     const totalQuizScores = targetProfiles.reduce(
@@ -202,7 +202,7 @@ router.get("/gss", verifyToken, async (req, res) => {
 
     consistency = Math.min(100, dtResults.length * 5);
 
-    improvement = Math.max(71, Math.min(100, Math.round(decisionAccuracy * 1.1)));
+    improvement = Math.max(74, Math.min(100, Math.round(decisionAccuracy * 1.1)));
   }
 
   const overall = Math.round((knowledge + decisionAccuracy + responseTime) / 3);
