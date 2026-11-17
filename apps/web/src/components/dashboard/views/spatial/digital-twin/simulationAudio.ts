@@ -102,6 +102,16 @@ class SimulationAudioManager {
     this.playTone(310, 190, 0.25, "sawtooth", 0.08, 0);
     this.playTone(190, 85, 0.35, "sawtooth", 0.08, 0.2);
   }
+
+  public playSiren(): void {
+    this.playTone(640, 920, 0.38, "sine", 0.09, 0);
+    this.playTone(920, 640, 0.38, "sine", 0.08, 0.38);
+  }
+
+  public playWaterSurge(): void {
+    this.playTone(110, 48, 0.65, "sawtooth", 0.09, 0);
+    this.playTone(85, 36, 0.75, "sine", 0.08, 0.1);
+  }
 }
 
 export const simulationAudio = new SimulationAudioManager();

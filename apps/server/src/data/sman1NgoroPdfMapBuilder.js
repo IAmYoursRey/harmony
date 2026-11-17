@@ -8,6 +8,7 @@
 export const SMAN1_NGORO_SCHOOL_ID = "ffdcdf34-fc99-4209-913e-5a6042e957ad";
 export const SMAN1_NGORO_MAP_ID = "map-sman1-denah";
 export const SMAN1_NGORO_FLOOR_ID = "floor-sman1-1";
+export const SMAN1_NGORO_FLOOR_2_ID = "floor-sman1-2";
 export const MAP_WIDTH = 102;
 export const MAP_HEIGHT = 58;
 
@@ -1050,6 +1051,7 @@ function buildScenarioObjects() {
     },
     {
       object_type: "HIGH_GROUND",
+      floor_id: SMAN1_NGORO_FLOOR_2_ID,
       x: 52,
       y: 8,
       width: 4,
@@ -1060,6 +1062,7 @@ function buildScenarioObjects() {
     },
     {
       object_type: "HIGH_GROUND",
+      floor_id: SMAN1_NGORO_FLOOR_2_ID,
       x: 26,
       y: 8,
       width: 4,
@@ -1161,7 +1164,7 @@ function buildScenarioObjects() {
     rawList.map((obj, idx) => ({
       id: `${scenarioId}-obj-${idx + 1}`,
       scenario_id: scenarioId,
-      floor_id: SMAN1_NGORO_FLOOR_ID,
+      floor_id: obj.floor_id || SMAN1_NGORO_FLOOR_ID,
       object_type: obj.object_type,
       x: obj.x,
       y: obj.y,
@@ -2863,6 +2866,37 @@ export function buildSman1NgoroPdfDigitalTwin() {
       width: MAP_WIDTH,
       height: MAP_HEIGHT,
     },
+    {
+      id: SMAN1_NGORO_FLOOR_2_ID,
+      map_id: SMAN1_NGORO_MAP_ID,
+      floor_number: 2,
+      name: "Lantai 2 (Shelter Evakuasi Vertikal)",
+      width: MAP_WIDTH,
+      height: MAP_HEIGHT,
+    },
+  ];
+
+  const stairs = [
+    {
+      id: "stairs-sman1-north",
+      map_id: SMAN1_NGORO_MAP_ID,
+      from_floor_id: SMAN1_NGORO_FLOOR_ID,
+      to_floor_id: SMAN1_NGORO_FLOOR_2_ID,
+      x: 52,
+      y: 9,
+      direction: "N",
+      type: "UP_DOWN",
+    },
+    {
+      id: "stairs-sman1-west",
+      map_id: SMAN1_NGORO_MAP_ID,
+      from_floor_id: SMAN1_NGORO_FLOOR_ID,
+      to_floor_id: SMAN1_NGORO_FLOOR_2_ID,
+      x: 26,
+      y: 9,
+      direction: "W",
+      type: "UP_DOWN",
+    },
   ];
 
   const boundaries = [
@@ -2883,6 +2917,7 @@ export function buildSman1NgoroPdfDigitalTwin() {
   return {
     map,
     floors,
+    stairs,
     grid,
     tiles,
     rooms,

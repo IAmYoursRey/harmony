@@ -30,6 +30,7 @@ import {
   Gamepad2,
   BookOpen,
   ShieldCheck,
+  Shield,
 } from "lucide-react";
 import {
   evaluateSimulationRubric,
@@ -121,6 +122,7 @@ export function Phase3Runtime({
     return hasCoarse || navigator.maxTouchPoints > 0 || window.innerWidth < 1024;
   });
   const [isRunToggled, setIsRunToggled] = useState(false);
+  const [isCoverToggled, setIsCoverToggled] = useState(false);
 
   const updateJoystickFromPoint = (clientX: number, clientY: number) => {
     if (!joystickRef.current) return;
@@ -173,10 +175,12 @@ export function Phase3Runtime({
   useEffect(() => {
     if (simState !== "RUNNING") {
       setIsRunToggled(false);
+      setIsCoverToggled(false);
       joystickPointerIdRef.current = null;
       setJoystickActive(false);
       setJoystickPos({ x: 0, y: 0 });
       engineRef.current?.setVirtualButton("run", false);
+      engineRef.current?.setVirtualButton("cover", false);
       engineRef.current?.setVirtualButton("interact", false);
       engineRef.current?.setJoystick(0, 0);
     }
@@ -789,6 +793,89 @@ export function Phase3Runtime({
             </div>
           </div>
 
+          {/* Disaster Phase Status Ribbon (P-wave, Severe shaking Drop-Cover, Golden window, Tsunami ETA & Inundation) */}
+          {simState === "RUNNING" && playerState.activeDisasterPhase && (
+            <div className="self-center max-w-[96vw] sm:max-w-2xl w-full flex justify-center">
+              {playerState.activeDisasterPhase.isSevereShaking ? (
+                <div className="w-full bg-rose-600/95 text-white border-2 border-amber-300 rounded-2xl px-3.5 py-1.5 sm:py-2 shadow-2xl animate-pulse flex items-center justify-between gap-2">
+                  <div className="flex items-center gap-2 min-w-0">
+                    <span className="text-lg sm:text-xl shrink-0">🚨</span>
+                    <div className="min-w-0">
+                      <div className="font-black text-xs sm:text-sm tracking-wide text-amber-200 uppercase truncate">
+                        Guncangan Utama · Sisa: {Math.ceil(playerState.activeDisasterPhase.remainingInPhaseSec)}s
+                      </div>
+                      <div className="text-[10px] sm:text-xs font-semibold text-rose-100 truncate">
+                        {playerState.isCovering
+                          ? "🛡️ Posisi Aman: Drop, Cover & Hold On aktif!"
+                          : "⚠️ BERLINDUNG DI BAWAH MEJA! Tekan tombol COVER / C!"}
+                      </div>
+                    </div>
+                  </div>
+                  <div className="shrink-0 font-mono font-black text-sm sm:text-lg bg-black/40 px-2 sm:px-2.5 py-0.5 rounded-lg border border-amber-300/60 text-amber-300">
+                    {Math.ceil(playerState.activeDisasterPhase.remainingInPhaseSec)}s
+                  </div>
+                </div>
+              ) : playerState.activeDisasterPhase.phaseId.includes("GOLDEN_WINDOW") ? (
+                <div className="w-full bg-emerald-600/90 text-white border border-emerald-300/80 rounded-2xl px-3.5 py-1.5 shadow-xl flex items-center justify-between gap-2">
+                  <div className="flex items-center gap-2 min-w-0">
+                    <span className="text-base sm:text-lg shrink-0">⚡</span>
+                    <div className="min-w-0">
+                      <div className="font-black text-xs sm:text-sm text-emerald-100 uppercase truncate">
+                        Waktu Emas Evakuasi · Sisa: {Math.ceil(playerState.activeDisasterPhase.remainingInPhaseSec)}s
+                      </div>
+                      <div className="text-[10px] sm:text-xs text-emerald-100/90 truncate">
+                        Guncangan reda! Segera jalan cepat menuju tengah Lapangan Upacara!
+                      </div>
+                    </div>
+                  </div>
+                  <div className="shrink-0 font-mono font-bold text-xs sm:text-base bg-black/30 px-2 py-0.5 rounded-md text-emerald-200">
+                    {Math.ceil(playerState.activeDisasterPhase.remainingInPhaseSec)}s
+                  </div>
+                </div>
+              ) : playerState.activeDisasterPhase.waveEtaSec > 0 ? (
+                <div className="w-full bg-cyan-700/92 text-white border-2 border-cyan-300/90 rounded-2xl px-3.5 py-1.5 sm:py-2 shadow-2xl flex items-center justify-between gap-2">
+                  <div className="flex items-center gap-2 min-w-0">
+                    <span className="text-lg sm:text-xl shrink-0">🌊</span>
+                    <div className="min-w-0">
+                      <div className="font-black text-xs sm:text-sm text-cyan-200 uppercase truncate">
+                        Peringatan Tsunami · Gelombang Tiba (ETA): {playerState.activeDisasterPhase.waveEtaSec}s
+                      </div>
+                      <div className="text-[10px] sm:text-xs text-cyan-100 truncate">
+                        Evakuasi Vertikal! Naik tangga ke Lantai 2 sebelum gelombang tiba!
+                      </div>
+                    </div>
+                  </div>
+                  <div className="shrink-0 font-mono font-black text-sm sm:text-lg bg-black/40 px-2 sm:px-2.5 py-0.5 rounded-lg border border-cyan-300/60 text-cyan-300">
+                    {playerState.activeDisasterPhase.waveEtaSec}s
+                  </div>
+                </div>
+              ) : playerState.activeDisasterPhase.isTsunamiWaveArrival ? (
+                <div className="w-full bg-blue-900/95 text-white border-2 border-rose-400 rounded-2xl px-3.5 py-1.5 sm:py-2 shadow-2xl flex items-center justify-between gap-2">
+                  <div className="flex items-center gap-2 min-w-0">
+                    <span className="text-lg sm:text-xl shrink-0">🌊</span>
+                    <div className="min-w-0">
+                      <div className="font-black text-xs sm:text-sm text-rose-300 uppercase truncate">
+                        Air Bah Tsunami Menerjang Lantai Dasar!
+                      </div>
+                      <div className="text-[10px] sm:text-xs text-slate-100 truncate">
+                        Lantai 1 tergenang arus deras! Bertahan di Lantai 2 / Titik Tinggi!
+                      </div>
+                    </div>
+                  </div>
+                  <span className="shrink-0 text-[10px] sm:text-xs font-bold bg-rose-600/90 px-2 sm:px-2.5 py-1 rounded-full text-white">
+                    BAHAYA L1
+                  </span>
+                </div>
+              ) : (
+                <div className="bg-slate-900/85 backdrop-blur border border-slate-700/80 rounded-full px-3.5 py-1 text-slate-200 text-xs font-semibold shadow-md flex items-center gap-2">
+                  <span className="text-amber-400 font-bold">{playerState.activeDisasterPhase.name}</span>
+                  <span className="text-slate-500 text-[10px]">·</span>
+                  <span className="text-slate-300 text-[11px] truncate max-w-xs">{playerState.activeDisasterPhase.instructionText}</span>
+                </div>
+              )}
+            </div>
+          )}
+
           {/* Perimeter Mission Strip (< 1024px) */}
           <div className="lg:hidden self-center bg-slate-900/82 backdrop-blur border border-slate-700/80 rounded-full px-3 py-0.5 shadow-md max-w-[94vw]">
             <span className="text-emerald-400 font-bold text-[10px] sm:text-xs block truncate">
@@ -1107,8 +1194,8 @@ export function Phase3Runtime({
 
         {/* Helper text overlay for keyboard desktop users only */}
         {simState === "RUNNING" && !showTouchControls && timeMs < 5000 && (
-          <div className="hidden lg:block absolute bottom-6 left-1/2 -translate-x-1/2 text-white/75 font-bold text-xs bg-black/50 px-4 py-1.5 rounded-full pointer-events-none">
-            Gunakan W A S D / Panah untuk gerak · Shift Lari · E Aksi Pintu
+          <div className="hidden lg:block absolute bottom-6 left-1/2 -translate-x-1/2 text-white/80 font-bold text-xs bg-black/60 px-4 py-1.5 rounded-full pointer-events-none border border-white/20 shadow-xl">
+            W A S D gerak · Shift Lari · C / Ctrl Lindungi Kepala · E Aksi Pintu & Tangga
           </div>
         )}
 
@@ -1201,7 +1288,7 @@ export function Phase3Runtime({
             </div>
 
             {/* Right-Thumb Action Deck (Elevated & Comfortable) */}
-            <div className="absolute bottom-[max(2.5rem,calc(env(safe-area-inset-bottom)+1.5rem))] right-[max(1.75rem,calc(env(safe-area-inset-right)+1rem))] flex items-end gap-3.5 pointer-events-auto touch-none select-none">
+            <div className="absolute bottom-[max(2.5rem,calc(env(safe-area-inset-bottom)+1.5rem))] right-[max(1.75rem,calc(env(safe-area-inset-right)+1rem))] flex items-end gap-2.5 sm:gap-3.5 pointer-events-auto touch-none select-none">
               {/* LARI Toggle Button */}
               <button
                 type="button"
@@ -1215,20 +1302,47 @@ export function Phase3Runtime({
                     navigator.vibrate?.(15);
                   } catch {}
                 }}
-                className={`w-16 h-16 sm:w-18 sm:h-18 rounded-full border-2 font-extrabold text-xs sm:text-sm backdrop-blur-md transition-all active:scale-90 flex flex-col items-center justify-center shadow-xl ${
+                className={`w-14 h-14 sm:w-16 sm:h-16 rounded-full border-2 font-extrabold text-xs backdrop-blur-md transition-all active:scale-90 flex flex-col items-center justify-center shadow-xl ${
                   isRunToggled
                     ? "bg-gradient-to-br from-amber-500 to-orange-600 border-amber-200 text-slate-950 ring-4 ring-amber-400/30 shadow-amber-500/50"
                     : "bg-slate-900/60 border-white/35 text-white hover:bg-slate-800/70"
                 }`}
                 title="Ketuk untuk aktif/nonaktif Mode Lari"
               >
-                <span className="font-black text-xs sm:text-sm">LARI</span>
-                <span className={`text-[9px] font-mono font-bold ${isRunToggled ? "text-slate-950" : "text-amber-400"}`}>
+                <span className="font-black text-xs">LARI</span>
+                <span className={`text-[8px] font-mono font-bold ${isRunToggled ? "text-slate-950" : "text-amber-400"}`}>
                   {isRunToggled ? "AKTIF" : "OFF"}
                 </span>
               </button>
 
-              {/* AKSI / BUKA PINTU Button */}
+              {/* LINDUNGI / COVER Button (Drop, Cover & Hold On) */}
+              <button
+                type="button"
+                aria-pressed={isCoverToggled}
+                onPointerDown={(e) => {
+                  e.preventDefault();
+                  const next = !isCoverToggled;
+                  setIsCoverToggled(next);
+                  setVirtualButton("cover", next);
+                  try {
+                    navigator.vibrate?.(25);
+                  } catch {}
+                }}
+                className={`w-14 h-14 sm:w-16 sm:h-16 rounded-full border-2 font-extrabold text-xs backdrop-blur-md transition-all active:scale-90 flex flex-col items-center justify-center shadow-xl ${
+                  isCoverToggled
+                    ? "bg-gradient-to-br from-emerald-500 to-teal-700 border-emerald-200 text-white ring-4 ring-emerald-400/40 shadow-emerald-500/50"
+                    : "bg-slate-900/60 border-white/35 text-white hover:bg-slate-800/70"
+                }`}
+                title="Tunduk & Lindungi Kepala di bawah Meja (Drop, Cover & Hold On)"
+              >
+                <Shield className="h-3.5 w-3.5 mb-0.5 text-emerald-300" />
+                <span className="font-black text-[10px] leading-none">COVER</span>
+                <span className={`text-[8px] font-mono font-bold mt-0.5 ${isCoverToggled ? "text-emerald-100" : "text-slate-400"}`}>
+                  {isCoverToggled ? "AMAN" : "OFF"}
+                </span>
+              </button>
+
+              {/* AKSI / BUKA PINTU & TANGGA Button */}
               <button
                 type="button"
                 onPointerDown={(e) => {
@@ -1245,10 +1359,10 @@ export function Phase3Runtime({
                 }}
                 onPointerCancel={() => setVirtualButton("interact", false)}
                 className="w-20 h-20 sm:w-24 sm:h-24 bg-gradient-to-br from-emerald-500 via-emerald-600 to-teal-700 hover:from-emerald-400 hover:to-teal-600 rounded-full border-2 border-emerald-300/90 text-white font-black text-sm sm:text-base backdrop-blur-md active:scale-90 transition-all flex flex-col items-center justify-center shadow-2xl shadow-emerald-950/60 ring-4 ring-emerald-400/30"
-                title="Buka atau tutup pintu darurat (AKSI)"
+                title="Buka atau tutup pintu darurat / gunakan tangga (AKSI)"
               >
-                <span className="leading-tight">AKSI</span>
-                <span className="text-[10px] font-medium opacity-85">PINTU</span>
+                <span className="leading-tight font-black">AKSI</span>
+                <span className="text-[9px] font-medium opacity-85">PINTU/NAIK</span>
               </button>
             </div>
           </div>

@@ -22,7 +22,9 @@ import {
 } from "./microPixelArtRenderer";
 import {
   resolveDisasterStrategy,
+  resolveActiveDisasterPhase,
   type DisasterStrategyProfile,
+  type ActiveDisasterPhaseState,
 } from "./disasterStrategyRules";
 import {
   evaluateSimulationRubric,
@@ -76,6 +78,8 @@ export interface PlayerState {
   displayName?: string;
   avatarStyle?: AvatarStyle;
   difficulty?: DifficultyLevel;
+  isCovering?: boolean;
+  activeDisasterPhase?: ActiveDisasterPhaseState;
 }
 
 export interface InputProvider {
@@ -125,6 +129,14 @@ export class KeyboardInputProvider implements InputProvider {
     if (action === "pause") return this.keys["escape"] || false;
     if (action === "interact") return this.keys["e"] || false;
     if (action === "run") return this.keys["shift"] || false;
+    if (action === "cover") {
+      return (
+        this.keys["c"] ||
+        this.keys["control"] ||
+        this.keys[" "] ||
+        false
+      );
+    }
     return false;
   }
 }
@@ -300,6 +312,13 @@ export class Phase3Engine {
     maxLife: number;
   }> = [];
 
+  private isCovering: boolean = false;
+  private activeDisasterPhase: ActiveDisasterPhaseState;
+  private lastPhaseAnnouncedId: string = "";
+  private lastTsunamiWarningAudioMs: number = -15000;
+  private lastWaterDamageAudioMs: number = -15000;
+  private lastEarthquakeFallingDebrisAudioMs: number = -15000;
+
   public doorStates: Map<string, "closed" | "open" | "locked"> = new Map();
 
   constructor(
@@ -338,6 +357,7 @@ export class Phase3Engine {
       scenario.disaster_type,
       scenario.name,
     );
+    this.activeDisasterPhase = resolveActiveDisasterPhase(this.strategy, 0);
     const profile = DIFFICULTY_PROFILES[this.difficulty];
     this.player = {
       x: spawnObj.x * TILE_SIZE + TILE_SIZE / 2,
@@ -357,6 +377,8 @@ export class Phase3Engine {
       interactionPrompt: null,
       avatarStyle: "girl",
       difficulty: this.difficulty,
+      isCovering: false,
+      activeDisasterPhase: this.activeDisasterPhase,
     };
 
     for (const floor of map.floors) {
@@ -690,6 +712,64 @@ export class Phase3Engine {
           ? 0.65
           : 0.9;
 
+    this.activeDisasterPhase = resolveActiveDisasterPhase(
+      this.strategy,
+      this.simTimeMs,
+    );
+
+    if (this.activeDisasterPhase.phaseId !== this.lastPhaseAnnouncedId) {
+      this.lastPhaseAnnouncedId = this.activeDisasterPhase.phaseId;
+      if (this.activeDisasterPhase.phaseId === "EARTHQUAKE_P_WAVE") {
+        simulationAudio.playSiren();
+        this.callbacks.onMessage(
+          "🚨 Peringatan Dini Gempa (P-Wave) terdeteksi! Bersiap Drop, Cover & Hold On!",
+        );
+      } else if (
+        this.activeDisasterPhase.phaseId === "EARTHQUAKE_SEVERE_SHAKING"
+      ) {
+        simulationAudio.playHit(true);
+        this.cameraShakeTime = Math.max(this.cameraShakeTime, 2.2);
+        this.callbacks.onMessage(
+          "⚠️ GUNCANGAN HEBAT UTAMA! Tunduk & lindungi kepala di bawah meja (Tekan C / tombol LINDUNGI)!",
+        );
+      } else if (
+        this.activeDisasterPhase.phaseId === "EARTHQUAKE_GOLDEN_WINDOW"
+      ) {
+        simulationAudio.playRescue();
+        this.callbacks.onMessage(
+          "⚡ Guncangan utama reda! WAKTU EMAS EVAKUASI: Segera lari menuju tengah Lapangan Upacara!",
+        );
+      } else if (this.activeDisasterPhase.phaseId === "TSUNAMI_EARLY_WARNING") {
+        simulationAudio.playSiren();
+        this.callbacks.onMessage(
+          "🌊 PERINGATAN TSUNAMI! Air laut surut cepat — Lakukan Evakuasi Vertikal ke Tangga Lantai 2 sekarang!",
+        );
+      } else if (
+        this.activeDisasterPhase.phaseId === "TSUNAMI_WAVE_INUNDATION"
+      ) {
+        simulationAudio.playWaterSurge();
+        this.cameraShakeTime = Math.max(this.cameraShakeTime, 1.8);
+        this.callbacks.onMessage(
+          "🌊 GELOMBANG TSUNAMI MENERJANG LANTAI DASAR! Naik ke Lantai 2 / Titik Tinggi sekarang!",
+        );
+      } else if (this.activeDisasterPhase.warningText) {
+        this.callbacks.onMessage(this.activeDisasterPhase.warningText);
+      }
+    }
+
+    if (
+      this.strategy.key === "TSUNAMI_FLOOD" &&
+      this.activeDisasterPhase.waveEtaSec > 0
+    ) {
+      if (this.simTimeMs - this.lastTsunamiWarningAudioMs >= 13000) {
+        this.lastTsunamiWarningAudioMs = this.simTimeMs;
+        simulationAudio.playSiren();
+        this.callbacks.onMessage(
+          `Gelombang tsunami tiba dalam ${this.activeDisasterPhase.waveEtaSec}s! Segera naik tangga ke Lantai 2!`,
+        );
+      }
+    }
+
     const aftershockInterval = Number(
       this.scenario.config?.aftershockIntervalMs || 0,
     );
@@ -904,8 +984,15 @@ export class Phase3Engine {
 
     this.player.moving = dx !== 0 || dy !== 0;
 
+    const wantsToCover =
+      this.input.isActionDown("cover") || Boolean(this.virtualButtons["cover"]);
+    this.isCovering = Boolean(wantsToCover);
+    this.player.isCovering = this.isCovering;
+    this.player.activeDisasterPhase = this.activeDisasterPhase;
+
     const wantsToRun =
-      this.input.isActionDown("run") || this.virtualButtons["run"];
+      (this.input.isActionDown("run") || this.virtualButtons["run"]) &&
+      !this.isCovering;
     const canSprint =
       wantsToRun &&
       !this.staminaExhausted &&
@@ -915,7 +1002,9 @@ export class Phase3Engine {
 
     const profile = DIFFICULTY_PROFILES[this.difficulty];
     let currentSpeed: number = profile.walkSpeed;
-    if (canSprint) {
+    if (this.isCovering) {
+      currentSpeed = profile.walkSpeed * 0.42;
+    } else if (canSprint) {
       currentSpeed = profile.runSpeed;
       this.player.stamina = Math.max(
         0,
@@ -1330,6 +1419,51 @@ export class Phase3Engine {
     } else {
       this.indoorExposureSec = Math.max(0, this.indoorExposureSec - dt * 2);
       this.player.indoorDanger = null;
+    }
+
+    if (this.activeDisasterPhase?.isSevereShaking && !inSafeZone) {
+      if (this.isCovering) {
+        // Player is performing "Drop, Cover, Hold On" (under desk or protective crouch)
+        // Zero falling rubble damage
+      } else {
+        const shakeDebrisDps = 12 * profile.damageMultiplier;
+        highestDps = Math.max(highestDps, shakeDebrisDps);
+        if (this.simTimeMs - this.lastEarthquakeFallingDebrisAudioMs > 1600) {
+          this.lastEarthquakeFallingDebrisAudioMs = this.simTimeMs;
+          simulationAudio.playHit(false);
+          this.callbacks.onMessage(
+            "Tertimpa puing plafon akibat bergerak tanpa perlindungan! Tunduk & lindungi kepala (Tekan C / tombol LINDUNGI)!",
+          );
+        }
+        if (this.pixelParticles.length < 64) {
+          this.pixelParticles.push({
+            x: this.player.x + (Math.random() - 0.5) * 16,
+            y: this.player.y - 18,
+            vx: (Math.random() - 0.5) * 16,
+            vy: 26 + Math.random() * 22,
+            size: 3,
+            color: "#cbd5e1",
+            life: 0.45,
+            maxLife: 0.45,
+          });
+        }
+      }
+    }
+
+    const groundFloorId = this.map.floors[0]?.id || "floor-sman1-1";
+    if (this.activeDisasterPhase?.inundatesGroundFloor) {
+      if (this.player.floorId === groundFloorId) {
+        const floodSurgeDps = 24 * profile.damageMultiplier;
+        highestDps = Math.max(highestDps, floodSurgeDps);
+        slowFactor = Math.min(slowFactor, 0.36);
+        if (this.simTimeMs - this.lastWaterDamageAudioMs > 1800) {
+          this.lastWaterDamageAudioMs = this.simTimeMs;
+          simulationAudio.playWaterSurge();
+          this.callbacks.onMessage(
+            "Arus gelombang tsunami menenggelamkan lantai 1! Lakukan Evakuasi Vertikal ke Tangga Lantai 2 sekarang!",
+          );
+        }
+      }
     }
 
     this.terrainSlowFactor = slowFactor;
@@ -2109,11 +2243,14 @@ export class Phase3Engine {
         ? Math.sin((this.simTimeMs + phaseOffset) / 65) * 0.08
         : 0;
       const flipX = opts.facing === "left" ? -1 : 1;
+      const isCrouching = opts.isLocal && this.isCovering;
+      const crouchYOffset = isCrouching ? 3.5 : 0;
+      const crouchScaleY = isCrouching ? 0.72 : 1;
 
       ctx.save();
-      ctx.translate(0, -PLAYER_RADIUS * 0.45 - strideBob);
+      ctx.translate(0, -PLAYER_RADIUS * 0.45 - strideBob + crouchYOffset);
       ctx.rotate(lean);
-      ctx.scale(flipX, 1);
+      ctx.scale(flipX, crouchScaleY);
 
       if (sprite) {
         const spriteSize = TILE_SIZE * 0.94;
@@ -2134,6 +2271,31 @@ export class Phase3Engine {
         ctx.stroke();
       }
       ctx.restore();
+
+      if (isCrouching) {
+        ctx.save();
+        const pulse = Math.sin(this.simTimeMs * 0.009) * 0.15 + 0.85;
+        ctx.strokeStyle = `rgba(16, 185, 129, ${0.9 * pulse})`;
+        ctx.lineWidth = 2.4;
+        ctx.fillStyle = "rgba(16, 185, 129, 0.22)";
+        ctx.beginPath();
+        ctx.arc(0, -PLAYER_RADIUS * 0.35, PLAYER_RADIUS * 1.5, Math.PI, 0, false);
+        ctx.closePath();
+        ctx.fill();
+        ctx.stroke();
+
+        ctx.fillStyle = "rgba(6, 78, 59, 0.92)";
+        ctx.fillRect(-28, -TILE_SIZE * 0.78 - 34, 56, 14);
+        ctx.strokeStyle = "#34d399";
+        ctx.lineWidth = 1.2;
+        ctx.strokeRect(-28, -TILE_SIZE * 0.78 - 34, 56, 14);
+        ctx.fillStyle = "#a7f3d0";
+        ctx.font = "bold 8px Inter, sans-serif";
+        ctx.textAlign = "center";
+        ctx.textBaseline = "middle";
+        ctx.fillText("🛡️ BERLINDUNG", 0, -TILE_SIZE * 0.78 - 27);
+        ctx.restore();
+      }
 
       const hpRatio = Math.max(0, Math.min(1, opts.health / Math.max(1, opts.maxHealth)));
       ctx.fillStyle = "rgba(15, 23, 42, 0.72)";
@@ -2206,7 +2368,12 @@ export class Phase3Engine {
     ctx.fillStyle = "#0b1120";
     ctx.fillRect(0, 0, cssW, cssH);
 
-    const shakeAmp = this.cameraShakeTime > 0 ? 5 : 0;
+    let shakeAmp = this.cameraShakeTime > 0 ? 5 : 0;
+    if (this.activeDisasterPhase?.ambientShakeIntensity) {
+      const ambientBase = this.activeDisasterPhase.ambientShakeIntensity * 6.5;
+      const damped = this.isCovering ? ambientBase * 0.28 : ambientBase;
+      shakeAmp = Math.max(shakeAmp, damped);
+    }
     const shakeX =
       shakeAmp > 0 ? Math.sin(this.simTimeMs * 0.09) * shakeAmp : 0;
     const shakeY =
@@ -2329,6 +2496,40 @@ export class Phase3Engine {
           smokeOverlay = true;
         }
       }
+    }
+
+    const groundFloorId = this.map.floors[0]?.id || "floor-sman1-1";
+    if (
+      this.activeDisasterPhase?.inundatesGroundFloor &&
+      floor.id === groundFloorId
+    ) {
+      const time = this.simTimeMs * 0.0032;
+      const minX = startTx * TILE_SIZE;
+      const minY = startTy * TILE_SIZE;
+      const widthPx = (endTx - startTx + 1) * TILE_SIZE;
+      const heightPx = (endTy - startTy + 1) * TILE_SIZE;
+
+      ctx.save();
+      ctx.fillStyle = "rgba(14, 116, 144, 0.44)";
+      ctx.fillRect(minX, minY, widthPx, heightPx);
+
+      ctx.strokeStyle = "rgba(224, 242, 254, 0.48)";
+      ctx.lineWidth = 2.4;
+      for (let wy = minY; wy <= minY + heightPx; wy += TILE_SIZE * 1.8) {
+        ctx.beginPath();
+        for (let wx = minX; wx <= minX + widthPx; wx += 16) {
+          const yOff =
+            Math.sin(wx * 0.042 + time * 3.4) * 5 +
+            Math.cos((wy + wx) * 0.022 + time * 2) * 3;
+          if (wx === minX) {
+            ctx.moveTo(wx, wy + yOff);
+          } else {
+            ctx.lineTo(wx, wy + yOff);
+          }
+        }
+        ctx.stroke();
+      }
+      ctx.restore();
     }
 
     for (const rp of this.remotePlayers.values()) {
