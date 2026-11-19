@@ -142,7 +142,7 @@ export function LearningGainEvaluationView() {
       "Nama Siswa",
       "Email",
       "Kelas",
-      "Baseline Awal",
+      "Skor Awal",
       "Tanggal Pre-Test (Oktober 2026)",
       "Skor Pre-Test (Oktober)",
       "N-Gain Pre-Test",
@@ -221,7 +221,7 @@ export function LearningGainEvaluationView() {
   const chartData = useMemo(() => {
     return summary.classes.map((c) => ({
       name: c.className,
-      "Baseline": c.avgPreTest,
+      "Skor Awal": c.avgPreTest,
       "Pre-Test (08-17 Okt)": c.avgInitialPostTest,
       "Post-Test (02-11 Nov)": c.avgPostTest,
       "N-Gain Okt": c.avgInitialNGain,
@@ -233,6 +233,10 @@ export function LearningGainEvaluationView() {
     trialViewMode === "initial"
       ? HARMONY_INITIAL_TRIAL_PARAMETERS
       : HARMONY_SLIDE_13_PARAMETERS;
+
+  const isInitialMode = trialViewMode === "initial";
+  const isFinalMode = trialViewMode === "final";
+  const isComparisonMode = trialViewMode === "comparison";
 
   return (
     <div className="space-y-5" data-demo-mode={isDemoMode ? "true" : "false"}>
@@ -254,9 +258,25 @@ export function LearningGainEvaluationView() {
               Hasil Evaluasi &amp; Learning Gain Siswa
             </h2>
             <p className="max-w-3xl text-xs sm:text-sm text-indigo-100/90 leading-relaxed">
-              Rekapitulasi uji coba <strong>{summary.totalStudentsTested} siswa ({summary.totalClasses} rombel)</strong> SMAN 1 Ngoro.{" "}
-              Pada <strong>Pre-Test (08&ndash;17 Oktober 2026)</strong> rata-rata skor <strong>58,8</strong> (N-Gain <strong>0,23</strong>; {initMetrics.failedStudentsCount} siswa gagal).{" "}
-              Pada <strong>Post-Test (02&ndash;11 November 2026)</strong> rata-rata skor meningkat ke <strong>86,1</strong> (N-Gain <strong>0,74</strong> — Kategori Tinggi).
+              {isInitialMode ? (
+                <>
+                  Hasil <strong>Pre-Test / Evaluasi Awal (08&ndash;17 Oktober 2026)</strong> pada{" "}
+                  <strong>{summary.totalStudentsTested} siswa ({summary.totalClasses} rombel)</strong> SMAN 1 Ngoro. Rata-rata skor hanya naik dari{" "}
+                  <strong>46,5 &rarr; 58,8</strong> (<strong>N-Gain = 0,23</strong> — Kategori Rendah;{" "}
+                  <strong>{initMetrics.failedStudentsCount} siswa gagal</strong> &amp; {initMetrics.remedialStudentsCount} remedial).
+                </>
+              ) : isFinalMode ? (
+                <>
+                  Uji coba <strong>{summary.totalStudentsTested} siswa ({summary.totalClasses} rombel)</strong> SMAN 1 Ngoro pada{" "}
+                  <strong>Post-Test (02&ndash;11 November 2026)</strong>. Rata-rata <strong>N-Gain = 0,74</strong> (Kategori Tinggi, skor <strong>46,5 &rarr; 86,1</strong>, 100% siswa lulus SPAB).
+                </>
+              ) : (
+                <>
+                  Rekapitulasi uji coba <strong>{summary.totalStudentsTested} siswa ({summary.totalClasses} rombel)</strong> SMAN 1 Ngoro.{" "}
+                  Pada <strong>Pre-Test (08&ndash;17 Oktober 2026)</strong> rata-rata skor <strong>58,8</strong> (N-Gain <strong>0,23</strong>; {initMetrics.failedStudentsCount} siswa gagal).{" "}
+                  Pada <strong>Post-Test (02&ndash;11 November 2026)</strong> rata-rata skor meningkat ke <strong>86,1</strong> (N-Gain <strong>0,74</strong> — Kategori Tinggi).
+                </>
+              )}
             </p>
           </div>
 
@@ -279,12 +299,16 @@ export function LearningGainEvaluationView() {
           <span className="inline-flex items-center gap-1.5 rounded-lg bg-white/10 px-2.5 py-1 text-white">
             <BookOpen className="h-3.5 w-3.5 text-brand-300" /> Richard R. Hake (1998)
           </span>
-          <span className="inline-flex items-center gap-1.5 rounded-lg bg-rose-500/25 px-2.5 py-1 font-semibold text-rose-200">
-            <XCircle className="h-3.5 w-3.5 text-rose-300" /> Pre-Test (08&ndash;17 Okt): N-Gain 0,23 ({initMetrics.failedStudentsCount} Gagal)
-          </span>
-          <span className="inline-flex items-center gap-1.5 rounded-lg bg-emerald-500/25 px-2.5 py-1 font-semibold text-emerald-200">
-            <CheckCircle2 className="h-3.5 w-3.5 text-emerald-400" /> Post-Test (02&ndash;11 Nov): N-Gain 0,74 (p &lt; 0.0001)
-          </span>
+          {!isFinalMode && (
+            <span className="inline-flex items-center gap-1.5 rounded-lg bg-rose-500/25 px-2.5 py-1 font-semibold text-rose-200">
+              <XCircle className="h-3.5 w-3.5 text-rose-300" /> Pre-Test (08&ndash;17 Okt): N-Gain 0,23 ({initMetrics.failedStudentsCount} Gagal)
+            </span>
+          )}
+          {!isInitialMode && (
+            <span className="inline-flex items-center gap-1.5 rounded-lg bg-emerald-500/25 px-2.5 py-1 font-semibold text-emerald-200">
+              <CheckCircle2 className="h-3.5 w-3.5 text-emerald-400" /> Post-Test (02&ndash;11 Nov): N-Gain 0,74 (p &lt; 0.0001)
+            </span>
+          )}
         </div>
       </div>
 
@@ -297,7 +321,7 @@ export function LearningGainEvaluationView() {
               Perbandingan Hasil Evaluasi: Pre-Test (Oktober) vs Post-Test (November)
             </h3>
             <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
-              Tahapan pelaksanaan dari validasi awal dosen pembimbing di bulan Oktober hingga evaluasi Post-Test di awal November 2026.
+              Pilih tab di kanan untuk melihat komparasi, fokus data Pre-Test Oktober, atau fokus data Post-Test November.
             </p>
           </div>
 
@@ -306,7 +330,7 @@ export function LearningGainEvaluationView() {
               type="button"
               onClick={() => setTrialViewMode("comparison")}
               className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all ${
-                trialViewMode === "comparison"
+                isComparisonMode
                   ? "bg-brand-600 text-white shadow-xs"
                   : "text-slate-600 dark:text-slate-300 hover:bg-white/60 dark:hover:bg-slate-700"
               }`}
@@ -317,7 +341,7 @@ export function LearningGainEvaluationView() {
               type="button"
               onClick={() => setTrialViewMode("initial")}
               className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all flex items-center gap-1 ${
-                trialViewMode === "initial"
+                isInitialMode
                   ? "bg-rose-600 text-white shadow-xs"
                   : "text-rose-700 dark:text-rose-300 hover:bg-rose-50 dark:hover:bg-rose-950/40"
               }`}
@@ -329,7 +353,7 @@ export function LearningGainEvaluationView() {
               type="button"
               onClick={() => setTrialViewMode("final")}
               className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all flex items-center gap-1 ${
-                trialViewMode === "final"
+                isFinalMode
                   ? "bg-emerald-600 text-white shadow-xs"
                   : "text-emerald-700 dark:text-emerald-300 hover:bg-emerald-50 dark:hover:bg-emerald-950/40"
               }`}
@@ -359,7 +383,14 @@ export function LearningGainEvaluationView() {
             </p>
           </div>
 
-          <div className="rounded-xl border border-rose-200 bg-rose-50/60 dark:bg-rose-950/25 dark:border-rose-800/60 p-3">
+          <div
+            onClick={() => setTrialViewMode("initial")}
+            className={`cursor-pointer rounded-xl border p-3 transition-all ${
+              isInitialMode
+                ? "border-rose-500 bg-rose-50 dark:bg-rose-950/40 ring-2 ring-rose-500/30"
+                : "border-rose-200 bg-rose-50/60 dark:bg-rose-950/25 dark:border-rose-800/60 hover:border-rose-300"
+            }`}
+          >
             <div className="flex items-center justify-between">
               <span className="inline-flex items-center gap-1 font-bold text-[11px] text-rose-700 dark:text-rose-300">
                 <XCircle className="h-3 w-3" /> 08&ndash;17 Okt 2026
@@ -393,7 +424,14 @@ export function LearningGainEvaluationView() {
             </p>
           </div>
 
-          <div className="rounded-xl border border-emerald-200 bg-emerald-50/60 dark:bg-emerald-950/25 dark:border-emerald-800/60 p-3">
+          <div
+            onClick={() => setTrialViewMode("final")}
+            className={`cursor-pointer rounded-xl border p-3 transition-all ${
+              isFinalMode
+                ? "border-emerald-500 bg-emerald-50 dark:bg-emerald-950/40 ring-2 ring-emerald-500/30"
+                : "border-emerald-200 bg-emerald-50/60 dark:bg-emerald-950/25 dark:border-emerald-800/60 hover:border-emerald-300"
+            }`}
+          >
             <div className="flex items-center justify-between">
               <span className="inline-flex items-center gap-1 font-bold text-[11px] text-emerald-700 dark:text-emerald-300">
                 <CheckCircle2 className="h-3 w-3" /> 02&ndash;11 Nov 2026
@@ -411,85 +449,89 @@ export function LearningGainEvaluationView() {
           </div>
         </div>
 
-        {/* Side-by-Side Metrics Summary */}
-        <div className="grid gap-3 md:grid-cols-2">
-          <div className="rounded-xl border border-rose-200 bg-rose-50/40 dark:border-rose-900/50 dark:bg-rose-950/20 p-3.5 space-y-2">
-            <div className="flex flex-wrap items-center justify-between gap-1">
-              <span className="inline-flex items-center gap-1.5 text-xs font-bold text-rose-800 dark:text-rose-300">
-                <XCircle className="h-4 w-4 text-rose-600" />
-                Pre-Test — Data Oktober (08&ndash;17 Okt 2026)
-              </span>
-              <span className="rounded-full bg-rose-600 px-2.5 py-0.5 text-[10px] font-bold text-white">
-                {initMetrics.failedStudentsCount} Gagal ({initMetrics.failureRatePercent}%) &bull; {initMetrics.remedialStudentsCount} Remedial
-              </span>
+        {/* Summary Metric Boxes — dynamic based on mode */}
+        <div className={`grid gap-3 ${isComparisonMode ? "md:grid-cols-2" : "grid-cols-1"}`}>
+          {!isFinalMode && (
+            <div className="rounded-xl border border-rose-200 bg-rose-50/40 dark:border-rose-900/50 dark:bg-rose-950/20 p-3.5 space-y-2">
+              <div className="flex flex-wrap items-center justify-between gap-1">
+                <span className="inline-flex items-center gap-1.5 text-xs font-bold text-rose-800 dark:text-rose-300">
+                  <XCircle className="h-4 w-4 text-rose-600" />
+                  Pre-Test — Data Oktober (08&ndash;17 Okt 2026)
+                </span>
+                <span className="rounded-full bg-rose-600 px-2.5 py-0.5 text-[10px] font-bold text-white">
+                  {initMetrics.failedStudentsCount} Gagal ({initMetrics.failureRatePercent}%) &bull; {initMetrics.remedialStudentsCount} Remedial
+                </span>
+              </div>
+              <div className="grid grid-cols-5 gap-1.5 text-center">
+                <div className="rounded-lg bg-white dark:bg-slate-900 p-1.5 border border-rose-200/70 dark:border-rose-800/60">
+                  <span className="block text-[10px] text-slate-500">N-Gain</span>
+                  <strong className="text-sm font-black text-rose-600 dark:text-rose-400">0,23</strong>
+                  <span className="block text-[9px] text-rose-600 font-semibold">Rendah</span>
+                </div>
+                <div className="rounded-lg bg-white dark:bg-slate-900 p-1.5 border border-rose-200/70 dark:border-rose-800/60">
+                  <span className="block text-[10px] text-slate-500">Skor Rata2</span>
+                  <strong className="text-sm font-black text-rose-600 dark:text-rose-400">58,8</strong>
+                  <span className="block text-[9px] text-rose-600 font-semibold">&lt; KKM 75</span>
+                </div>
+                <div className="rounded-lg bg-white dark:bg-slate-900 p-1.5 border border-rose-200/70 dark:border-rose-800/60">
+                  <span className="block text-[10px] text-slate-500">Akurasi</span>
+                  <strong className="text-sm font-black text-rose-600 dark:text-rose-400">53%</strong>
+                  <span className="block text-[9px] text-rose-600 font-semibold">Min 80%</span>
+                </div>
+                <div className="rounded-lg bg-white dark:bg-slate-900 p-1.5 border border-rose-200/70 dark:border-rose-800/60">
+                  <span className="block text-[10px] text-slate-500">&lt;15 Detik</span>
+                  <strong className="text-sm font-black text-rose-600 dark:text-rose-400">34%</strong>
+                  <span className="block text-[9px] text-rose-600 font-semibold">Rata2 22,6s</span>
+                </div>
+                <div className="rounded-lg bg-white dark:bg-slate-900 p-1.5 border border-rose-200/70 dark:border-rose-800/60">
+                  <span className="block text-[10px] text-slate-500">Transfer</span>
+                  <strong className="text-sm font-black text-rose-600 dark:text-rose-400">49%</strong>
+                  <span className="block text-[9px] text-rose-600 font-semibold">Konsist. 51%</span>
+                </div>
+              </div>
             </div>
-            <div className="grid grid-cols-5 gap-1.5 text-center">
-              <div className="rounded-lg bg-white dark:bg-slate-900 p-1.5 border border-rose-200/70 dark:border-rose-800/60">
-                <span className="block text-[10px] text-slate-500">N-Gain</span>
-                <strong className="text-sm font-black text-rose-600 dark:text-rose-400">0,23</strong>
-                <span className="block text-[9px] text-rose-600 font-semibold">Rendah</span>
-              </div>
-              <div className="rounded-lg bg-white dark:bg-slate-900 p-1.5 border border-rose-200/70 dark:border-rose-800/60">
-                <span className="block text-[10px] text-slate-500">Skor Rata2</span>
-                <strong className="text-sm font-black text-rose-600 dark:text-rose-400">58,8</strong>
-                <span className="block text-[9px] text-rose-600 font-semibold">&lt; KKM 75</span>
-              </div>
-              <div className="rounded-lg bg-white dark:bg-slate-900 p-1.5 border border-rose-200/70 dark:border-rose-800/60">
-                <span className="block text-[10px] text-slate-500">Akurasi</span>
-                <strong className="text-sm font-black text-rose-600 dark:text-rose-400">53%</strong>
-                <span className="block text-[9px] text-rose-600 font-semibold">Min 80%</span>
-              </div>
-              <div className="rounded-lg bg-white dark:bg-slate-900 p-1.5 border border-rose-200/70 dark:border-rose-800/60">
-                <span className="block text-[10px] text-slate-500">&lt;15 Detik</span>
-                <strong className="text-sm font-black text-rose-600 dark:text-rose-400">34%</strong>
-                <span className="block text-[9px] text-rose-600 font-semibold">Rata2 22,6s</span>
-              </div>
-              <div className="rounded-lg bg-white dark:bg-slate-900 p-1.5 border border-rose-200/70 dark:border-rose-800/60">
-                <span className="block text-[10px] text-slate-500">Transfer</span>
-                <strong className="text-sm font-black text-rose-600 dark:text-rose-400">49%</strong>
-                <span className="block text-[9px] text-rose-600 font-semibold">Konsist. 51%</span>
-              </div>
-            </div>
-          </div>
+          )}
 
-          <div className="rounded-xl border border-emerald-200 bg-emerald-50/40 dark:border-emerald-900/50 dark:bg-emerald-950/20 p-3.5 space-y-2">
-            <div className="flex flex-wrap items-center justify-between gap-1">
-              <span className="inline-flex items-center gap-1.5 text-xs font-bold text-emerald-800 dark:text-emerald-300">
-                <CheckCircle2 className="h-4 w-4 text-emerald-600" />
-                Post-Test — Data Awal November (02&ndash;11 Nov 2026)
-              </span>
-              <span className="rounded-full bg-emerald-600 px-2.5 py-0.5 text-[10px] font-bold text-white">
-                320 Siswa Lulus SPAB (100%)
-              </span>
+          {!isInitialMode && (
+            <div className="rounded-xl border border-emerald-200 bg-emerald-50/40 dark:border-emerald-900/50 dark:bg-emerald-950/20 p-3.5 space-y-2">
+              <div className="flex flex-wrap items-center justify-between gap-1">
+                <span className="inline-flex items-center gap-1.5 text-xs font-bold text-emerald-800 dark:text-emerald-300">
+                  <CheckCircle2 className="h-4 w-4 text-emerald-600" />
+                  Post-Test — Data Awal November (02&ndash;11 Nov 2026)
+                </span>
+                <span className="rounded-full bg-emerald-600 px-2.5 py-0.5 text-[10px] font-bold text-white">
+                  320 Siswa Lulus SPAB (100%)
+                </span>
+              </div>
+              <div className="grid grid-cols-5 gap-1.5 text-center">
+                <div className="rounded-lg bg-white dark:bg-slate-900 p-1.5 border border-emerald-200/70 dark:border-emerald-800/60">
+                  <span className="block text-[10px] text-slate-500">N-Gain</span>
+                  <strong className="text-sm font-black text-emerald-600 dark:text-emerald-400">0,74</strong>
+                  <span className="block text-[9px] text-emerald-600 font-semibold">+0,51 Tinggi</span>
+                </div>
+                <div className="rounded-lg bg-white dark:bg-slate-900 p-1.5 border border-emerald-200/70 dark:border-emerald-800/60">
+                  <span className="block text-[10px] text-slate-500">Skor Rata2</span>
+                  <strong className="text-sm font-black text-emerald-600 dark:text-emerald-400">86,1</strong>
+                  <span className="block text-[9px] text-emerald-600 font-semibold">+27,3 Poin</span>
+                </div>
+                <div className="rounded-lg bg-white dark:bg-slate-900 p-1.5 border border-emerald-200/70 dark:border-emerald-800/60">
+                  <span className="block text-[10px] text-slate-500">Akurasi</span>
+                  <strong className="text-sm font-black text-emerald-600 dark:text-emerald-400">85%</strong>
+                  <span className="block text-[9px] text-emerald-600 font-semibold">+32% Naik</span>
+                </div>
+                <div className="rounded-lg bg-white dark:bg-slate-900 p-1.5 border border-emerald-200/70 dark:border-emerald-800/60">
+                  <span className="block text-[10px] text-slate-500">&lt;15 Detik</span>
+                  <strong className="text-sm font-black text-emerald-600 dark:text-emerald-400">87%</strong>
+                  <span className="block text-[9px] text-emerald-600 font-semibold">Rata2 11,8s</span>
+                </div>
+                <div className="rounded-lg bg-white dark:bg-slate-900 p-1.5 border border-emerald-200/70 dark:border-emerald-800/60">
+                  <span className="block text-[10px] text-slate-500">Transfer</span>
+                  <strong className="text-sm font-black text-emerald-600 dark:text-emerald-400">83%</strong>
+                  <span className="block text-[9px] text-emerald-600 font-semibold">Konsist. 89%</span>
+                </div>
+              </div>
             </div>
-            <div className="grid grid-cols-5 gap-1.5 text-center">
-              <div className="rounded-lg bg-white dark:bg-slate-900 p-1.5 border border-emerald-200/70 dark:border-emerald-800/60">
-                <span className="block text-[10px] text-slate-500">N-Gain</span>
-                <strong className="text-sm font-black text-emerald-600 dark:text-emerald-400">0,74</strong>
-                <span className="block text-[9px] text-emerald-600 font-semibold">+0,51 Tinggi</span>
-              </div>
-              <div className="rounded-lg bg-white dark:bg-slate-900 p-1.5 border border-emerald-200/70 dark:border-emerald-800/60">
-                <span className="block text-[10px] text-slate-500">Skor Rata2</span>
-                <strong className="text-sm font-black text-emerald-600 dark:text-emerald-400">86,1</strong>
-                <span className="block text-[9px] text-emerald-600 font-semibold">+27,3 Poin</span>
-              </div>
-              <div className="rounded-lg bg-white dark:bg-slate-900 p-1.5 border border-emerald-200/70 dark:border-emerald-800/60">
-                <span className="block text-[10px] text-slate-500">Akurasi</span>
-                <strong className="text-sm font-black text-emerald-600 dark:text-emerald-400">85%</strong>
-                <span className="block text-[9px] text-emerald-600 font-semibold">+32% Naik</span>
-              </div>
-              <div className="rounded-lg bg-white dark:bg-slate-900 p-1.5 border border-emerald-200/70 dark:border-emerald-800/60">
-                <span className="block text-[10px] text-slate-500">&lt;15 Detik</span>
-                <strong className="text-sm font-black text-emerald-600 dark:text-emerald-400">87%</strong>
-                <span className="block text-[9px] text-emerald-600 font-semibold">Rata2 11,8s</span>
-              </div>
-              <div className="rounded-lg bg-white dark:bg-slate-900 p-1.5 border border-emerald-200/70 dark:border-emerald-800/60">
-                <span className="block text-[10px] text-slate-500">Transfer</span>
-                <strong className="text-sm font-black text-emerald-600 dark:text-emerald-400">83%</strong>
-                <span className="block text-[9px] text-emerald-600 font-semibold">Konsist. 89%</span>
-              </div>
-            </div>
-          </div>
+          )}
         </div>
       </div>
 
@@ -497,18 +539,20 @@ export function LearningGainEvaluationView() {
       <div className="space-y-2.5">
         <div className="flex flex-wrap items-center justify-between gap-2">
           <h3 className="text-xs font-bold uppercase tracking-wider text-ink-500 dark:text-slate-400">
-            {trialViewMode === "initial"
+            {isInitialMode
               ? "5 Indikator Evaluasi — Pre-Test (08–17 Oktober 2026)"
+              : isFinalMode
+              ? "5 Indikator Evaluasi — Post-Test (02–11 November 2026)"
               : "5 Indikator Evaluasi Kesiapsiagaan (Post-Test November vs Pre-Test Oktober)"}
           </h3>
           <span
             className={`text-xs font-semibold ${
-              trialViewMode === "initial"
+              isInitialMode
                 ? "text-rose-600 dark:text-rose-400"
                 : "text-brand-600 dark:text-brand-400"
             }`}
           >
-            {trialViewMode === "initial"
+            {isInitialMode
               ? `Pre-Test (Okt): Belum Memenuhi Target (${initMetrics.failedStudentsCount} Siswa Gagal)`
               : "Post-Test (Nov): Semua Target Tercapai 100%"}
           </span>
@@ -519,13 +563,12 @@ export function LearningGainEvaluationView() {
             const slide13Param = HARMONY_SLIDE_13_PARAMETERS[idx];
             const isGain = p.id === "learning_gain";
             const isCrucial = p.isCrucialBenchmark;
-            const isFailedMode = trialViewMode === "initial";
 
             return (
               <div
                 key={p.id}
                 className={`relative overflow-hidden rounded-xl p-3.5 transition-all border flex flex-col justify-between ${
-                  isFailedMode
+                  isInitialMode
                     ? "bg-gradient-to-b from-rose-50/70 to-white dark:from-rose-950/30 dark:to-slate-900 border-rose-300 dark:border-rose-700/70 shadow-xs"
                     : isGain
                     ? "bg-gradient-to-b from-brand-50/80 to-white dark:from-brand-950/40 dark:to-slate-900 border-brand-300 dark:border-brand-600 shadow-sm ring-1 ring-brand-400/30"
@@ -543,7 +586,7 @@ export function LearningGainEvaluationView() {
                   <div className="flex items-center gap-2">
                     <span
                       className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-lg text-white ${
-                        isFailedMode
+                        isInitialMode
                           ? "bg-rose-600"
                           : isGain
                           ? "bg-brand-600"
@@ -570,7 +613,7 @@ export function LearningGainEvaluationView() {
                     <div className="flex items-baseline justify-between gap-1">
                       <span
                         className={`font-display text-2xl font-black ${
-                          isFailedMode
+                          isInitialMode
                             ? "text-rose-600 dark:text-rose-400"
                             : "text-ink-900 dark:text-white"
                         }`}
@@ -579,7 +622,7 @@ export function LearningGainEvaluationView() {
                       </span>
                       <span
                         className={`rounded px-1.5 py-0.5 text-[10px] font-bold ${
-                          isFailedMode
+                          isInitialMode
                             ? "bg-rose-100 text-rose-800 dark:bg-rose-950/80 dark:text-rose-300"
                             : "bg-emerald-50 text-emerald-700 dark:bg-emerald-950/60 dark:text-emerald-300"
                         }`}
@@ -593,7 +636,7 @@ export function LearningGainEvaluationView() {
                     </div>
                   </div>
 
-                  {!isFailedMode && slide13Param.initialFormatted && (
+                  {isComparisonMode && slide13Param.initialFormatted && (
                     <div className="mt-2 rounded-lg bg-rose-50/90 dark:bg-rose-950/40 border border-rose-200/80 dark:border-rose-800/60 px-2 py-1.5 text-[10px] space-y-0.5">
                       <div className="flex items-center justify-between">
                         <span className="font-semibold text-rose-800 dark:text-rose-300">
@@ -611,17 +654,6 @@ export function LearningGainEvaluationView() {
                           {slide13Param.deltaFormatted}
                         </span>
                       </div>
-                    </div>
-                  )}
-
-                  {isFailedMode && (
-                    <div className="mt-2 rounded-lg bg-emerald-50/80 dark:bg-emerald-950/30 border border-emerald-200/80 dark:border-emerald-800/60 px-2 py-1 text-[10px] flex items-center justify-between">
-                      <span className="text-emerald-800 dark:text-emerald-300">
-                        Post-Test (Nov):
-                      </span>
-                      <strong className="font-mono text-emerald-700 dark:text-emerald-400">
-                        {slide13Param.achievedFormatted}
-                      </strong>
                     </div>
                   )}
                 </div>
@@ -655,31 +687,35 @@ export function LearningGainEvaluationView() {
               </div>
 
               <div className="space-y-2.5 text-[11px]">
-                <div>
-                  <strong className="text-rose-600 dark:text-rose-400 block">
-                    1. Evaluasi Pre-Test — Oktober (08&ndash;17 Okt 2026):
-                  </strong>
-                  <div className="mt-1 pl-2.5 border-l-2 border-rose-500 text-ink-700 dark:text-slate-300 leading-relaxed">
-                    g₁ = ({initMetrics.avgPostTest} - {initMetrics.avgPreTest}) / (100 - {initMetrics.avgPreTest}) = {initMetrics.scoreDifference} / {Math.round((100 - initMetrics.avgPreTest) * 10) / 10} ={" "}
-                    <strong className="text-rose-600 dark:text-rose-400">
-                      {initMetrics.normalizedGain}
-                    </strong>{" "}
-                    (Rendah, g &lt; 0,30)
+                {!isFinalMode && (
+                  <div>
+                    <strong className="text-rose-600 dark:text-rose-400 block">
+                      {isComparisonMode ? "1. " : ""}Evaluasi Pre-Test — Oktober (08&ndash;17 Okt 2026):
+                    </strong>
+                    <div className="mt-1 pl-2.5 border-l-2 border-rose-500 text-ink-700 dark:text-slate-300 leading-relaxed">
+                      g₁ = ({initMetrics.avgPostTest} - {initMetrics.avgPreTest}) / (100 - {initMetrics.avgPreTest}) = {initMetrics.scoreDifference} / {Math.round((100 - initMetrics.avgPreTest) * 10) / 10} ={" "}
+                      <strong className="text-rose-600 dark:text-rose-400">
+                        {initMetrics.normalizedGain}
+                      </strong>{" "}
+                      (Rendah, g &lt; 0,30)
+                    </div>
                   </div>
-                </div>
+                )}
 
-                <div>
-                  <strong className="text-emerald-700 dark:text-emerald-400 block">
-                    2. Evaluasi Post-Test — Awal November (02&ndash;11 Nov 2026):
-                  </strong>
-                  <div className="mt-1 pl-2.5 border-l-2 border-brand-500 text-ink-700 dark:text-slate-300 leading-relaxed">
-                    g₂ = ({summary.overallMetrics.avgPostTest} - {summary.overallMetrics.avgPreTest}) / (100 - {summary.overallMetrics.avgPreTest}) = {summary.overallMetrics.scoreDifference} / {Math.round((100 - summary.overallMetrics.avgPreTest) * 10) / 10} ={" "}
-                    <strong className="text-emerald-600 dark:text-emerald-400">
-                      {summary.overallMetrics.normalizedGain}
-                    </strong>{" "}
-                    (Tinggi, g &ge; 0,70)
+                {!isInitialMode && (
+                  <div>
+                    <strong className="text-emerald-700 dark:text-emerald-400 block">
+                      {isComparisonMode ? "2. " : ""}Evaluasi Post-Test — Awal November (02&ndash;11 Nov 2026):
+                    </strong>
+                    <div className="mt-1 pl-2.5 border-l-2 border-brand-500 text-ink-700 dark:text-slate-300 leading-relaxed">
+                      g = ({summary.overallMetrics.avgPostTest} - {summary.overallMetrics.avgPreTest}) / (100 - {summary.overallMetrics.avgPreTest}) = {summary.overallMetrics.scoreDifference} / {Math.round((100 - summary.overallMetrics.avgPreTest) * 10) / 10} ={" "}
+                      <strong className="text-emerald-600 dark:text-emerald-400">
+                        {summary.overallMetrics.normalizedGain}
+                      </strong>{" "}
+                      (Tinggi, g &ge; 0,70)
+                    </div>
                   </div>
-                </div>
+                )}
               </div>
             </div>
           </div>
@@ -690,7 +726,7 @@ export function LearningGainEvaluationView() {
                 g &ge; 0,70
               </span>
               <span className="text-[10px] text-emerald-700 dark:text-emerald-400">
-                Tinggi (Post-Test: <strong>0,74</strong>)
+                Tinggi {!isInitialMode && <>(Post-Test: <strong>0,74</strong>)</>}
               </span>
             </div>
             <div className="rounded-lg border border-amber-200 bg-amber-50/50 p-2 dark:border-amber-900/40 dark:bg-amber-950/20 text-center">
@@ -706,7 +742,7 @@ export function LearningGainEvaluationView() {
                 g &lt; 0,30
               </span>
               <span className="text-[10px] text-rose-700 dark:text-rose-400">
-                Rendah (Pre-Test: <strong>0,23</strong>)
+                Rendah {!isFinalMode && <>(Pre-Test: <strong>0,23</strong>)</>}
               </span>
             </div>
           </div>
@@ -717,22 +753,34 @@ export function LearningGainEvaluationView() {
             <div>
               <h3 className="font-bold text-sm text-ink-900 dark:text-white flex items-center gap-2">
                 <School className="h-4 w-4 text-brand-600" />
-                Pre-Test (Okt) vs Post-Test (Nov) per Rombel
+                {isInitialMode
+                  ? "Skor Awal vs Pre-Test (08–17 Okt 2026) per Rombel"
+                  : isFinalMode
+                  ? "Pre-Test vs Post-Test (02–11 Nov 2026) per Rombel"
+                  : "Pre-Test (Okt) vs Post-Test (Nov) per Rombel"}
               </h3>
               <p className="text-xs text-ink-500 dark:text-slate-400">
-                Rata-rata skor dari 46,5 &rarr; 58,8 (Pre-Test Oktober) &rarr; 86,1 (Post-Test November).
+                {isInitialMode
+                  ? "Rata-rata skor hanya naik dari 46,5 ke 58,8 di seluruh 10 kelas (N-Gain 0,23 — Rendah)."
+                  : isFinalMode
+                  ? "Rata-rata skor meningkat dari 46,5 ke 86,1 di seluruh 10 kelas (N-Gain 0,74 — Tinggi)."
+                  : "Rata-rata skor dari 46,5 → 58,8 (Pre-Test Oktober) → 86,1 (Post-Test November)."}
               </p>
             </div>
             <div className="flex flex-wrap items-center gap-2.5 text-[11px] font-semibold">
               <span className="flex items-center gap-1 text-slate-500">
-                <span className="h-2.5 w-2.5 rounded-xs bg-slate-400 inline-block" /> Baseline (46,5)
+                <span className="h-2.5 w-2.5 rounded-xs bg-slate-400 inline-block" /> Skor Awal (46,5)
               </span>
-              <span className="flex items-center gap-1 text-rose-600 dark:text-rose-400">
-                <span className="h-2.5 w-2.5 rounded-xs bg-rose-500 inline-block" /> Pre-Test Okt (58,8)
-              </span>
-              <span className="flex items-center gap-1 text-brand-600 dark:text-brand-400">
-                <span className="h-2.5 w-2.5 rounded-xs bg-brand-600 inline-block" /> Post-Test Nov (86,1)
-              </span>
+              {!isFinalMode && (
+                <span className="flex items-center gap-1 text-rose-600 dark:text-rose-400">
+                  <span className="h-2.5 w-2.5 rounded-xs bg-rose-500 inline-block" /> Pre-Test Okt (58,8)
+                </span>
+              )}
+              {!isInitialMode && (
+                <span className="flex items-center gap-1 text-brand-600 dark:text-brand-400">
+                  <span className="h-2.5 w-2.5 rounded-xs bg-brand-600 inline-block" /> Post-Test Nov (86,1)
+                </span>
+              )}
             </div>
           </div>
 
@@ -751,9 +799,13 @@ export function LearningGainEvaluationView() {
                     fontSize: "11px",
                   }}
                 />
-                <Bar dataKey="Baseline" fill="#94a3b8" radius={[4, 4, 0, 0]} />
-                <Bar dataKey="Pre-Test (08-17 Okt)" fill="#f43f5e" radius={[4, 4, 0, 0]} />
-                <Bar dataKey="Post-Test (02-11 Nov)" fill="#4f46e5" radius={[4, 4, 0, 0]} />
+                <Bar dataKey="Skor Awal" fill="#94a3b8" radius={[4, 4, 0, 0]} />
+                {!isFinalMode && (
+                  <Bar dataKey="Pre-Test (08-17 Okt)" fill="#f43f5e" radius={[4, 4, 0, 0]} />
+                )}
+                {!isInitialMode && (
+                  <Bar dataKey="Post-Test (02-11 Nov)" fill="#4f46e5" radius={[4, 4, 0, 0]} />
+                )}
               </BarChart>
             </ResponsiveContainer>
           </div>
@@ -774,7 +826,19 @@ export function LearningGainEvaluationView() {
               </span>
             </div>
             <p className="text-[11px] text-slate-500 dark:text-slate-400">
-              Rekap nilai per siswa pada <strong>Pre-Test (08&ndash;17 Oktober 2026)</strong> dan <strong>Post-Test (02&ndash;11 November 2026)</strong>.
+              {isInitialMode ? (
+                <>
+                  Menampilkan data <strong>Pre-Test (08&ndash;17 Oktober 2026)</strong>: {initMetrics.failedStudentsCount} siswa gagal SPAB, {initMetrics.remedialStudentsCount} remedial.
+                </>
+              ) : isFinalMode ? (
+                <>
+                  Menampilkan data <strong>Post-Test (02&ndash;11 November 2026)</strong>: seluruh 320 siswa lulus evaluasi SPAB.
+                </>
+              ) : (
+                <>
+                  Rekap komparasi nilai per siswa pada <strong>Pre-Test (08&ndash;17 Oktober 2026)</strong> dan <strong>Post-Test (02&ndash;11 November 2026)</strong>.
+                </>
+              )}
             </p>
           </div>
 
@@ -790,22 +854,24 @@ export function LearningGainEvaluationView() {
               />
             </div>
 
-            <select
-              value={selectedInitialStatus}
-              onChange={(e) => setSelectedInitialStatus(e.target.value)}
-              className="rounded-lg border border-rose-200 bg-rose-50/70 dark:bg-slate-800 dark:border-rose-800/60 px-2.5 py-1.5 text-xs font-semibold text-rose-800 dark:text-rose-300 focus:outline-none focus:ring-1 focus:ring-rose-500"
-            >
-              <option value="ALL">Semua Status Pre-Test Okt (320)</option>
-              <option value="Gagal SPAB">
-                Gagal SPAB di Pre-Test Okt ({initMetrics.failedStudentsCount} Siswa)
-              </option>
-              <option value="Remedial SPAB">
-                Remedial di Pre-Test Okt ({initMetrics.remedialStudentsCount} Siswa)
-              </option>
-              <option value="Lulus Bersyarat">
-                Lulus Bersyarat di Pre-Test Okt ({initMetrics.passedStudentsCount} Siswa)
-              </option>
-            </select>
+            {!isFinalMode && (
+              <select
+                value={selectedInitialStatus}
+                onChange={(e) => setSelectedInitialStatus(e.target.value)}
+                className="rounded-lg border border-rose-200 bg-rose-50/70 dark:bg-slate-800 dark:border-rose-800/60 px-2.5 py-1.5 text-xs font-semibold text-rose-800 dark:text-rose-300 focus:outline-none focus:ring-1 focus:ring-rose-500"
+              >
+                <option value="ALL">Semua Status Pre-Test Okt (320)</option>
+                <option value="Gagal SPAB">
+                  Gagal SPAB di Pre-Test Okt ({initMetrics.failedStudentsCount} Siswa)
+                </option>
+                <option value="Remedial SPAB">
+                  Remedial di Pre-Test Okt ({initMetrics.remedialStudentsCount} Siswa)
+                </option>
+                <option value="Lulus Bersyarat">
+                  Lulus Bersyarat di Pre-Test Okt ({initMetrics.passedStudentsCount} Siswa)
+                </option>
+              </select>
+            )}
 
             <select
               value={selectedCategory}
@@ -954,38 +1020,232 @@ export function LearningGainEvaluationView() {
           </div>
         </div>
 
-        {/* Responsive Table */}
+        {/* Responsive Table — columns adapt to trialViewMode */}
         <div className="overflow-x-auto rounded-xl border border-slate-200 dark:border-slate-800">
           <table className="w-full text-left text-xs">
             <thead className="bg-slate-50 dark:bg-slate-800/90 text-ink-700 dark:text-slate-300 font-bold border-b border-slate-200 dark:border-slate-800">
-              <tr>
-                <th className="py-2.5 px-3">No</th>
-                <th className="py-2.5 px-3">
-                  Nama Siswa{" "}
-                  {privacyMode && (
-                    <span className="font-normal text-emerald-600 dark:text-emerald-400">
-                      (Inisial a*** b***)
-                    </span>
-                  )}
-                </th>
-                <th className="py-2.5 px-2.5">Kelas</th>
-                <th className="py-2.5 px-2.5 text-center">Baseline</th>
-                <th className="py-2.5 px-3 text-center bg-rose-50/70 dark:bg-rose-950/30 text-rose-800 dark:text-rose-300 border-x border-rose-100 dark:border-rose-900/40">
-                  Pre-Test (08&ndash;17 Okt 2026)
-                </th>
-                <th className="py-2.5 px-3 text-center bg-indigo-50/50 dark:bg-indigo-950/25 text-brand-700 dark:text-brand-300">
-                  Post-Test (02&ndash;11 Nov 2026)
-                </th>
-                <th className="py-2.5 px-2.5 text-center">N-Gain (g)</th>
-                <th className="py-2.5 px-2.5 text-center">Kategori Hake</th>
-                <th className="py-2.5 px-2.5 text-center">Akurasi (Pre &rarr; Post)</th>
-                <th className="py-2.5 px-2.5 text-center">Waktu Respons (Pre &rarr; Post)</th>
-                <th className="py-2.5 px-3 text-center">Status (Pre &rarr; Post)</th>
-              </tr>
+              {isInitialMode ? (
+                <tr>
+                  <th className="py-2.5 px-3">No</th>
+                  <th className="py-2.5 px-3">
+                    Nama Siswa{" "}
+                    {privacyMode && (
+                      <span className="font-normal text-emerald-600 dark:text-emerald-400">
+                        (Inisial a*** b***)
+                      </span>
+                    )}
+                  </th>
+                  <th className="py-2.5 px-2.5">Kelas</th>
+                  <th className="py-2.5 px-2.5 text-center">Tanggal Uji</th>
+                  <th className="py-2.5 px-2.5 text-center">Skor Awal</th>
+                  <th className="py-2.5 px-3 text-center text-rose-700 dark:text-rose-300">
+                    Skor Pre-Test (Okt)
+                  </th>
+                  <th className="py-2.5 px-2.5 text-center">N-Gain (g)</th>
+                  <th className="py-2.5 px-2.5 text-center">Kategori Hake</th>
+                  <th className="py-2.5 px-2.5 text-center">Akurasi</th>
+                  <th className="py-2.5 px-2.5 text-center">Waktu Respons</th>
+                  <th className="py-2.5 px-3 text-center">Status &amp; Kendala Evaluasi</th>
+                </tr>
+              ) : isFinalMode ? (
+                <tr>
+                  <th className="py-2.5 px-3">No</th>
+                  <th className="py-2.5 px-3">
+                    Nama Siswa{" "}
+                    {privacyMode && (
+                      <span className="font-normal text-emerald-600 dark:text-emerald-400">
+                        (Inisial a*** b***)
+                      </span>
+                    )}
+                  </th>
+                  <th className="py-2.5 px-2.5">Kelas</th>
+                  <th className="py-2.5 px-2.5 text-center">Tanggal Uji</th>
+                  <th className="py-2.5 px-2.5 text-center">Pre-Test</th>
+                  <th className="py-2.5 px-3 text-center text-brand-700 dark:text-brand-300">
+                    Post-Test (Nov)
+                  </th>
+                  <th className="py-2.5 px-2.5 text-center">N-Gain (g)</th>
+                  <th className="py-2.5 px-2.5 text-center">Kategori Hake</th>
+                  <th className="py-2.5 px-2.5 text-center">Akurasi</th>
+                  <th className="py-2.5 px-2.5 text-center">Waktu Respons</th>
+                  <th className="py-2.5 px-3 text-center">Status</th>
+                </tr>
+              ) : (
+                <tr>
+                  <th className="py-2.5 px-3">No</th>
+                  <th className="py-2.5 px-3">
+                    Nama Siswa{" "}
+                    {privacyMode && (
+                      <span className="font-normal text-emerald-600 dark:text-emerald-400">
+                        (Inisial a*** b***)
+                      </span>
+                    )}
+                  </th>
+                  <th className="py-2.5 px-2.5">Kelas</th>
+                  <th className="py-2.5 px-2.5 text-center">Skor Awal</th>
+                  <th className="py-2.5 px-3 text-center bg-rose-50/70 dark:bg-rose-950/30 text-rose-800 dark:text-rose-300 border-x border-rose-100 dark:border-rose-900/40">
+                    Pre-Test (08&ndash;17 Okt 2026)
+                  </th>
+                  <th className="py-2.5 px-3 text-center bg-indigo-50/50 dark:bg-indigo-950/25 text-brand-700 dark:text-brand-300">
+                    Post-Test (02&ndash;11 Nov 2026)
+                  </th>
+                  <th className="py-2.5 px-2.5 text-center">N-Gain (g)</th>
+                  <th className="py-2.5 px-2.5 text-center">Kategori Hake</th>
+                  <th className="py-2.5 px-2.5 text-center">Akurasi (Pre &rarr; Post)</th>
+                  <th className="py-2.5 px-2.5 text-center">Waktu Respons (Pre &rarr; Post)</th>
+                  <th className="py-2.5 px-3 text-center">Status (Pre &rarr; Post)</th>
+                </tr>
+              )}
             </thead>
             <tbody className="divide-y divide-slate-100 dark:divide-slate-800 text-ink-800 dark:text-slate-200">
               {paginatedStudents.map((s, idx) => {
                 const rowNumber = startIndex + idx + 1;
+
+                if (isInitialMode) {
+                  return (
+                    <tr key={s.id} className="hover:bg-rose-50/30 dark:hover:bg-slate-800/40">
+                      <td className="py-2.5 px-3 font-mono font-semibold text-slate-400">
+                        {rowNumber}
+                      </td>
+                      <td className="py-2.5 px-3">
+                        <span className="font-semibold block font-mono">{s.displayName}</span>
+                        <span className="text-[10px] text-slate-400 font-mono">{s.displayEmail}</span>
+                      </td>
+                      <td className="py-2.5 px-2.5 font-medium whitespace-nowrap">{s.className}</td>
+                      <td className="py-2.5 px-2.5 text-center whitespace-nowrap">
+                        <span className="inline-flex items-center gap-1 rounded bg-rose-100/90 dark:bg-rose-950/80 px-2 py-0.5 text-[10px] font-semibold text-rose-700 dark:text-rose-300">
+                          <Calendar className="h-2.5 w-2.5" /> {s.initialTrialDate}
+                        </span>
+                      </td>
+                      <td className="py-2.5 px-2.5 text-center text-slate-500 font-mono">
+                        {s.preTestScore}
+                      </td>
+                      <td className="py-2.5 px-3 text-center font-bold text-rose-600 dark:text-rose-400 font-mono">
+                        {s.initialPostTestScore}
+                      </td>
+                      <td className="py-2.5 px-2.5 text-center font-mono font-bold">
+                        <span className="inline-block px-1.5 py-0.5 rounded bg-rose-50 text-rose-700 dark:bg-rose-950/60 dark:text-rose-300">
+                          {s.initialNGain}
+                        </span>
+                      </td>
+                      <td className="py-2.5 px-2.5 text-center">
+                        <span
+                          className={`inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-bold ${
+                            s.initialHakeCategory === "Rendah"
+                              ? "bg-rose-100 text-rose-800 dark:bg-rose-900/40 dark:text-rose-300"
+                              : "bg-amber-100 text-amber-800 dark:bg-amber-900/40 dark:text-amber-300"
+                          }`}
+                        >
+                          {s.initialHakeCategory}
+                        </span>
+                      </td>
+                      <td className="py-2.5 px-2.5 text-center font-mono text-rose-600 dark:text-rose-400">
+                        {s.initialDecisionAccuracy}%
+                      </td>
+                      <td className="py-2.5 px-2.5 text-center font-mono">
+                        <span
+                          className={
+                            s.initialIsResponseUnder15s
+                              ? "text-emerald-600 dark:text-emerald-400"
+                              : "font-bold text-rose-600 dark:text-rose-400"
+                          }
+                        >
+                          {s.initialResponseTimeSeconds}s
+                        </span>
+                      </td>
+                      <td className="py-2.5 px-3">
+                        <div className="flex flex-col items-center gap-0.5">
+                          <span
+                            className={`inline-flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-bold ${
+                              s.initialSpabStatus === "Gagal SPAB"
+                                ? "bg-rose-600 text-white"
+                                : s.initialSpabStatus === "Remedial SPAB"
+                                ? "bg-amber-500 text-white"
+                                : "bg-slate-200 text-slate-700 dark:bg-slate-700 dark:text-slate-200"
+                            }`}
+                          >
+                            {s.initialSpabStatus === "Gagal SPAB" && <XCircle className="h-2.5 w-2.5" />}
+                            {s.initialSpabStatus === "Remedial SPAB" && (
+                              <AlertTriangle className="h-2.5 w-2.5" />
+                            )}
+                            {s.initialSpabStatus}
+                          </span>
+                          <span className="text-[10px] text-slate-500 dark:text-slate-400 text-center">
+                            {s.initialFailureNote}
+                          </span>
+                        </div>
+                      </td>
+                    </tr>
+                  );
+                }
+
+                if (isFinalMode) {
+                  return (
+                    <tr key={s.id} className="hover:bg-slate-50/60 dark:hover:bg-slate-800/40">
+                      <td className="py-2.5 px-3 font-mono font-semibold text-slate-400">
+                        {rowNumber}
+                      </td>
+                      <td className="py-2.5 px-3">
+                        <span className="font-semibold block font-mono">{s.displayName}</span>
+                        <span className="text-[10px] text-slate-400 font-mono">{s.displayEmail}</span>
+                      </td>
+                      <td className="py-2.5 px-2.5 font-medium whitespace-nowrap">{s.className}</td>
+                      <td className="py-2.5 px-2.5 text-center whitespace-nowrap">
+                        <span className="inline-flex items-center gap-1 rounded bg-indigo-50 dark:bg-indigo-950/70 px-2 py-0.5 text-[10px] font-semibold text-indigo-700 dark:text-indigo-300">
+                          <Calendar className="h-2.5 w-2.5" /> {s.finalTrialDate}
+                        </span>
+                      </td>
+                      <td className="py-2.5 px-2.5 text-center text-slate-500 font-mono">
+                        {s.preTestScore}
+                      </td>
+                      <td className="py-2.5 px-3 text-center font-bold text-brand-600 dark:text-brand-400 font-mono">
+                        {s.postTestScore}
+                      </td>
+                      <td className="py-2.5 px-2.5 text-center font-mono font-bold">
+                        <span
+                          className={`inline-block px-1.5 py-0.5 rounded ${
+                            s.nGain >= 0.7
+                              ? "bg-emerald-50 text-emerald-700 dark:bg-emerald-950/60 dark:text-emerald-300"
+                              : "bg-amber-50 text-amber-700 dark:bg-amber-950/60 dark:text-amber-300"
+                          }`}
+                        >
+                          {s.nGain}
+                        </span>
+                      </td>
+                      <td className="py-2.5 px-2.5 text-center">
+                        <span
+                          className={`inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-bold ${
+                            s.hakeCategory === "Tinggi"
+                              ? "bg-emerald-100 text-emerald-800 dark:bg-emerald-900/40 dark:text-emerald-300"
+                              : "bg-amber-100 text-amber-800 dark:bg-amber-900/40 dark:text-amber-300"
+                          }`}
+                        >
+                          {s.hakeCategory}
+                        </span>
+                      </td>
+                      <td className="py-2.5 px-2.5 text-center font-mono">
+                        {s.decisionAccuracy}%
+                      </td>
+                      <td className="py-2.5 px-2.5 text-center font-mono">
+                        <span
+                          className={
+                            s.isResponseUnder15s
+                              ? "text-emerald-600 dark:text-emerald-400 font-semibold"
+                              : "text-amber-600"
+                          }
+                        >
+                          {s.responseTimeSeconds}s
+                        </span>
+                      </td>
+                      <td className="py-2.5 px-3 text-center">
+                        <span className="inline-flex items-center gap-1 text-[11px] font-semibold text-emerald-600 dark:text-emerald-400">
+                          <CheckCircle2 className="h-3 w-3" /> Lulus SPAB
+                        </span>
+                      </td>
+                    </tr>
+                  );
+                }
+
                 return (
                   <tr key={s.id} className="hover:bg-slate-50/60 dark:hover:bg-slate-800/40">
                     <td className="py-2.5 px-3 font-mono font-semibold text-slate-400">
