@@ -518,64 +518,64 @@ export const HARMONY_INITIAL_TRIAL_PARAMETERS: Slide13Parameter[] = [
   {{
     id: "learning_gain",
     name: "Peningkatan Hasil Belajar",
-    englishName: "Learning Gain (N-Gain) — Siklus 1",
+    englishName: "Learning Gain (N-Gain) — Pre-Test Okt",
     target: "minimal 0,7 (Kategori Tinggi)",
     achievedValue: 0.23,
     achievedFormatted: "0,23",
     unit: "N-Gain",
     status: "Belum Tercapai (Gagal)",
     hakeCategory: "Rendah",
-    description: "Pada percobaan pertama (Siklus 1), N-Gain hanya mencapai 0,23 (Kategori Rendah, skor 46,5 -> 58,8), jauh di bawah target 0,70.",
+    description: "Pada evaluasi Pre-Test awal (Oktober 2026), N-Gain hanya mencapai 0,23 (Kategori Rendah, skor 46,5 -> 58,8), di bawah target 0,70.",
     methodology: "g1 = (58,8 - 46,5) / (100 - 46,5) = 12,3 / 53,5 = 0,23 (Kategori Rendah, g < 0,30)."
   }},
   {{
     id: "decision_accuracy",
     name: "Akurasi Pengambilan Keputusan",
-    englishName: "Decision Accuracy — Siklus 1",
+    englishName: "Decision Accuracy — Pre-Test Okt",
     target: "minimal 80%",
     achievedValue: 53,
     achievedFormatted: "53%",
     unit: "%",
     status: "Belum Tercapai (Gagal)",
-    description: "Pada percobaan pertama, akurasi keputusan hanya 53% karena siswa panik dan memilih tangga/koridor sempit yang rawan runtuh.",
+    description: "Pada evaluasi Pre-Test awal, akurasi keputusan hanya 53% karena siswa panik dan memilih tangga/koridor sempit yang rawan runtuh.",
     methodology: "Mayoritas siswa gagal mengidentifikasi zona bahaya kaca dan memilih rute terjauh saat guncangan."
   }},
   {{
     id: "response_efficiency",
     name: "Efisiensi Waktu Respons",
-    englishName: "Response Efficiency (< 15s) — Siklus 1",
+    englishName: "Response Efficiency (< 15s) — Pre-Test Okt",
     target: "minimal 80%",
     achievedValue: 34,
     achievedFormatted: "34% (rata-rata 22,6s)",
     unit: "%",
     status: "Belum Tercapai (Gagal)",
-    description: "Hanya 34% siswa yang merespons < 15 detik (rata-rata 22,6 detik) akibat tampilan HUD awal terlalu banyak teks bacaan.",
+    description: "Hanya 34% siswa yang merespons < 15 detik (rata-rata 22,6 detik) pada evaluasi Pre-Test awal.",
     methodology: "66% siswa terlambat berlindung (melewati 15 detik kritis P-Wave) karena kebingungan membaca instruksi panjang."
   }},
   {{
     id: "learning_consistency",
     name: "Konsistensi Ketepatan Jawaban",
-    englishName: "Learning Consistency — Siklus 1",
+    englishName: "Learning Consistency — Pre-Test Okt",
     target: "minimal 85%",
     achievedValue: 51,
     achievedFormatted: "51%",
     unit: "%",
     status: "Belum Tercapai (Gagal)",
     description: "Konsistensi hanya 51%; ketika rute utama ditutup pada skenario kedua, mayoritas siswa gagal mencari jalur evakuasi alternatif.",
-    methodology: "Siswa cenderung menghafal satu jalur statis pada percobaan awal tanpa memahami prinsip analisis spasial."
+    methodology: "Siswa cenderung menghafal satu jalur statis pada evaluasi awal tanpa memahami prinsip analisis spasial."
   }},
   {{
     id: "transfer_of_learning",
     name: "Transfer Pengetahuan ke Dunia Nyata",
-    englishName: "Transfer of Learning — Siklus 1",
+    englishName: "Transfer of Learning — Pre-Test Okt",
     target: "minimal 80%",
     achievedValue: 49,
     achievedFormatted: "49%",
     unit: "%",
     status: "Belum Tercapai (Gagal)",
     isCrucialBenchmark: true,
-    description: "Saat drill lapangan pertama, hanya 49% siswa yang tepat melakukan Drop-Cover-Hold On dan evakuasi terarah tanpa ragu.",
-    methodology: "Evaluasi observasi lapangan siklus 1 sebelum adanya AI Debriefing GeoBot dan pembekalan fasilitator guru."
+    description: "Saat simulasi lapangan awal, hanya 49% siswa yang tepat melakukan Drop-Cover-Hold On dan evakuasi terarah tanpa ragu.",
+    methodology: "Evaluasi observasi lapangan awal sebelum adanya AI Debriefing GeoBot dan pembekalan fasilitator guru."
   }}
 ];
 

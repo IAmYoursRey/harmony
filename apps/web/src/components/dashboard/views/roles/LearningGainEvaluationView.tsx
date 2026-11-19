@@ -142,21 +142,21 @@ export function LearningGainEvaluationView() {
       "Nama Siswa",
       "Email",
       "Kelas",
-      "Pre-Test",
-      "Tanggal Siklus 1 (Oktober 2026)",
-      "Post-Test Siklus 1 (Oktober)",
-      "N-Gain Siklus 1",
-      "Kategori Hake Siklus 1",
-      "Akurasi Siklus 1 (%)",
-      "Waktu Respons Siklus 1 (detik)",
-      "Status Siklus 1 (Oktober)",
-      "Catatan Evaluasi Siklus 1",
-      "Tanggal Siklus 2 (November 2026)",
-      "Post-Test Siklus 2 (November)",
-      "N-Gain Siklus 2 (Hake)",
-      "Kategori Hake Siklus 2",
-      "Akurasi Keputusan Siklus 2 (%)",
-      "Waktu Respons Siklus 2 (detik)",
+      "Baseline Awal",
+      "Tanggal Pre-Test (Oktober 2026)",
+      "Skor Pre-Test (Oktober)",
+      "N-Gain Pre-Test",
+      "Kategori Hake Pre-Test",
+      "Akurasi Pre-Test (%)",
+      "Waktu Respons Pre-Test (detik)",
+      "Status Pre-Test (Oktober)",
+      "Catatan Evaluasi Pre-Test",
+      "Tanggal Post-Test (November 2026)",
+      "Skor Post-Test (November)",
+      "N-Gain Post-Test (Hake)",
+      "Kategori Hake Post-Test",
+      "Akurasi Keputusan Post-Test (%)",
+      "Waktu Respons Post-Test (detik)",
       "Respons < 15s",
       "Konsistensi Belajar (%)",
       "Transfer Lapangan (%)",
@@ -221,9 +221,9 @@ export function LearningGainEvaluationView() {
   const chartData = useMemo(() => {
     return summary.classes.map((c) => ({
       name: c.className,
-      "Pre-Test": c.avgPreTest,
-      "Siklus 1 (08-17 Okt)": c.avgInitialPostTest,
-      "Siklus 2 (02-11 Nov)": c.avgPostTest,
+      "Baseline": c.avgPreTest,
+      "Pre-Test (08-17 Okt)": c.avgInitialPostTest,
+      "Post-Test (02-11 Nov)": c.avgPostTest,
       "N-Gain Okt": c.avgInitialNGain,
       "N-Gain Nov": c.avgNGain,
     }));
@@ -255,8 +255,8 @@ export function LearningGainEvaluationView() {
             </h2>
             <p className="max-w-3xl text-xs sm:text-sm text-indigo-100/90 leading-relaxed">
               Rekapitulasi uji coba <strong>{summary.totalStudentsTested} siswa ({summary.totalClasses} rombel)</strong> SMAN 1 Ngoro.{" "}
-              Pada <strong>Siklus 1 (08&ndash;17 Oktober 2026)</strong> rata-rata skor <strong>58,8</strong> (N-Gain <strong>0,23</strong>; {initMetrics.failedStudentsCount} siswa gagal).{" "}
-              Pada <strong>Siklus 2 (02&ndash;11 November 2026)</strong> rata-rata skor meningkat ke <strong>86,1</strong> (N-Gain <strong>0,74</strong> — Kategori Tinggi).
+              Pada <strong>Pre-Test (08&ndash;17 Oktober 2026)</strong> rata-rata skor <strong>58,8</strong> (N-Gain <strong>0,23</strong>; {initMetrics.failedStudentsCount} siswa gagal).{" "}
+              Pada <strong>Post-Test (02&ndash;11 November 2026)</strong> rata-rata skor meningkat ke <strong>86,1</strong> (N-Gain <strong>0,74</strong> — Kategori Tinggi).
             </p>
           </div>
 
@@ -280,24 +280,24 @@ export function LearningGainEvaluationView() {
             <BookOpen className="h-3.5 w-3.5 text-brand-300" /> Richard R. Hake (1998)
           </span>
           <span className="inline-flex items-center gap-1.5 rounded-lg bg-rose-500/25 px-2.5 py-1 font-semibold text-rose-200">
-            <XCircle className="h-3.5 w-3.5 text-rose-300" /> Siklus 1 (08&ndash;17 Okt): N-Gain 0,23 ({initMetrics.failedStudentsCount} Gagal)
+            <XCircle className="h-3.5 w-3.5 text-rose-300" /> Pre-Test (08&ndash;17 Okt): N-Gain 0,23 ({initMetrics.failedStudentsCount} Gagal)
           </span>
           <span className="inline-flex items-center gap-1.5 rounded-lg bg-emerald-500/25 px-2.5 py-1 font-semibold text-emerald-200">
-            <CheckCircle2 className="h-3.5 w-3.5 text-emerald-400" /> Siklus 2 (02&ndash;11 Nov): N-Gain 0,74 (p &lt; 0.0001)
+            <CheckCircle2 className="h-3.5 w-3.5 text-emerald-400" /> Post-Test (02&ndash;11 Nov): N-Gain 0,74 (p &lt; 0.0001)
           </span>
         </div>
       </div>
 
-      {/* Riwayat Siklus Evaluasi (Oktober vs November) */}
+      {/* Perbandingan Pre-Test (Oktober) vs Post-Test (November) */}
       <div className="rounded-2xl border border-slate-200 bg-white p-4 sm:p-5 shadow-xs dark:border-slate-800 dark:bg-slate-900/90 space-y-4">
         <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-3 pb-3 border-b border-slate-100 dark:border-slate-800">
           <div>
             <h3 className="text-sm sm:text-base font-bold text-ink-900 dark:text-white flex items-center gap-2">
               <Layers className="h-4 w-4 text-brand-600" />
-              Perbandingan Hasil Uji Coba: Siklus 1 (Oktober) vs Siklus 2 (November)
+              Perbandingan Hasil Evaluasi: Pre-Test (Oktober) vs Post-Test (November)
             </h3>
             <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
-              Tahapan pelaksanaan dari validasi awal dosen pembimbing di bulan Oktober hingga uji coba kedua di awal November 2026.
+              Tahapan pelaksanaan dari validasi awal dosen pembimbing di bulan Oktober hingga evaluasi Post-Test di awal November 2026.
             </p>
           </div>
 
@@ -311,7 +311,7 @@ export function LearningGainEvaluationView() {
                   : "text-slate-600 dark:text-slate-300 hover:bg-white/60 dark:hover:bg-slate-700"
               }`}
             >
-              Komparasi (Okt vs Nov)
+              Komparasi (Pre-Test vs Post-Test)
             </button>
             <button
               type="button"
@@ -323,7 +323,7 @@ export function LearningGainEvaluationView() {
               }`}
             >
               <AlertTriangle className="h-3 w-3" />
-              Siklus 1 &mdash; Okt ({initMetrics.failedStudentsCount} Gagal)
+              Pre-Test &mdash; Okt ({initMetrics.failedStudentsCount} Gagal)
             </button>
             <button
               type="button"
@@ -335,7 +335,7 @@ export function LearningGainEvaluationView() {
               }`}
             >
               <CheckCircle2 className="h-3 w-3" />
-              Siklus 2 &mdash; Nov
+              Post-Test &mdash; Nov
             </button>
           </div>
         </div>
@@ -355,7 +355,7 @@ export function LearningGainEvaluationView() {
               Validasi Awal Dosen
             </p>
             <p className="text-slate-500 dark:text-slate-400 text-[11px] mt-0.5 leading-snug">
-              Validasi instrumen pre/post-test, rubrik SPAB, dan prototipe awal oleh dosen pembimbing.
+              Validasi instrumen evaluasi, rubrik SPAB, dan prototipe awal oleh dosen pembimbing.
             </p>
           </div>
 
@@ -365,11 +365,11 @@ export function LearningGainEvaluationView() {
                 <XCircle className="h-3 w-3" /> 08&ndash;17 Okt 2026
               </span>
               <span className="rounded bg-rose-600 px-1.5 py-0.5 text-[9px] font-bold text-white">
-                Tahap 2 &bull; Siklus 1
+                Tahap 2 &bull; Pre-Test
               </span>
             </div>
             <p className="font-bold text-rose-900 dark:text-rose-200 mt-1">
-              Uji Coba Awal (Oktober)
+              Evaluasi Pre-Test (Oktober)
             </p>
             <p className="text-rose-800/85 dark:text-rose-300/85 text-[11px] mt-0.5 leading-snug">
               Skor rata-rata 58,8 (N-Gain 0,23 Rendah). Sebanyak <strong>276 dari 320 siswa gagal SPAB</strong>.
@@ -399,11 +399,11 @@ export function LearningGainEvaluationView() {
                 <CheckCircle2 className="h-3 w-3" /> 02&ndash;11 Nov 2026
               </span>
               <span className="rounded bg-emerald-600 px-1.5 py-0.5 text-[9px] font-bold text-white">
-                Tahap 4 &bull; Siklus 2
+                Tahap 4 &bull; Post-Test
               </span>
             </div>
             <p className="font-bold text-emerald-900 dark:text-emerald-200 mt-1">
-              Uji Coba Baru (November)
+              Evaluasi Post-Test (November)
             </p>
             <p className="text-emerald-800/85 dark:text-emerald-300/85 text-[11px] mt-0.5 leading-snug">
               Skor meningkat ke 86,1 (<strong>N-Gain 0,74 Tinggi</strong>). Seluruh <strong>320 siswa (100%) Lulus</strong>.
@@ -417,7 +417,7 @@ export function LearningGainEvaluationView() {
             <div className="flex flex-wrap items-center justify-between gap-1">
               <span className="inline-flex items-center gap-1.5 text-xs font-bold text-rose-800 dark:text-rose-300">
                 <XCircle className="h-4 w-4 text-rose-600" />
-                Siklus 1 — Data Oktober (08&ndash;17 Okt 2026)
+                Pre-Test — Data Oktober (08&ndash;17 Okt 2026)
               </span>
               <span className="rounded-full bg-rose-600 px-2.5 py-0.5 text-[10px] font-bold text-white">
                 {initMetrics.failedStudentsCount} Gagal ({initMetrics.failureRatePercent}%) &bull; {initMetrics.remedialStudentsCount} Remedial
@@ -430,7 +430,7 @@ export function LearningGainEvaluationView() {
                 <span className="block text-[9px] text-rose-600 font-semibold">Rendah</span>
               </div>
               <div className="rounded-lg bg-white dark:bg-slate-900 p-1.5 border border-rose-200/70 dark:border-rose-800/60">
-                <span className="block text-[10px] text-slate-500">Post-Test</span>
+                <span className="block text-[10px] text-slate-500">Skor Rata2</span>
                 <strong className="text-sm font-black text-rose-600 dark:text-rose-400">58,8</strong>
                 <span className="block text-[9px] text-rose-600 font-semibold">&lt; KKM 75</span>
               </div>
@@ -456,7 +456,7 @@ export function LearningGainEvaluationView() {
             <div className="flex flex-wrap items-center justify-between gap-1">
               <span className="inline-flex items-center gap-1.5 text-xs font-bold text-emerald-800 dark:text-emerald-300">
                 <CheckCircle2 className="h-4 w-4 text-emerald-600" />
-                Siklus 2 — Data Awal November (02&ndash;11 Nov 2026)
+                Post-Test — Data Awal November (02&ndash;11 Nov 2026)
               </span>
               <span className="rounded-full bg-emerald-600 px-2.5 py-0.5 text-[10px] font-bold text-white">
                 320 Siswa Lulus SPAB (100%)
@@ -469,7 +469,7 @@ export function LearningGainEvaluationView() {
                 <span className="block text-[9px] text-emerald-600 font-semibold">+0,51 Tinggi</span>
               </div>
               <div className="rounded-lg bg-white dark:bg-slate-900 p-1.5 border border-emerald-200/70 dark:border-emerald-800/60">
-                <span className="block text-[10px] text-slate-500">Post-Test</span>
+                <span className="block text-[10px] text-slate-500">Skor Rata2</span>
                 <strong className="text-sm font-black text-emerald-600 dark:text-emerald-400">86,1</strong>
                 <span className="block text-[9px] text-emerald-600 font-semibold">+27,3 Poin</span>
               </div>
@@ -498,8 +498,8 @@ export function LearningGainEvaluationView() {
         <div className="flex flex-wrap items-center justify-between gap-2">
           <h3 className="text-xs font-bold uppercase tracking-wider text-ink-500 dark:text-slate-400">
             {trialViewMode === "initial"
-              ? "5 Indikator Evaluasi — Siklus 1 (08–17 Oktober 2026)"
-              : "5 Indikator Evaluasi Kesiapsiagaan (Siklus 2 November vs Siklus 1 Oktober)"}
+              ? "5 Indikator Evaluasi — Pre-Test (08–17 Oktober 2026)"
+              : "5 Indikator Evaluasi Kesiapsiagaan (Post-Test November vs Pre-Test Oktober)"}
           </h3>
           <span
             className={`text-xs font-semibold ${
@@ -509,8 +509,8 @@ export function LearningGainEvaluationView() {
             }`}
           >
             {trialViewMode === "initial"
-              ? `Siklus 1 (Okt): Belum Memenuhi Target (${initMetrics.failedStudentsCount} Siswa Gagal)`
-              : "Siklus 2 (Nov): Semua Target Tercapai 100%"}
+              ? `Pre-Test (Okt): Belum Memenuhi Target (${initMetrics.failedStudentsCount} Siswa Gagal)`
+              : "Post-Test (Nov): Semua Target Tercapai 100%"}
           </span>
         </div>
 
@@ -597,7 +597,7 @@ export function LearningGainEvaluationView() {
                     <div className="mt-2 rounded-lg bg-rose-50/90 dark:bg-rose-950/40 border border-rose-200/80 dark:border-rose-800/60 px-2 py-1.5 text-[10px] space-y-0.5">
                       <div className="flex items-center justify-between">
                         <span className="font-semibold text-rose-800 dark:text-rose-300">
-                          Siklus 1 (Okt):
+                          Pre-Test (Okt):
                         </span>
                         <span className="font-mono font-bold text-rose-600 dark:text-rose-400">
                           {slide13Param.initialFormatted}
@@ -617,7 +617,7 @@ export function LearningGainEvaluationView() {
                   {isFailedMode && (
                     <div className="mt-2 rounded-lg bg-emerald-50/80 dark:bg-emerald-950/30 border border-emerald-200/80 dark:border-emerald-800/60 px-2 py-1 text-[10px] flex items-center justify-between">
                       <span className="text-emerald-800 dark:text-emerald-300">
-                        Siklus 2 (Nov):
+                        Post-Test (Nov):
                       </span>
                       <strong className="font-mono text-emerald-700 dark:text-emerald-400">
                         {slide13Param.achievedFormatted}
@@ -657,7 +657,7 @@ export function LearningGainEvaluationView() {
               <div className="space-y-2.5 text-[11px]">
                 <div>
                   <strong className="text-rose-600 dark:text-rose-400 block">
-                    1. Siklus 1 — Oktober (08&ndash;17 Okt 2026):
+                    1. Evaluasi Pre-Test — Oktober (08&ndash;17 Okt 2026):
                   </strong>
                   <div className="mt-1 pl-2.5 border-l-2 border-rose-500 text-ink-700 dark:text-slate-300 leading-relaxed">
                     g₁ = ({initMetrics.avgPostTest} - {initMetrics.avgPreTest}) / (100 - {initMetrics.avgPreTest}) = {initMetrics.scoreDifference} / {Math.round((100 - initMetrics.avgPreTest) * 10) / 10} ={" "}
@@ -670,7 +670,7 @@ export function LearningGainEvaluationView() {
 
                 <div>
                   <strong className="text-emerald-700 dark:text-emerald-400 block">
-                    2. Siklus 2 — Awal November (02&ndash;11 Nov 2026):
+                    2. Evaluasi Post-Test — Awal November (02&ndash;11 Nov 2026):
                   </strong>
                   <div className="mt-1 pl-2.5 border-l-2 border-brand-500 text-ink-700 dark:text-slate-300 leading-relaxed">
                     g₂ = ({summary.overallMetrics.avgPostTest} - {summary.overallMetrics.avgPreTest}) / (100 - {summary.overallMetrics.avgPreTest}) = {summary.overallMetrics.scoreDifference} / {Math.round((100 - summary.overallMetrics.avgPreTest) * 10) / 10} ={" "}
@@ -690,7 +690,7 @@ export function LearningGainEvaluationView() {
                 g &ge; 0,70
               </span>
               <span className="text-[10px] text-emerald-700 dark:text-emerald-400">
-                Tinggi (Nov: <strong>0,74</strong>)
+                Tinggi (Post-Test: <strong>0,74</strong>)
               </span>
             </div>
             <div className="rounded-lg border border-amber-200 bg-amber-50/50 p-2 dark:border-amber-900/40 dark:bg-amber-950/20 text-center">
@@ -706,7 +706,7 @@ export function LearningGainEvaluationView() {
                 g &lt; 0,30
               </span>
               <span className="text-[10px] text-rose-700 dark:text-rose-400">
-                Rendah (Okt: <strong>0,23</strong>)
+                Rendah (Pre-Test: <strong>0,23</strong>)
               </span>
             </div>
           </div>
@@ -717,21 +717,21 @@ export function LearningGainEvaluationView() {
             <div>
               <h3 className="font-bold text-sm text-ink-900 dark:text-white flex items-center gap-2">
                 <School className="h-4 w-4 text-brand-600" />
-                Pre-Test vs Siklus 1 (Okt) vs Siklus 2 (Nov) per Rombel
+                Pre-Test (Okt) vs Post-Test (Nov) per Rombel
               </h3>
               <p className="text-xs text-ink-500 dark:text-slate-400">
-                Rata-rata skor dari 46,5 &rarr; 58,8 (Oktober) &rarr; 86,1 (Awal November).
+                Rata-rata skor dari 46,5 &rarr; 58,8 (Pre-Test Oktober) &rarr; 86,1 (Post-Test November).
               </p>
             </div>
             <div className="flex flex-wrap items-center gap-2.5 text-[11px] font-semibold">
               <span className="flex items-center gap-1 text-slate-500">
-                <span className="h-2.5 w-2.5 rounded-xs bg-slate-400 inline-block" /> Pre-Test
+                <span className="h-2.5 w-2.5 rounded-xs bg-slate-400 inline-block" /> Baseline (46,5)
               </span>
               <span className="flex items-center gap-1 text-rose-600 dark:text-rose-400">
-                <span className="h-2.5 w-2.5 rounded-xs bg-rose-500 inline-block" /> Siklus 1 Okt (58,8)
+                <span className="h-2.5 w-2.5 rounded-xs bg-rose-500 inline-block" /> Pre-Test Okt (58,8)
               </span>
               <span className="flex items-center gap-1 text-brand-600 dark:text-brand-400">
-                <span className="h-2.5 w-2.5 rounded-xs bg-brand-600 inline-block" /> Siklus 2 Nov (86,1)
+                <span className="h-2.5 w-2.5 rounded-xs bg-brand-600 inline-block" /> Post-Test Nov (86,1)
               </span>
             </div>
           </div>
@@ -751,9 +751,9 @@ export function LearningGainEvaluationView() {
                     fontSize: "11px",
                   }}
                 />
-                <Bar dataKey="Pre-Test" fill="#94a3b8" radius={[4, 4, 0, 0]} />
-                <Bar dataKey="Siklus 1 (08-17 Okt)" fill="#f43f5e" radius={[4, 4, 0, 0]} />
-                <Bar dataKey="Siklus 2 (02-11 Nov)" fill="#4f46e5" radius={[4, 4, 0, 0]} />
+                <Bar dataKey="Baseline" fill="#94a3b8" radius={[4, 4, 0, 0]} />
+                <Bar dataKey="Pre-Test (08-17 Okt)" fill="#f43f5e" radius={[4, 4, 0, 0]} />
+                <Bar dataKey="Post-Test (02-11 Nov)" fill="#4f46e5" radius={[4, 4, 0, 0]} />
               </BarChart>
             </ResponsiveContainer>
           </div>
@@ -774,7 +774,7 @@ export function LearningGainEvaluationView() {
               </span>
             </div>
             <p className="text-[11px] text-slate-500 dark:text-slate-400">
-              Rekap nilai per siswa pada <strong>Siklus 1 (08&ndash;17 Oktober 2026)</strong> dan <strong>Siklus 2 (02&ndash;11 November 2026)</strong>.
+              Rekap nilai per siswa pada <strong>Pre-Test (08&ndash;17 Oktober 2026)</strong> dan <strong>Post-Test (02&ndash;11 November 2026)</strong>.
             </p>
           </div>
 
@@ -795,15 +795,15 @@ export function LearningGainEvaluationView() {
               onChange={(e) => setSelectedInitialStatus(e.target.value)}
               className="rounded-lg border border-rose-200 bg-rose-50/70 dark:bg-slate-800 dark:border-rose-800/60 px-2.5 py-1.5 text-xs font-semibold text-rose-800 dark:text-rose-300 focus:outline-none focus:ring-1 focus:ring-rose-500"
             >
-              <option value="ALL">Semua Status Siklus 1 Okt (320)</option>
+              <option value="ALL">Semua Status Pre-Test Okt (320)</option>
               <option value="Gagal SPAB">
-                Gagal SPAB di Siklus 1 Okt ({initMetrics.failedStudentsCount} Siswa)
+                Gagal SPAB di Pre-Test Okt ({initMetrics.failedStudentsCount} Siswa)
               </option>
               <option value="Remedial SPAB">
-                Remedial di Siklus 1 Okt ({initMetrics.remedialStudentsCount} Siswa)
+                Remedial di Pre-Test Okt ({initMetrics.remedialStudentsCount} Siswa)
               </option>
               <option value="Lulus Bersyarat">
-                Lulus Bersyarat di Siklus 1 Okt ({initMetrics.passedStudentsCount} Siswa)
+                Lulus Bersyarat di Pre-Test Okt ({initMetrics.passedStudentsCount} Siswa)
               </option>
             </select>
 
@@ -969,18 +969,18 @@ export function LearningGainEvaluationView() {
                   )}
                 </th>
                 <th className="py-2.5 px-2.5">Kelas</th>
-                <th className="py-2.5 px-2.5 text-center">Pre-Test</th>
+                <th className="py-2.5 px-2.5 text-center">Baseline</th>
                 <th className="py-2.5 px-3 text-center bg-rose-50/70 dark:bg-rose-950/30 text-rose-800 dark:text-rose-300 border-x border-rose-100 dark:border-rose-900/40">
-                  Siklus 1 (08&ndash;17 Okt 2026)
+                  Pre-Test (08&ndash;17 Okt 2026)
                 </th>
                 <th className="py-2.5 px-3 text-center bg-indigo-50/50 dark:bg-indigo-950/25 text-brand-700 dark:text-brand-300">
-                  Siklus 2 (02&ndash;11 Nov 2026)
+                  Post-Test (02&ndash;11 Nov 2026)
                 </th>
                 <th className="py-2.5 px-2.5 text-center">N-Gain (g)</th>
                 <th className="py-2.5 px-2.5 text-center">Kategori Hake</th>
-                <th className="py-2.5 px-2.5 text-center">Akurasi (Okt &rarr; Nov)</th>
-                <th className="py-2.5 px-2.5 text-center">Waktu Respons (Okt &rarr; Nov)</th>
-                <th className="py-2.5 px-3 text-center">Status (Okt &rarr; Nov)</th>
+                <th className="py-2.5 px-2.5 text-center">Akurasi (Pre &rarr; Post)</th>
+                <th className="py-2.5 px-2.5 text-center">Waktu Respons (Pre &rarr; Post)</th>
+                <th className="py-2.5 px-3 text-center">Status (Pre &rarr; Post)</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100 dark:divide-slate-800 text-ink-800 dark:text-slate-200">
@@ -1000,7 +1000,7 @@ export function LearningGainEvaluationView() {
                       {s.preTestScore}
                     </td>
 
-                    {/* Siklus 1 (Oktober 2026) */}
+                    {/* Pre-Test (Oktober 2026) */}
                     <td className="py-2.5 px-3 bg-rose-50/35 dark:bg-rose-950/15 border-x border-rose-100/70 dark:border-rose-900/30">
                       <div className="flex items-center justify-center gap-1.5 font-mono">
                         <span className="inline-flex items-center gap-1 rounded bg-rose-100/90 dark:bg-rose-950/80 px-1.5 py-0.5 text-[9px] font-sans font-semibold text-rose-700 dark:text-rose-300">
@@ -1035,7 +1035,7 @@ export function LearningGainEvaluationView() {
                       </div>
                     </td>
 
-                    {/* Siklus 2 (Awal November 2026) */}
+                    {/* Post-Test (Awal November 2026) */}
                     <td className="py-2.5 px-3 text-center font-bold text-brand-600 dark:text-brand-400 font-mono bg-indigo-50/20 dark:bg-indigo-950/10">
                       <div className="flex items-center justify-center gap-1.5">
                         <span className="inline-flex items-center gap-1 rounded bg-indigo-100/80 dark:bg-indigo-950/80 px-1.5 py-0.5 text-[9px] font-sans font-semibold text-indigo-700 dark:text-indigo-300">
@@ -1044,7 +1044,7 @@ export function LearningGainEvaluationView() {
                         <span className="text-sm">{s.postTestScore}</span>
                       </div>
                       <span className="block text-[10px] text-emerald-600 dark:text-emerald-400 font-semibold mt-0.5">
-                        +{Math.round((s.postTestScore - s.initialPostTestScore) * 10) / 10} poin dari Okt
+                        +{Math.round((s.postTestScore - s.initialPostTestScore) * 10) / 10} poin dari Pre-Test
                       </span>
                     </td>
 
@@ -1101,10 +1101,10 @@ export function LearningGainEvaluationView() {
                     <td className="py-2.5 px-3 text-center whitespace-nowrap">
                       <div className="flex flex-col items-center gap-0.5">
                         <span className="text-[10px] text-rose-500 line-through">
-                          Okt: {s.initialSpabStatus}
+                          Pre: {s.initialSpabStatus}
                         </span>
                         <span className="inline-flex items-center gap-1 text-[11px] font-semibold text-emerald-600 dark:text-emerald-400">
-                          <CheckCircle2 className="h-3 w-3" /> Nov: Lulus SPAB
+                          <CheckCircle2 className="h-3 w-3" /> Post: Lulus SPAB
                         </span>
                       </div>
                     </td>
