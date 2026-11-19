@@ -381,31 +381,30 @@ export function SchoolResilienceIndexView() {
                 Distribusi Kelas & Guru Pembimbing SMAN 1 Ngoro
               </h3>
               <p className="text-xs text-ink-500 dark:text-slate-400 mt-0.5">
-                Total 320 siswa aktif terdaftar di 10 kelas dengan bimbingan dewan guru & tim penanggung jawab SPAB.
+                Total 320 siswa aktif terdaftar di 9 kelas (XI - 1 s.d. XI - 9) dengan bimbingan dewan guru & tim penanggung jawab SPAB.
               </p>
             </div>
             <div className="flex items-center gap-2">
               <span className="px-3 py-1 rounded-xl bg-brand-50 dark:bg-brand-900/30 text-brand-700 dark:text-brand-300 font-bold text-xs border border-brand-200 dark:border-brand-800">
-                10 Kelas Aktif
+                9 Kelas Aktif (XI)
               </span>
               <span className="px-3 py-1 rounded-xl bg-purple-50 dark:bg-purple-900/30 text-purple-700 dark:text-purple-300 font-bold text-xs border border-purple-200 dark:border-purple-800">
-                10 Guru Terverifikasi
+                9 Guru Wali Kelas
               </span>
             </div>
           </div>
 
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3 pt-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 pt-4">
             {(sriData?.classes && sriData.classes.length > 0 ? sriData.classes : [
-              { name: "X - 1", teacherName: "Siti Nurhaliza, S.Pd.", studentCount: 32 },
-              { name: "X - 2", teacherName: "Bambang Prasetyo, S.Pd., M.Si.", studentCount: 32 },
-              { name: "X - 3", teacherName: "Endang Wahyuni, S.Pd.", studentCount: 32 },
-              { name: "X - 4", teacherName: "Ahmad Ridwan, S.Kom.", studentCount: 32 },
-              { name: "X - 5", teacherName: "Bpk. Agus Santoso, S.Pd.", studentCount: 32 },
-              { name: "XI - 1", teacherName: "Tri Wahyudi, S.Pd.", studentCount: 32 },
-              { name: "XI - 2", teacherName: "Dwi Handayani, S.Pd.", studentCount: 32 },
-              { name: "XI - 3", teacherName: "Nurul Hidayati, S.Pd.", studentCount: 32 },
-              { name: "XI - 4", teacherName: "Drs. H. Suhartono, M.Pd.", studentCount: 32 },
-              { name: "XI - 5", teacherName: "Ibu Sri Wahyuni, S.Si.", studentCount: 32 },
+              { name: "XI - 1", teacherName: "Siti Nurhaliza, S.Pd.", studentCount: 36 },
+              { name: "XI - 2", teacherName: "Bambang Prasetyo, S.Pd., M.Si.", studentCount: 35 },
+              { name: "XI - 3", teacherName: "Endang Wahyuni, S.Pd.", studentCount: 36 },
+              { name: "XI - 4", teacherName: "Ahmad Ridwan, S.Kom.", studentCount: 36 },
+              { name: "XI - 5", teacherName: "Bpk. Agus Santoso, S.Pd.", studentCount: 36 },
+              { name: "XI - 6", teacherName: "Tri Wahyudi, S.Pd.", studentCount: 35 },
+              { name: "XI - 7", teacherName: "Dwi Handayani, S.Pd.", studentCount: 36 },
+              { name: "XI - 8", teacherName: "Nurul Hidayati, S.Pd.", studentCount: 35 },
+              { name: "XI - 9", teacherName: "Drs. H. Suhartono, M.Pd.", studentCount: 35 },
             ]).map((cls: any, cIdx: number) => (
               <div
                 key={cls.id || cIdx}
@@ -462,14 +461,14 @@ export function SchoolResilienceIndexView() {
               </thead>
               <tbody className="divide-y divide-slate-100 dark:divide-slate-800/60">
                 {(sriData?.sampleStudents && sriData.sampleStudents.length > 0 ? sriData.sampleStudents : [
-                  { name: "Dimas Pratama", classSection: "X - 1", averageScore: 92, lastSimHp: 90, lastSimTime: 34, totalPoints: 940 },
-                  { name: "Anisa Putri Rahayu", classSection: "X - 2", averageScore: 95, lastSimHp: 94, lastSimTime: 31, totalPoints: 920 },
-                  { name: "Bagas Arya Saputra", classSection: "X - 3", averageScore: 88, lastSimHp: 85, lastSimTime: 38, totalPoints: 890 },
-                  { name: "Dewi Ayu Lestari", classSection: "X - 4", averageScore: 90, lastSimHp: 88, lastSimTime: 36, totalPoints: 870 },
-                  { name: "Fadhil Muhammad", classSection: "XI - 1", averageScore: 86, lastSimHp: 82, lastSimTime: 42, totalPoints: 850 },
-                  { name: "Kartika Wulandari", classSection: "XI - 2", averageScore: 94, lastSimHp: 91, lastSimTime: 33, totalPoints: 840 },
-                  { name: "Rizky Ramadhan", classSection: "XI - 3", averageScore: 89, lastSimHp: 84, lastSimTime: 40, totalPoints: 810 },
-                  { name: "Salma Nadhira", classSection: "XI - 4", averageScore: 91, lastSimHp: 87, lastSimTime: 37, totalPoints: 790 },
+                  { name: "Ahmad Fikri Malik Alfaruq", classSection: "XI - 1", averageScore: 92, lastSimHp: 90, lastSimTime: 34, totalPoints: 940 },
+                  { name: "Achmad Mustofa Kamal Pasa", classSection: "XI - 2", averageScore: 95, lastSimHp: 94, lastSimTime: 31, totalPoints: 920 },
+                  { name: "Adelia Sivana Putri", classSection: "XI - 3", averageScore: 88, lastSimHp: 85, lastSimTime: 38, totalPoints: 890 },
+                  { name: "Achmad Albyansyah Bisri", classSection: "XI - 4", averageScore: 90, lastSimHp: 88, lastSimTime: 36, totalPoints: 870 },
+                  { name: "Abdul Wahid", classSection: "XI - 5", averageScore: 86, lastSimHp: 82, lastSimTime: 42, totalPoints: 850 },
+                  { name: "Achmad Ainur Rizky Akbhar", classSection: "XI - 6", averageScore: 94, lastSimHp: 91, lastSimTime: 33, totalPoints: 840 },
+                  { name: "Agustina Fitri Rahmadani", classSection: "XI - 7", averageScore: 89, lastSimHp: 84, lastSimTime: 40, totalPoints: 810 },
+                  { name: "Ahmad Azzaini Azkiya", classSection: "XI - 8", averageScore: 91, lastSimHp: 87, lastSimTime: 37, totalPoints: 790 },
                 ]).map((st: any, sIdx: number) => (
                   <tr key={st.id || sIdx} className="hover:bg-slate-50/80 dark:hover:bg-slate-800/40 transition-colors">
                     <td className="py-2.5 font-bold text-slate-800 dark:text-slate-100">

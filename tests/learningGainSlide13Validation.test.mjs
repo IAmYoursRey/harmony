@@ -125,17 +125,22 @@ test("320+ Students Cohort & Database Persistence Integrity (All 320 students ha
 
   const students = HARMONY_EMPIRICAL_VALIDATION_SUMMARY.students;
 
-  // 1. Check Student Count = 320
+  // 1. Check Student Count = 320 across 9 Grade XI classes (XI - 1 s/d XI - 9)
   assert.equal(students.length, 320);
   assert.equal(HARMONY_EMPIRICAL_VALIDATION_SUMMARY.totalStudentsTested, 320);
-  assert.equal(HARMONY_EMPIRICAL_VALIDATION_SUMMARY.totalClasses, 10);
-  assert.equal(HARMONY_EMPIRICAL_VALIDATION_SUMMARY.classes.length, 10);
+  assert.equal(HARMONY_EMPIRICAL_VALIDATION_SUMMARY.totalClasses, 9);
+  assert.equal(HARMONY_EMPIRICAL_VALIDATION_SUMMARY.classes.length, 9);
 
-  // 2. Check all 10 classes have 32 students
+  // 2. Check all 9 classes are Grade XI (XI - 1 to XI - 9) and sum to 320 students
+  let totalClassStudents = 0;
   for (const cls of HARMONY_EMPIRICAL_VALIDATION_SUMMARY.classes) {
-    assert.equal(cls.studentCount, 32);
+    assert.equal(cls.grade, "XI");
+    assert.match(cls.className, /^XI - [1-9]$/);
+    assert.ok(cls.studentCount === 35 || cls.studentCount === 36, `Class ${cls.className} should have 35 or 36 students`);
     assert.ok(cls.avgNGain >= 0.70, `Class ${cls.className} N-Gain should be >= 0.70`);
+    totalClassStudents += cls.studentCount;
   }
+  assert.equal(totalClassStudents, 320);
 
   // 3. Mathematical validation of official Slide 13 indicators
   const metrics = HARMONY_EMPIRICAL_VALIDATION_SUMMARY.overallMetrics;
@@ -199,11 +204,15 @@ test("320+ Students Cohort & Database Persistence Integrity (All 320 students ha
       assert.ok(prof.level >= 1, `Level should be >= 1 for student ${st.id}`);
     }
 
-    // Verify classes
-    assert.equal(db.classes.length, 10);
+    // Verify classes (9 Grade XI classes: XI - 1 to XI - 9)
+    assert.equal(db.classes.length, 9);
+    let totalProfileStudents = 0;
     for (const c of db.classes) {
+      assert.equal(c.grade, "XI");
       const classProfiles = db.profiles.filter((p) => p.classId === c.id);
-      assert.equal(classProfiles.length, 32);
+      assert.ok(classProfiles.length === 35 || classProfiles.length === 36);
+      totalProfileStudents += classProfiles.length;
     }
+    assert.equal(totalProfileStudents, 320);
   }
 });

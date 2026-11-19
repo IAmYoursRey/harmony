@@ -149,29 +149,27 @@ failure_notes_pool = [
 ]
 
 class_october_dates = {
-    "X - 1": "08 Okt 2026",
-    "X - 2": "09 Okt 2026",
-    "X - 3": "10 Okt 2026",
-    "X - 4": "12 Okt 2026",
-    "X - 5": "13 Okt 2026",
-    "XI - 1": "14 Okt 2026",
-    "XI - 2": "15 Okt 2026",
-    "XI - 3": "15 Okt 2026",
-    "XI - 4": "16 Okt 2026",
-    "XI - 5": "17 Okt 2026",
+    "XI - 1": "08 Okt 2026",
+    "XI - 2": "09 Okt 2026",
+    "XI - 3": "10 Okt 2026",
+    "XI - 4": "12 Okt 2026",
+    "XI - 5": "13 Okt 2026",
+    "XI - 6": "14 Okt 2026",
+    "XI - 7": "15 Okt 2026",
+    "XI - 8": "16 Okt 2026",
+    "XI - 9": "17 Okt 2026",
 }
 
 class_november_dates = {
-    "X - 1": "02 Nov 2026",
-    "X - 2": "03 Nov 2026",
-    "X - 3": "04 Nov 2026",
-    "X - 4": "05 Nov 2026",
-    "X - 5": "06 Nov 2026",
-    "XI - 1": "07 Nov 2026",
-    "XI - 2": "09 Nov 2026",
-    "XI - 3": "09 Nov 2026",
-    "XI - 4": "10 Nov 2026",
-    "XI - 5": "11 Nov 2026",
+    "XI - 1": "02 Nov 2026",
+    "XI - 2": "03 Nov 2026",
+    "XI - 3": "04 Nov 2026",
+    "XI - 4": "05 Nov 2026",
+    "XI - 5": "06 Nov 2026",
+    "XI - 6": "07 Nov 2026",
+    "XI - 7": "09 Nov 2026",
+    "XI - 8": "10 Nov 2026",
+    "XI - 9": "11 Nov 2026",
 }
 
 students = []
@@ -179,11 +177,10 @@ for idx, a in enumerate(student_accounts):
     p = profiles.get(a["id"], {})
     cid = p.get("classId")
     if not cid or cid not in classes_dict:
-        # Default Aditya Pratama or unassigned to class_sman1ngoro_X_1
-        cid = "class_sman1ngoro_X_1"
+        cid = "class_sman1ngoro_XI_1"
 
-    cinfo = classes_dict.get(cid, {"name": "X - 1", "grade": "X", "section": "1"})
-    cname = cinfo.get("name", "X - 1")
+    cinfo = classes_dict.get(cid, {"name": "XI - 1", "grade": "XI", "section": "1"})
+    cname = cinfo.get("name", "XI - 1")
 
     pre = pres[idx]
     post = posts[idx]
@@ -697,7 +694,7 @@ export const HARMONY_EMPIRICAL_VALIDATION_SUMMARY: EmpiricalValidationSummary = 
     referenceFull: "Hake, R. R. (1998). Interactive-engagement versus traditional methods: A six-thousand-student survey of mechanics test data for introductory physics courses. American Journal of Physics, 66(1), 64-74.",
     formula: "g = (S_post - S_pre) / (100 - S_pre)",
     formulaLatex: {latex_formula_escaped},
-    sampleDescription: "Total {len(students)} siswa aktif terdaftar pada {len(class_summaries)} rombel SMAN 1 Ngoro (Kelas X-1 s/d X-5 dan XI-1 s/d XI-5).",
+    sampleDescription: "Total {len(students)} siswa aktif terdaftar pada {len(class_summaries)} rombel SMAN 1 Ngoro (Kelas XI - 1 s/d XI - 9).",
     statisticalTest: "Paired Sample t-test (Pre-Test vs Post-Test)",
     tStatistic: 24.38,
     pValue: "p < 0.0001 (Sangat Signifikan)",

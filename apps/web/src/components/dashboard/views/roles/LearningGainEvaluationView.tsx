@@ -644,9 +644,9 @@ export function LearningGainEvaluationView() {
               </h3>
               <p className="text-xs text-ink-500 dark:text-slate-400">
                 {isInitialMode
-                  ? "Rata-rata skor awal 46,5 di 10 rombel (di bawah KKM 75)."
+                  ? "Rata-rata skor awal 46,5 di 9 rombel Kelas XI (di bawah KKM 75)."
                   : isFinalMode
-                  ? "Rata-rata skor akhir 86,1 di 10 rombel (seluruh kelas ≥ KKM 75)."
+                  ? "Rata-rata skor akhir 86,1 di 9 rombel Kelas XI (seluruh kelas ≥ KKM 75)."
                   : "Kenaikan rata-rata skor dari 46,5 (Pre-Test Oktober) ke 86,1 (Post-Test November)."}
               </p>
             </div>
@@ -762,7 +762,7 @@ export function LearningGainEvaluationView() {
               onChange={(e) => setPageSize(Number(e.target.value))}
               className="rounded-lg border border-brand-200 bg-brand-50/70 dark:bg-slate-800 dark:border-brand-800 px-2.5 py-1.5 text-xs font-bold text-brand-800 dark:text-brand-300 focus:outline-none focus:ring-1 focus:ring-brand-500"
             >
-              <option value={32}>32 Siswa / Halaman (1 Rombel)</option>
+              <option value={36}>36 Siswa / Halaman (1 Rombel)</option>
               <option value={50}>50 Siswa / Halaman</option>
               <option value={100}>100 Siswa / Halaman</option>
               <option value={320}>Tampilkan Semua (320 Siswa)</option>
