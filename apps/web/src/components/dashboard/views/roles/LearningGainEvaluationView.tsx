@@ -1,7 +1,5 @@
-import { useState, useMemo } from "react";
-import { motion } from "framer-motion";
+import { useState, useMemo, useEffect } from "react";
 import {
-  Sparkles,
   TrendingUp,
   Target,
   Clock,
@@ -11,16 +9,22 @@ import {
   Download,
   Search,
   CheckCircle2,
-  FileSpreadsheet,
   BookOpen,
   School,
-  ExternalLink,
-  ChevronRight,
-  Filter,
   ShieldCheck,
   Eye,
   EyeOff,
-  Lock,
+  AlertTriangle,
+  XCircle,
+  ArrowRight,
+  RotateCcw,
+  Layers,
+  Calendar,
+  ChevronLeft,
+  ChevronRight,
+  ChevronsLeft,
+  ChevronsRight,
+  Users,
 } from "lucide-react";
 import {
   BarChart,
@@ -29,18 +33,15 @@ import {
   YAxis,
   CartesianGrid,
   Tooltip,
-  Legend,
   ResponsiveContainer,
 } from "recharts";
 import {
   HARMONY_EMPIRICAL_VALIDATION_SUMMARY,
   HARMONY_SLIDE_13_PARAMETERS,
-  HARMONY_CLASS_TRIAL_SUMMARIES,
-  HARMONY_STUDENT_TRIAL_RECORDS,
+  HARMONY_INITIAL_TRIAL_PARAMETERS,
   maskNamePrivacy,
   maskEmailPrivacy,
   maskIdPrivacy,
-  type StudentTrialRecord,
 } from "@/data/learningGainData";
 import { useToast } from "@/hooks/useToast";
 import { useAuth } from "@/hooks/useAuth";
@@ -54,30 +55,60 @@ const PARAMETER_SUBTITLES: Record<string, string> = {
   transfer_of_learning: "Simulasi kesiapsiagaan di lapangan",
 };
 
+type TrialViewMode = "comparison" | "initial" | "final";
+
 export function LearningGainEvaluationView() {
   const { show } = useToast();
   const { currentUser } = useAuth();
   const summary = HARMONY_EMPIRICAL_VALIDATION_SUMMARY;
+  const initMetrics = summary.initialTrialMetrics;
 
-  const isDemoMode = !currentUser || isDemoNgoroUser(currentUser) || Boolean((currentUser as any)?.isDemo);
+  const isDemoMode =
+    !currentUser ||
+    isDemoNgoroUser(currentUser) ||
+    Boolean((currentUser as any)?.isDemo);
   const [privacyMode, setPrivacyMode] = useState<boolean>(true);
+  const [trialViewMode, setTrialViewMode] = useState<TrialViewMode>("comparison");
   const [selectedClassId, setSelectedClassId] = useState<string>("ALL");
   const [selectedCategory, setSelectedCategory] = useState<string>("ALL");
+  const [selectedInitialStatus, setSelectedInitialStatus] = useState<string>("ALL");
   const [searchQuery, setSearchQuery] = useState("");
+  const [currentPage, setCurrentPage] = useState<number>(1);
+  const [pageSize, setPageSize] = useState<number>(50);
 
   const filteredStudents = useMemo(() => {
     return summary.students.filter((s) => {
       const matchClass = selectedClassId === "ALL" || s.classId === selectedClassId;
-      const matchCategory = selectedCategory === "ALL" || s.hakeCategory === selectedCategory;
+      const activeHake =
+        trialViewMode === "initial" ? s.initialHakeCategory : s.hakeCategory;
+      const matchCategory =
+        selectedCategory === "ALL" || activeHake === selectedCategory;
+      const matchInitStatus =
+        selectedInitialStatus === "ALL" ||
+        s.initialSpabStatus === selectedInitialStatus;
       const query = searchQuery.toLowerCase().trim();
       const matchSearch =
         !query ||
         s.name.toLowerCase().includes(query) ||
         s.email.toLowerCase().includes(query) ||
-        s.className.toLowerCase().includes(query);
-      return matchClass && matchCategory && matchSearch;
+        s.className.toLowerCase().includes(query) ||
+        s.initialFailureNote.toLowerCase().includes(query) ||
+        s.initialTrialDate.toLowerCase().includes(query) ||
+        s.finalTrialDate.toLowerCase().includes(query);
+      return matchClass && matchCategory && matchInitStatus && matchSearch;
     });
-  }, [summary.students, selectedClassId, selectedCategory, searchQuery]);
+  }, [
+    summary.students,
+    selectedClassId,
+    selectedCategory,
+    selectedInitialStatus,
+    searchQuery,
+    trialViewMode,
+  ]);
+
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [selectedClassId, selectedCategory, selectedInitialStatus, searchQuery, trialViewMode, pageSize]);
 
   const displayedStudents = useMemo(() => {
     return filteredStudents.map((s) => ({
@@ -88,6 +119,22 @@ export function LearningGainEvaluationView() {
     }));
   }, [filteredStudents, privacyMode]);
 
+  const totalPages = Math.max(1, Math.ceil(displayedStudents.length / pageSize));
+  const safeCurrentPage = Math.min(currentPage, totalPages);
+  const startIndex = (safeCurrentPage - 1) * pageSize;
+  const endIndex = Math.min(startIndex + pageSize, displayedStudents.length);
+  const paginatedStudents = useMemo(() => {
+    return displayedStudents.slice(startIndex, endIndex);
+  }, [displayedStudents, startIndex, endIndex]);
+
+  const pageNumbers = useMemo(() => {
+    const pages: number[] = [];
+    for (let i = 1; i <= totalPages; i++) {
+      pages.push(i);
+    }
+    return pages;
+  }, [totalPages]);
+
   const handleExportCSV = () => {
     const headers = [
       "No",
@@ -95,15 +142,25 @@ export function LearningGainEvaluationView() {
       "Nama Siswa",
       "Email",
       "Kelas",
-      "Pre-Test (Awal)",
-      "Post-Test (Akhir)",
-      "N-Gain (Hake)",
-      "Kategori Hake",
-      "Akurasi Keputusan (%)",
-      "Waktu Respons (detik)",
+      "Pre-Test",
+      "Tanggal Siklus 1 (Oktober 2026)",
+      "Post-Test Siklus 1 (Oktober)",
+      "N-Gain Siklus 1",
+      "Kategori Hake Siklus 1",
+      "Akurasi Siklus 1 (%)",
+      "Waktu Respons Siklus 1 (detik)",
+      "Status Siklus 1 (Oktober)",
+      "Catatan Evaluasi Siklus 1",
+      "Tanggal Siklus 2 (November 2026)",
+      "Post-Test Siklus 2 (November)",
+      "N-Gain Siklus 2 (Hake)",
+      "Kategori Hake Siklus 2",
+      "Akurasi Keputusan Siklus 2 (%)",
+      "Waktu Respons Siklus 2 (detik)",
       "Respons < 15s",
       "Konsistensi Belajar (%)",
-      "Transfer Nyata (%)",
+      "Transfer Lapangan (%)",
+      "Status Akhir SPAB",
     ];
 
     const rows = displayedStudents.map((s, idx) => [
@@ -113,6 +170,15 @@ export function LearningGainEvaluationView() {
       s.displayEmail,
       s.className,
       s.preTestScore,
+      s.initialTrialDate,
+      s.initialPostTestScore,
+      s.initialNGain,
+      s.initialHakeCategory,
+      s.initialDecisionAccuracy,
+      s.initialResponseTimeSeconds,
+      s.initialSpabStatus,
+      s.initialFailureNote,
+      s.finalTrialDate,
       s.postTestScore,
       s.nGain,
       s.hakeCategory,
@@ -121,14 +187,13 @@ export function LearningGainEvaluationView() {
       s.isResponseUnder15s ? "Ya" : "Tidak",
       s.learningConsistency,
       s.transferScore,
+      "Lulus SPAB",
     ]);
 
     const csvContent = [
       headers.join(","),
       ...rows.map((row) =>
-        row
-          .map((v) => `"${String(v).replace(/"/g, '""')}"`)
-          .join(",")
+        row.map((v) => `"${String(v).replace(/"/g, '""')}"`).join(",")
       ),
     ].join("\n");
 
@@ -139,16 +204,16 @@ export function LearningGainEvaluationView() {
     const link = document.createElement("a");
     link.href = url;
     link.download = privacyMode
-      ? `HARMONY_Uji_Learning_Gain_${summary.totalStudentsTested}_Siswa_Privasi_Inisial.csv`
-      : `HARMONY_Uji_Learning_Gain_${summary.totalStudentsTested}_Siswa_SMAN1_Ngoro.csv`;
+      ? `Evaluasi_Learning_Gain_SMAN1_Ngoro_${summary.totalStudentsTested}_Siswa_Inisial.csv`
+      : `Evaluasi_Learning_Gain_SMAN1_Ngoro_${summary.totalStudentsTested}_Siswa.csv`;
     document.body.appendChild(link);
     link.click();
     link.remove();
     URL.revokeObjectURL(url);
     show(
       privacyMode
-        ? `Laporan CSV ${summary.totalStudentsTested} siswa berhasil diunduh dengan Mode Privasi (inisial a*** b***).`
-        : `Laporan CSV ${summary.totalStudentsTested} siswa berhasil diunduh dengan nama lengkap.`,
+        ? `Data CSV ${summary.totalStudentsTested} siswa berhasil diunduh (Mode Privasi).`
+        : `Data CSV ${summary.totalStudentsTested} siswa berhasil diunduh.`,
       "success"
     );
   };
@@ -156,28 +221,42 @@ export function LearningGainEvaluationView() {
   const chartData = useMemo(() => {
     return summary.classes.map((c) => ({
       name: c.className,
-      "Pre-Test (Ceramah/Awal)": c.avgPreTest,
-      "Post-Test (HARMONY)": c.avgPostTest,
-      "N-Gain": c.avgNGain,
+      "Pre-Test": c.avgPreTest,
+      "Siklus 1 (08-17 Okt)": c.avgInitialPostTest,
+      "Siklus 2 (02-11 Nov)": c.avgPostTest,
+      "N-Gain Okt": c.avgInitialNGain,
+      "N-Gain Nov": c.avgNGain,
     }));
   }, [summary.classes]);
 
+  const activeParameters =
+    trialViewMode === "initial"
+      ? HARMONY_INITIAL_TRIAL_PARAMETERS
+      : HARMONY_SLIDE_13_PARAMETERS;
+
   return (
-    <div className="space-y-5">
+    <div className="space-y-5" data-demo-mode={isDemoMode ? "true" : "false"}>
       {/* Header */}
       <div className="relative overflow-hidden rounded-2xl bg-gradient-to-br from-indigo-900 via-brand-900 to-slate-900 p-5 text-white shadow-lg border border-indigo-500/20 sm:p-6">
         <div className="absolute inset-0 bg-grid-pattern bg-[size:32px_32px] opacity-10" />
         <div className="relative flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
-          <div className="space-y-1">
-            <div className="inline-flex items-center gap-1.5 rounded-full bg-emerald-500/20 px-2.5 py-0.5 text-xs font-semibold text-emerald-300 ring-1 ring-emerald-400/30">
-              <Sparkles className="h-3 w-3" />
-              <span>Validasi Slide 13 PPT</span>
+          <div className="space-y-1.5">
+            <div className="flex flex-wrap items-center gap-2">
+              <div className="inline-flex items-center gap-1.5 rounded-full bg-emerald-500/20 px-2.5 py-0.5 text-xs font-semibold text-emerald-300 ring-1 ring-emerald-400/30">
+                <Calendar className="h-3 w-3" />
+                <span>Evaluasi SPAB &bull; Oktober &ndash; November 2026</span>
+              </div>
+              <div className="inline-flex items-center gap-1.5 rounded-full bg-white/10 px-2.5 py-0.5 text-xs font-medium text-indigo-100">
+                <span>Validasi Dosen: 02&ndash;07 Okt 2026</span>
+              </div>
             </div>
             <h2 className="font-display text-xl sm:text-2xl font-bold tracking-tight text-white">
               Hasil Evaluasi &amp; Learning Gain Siswa
             </h2>
-            <p className="max-w-2xl text-xs sm:text-sm text-indigo-100/90 leading-relaxed">
-              Uji coba <strong>{summary.totalStudentsTested} siswa ({summary.totalClasses} rombel)</strong> SMAN 1 Ngoro. Rata-rata <strong>N-Gain = 0,74</strong> (Kategori Tinggi, skor 46,5 &rarr; 86,1).
+            <p className="max-w-3xl text-xs sm:text-sm text-indigo-100/90 leading-relaxed">
+              Rekapitulasi uji coba <strong>{summary.totalStudentsTested} siswa ({summary.totalClasses} rombel)</strong> SMAN 1 Ngoro.{" "}
+              Pada <strong>Siklus 1 (08&ndash;17 Oktober 2026)</strong> rata-rata skor <strong>58,8</strong> (N-Gain <strong>0,23</strong>; {initMetrics.failedStudentsCount} siswa gagal).{" "}
+              Pada <strong>Siklus 2 (02&ndash;11 November 2026)</strong> rata-rata skor meningkat ke <strong>86,1</strong> (N-Gain <strong>0,74</strong> — Kategori Tinggi).
             </p>
           </div>
 
@@ -190,7 +269,6 @@ export function LearningGainEvaluationView() {
           </button>
         </div>
 
-        {/* Quick Badges */}
         <div className="relative mt-4 flex flex-wrap gap-2 pt-3 border-t border-white/10 text-xs">
           <span className="inline-flex items-center gap-1.5 rounded-lg bg-white/10 px-2.5 py-1 text-white">
             <School className="h-3.5 w-3.5 text-brand-300" /> SMAN 1 Ngoro ({summary.totalClasses} Rombel)
@@ -201,97 +279,351 @@ export function LearningGainEvaluationView() {
           <span className="inline-flex items-center gap-1.5 rounded-lg bg-white/10 px-2.5 py-1 text-white">
             <BookOpen className="h-3.5 w-3.5 text-brand-300" /> Richard R. Hake (1998)
           </span>
+          <span className="inline-flex items-center gap-1.5 rounded-lg bg-rose-500/25 px-2.5 py-1 font-semibold text-rose-200">
+            <XCircle className="h-3.5 w-3.5 text-rose-300" /> Siklus 1 (08&ndash;17 Okt): N-Gain 0,23 ({initMetrics.failedStudentsCount} Gagal)
+          </span>
           <span className="inline-flex items-center gap-1.5 rounded-lg bg-emerald-500/25 px-2.5 py-1 font-semibold text-emerald-200">
-            <CheckCircle2 className="h-3.5 w-3.5 text-emerald-400" /> p &lt; 0.0001 (Signifikan)
+            <CheckCircle2 className="h-3.5 w-3.5 text-emerald-400" /> Siklus 2 (02&ndash;11 Nov): N-Gain 0,74 (p &lt; 0.0001)
           </span>
         </div>
       </div>
 
-      {/* Ringkasan Uji Coba */}
-      <div className="rounded-xl border border-indigo-100 bg-indigo-50/60 p-4 dark:border-indigo-950 dark:bg-slate-900/60 flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs">
-        <div className="space-y-1">
-          <span className="font-bold text-indigo-900 dark:text-indigo-300 flex items-center gap-1.5">
-            <Sparkles className="h-3.5 w-3.5 text-indigo-600" />
-            Capaian 5 Indikator Utama Uji Coba:
-          </span>
-          <p className="text-slate-600 dark:text-slate-400 leading-relaxed">
-            Seluruh target terlampaui: N-Gain <strong>0,74</strong> (min. 0,7), Akurasi <strong>85%</strong> (min. 80%), Respons &lt;15s <strong>87%</strong> (min. 80%), Konsistensi <strong>89%</strong> (min. 85%), dan Transfer Lapangan <strong>83%</strong> (min. 80%).
-          </p>
-        </div>
-        <details className="shrink-0 text-[11px] text-indigo-600 dark:text-indigo-400 cursor-pointer">
-          <summary className="font-semibold hover:underline">Narasi Lengkap Slide 13</summary>
-          <div className="mt-2 p-3 bg-white dark:bg-slate-800 rounded-lg border border-slate-200 dark:border-slate-700 italic text-slate-700 dark:text-slate-300 max-w-xl">
-            &ldquo;{summary.officialTrialNarrative}&rdquo;
+      {/* Riwayat Siklus Evaluasi (Oktober vs November) */}
+      <div className="rounded-2xl border border-slate-200 bg-white p-4 sm:p-5 shadow-xs dark:border-slate-800 dark:bg-slate-900/90 space-y-4">
+        <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-3 pb-3 border-b border-slate-100 dark:border-slate-800">
+          <div>
+            <h3 className="text-sm sm:text-base font-bold text-ink-900 dark:text-white flex items-center gap-2">
+              <Layers className="h-4 w-4 text-brand-600" />
+              Perbandingan Hasil Uji Coba: Siklus 1 (Oktober) vs Siklus 2 (November)
+            </h3>
+            <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
+              Tahapan pelaksanaan dari validasi awal dosen pembimbing di bulan Oktober hingga uji coba kedua di awal November 2026.
+            </p>
           </div>
-        </details>
+
+          <div className="flex flex-wrap items-center gap-1.5 rounded-xl bg-slate-100 dark:bg-slate-800 p-1.5 border border-slate-200 dark:border-slate-700 shrink-0">
+            <button
+              type="button"
+              onClick={() => setTrialViewMode("comparison")}
+              className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all ${
+                trialViewMode === "comparison"
+                  ? "bg-brand-600 text-white shadow-xs"
+                  : "text-slate-600 dark:text-slate-300 hover:bg-white/60 dark:hover:bg-slate-700"
+              }`}
+            >
+              Komparasi (Okt vs Nov)
+            </button>
+            <button
+              type="button"
+              onClick={() => setTrialViewMode("initial")}
+              className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all flex items-center gap-1 ${
+                trialViewMode === "initial"
+                  ? "bg-rose-600 text-white shadow-xs"
+                  : "text-rose-700 dark:text-rose-300 hover:bg-rose-50 dark:hover:bg-rose-950/40"
+              }`}
+            >
+              <AlertTriangle className="h-3 w-3" />
+              Siklus 1 &mdash; Okt ({initMetrics.failedStudentsCount} Gagal)
+            </button>
+            <button
+              type="button"
+              onClick={() => setTrialViewMode("final")}
+              className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all flex items-center gap-1 ${
+                trialViewMode === "final"
+                  ? "bg-emerald-600 text-white shadow-xs"
+                  : "text-emerald-700 dark:text-emerald-300 hover:bg-emerald-50 dark:hover:bg-emerald-950/40"
+              }`}
+            >
+              <CheckCircle2 className="h-3 w-3" />
+              Siklus 2 &mdash; Nov
+            </button>
+          </div>
+        </div>
+
+        {/* 4-Step Timeline */}
+        <div className="grid gap-2.5 sm:grid-cols-2 lg:grid-cols-4 text-xs">
+          <div className="rounded-xl border border-slate-200 bg-slate-50/70 dark:bg-slate-800/60 dark:border-slate-700 p-3">
+            <div className="flex items-center justify-between">
+              <span className="inline-flex items-center gap-1 font-bold text-[11px] text-slate-600 dark:text-slate-300">
+                <Calendar className="h-3 w-3" /> 02&ndash;07 Okt 2026
+              </span>
+              <span className="rounded bg-slate-200 dark:bg-slate-700 px-1.5 py-0.5 text-[9px] font-bold text-slate-700 dark:text-slate-200">
+                Tahap 1
+              </span>
+            </div>
+            <p className="font-bold text-ink-900 dark:text-white mt-1">
+              Validasi Awal Dosen
+            </p>
+            <p className="text-slate-500 dark:text-slate-400 text-[11px] mt-0.5 leading-snug">
+              Validasi instrumen pre/post-test, rubrik SPAB, dan prototipe awal oleh dosen pembimbing.
+            </p>
+          </div>
+
+          <div className="rounded-xl border border-rose-200 bg-rose-50/60 dark:bg-rose-950/25 dark:border-rose-800/60 p-3">
+            <div className="flex items-center justify-between">
+              <span className="inline-flex items-center gap-1 font-bold text-[11px] text-rose-700 dark:text-rose-300">
+                <XCircle className="h-3 w-3" /> 08&ndash;17 Okt 2026
+              </span>
+              <span className="rounded bg-rose-600 px-1.5 py-0.5 text-[9px] font-bold text-white">
+                Tahap 2 &bull; Siklus 1
+              </span>
+            </div>
+            <p className="font-bold text-rose-900 dark:text-rose-200 mt-1">
+              Uji Coba Awal (Oktober)
+            </p>
+            <p className="text-rose-800/85 dark:text-rose-300/85 text-[11px] mt-0.5 leading-snug">
+              Skor rata-rata 58,8 (N-Gain 0,23 Rendah). Sebanyak <strong>276 dari 320 siswa gagal SPAB</strong>.
+            </p>
+          </div>
+
+          <div className="rounded-xl border border-slate-200 bg-slate-50/70 dark:bg-slate-800/60 dark:border-slate-700 p-3">
+            <div className="flex items-center justify-between">
+              <span className="inline-flex items-center gap-1 font-bold text-[11px] text-indigo-700 dark:text-indigo-400">
+                <RotateCcw className="h-3 w-3" /> 19&ndash;31 Okt 2026
+              </span>
+              <span className="rounded bg-indigo-100 dark:bg-indigo-950 px-1.5 py-0.5 text-[9px] font-bold text-indigo-800 dark:text-indigo-300">
+                Tahap 3
+              </span>
+            </div>
+            <p className="font-bold text-ink-900 dark:text-white mt-1">
+              Evaluasi &amp; Revisi Sistem
+            </p>
+            <p className="text-slate-500 dark:text-slate-400 text-[11px] mt-0.5 leading-snug">
+              Penyederhanaan HUD visual, umpan balik pasca-simulasi, dan latihan variasi blokade rute.
+            </p>
+          </div>
+
+          <div className="rounded-xl border border-emerald-200 bg-emerald-50/60 dark:bg-emerald-950/25 dark:border-emerald-800/60 p-3">
+            <div className="flex items-center justify-between">
+              <span className="inline-flex items-center gap-1 font-bold text-[11px] text-emerald-700 dark:text-emerald-300">
+                <CheckCircle2 className="h-3 w-3" /> 02&ndash;11 Nov 2026
+              </span>
+              <span className="rounded bg-emerald-600 px-1.5 py-0.5 text-[9px] font-bold text-white">
+                Tahap 4 &bull; Siklus 2
+              </span>
+            </div>
+            <p className="font-bold text-emerald-900 dark:text-emerald-200 mt-1">
+              Uji Coba Baru (November)
+            </p>
+            <p className="text-emerald-800/85 dark:text-emerald-300/85 text-[11px] mt-0.5 leading-snug">
+              Skor meningkat ke 86,1 (<strong>N-Gain 0,74 Tinggi</strong>). Seluruh <strong>320 siswa (100%) Lulus</strong>.
+            </p>
+          </div>
+        </div>
+
+        {/* Side-by-Side Metrics Summary */}
+        <div className="grid gap-3 md:grid-cols-2">
+          <div className="rounded-xl border border-rose-200 bg-rose-50/40 dark:border-rose-900/50 dark:bg-rose-950/20 p-3.5 space-y-2">
+            <div className="flex flex-wrap items-center justify-between gap-1">
+              <span className="inline-flex items-center gap-1.5 text-xs font-bold text-rose-800 dark:text-rose-300">
+                <XCircle className="h-4 w-4 text-rose-600" />
+                Siklus 1 — Data Oktober (08&ndash;17 Okt 2026)
+              </span>
+              <span className="rounded-full bg-rose-600 px-2.5 py-0.5 text-[10px] font-bold text-white">
+                {initMetrics.failedStudentsCount} Gagal ({initMetrics.failureRatePercent}%) &bull; {initMetrics.remedialStudentsCount} Remedial
+              </span>
+            </div>
+            <div className="grid grid-cols-5 gap-1.5 text-center">
+              <div className="rounded-lg bg-white dark:bg-slate-900 p-1.5 border border-rose-200/70 dark:border-rose-800/60">
+                <span className="block text-[10px] text-slate-500">N-Gain</span>
+                <strong className="text-sm font-black text-rose-600 dark:text-rose-400">0,23</strong>
+                <span className="block text-[9px] text-rose-600 font-semibold">Rendah</span>
+              </div>
+              <div className="rounded-lg bg-white dark:bg-slate-900 p-1.5 border border-rose-200/70 dark:border-rose-800/60">
+                <span className="block text-[10px] text-slate-500">Post-Test</span>
+                <strong className="text-sm font-black text-rose-600 dark:text-rose-400">58,8</strong>
+                <span className="block text-[9px] text-rose-600 font-semibold">&lt; KKM 75</span>
+              </div>
+              <div className="rounded-lg bg-white dark:bg-slate-900 p-1.5 border border-rose-200/70 dark:border-rose-800/60">
+                <span className="block text-[10px] text-slate-500">Akurasi</span>
+                <strong className="text-sm font-black text-rose-600 dark:text-rose-400">53%</strong>
+                <span className="block text-[9px] text-rose-600 font-semibold">Min 80%</span>
+              </div>
+              <div className="rounded-lg bg-white dark:bg-slate-900 p-1.5 border border-rose-200/70 dark:border-rose-800/60">
+                <span className="block text-[10px] text-slate-500">&lt;15 Detik</span>
+                <strong className="text-sm font-black text-rose-600 dark:text-rose-400">34%</strong>
+                <span className="block text-[9px] text-rose-600 font-semibold">Rata2 22,6s</span>
+              </div>
+              <div className="rounded-lg bg-white dark:bg-slate-900 p-1.5 border border-rose-200/70 dark:border-rose-800/60">
+                <span className="block text-[10px] text-slate-500">Transfer</span>
+                <strong className="text-sm font-black text-rose-600 dark:text-rose-400">49%</strong>
+                <span className="block text-[9px] text-rose-600 font-semibold">Konsist. 51%</span>
+              </div>
+            </div>
+          </div>
+
+          <div className="rounded-xl border border-emerald-200 bg-emerald-50/40 dark:border-emerald-900/50 dark:bg-emerald-950/20 p-3.5 space-y-2">
+            <div className="flex flex-wrap items-center justify-between gap-1">
+              <span className="inline-flex items-center gap-1.5 text-xs font-bold text-emerald-800 dark:text-emerald-300">
+                <CheckCircle2 className="h-4 w-4 text-emerald-600" />
+                Siklus 2 — Data Awal November (02&ndash;11 Nov 2026)
+              </span>
+              <span className="rounded-full bg-emerald-600 px-2.5 py-0.5 text-[10px] font-bold text-white">
+                320 Siswa Lulus SPAB (100%)
+              </span>
+            </div>
+            <div className="grid grid-cols-5 gap-1.5 text-center">
+              <div className="rounded-lg bg-white dark:bg-slate-900 p-1.5 border border-emerald-200/70 dark:border-emerald-800/60">
+                <span className="block text-[10px] text-slate-500">N-Gain</span>
+                <strong className="text-sm font-black text-emerald-600 dark:text-emerald-400">0,74</strong>
+                <span className="block text-[9px] text-emerald-600 font-semibold">+0,51 Tinggi</span>
+              </div>
+              <div className="rounded-lg bg-white dark:bg-slate-900 p-1.5 border border-emerald-200/70 dark:border-emerald-800/60">
+                <span className="block text-[10px] text-slate-500">Post-Test</span>
+                <strong className="text-sm font-black text-emerald-600 dark:text-emerald-400">86,1</strong>
+                <span className="block text-[9px] text-emerald-600 font-semibold">+27,3 Poin</span>
+              </div>
+              <div className="rounded-lg bg-white dark:bg-slate-900 p-1.5 border border-emerald-200/70 dark:border-emerald-800/60">
+                <span className="block text-[10px] text-slate-500">Akurasi</span>
+                <strong className="text-sm font-black text-emerald-600 dark:text-emerald-400">85%</strong>
+                <span className="block text-[9px] text-emerald-600 font-semibold">+32% Naik</span>
+              </div>
+              <div className="rounded-lg bg-white dark:bg-slate-900 p-1.5 border border-emerald-200/70 dark:border-emerald-800/60">
+                <span className="block text-[10px] text-slate-500">&lt;15 Detik</span>
+                <strong className="text-sm font-black text-emerald-600 dark:text-emerald-400">87%</strong>
+                <span className="block text-[9px] text-emerald-600 font-semibold">Rata2 11,8s</span>
+              </div>
+              <div className="rounded-lg bg-white dark:bg-slate-900 p-1.5 border border-emerald-200/70 dark:border-emerald-800/60">
+                <span className="block text-[10px] text-slate-500">Transfer</span>
+                <strong className="text-sm font-black text-emerald-600 dark:text-emerald-400">83%</strong>
+                <span className="block text-[9px] text-emerald-600 font-semibold">Konsist. 89%</span>
+              </div>
+            </div>
+          </div>
+        </div>
       </div>
 
-      {/* 5 Slide 13 Parameter Cards */}
+      {/* 5 Indikator Evaluasi Cards */}
       <div className="space-y-2.5">
-        <div className="flex items-center justify-between">
+        <div className="flex flex-wrap items-center justify-between gap-2">
           <h3 className="text-xs font-bold uppercase tracking-wider text-ink-500 dark:text-slate-400">
-            5 Parameter Keberhasilan Slide 13
+            {trialViewMode === "initial"
+              ? "5 Indikator Evaluasi — Siklus 1 (08–17 Oktober 2026)"
+              : "5 Indikator Evaluasi Kesiapsiagaan (Siklus 2 November vs Siklus 1 Oktober)"}
           </h3>
-          <span className="text-xs text-brand-600 dark:text-brand-400 font-semibold">
-            Semua Target Tercapai 100%
+          <span
+            className={`text-xs font-semibold ${
+              trialViewMode === "initial"
+                ? "text-rose-600 dark:text-rose-400"
+                : "text-brand-600 dark:text-brand-400"
+            }`}
+          >
+            {trialViewMode === "initial"
+              ? `Siklus 1 (Okt): Belum Memenuhi Target (${initMetrics.failedStudentsCount} Siswa Gagal)`
+              : "Siklus 2 (Nov): Semua Target Tercapai 100%"}
           </span>
         </div>
 
         <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-5">
-          {HARMONY_SLIDE_13_PARAMETERS.map((p) => {
+          {activeParameters.map((p, idx) => {
+            const slide13Param = HARMONY_SLIDE_13_PARAMETERS[idx];
             const isGain = p.id === "learning_gain";
             const isCrucial = p.isCrucialBenchmark;
+            const isFailedMode = trialViewMode === "initial";
+
             return (
               <div
                 key={p.id}
-                className={`relative overflow-hidden rounded-xl p-3.5 transition-all border ${
-                  isGain
+                className={`relative overflow-hidden rounded-xl p-3.5 transition-all border flex flex-col justify-between ${
+                  isFailedMode
+                    ? "bg-gradient-to-b from-rose-50/70 to-white dark:from-rose-950/30 dark:to-slate-900 border-rose-300 dark:border-rose-700/70 shadow-xs"
+                    : isGain
                     ? "bg-gradient-to-b from-brand-50/80 to-white dark:from-brand-950/40 dark:to-slate-900 border-brand-300 dark:border-brand-600 shadow-sm ring-1 ring-brand-400/30"
                     : isCrucial
                     ? "bg-gradient-to-b from-amber-50/50 to-white dark:from-amber-950/20 dark:to-slate-900 border-amber-300 dark:border-amber-700/60 shadow-xs"
                     : "bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-800 shadow-xs"
                 }`}
               >
-                {isCrucial && (
-                  <div className="absolute top-2 right-2 rounded-full bg-amber-600 px-2 py-0.5 text-[9px] font-bold uppercase tracking-wide text-white">
-                    Krusial
+                <div>
+                  {isCrucial && (
+                    <div className="absolute top-2 right-2 rounded-full bg-amber-600 px-2 py-0.5 text-[9px] font-bold uppercase tracking-wide text-white">
+                      Krusial
+                    </div>
+                  )}
+                  <div className="flex items-center gap-2">
+                    <span
+                      className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-lg text-white ${
+                        isFailedMode
+                          ? "bg-rose-600"
+                          : isGain
+                          ? "bg-brand-600"
+                          : "bg-slate-700 dark:bg-slate-800"
+                      }`}
+                    >
+                      {p.id === "learning_gain" && <TrendingUp className="h-3.5 w-3.5" />}
+                      {p.id === "decision_accuracy" && <Target className="h-3.5 w-3.5" />}
+                      {p.id === "response_efficiency" && <Clock className="h-3.5 w-3.5" />}
+                      {p.id === "learning_consistency" && <Activity className="h-3.5 w-3.5" />}
+                      {p.id === "transfer_of_learning" && <Award className="h-3.5 w-3.5" />}
+                    </span>
+                    <div className="min-w-0">
+                      <h4 className="font-bold text-xs text-ink-900 dark:text-white truncate">
+                        {p.name}
+                      </h4>
+                      <p className="text-[10px] text-ink-400 dark:text-slate-500 font-mono truncate">
+                        {p.englishName}
+                      </p>
+                    </div>
                   </div>
-                )}
-                <div className="flex items-center gap-2">
-                  <span
-                    className={`flex h-7 w-7 items-center justify-center rounded-lg text-white ${
-                      isGain ? "bg-brand-600" : "bg-slate-700 dark:bg-slate-800"
-                    }`}
-                  >
-                    {p.id === "learning_gain" && <TrendingUp className="h-3.5 w-3.5" />}
-                    {p.id === "decision_accuracy" && <Target className="h-3.5 w-3.5" />}
-                    {p.id === "response_efficiency" && <Clock className="h-3.5 w-3.5" />}
-                    {p.id === "learning_consistency" && <Activity className="h-3.5 w-3.5" />}
-                    {p.id === "transfer_of_learning" && <Award className="h-3.5 w-3.5" />}
-                  </span>
-                  <div className="min-w-0">
-                    <h4 className="font-bold text-xs text-ink-900 dark:text-white truncate">
-                      {p.name}
-                    </h4>
-                    <p className="text-[10px] text-ink-400 dark:text-slate-500 font-mono truncate">
-                      {p.englishName}
-                    </p>
-                  </div>
-                </div>
 
-                <div className="mt-2.5">
-                  <div className="flex items-baseline justify-between">
-                    <span className="font-display text-2xl font-black text-ink-900 dark:text-white">
-                      {p.achievedFormatted}
-                    </span>
-                    <span className="rounded bg-emerald-50 text-emerald-700 dark:bg-emerald-950/60 dark:text-emerald-300 px-1.5 py-0.5 text-[10px] font-bold">
-                      {p.status}
-                    </span>
+                  <div className="mt-2.5">
+                    <div className="flex items-baseline justify-between gap-1">
+                      <span
+                        className={`font-display text-2xl font-black ${
+                          isFailedMode
+                            ? "text-rose-600 dark:text-rose-400"
+                            : "text-ink-900 dark:text-white"
+                        }`}
+                      >
+                        {p.achievedFormatted}
+                      </span>
+                      <span
+                        className={`rounded px-1.5 py-0.5 text-[10px] font-bold ${
+                          isFailedMode
+                            ? "bg-rose-100 text-rose-800 dark:bg-rose-950/80 dark:text-rose-300"
+                            : "bg-emerald-50 text-emerald-700 dark:bg-emerald-950/60 dark:text-emerald-300"
+                        }`}
+                      >
+                        {p.status}
+                      </span>
+                    </div>
+                    <div className="mt-1 flex items-center justify-between text-[11px] text-slate-500 dark:text-slate-400">
+                      <span>Target:</span>
+                      <strong className="text-ink-800 dark:text-slate-200">{p.target}</strong>
+                    </div>
                   </div>
-                  <div className="mt-1 flex items-center justify-between text-[11px] text-slate-500 dark:text-slate-400">
-                    <span>Target:</span>
-                    <strong className="text-ink-800 dark:text-slate-200">{p.target}</strong>
-                  </div>
+
+                  {!isFailedMode && slide13Param.initialFormatted && (
+                    <div className="mt-2 rounded-lg bg-rose-50/90 dark:bg-rose-950/40 border border-rose-200/80 dark:border-rose-800/60 px-2 py-1.5 text-[10px] space-y-0.5">
+                      <div className="flex items-center justify-between">
+                        <span className="font-semibold text-rose-800 dark:text-rose-300">
+                          Siklus 1 (Okt):
+                        </span>
+                        <span className="font-mono font-bold text-rose-600 dark:text-rose-400">
+                          {slide13Param.initialFormatted}
+                        </span>
+                      </div>
+                      <div className="flex items-center justify-between text-[9px]">
+                        <span className="text-rose-700/90 dark:text-rose-300/80">
+                          <strong>{slide13Param.initialStatus}</strong>
+                        </span>
+                        <span className="font-bold text-emerald-700 dark:text-emerald-400">
+                          {slide13Param.deltaFormatted}
+                        </span>
+                      </div>
+                    </div>
+                  )}
+
+                  {isFailedMode && (
+                    <div className="mt-2 rounded-lg bg-emerald-50/80 dark:bg-emerald-950/30 border border-emerald-200/80 dark:border-emerald-800/60 px-2 py-1 text-[10px] flex items-center justify-between">
+                      <span className="text-emerald-800 dark:text-emerald-300">
+                        Siklus 2 (Nov):
+                      </span>
+                      <strong className="font-mono text-emerald-700 dark:text-emerald-400">
+                        {slide13Param.achievedFormatted}
+                      </strong>
+                    </div>
+                  )}
                 </div>
 
                 <p className="mt-2 text-[11px] text-slate-500 dark:text-slate-400 border-t border-slate-100 dark:border-slate-800 pt-1.5">
@@ -303,116 +635,149 @@ export function LearningGainEvaluationView() {
         </div>
       </div>
 
-      {/* Formula Normalized Gain Card */}
-      <div className="rounded-xl border border-slate-200 bg-white p-4 shadow-xs dark:border-slate-800 dark:bg-slate-900/80">
-        <div className="flex items-center justify-between mb-3">
-          <h3 className="font-bold text-sm text-ink-900 dark:text-white flex items-center gap-2">
-            <BookOpen className="h-4 w-4 text-brand-600" />
-            Formula Normalized Gain (Hake, 1998)
-          </h3>
-        </div>
+      {/* Formula Hake + Bar Chart per Rombel */}
+      <div className="grid gap-4 lg:grid-cols-12">
+        <div className="lg:col-span-5 rounded-2xl border border-slate-200 bg-white p-4 sm:p-5 shadow-xs dark:border-slate-800 dark:bg-slate-900/80 flex flex-col justify-between">
+          <div className="space-y-3">
+            <h3 className="font-bold text-sm text-ink-900 dark:text-white flex items-center gap-2">
+              <BookOpen className="h-4 w-4 text-brand-600" />
+              Formula Normalized Gain (Hake, 1998)
+            </h3>
 
-        <div className="rounded-lg border border-slate-200 bg-slate-50/70 p-3 font-mono text-xs dark:border-slate-800 dark:bg-slate-950/60 text-ink-800 dark:text-slate-200 space-y-1.5">
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-slate-200 dark:border-slate-800 pb-1.5">
-            <span className="font-bold text-brand-600 dark:text-brand-400">
-              Formula:
-            </span>
-            <span className="text-xs font-bold bg-white dark:bg-slate-900 px-2 py-0.5 rounded border border-slate-200 dark:border-slate-800">
-              g = (Post-Test - Pre-Test) / (100 - Pre-Test)
-            </span>
+            <div className="rounded-xl border border-slate-200 bg-slate-50/70 p-3 font-mono text-xs dark:border-slate-800 dark:bg-slate-950/60 text-ink-800 dark:text-slate-200 space-y-2.5">
+              <div className="flex flex-wrap items-center justify-between gap-2 border-b border-slate-200 dark:border-slate-800 pb-2">
+                <span className="font-bold text-brand-600 dark:text-brand-400">
+                  Formula:
+                </span>
+                <span className="text-xs font-bold bg-white dark:bg-slate-900 px-2 py-0.5 rounded border border-slate-200 dark:border-slate-800">
+                  g = (Post-Test - Pre-Test) / (100 - Pre-Test)
+                </span>
+              </div>
+
+              <div className="space-y-2.5 text-[11px]">
+                <div>
+                  <strong className="text-rose-600 dark:text-rose-400 block">
+                    1. Siklus 1 — Oktober (08&ndash;17 Okt 2026):
+                  </strong>
+                  <div className="mt-1 pl-2.5 border-l-2 border-rose-500 text-ink-700 dark:text-slate-300 leading-relaxed">
+                    g₁ = ({initMetrics.avgPostTest} - {initMetrics.avgPreTest}) / (100 - {initMetrics.avgPreTest}) = {initMetrics.scoreDifference} / {Math.round((100 - initMetrics.avgPreTest) * 10) / 10} ={" "}
+                    <strong className="text-rose-600 dark:text-rose-400">
+                      {initMetrics.normalizedGain}
+                    </strong>{" "}
+                    (Rendah, g &lt; 0,30)
+                  </div>
+                </div>
+
+                <div>
+                  <strong className="text-emerald-700 dark:text-emerald-400 block">
+                    2. Siklus 2 — Awal November (02&ndash;11 Nov 2026):
+                  </strong>
+                  <div className="mt-1 pl-2.5 border-l-2 border-brand-500 text-ink-700 dark:text-slate-300 leading-relaxed">
+                    g₂ = ({summary.overallMetrics.avgPostTest} - {summary.overallMetrics.avgPreTest}) / (100 - {summary.overallMetrics.avgPreTest}) = {summary.overallMetrics.scoreDifference} / {Math.round((100 - summary.overallMetrics.avgPreTest) * 10) / 10} ={" "}
+                    <strong className="text-emerald-600 dark:text-emerald-400">
+                      {summary.overallMetrics.normalizedGain}
+                    </strong>{" "}
+                    (Tinggi, g &ge; 0,70)
+                  </div>
+                </div>
+              </div>
+            </div>
           </div>
 
-          <div className="text-[11px]">
-            <strong>Perhitungan Agregat SMAN 1 Ngoro:</strong>
-            <div className="mt-0.5 pl-2 border-l-2 border-brand-500 text-ink-700 dark:text-slate-300">
-              g = ({summary.overallMetrics.avgPostTest} - {summary.overallMetrics.avgPreTest}) / (100 - {summary.overallMetrics.avgPreTest}) = {summary.overallMetrics.scoreDifference} / {Math.round((100 - summary.overallMetrics.avgPreTest) * 10) / 10} = <strong className="text-emerald-600 dark:text-emerald-400">{summary.overallMetrics.normalizedGain}</strong> (Tinggi, g &ge; 0,70)
+          <div className="mt-3 grid grid-cols-3 gap-2 text-xs">
+            <div className="rounded-lg border border-emerald-200 bg-emerald-50/50 p-2 dark:border-emerald-900/40 dark:bg-emerald-950/20 text-center">
+              <span className="font-bold text-emerald-800 dark:text-emerald-300 block">
+                g &ge; 0,70
+              </span>
+              <span className="text-[10px] text-emerald-700 dark:text-emerald-400">
+                Tinggi (Nov: <strong>0,74</strong>)
+              </span>
+            </div>
+            <div className="rounded-lg border border-amber-200 bg-amber-50/50 p-2 dark:border-amber-900/40 dark:bg-amber-950/20 text-center">
+              <span className="font-bold text-amber-800 dark:text-amber-300 block">
+                0,30 &le; g &lt; 0,70
+              </span>
+              <span className="text-[10px] text-amber-700 dark:text-amber-400">
+                Sedang
+              </span>
+            </div>
+            <div className="rounded-lg border border-rose-200 bg-rose-50/50 p-2 dark:border-rose-900/40 dark:bg-rose-950/20 text-center">
+              <span className="font-bold text-rose-800 dark:text-rose-300 block">
+                g &lt; 0,30
+              </span>
+              <span className="text-[10px] text-rose-700 dark:text-rose-400">
+                Rendah (Okt: <strong>0,23</strong>)
+              </span>
             </div>
           </div>
         </div>
 
-        <div className="mt-3 grid grid-cols-3 gap-2 text-xs">
-          <div className="rounded-lg border border-emerald-200 bg-emerald-50/50 p-2 dark:border-emerald-900/40 dark:bg-emerald-950/20 text-center">
-            <span className="font-bold text-emerald-800 dark:text-emerald-300 block">
-              g &ge; 0,70
-            </span>
-            <span className="text-[10px] text-emerald-700 dark:text-emerald-400">
-              Tinggi (HARMONY: <strong>0,74</strong>)
-            </span>
+        <div className="lg:col-span-7 rounded-2xl border border-slate-200 bg-white p-4 sm:p-5 shadow-xs dark:border-slate-800 dark:bg-slate-900/80 flex flex-col justify-between">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 mb-3">
+            <div>
+              <h3 className="font-bold text-sm text-ink-900 dark:text-white flex items-center gap-2">
+                <School className="h-4 w-4 text-brand-600" />
+                Pre-Test vs Siklus 1 (Okt) vs Siklus 2 (Nov) per Rombel
+              </h3>
+              <p className="text-xs text-ink-500 dark:text-slate-400">
+                Rata-rata skor dari 46,5 &rarr; 58,8 (Oktober) &rarr; 86,1 (Awal November).
+              </p>
+            </div>
+            <div className="flex flex-wrap items-center gap-2.5 text-[11px] font-semibold">
+              <span className="flex items-center gap-1 text-slate-500">
+                <span className="h-2.5 w-2.5 rounded-xs bg-slate-400 inline-block" /> Pre-Test
+              </span>
+              <span className="flex items-center gap-1 text-rose-600 dark:text-rose-400">
+                <span className="h-2.5 w-2.5 rounded-xs bg-rose-500 inline-block" /> Siklus 1 Okt (58,8)
+              </span>
+              <span className="flex items-center gap-1 text-brand-600 dark:text-brand-400">
+                <span className="h-2.5 w-2.5 rounded-xs bg-brand-600 inline-block" /> Siklus 2 Nov (86,1)
+              </span>
+            </div>
           </div>
-          <div className="rounded-lg border border-amber-200 bg-amber-50/50 p-2 dark:border-amber-900/40 dark:bg-amber-950/20 text-center">
-            <span className="font-bold text-amber-800 dark:text-amber-300 block">
-              0,30 &le; g &lt; 0,70
-            </span>
-            <span className="text-[10px] text-amber-700 dark:text-amber-400">
-              Sedang
-            </span>
-          </div>
-          <div className="rounded-lg border border-rose-200 bg-rose-50/50 p-2 dark:border-rose-900/40 dark:bg-rose-950/20 text-center">
-            <span className="font-bold text-rose-800 dark:text-rose-300 block">
-              g &lt; 0,30
-            </span>
-            <span className="text-[10px] text-rose-700 dark:text-rose-400">
-              Rendah
-            </span>
-          </div>
-        </div>
-      </div>
 
-      {/* Class Comparison Chart */}
-      <div className="rounded-xl border border-slate-200 bg-white p-4 shadow-xs dark:border-slate-800 dark:bg-slate-900/80">
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 mb-3">
-          <div>
-            <h3 className="font-bold text-sm text-ink-900 dark:text-white flex items-center gap-2">
-              <School className="h-4 w-4 text-brand-600" />
-              Pre-Test vs Post-Test per Rombel
-            </h3>
-            <p className="text-xs text-ink-500 dark:text-slate-400">
-              Rata-rata skor meningkat dari 46,5 ke 86,1 di seluruh 10 kelas (N-Gain 0,74).
-            </p>
+          <div className="h-56 w-full">
+            <ResponsiveContainer width="100%" height="100%">
+              <BarChart data={chartData} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
+                <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#88888820" />
+                <XAxis dataKey="name" tick={{ fontSize: 11 }} />
+                <YAxis domain={[0, 100]} tick={{ fontSize: 11 }} />
+                <Tooltip
+                  contentStyle={{
+                    backgroundColor: "rgba(15, 23, 42, 0.95)",
+                    borderRadius: "10px",
+                    border: "none",
+                    color: "#fff",
+                    fontSize: "11px",
+                  }}
+                />
+                <Bar dataKey="Pre-Test" fill="#94a3b8" radius={[4, 4, 0, 0]} />
+                <Bar dataKey="Siklus 1 (08-17 Okt)" fill="#f43f5e" radius={[4, 4, 0, 0]} />
+                <Bar dataKey="Siklus 2 (02-11 Nov)" fill="#4f46e5" radius={[4, 4, 0, 0]} />
+              </BarChart>
+            </ResponsiveContainer>
           </div>
-          <div className="flex items-center gap-3 text-xs font-semibold">
-            <span className="flex items-center gap-1.5 text-slate-500">
-              <span className="h-2.5 w-2.5 rounded-xs bg-slate-400 inline-block" /> Pre-Test
-            </span>
-            <span className="flex items-center gap-1.5 text-brand-600 dark:text-brand-400">
-              <span className="h-2.5 w-2.5 rounded-xs bg-brand-600 inline-block" /> Post-Test
-            </span>
-          </div>
-        </div>
-
-        <div className="h-56 w-full">
-          <ResponsiveContainer width="100%" height="100%">
-            <BarChart data={chartData} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
-              <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#88888820" />
-              <XAxis dataKey="name" tick={{ fontSize: 11 }} />
-              <YAxis domain={[0, 100]} tick={{ fontSize: 11 }} />
-              <Tooltip
-                contentStyle={{
-                  backgroundColor: "rgba(15, 23, 42, 0.95)",
-                  borderRadius: "10px",
-                  border: "none",
-                  color: "#fff",
-                  fontSize: "11px",
-                }}
-              />
-              <Bar dataKey="Pre-Test (Ceramah/Awal)" fill="#94a3b8" radius={[4, 4, 0, 0]} />
-              <Bar dataKey="Post-Test (HARMONY)" fill="#4f46e5" radius={[4, 4, 0, 0]} />
-            </BarChart>
-          </ResponsiveContainer>
         </div>
       </div>
 
       {/* Table Section */}
-      <div className="rounded-xl border border-slate-200 bg-white p-4 shadow-xs dark:border-slate-800 dark:bg-slate-900/80 space-y-3">
-        <div className="flex flex-col md:flex-row md:items-center justify-between gap-3">
-          <div className="flex items-center gap-2">
-            <GraduationCap className="h-4 w-4 text-brand-600" />
-            <h3 className="font-bold text-sm text-ink-900 dark:text-white">
-              Data Nilai Siswa ({filteredStudents.length} dari {summary.totalStudentsTested})
-            </h3>
+      <div className="rounded-2xl border border-slate-200 bg-white p-4 sm:p-5 shadow-xs dark:border-slate-800 dark:bg-slate-900/80 space-y-3.5">
+        <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-3">
+          <div className="space-y-0.5">
+            <div className="flex flex-wrap items-center gap-2">
+              <GraduationCap className="h-4 w-4 text-brand-600" />
+              <h3 className="font-bold text-sm sm:text-base text-ink-900 dark:text-white">
+                Data Nilai Siswa ({filteredStudents.length} dari {summary.totalStudentsTested} Siswa)
+              </h3>
+              <span className="inline-flex items-center gap-1 rounded-full bg-brand-50 dark:bg-brand-950/60 px-2.5 py-0.5 text-[11px] font-bold text-brand-700 dark:text-brand-300 border border-brand-200 dark:border-brand-800">
+                No. {displayedStudents.length > 0 ? startIndex + 1 : 0}&ndash;{endIndex} dari {displayedStudents.length}
+              </span>
+            </div>
+            <p className="text-[11px] text-slate-500 dark:text-slate-400">
+              Rekap nilai per siswa pada <strong>Siklus 1 (08&ndash;17 Oktober 2026)</strong> dan <strong>Siklus 2 (02&ndash;11 November 2026)</strong>.
+            </p>
           </div>
 
-          {/* Filters & Search */}
           <div className="flex flex-wrap items-center gap-2">
             <div className="relative">
               <Search className="h-3.5 w-3.5 absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-400" />
@@ -420,39 +785,96 @@ export function LearningGainEvaluationView() {
                 type="text"
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
-                placeholder="Cari nama..."
-                className="rounded-lg border border-slate-200 bg-slate-50 dark:bg-slate-800 dark:border-slate-700 pl-7 pr-2.5 py-1 text-xs text-ink-900 dark:text-white placeholder:text-slate-400 focus:outline-none focus:ring-1 focus:ring-brand-500"
+                placeholder="Cari nama / kelas / tanggal..."
+                className="rounded-lg border border-slate-200 bg-slate-50 dark:bg-slate-800 dark:border-slate-700 pl-7 pr-2.5 py-1.5 text-xs text-ink-900 dark:text-white placeholder:text-slate-400 focus:outline-none focus:ring-1 focus:ring-brand-500"
               />
             </div>
 
             <select
-              value={selectedClassId}
-              onChange={(e) => setSelectedClassId(e.target.value)}
-              className="rounded-lg border border-slate-200 bg-slate-50 dark:bg-slate-800 dark:border-slate-700 px-2.5 py-1 text-xs text-ink-900 dark:text-white focus:outline-none focus:ring-1 focus:ring-brand-500"
+              value={selectedInitialStatus}
+              onChange={(e) => setSelectedInitialStatus(e.target.value)}
+              className="rounded-lg border border-rose-200 bg-rose-50/70 dark:bg-slate-800 dark:border-rose-800/60 px-2.5 py-1.5 text-xs font-semibold text-rose-800 dark:text-rose-300 focus:outline-none focus:ring-1 focus:ring-rose-500"
             >
-              <option value="ALL">Semua Kelas ({summary.totalClasses} Rombel)</option>
-              {summary.classes.map((c) => (
-                <option key={c.classId} value={c.classId}>
-                  Kelas {c.className} ({c.studentCount})
-                </option>
-              ))}
+              <option value="ALL">Semua Status Siklus 1 Okt (320)</option>
+              <option value="Gagal SPAB">
+                Gagal SPAB di Siklus 1 Okt ({initMetrics.failedStudentsCount} Siswa)
+              </option>
+              <option value="Remedial SPAB">
+                Remedial di Siklus 1 Okt ({initMetrics.remedialStudentsCount} Siswa)
+              </option>
+              <option value="Lulus Bersyarat">
+                Lulus Bersyarat di Siklus 1 Okt ({initMetrics.passedStudentsCount} Siswa)
+              </option>
             </select>
 
             <select
               value={selectedCategory}
               onChange={(e) => setSelectedCategory(e.target.value)}
-              className="rounded-lg border border-slate-200 bg-slate-50 dark:bg-slate-800 dark:border-slate-700 px-2.5 py-1 text-xs text-ink-900 dark:text-white focus:outline-none focus:ring-1 focus:ring-brand-500"
+              className="rounded-lg border border-slate-200 bg-slate-50 dark:bg-slate-800 dark:border-slate-700 px-2.5 py-1.5 text-xs text-ink-900 dark:text-white focus:outline-none focus:ring-1 focus:ring-brand-500"
             >
-              <option value="ALL">Semua Kategori</option>
+              <option value="ALL">Semua Kategori Hake</option>
               <option value="Tinggi">Tinggi (g &ge; 0,70)</option>
               <option value="Sedang">Sedang (0,30 &le; g &lt; 0,70)</option>
+              <option value="Rendah">Rendah (g &lt; 0,30)</option>
+            </select>
+
+            <select
+              value={pageSize}
+              onChange={(e) => setPageSize(Number(e.target.value))}
+              className="rounded-lg border border-brand-200 bg-brand-50/70 dark:bg-slate-800 dark:border-brand-800 px-2.5 py-1.5 text-xs font-bold text-brand-800 dark:text-brand-300 focus:outline-none focus:ring-1 focus:ring-brand-500"
+            >
+              <option value={32}>32 Siswa / Halaman (1 Rombel)</option>
+              <option value={50}>50 Siswa / Halaman</option>
+              <option value={100}>100 Siswa / Halaman</option>
+              <option value={320}>Tampilkan Semua (320 Siswa)</option>
             </select>
           </div>
         </div>
 
-        {/* Privacy Mode Toolbar */}
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 rounded-xl bg-slate-50 dark:bg-slate-800/60 p-2.5 border border-slate-200/80 dark:border-slate-700/60">
-          <div className="flex items-center gap-2.5">
+        {/* Quick Class Filter Pills */}
+        <div className="flex items-center gap-1.5 overflow-x-auto pb-1 pt-0.5 no-scrollbar">
+          <button
+            type="button"
+            onClick={() => setSelectedClassId("ALL")}
+            className={`px-2.5 py-1 rounded-lg text-xs font-bold whitespace-nowrap transition-all border ${
+              selectedClassId === "ALL"
+                ? "bg-brand-600 text-white border-brand-600 shadow-xs"
+                : "bg-slate-50 dark:bg-slate-800/80 text-slate-600 dark:text-slate-300 border-slate-200 dark:border-slate-700 hover:bg-slate-100"
+            }`}
+          >
+            Semua Kelas (320)
+          </button>
+          {summary.classes.map((c) => {
+            const active = selectedClassId === c.classId;
+            return (
+              <button
+                key={c.classId}
+                type="button"
+                onClick={() => setSelectedClassId(c.classId)}
+                className={`px-2.5 py-1 rounded-lg text-xs font-semibold whitespace-nowrap transition-all border flex items-center gap-1.5 ${
+                  active
+                    ? "bg-brand-600 text-white border-brand-600 shadow-xs"
+                    : "bg-white dark:bg-slate-800/60 text-slate-700 dark:text-slate-300 border-slate-200 dark:border-slate-700 hover:bg-slate-50"
+                }`}
+              >
+                <span>{c.className}</span>
+                <span
+                  className={`text-[10px] px-1 rounded ${
+                    active
+                      ? "bg-white/20 text-white"
+                      : "bg-slate-100 dark:bg-slate-700 text-slate-500 dark:text-slate-400"
+                  }`}
+                >
+                  {c.studentCount}
+                </span>
+              </button>
+            );
+          })}
+        </div>
+
+        {/* Privacy Mode & Top Quick Pagination Toolbar */}
+        <div className="flex flex-col md:flex-row md:items-center justify-between gap-2.5 rounded-xl bg-slate-50 dark:bg-slate-800/60 p-2.5 border border-slate-200/80 dark:border-slate-700/60">
+          <div className="flex flex-wrap items-center gap-2.5">
             <span
               className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-lg ${
                 privacyMode ? "bg-emerald-600 text-white" : "bg-amber-600 text-white"
@@ -479,114 +901,311 @@ export function LearningGainEvaluationView() {
                   : "Mode internal evaluasi."}
               </span>
             </div>
+
+            <button
+              onClick={() => {
+                setPrivacyMode((prev) => !prev);
+                show(
+                  !privacyMode
+                    ? "Mode Privasi Aktif (inisial a*** b***)."
+                    : "Mode Nama Lengkap Aktif.",
+                  "info"
+                );
+              }}
+              className="inline-flex items-center justify-center gap-1.5 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 px-2.5 py-1 text-xs font-semibold text-ink-800 dark:text-slate-100 shadow-xs hover:bg-slate-50 dark:hover:bg-slate-700 active:scale-95 transition-all shrink-0"
+            >
+              {privacyMode ? (
+                <>
+                  <Eye className="h-3.5 w-3.5 text-brand-600 dark:text-brand-400" />
+                  <span>Buka Nama Lengkap</span>
+                </>
+              ) : (
+                <>
+                  <EyeOff className="h-3.5 w-3.5 text-slate-500" />
+                  <span>Samarkan Nama (a*** b***)</span>
+                </>
+              )}
+            </button>
           </div>
 
-          <button
-            onClick={() => {
-              setPrivacyMode((prev) => !prev);
-              show(
-                !privacyMode
-                  ? "Mode Privasi Aktif (inisial a*** b***)."
-                  : "Mode Nama Lengkap Aktif.",
-                "info"
-              );
-            }}
-            className="inline-flex items-center justify-center gap-1.5 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 px-3 py-1.5 text-xs font-semibold text-ink-800 dark:text-slate-100 shadow-xs hover:bg-slate-50 dark:hover:bg-slate-700 active:scale-95 transition-all shrink-0"
-          >
-            {privacyMode ? (
-              <>
-                <Eye className="h-3.5 w-3.5 text-brand-600 dark:text-brand-400" />
-                <span>Buka Nama Lengkap</span>
-              </>
-            ) : (
-              <>
-                <EyeOff className="h-3.5 w-3.5 text-slate-500" />
-                <span>Samarkan Nama (a*** b***)</span>
-              </>
-            )}
-          </button>
+          <div className="flex flex-wrap items-center gap-1.5 text-xs">
+            <span className="text-slate-500 dark:text-slate-400 mr-1">
+              Halaman <strong>{safeCurrentPage}</strong> / <strong>{totalPages}</strong> (No.{" "}
+              <strong>{displayedStudents.length > 0 ? startIndex + 1 : 0}&ndash;{endIndex}</strong>):
+            </span>
+            <button
+              type="button"
+              disabled={safeCurrentPage <= 1}
+              onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
+              className="inline-flex items-center gap-1 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 px-2.5 py-1 font-semibold text-ink-800 dark:text-slate-200 disabled:opacity-40 hover:bg-slate-100 dark:hover:bg-slate-700 transition-all"
+            >
+              <ChevronLeft className="h-3.5 w-3.5" />
+              <span>Sebelumnya</span>
+            </button>
+            <button
+              type="button"
+              disabled={safeCurrentPage >= totalPages}
+              onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
+              className="inline-flex items-center gap-1 rounded-lg bg-brand-600 px-2.5 py-1 font-semibold text-white disabled:opacity-40 hover:bg-brand-700 transition-all shadow-xs"
+            >
+              <span>Berikutnya ({pageSize} Siswa)</span>
+              <ChevronRight className="h-3.5 w-3.5" />
+            </button>
+          </div>
         </div>
 
         {/* Responsive Table */}
         <div className="overflow-x-auto rounded-xl border border-slate-200 dark:border-slate-800">
           <table className="w-full text-left text-xs">
-            <thead className="bg-slate-50 dark:bg-slate-800/80 text-ink-700 dark:text-slate-300 font-bold border-b border-slate-200 dark:border-slate-800">
+            <thead className="bg-slate-50 dark:bg-slate-800/90 text-ink-700 dark:text-slate-300 font-bold border-b border-slate-200 dark:border-slate-800">
               <tr>
-                <th className="py-2 px-3">No</th>
-                <th className="py-2 px-3">
-                  Nama Siswa {privacyMode && <span className="font-normal text-emerald-600 dark:text-emerald-400">(Inisial a*** b***)</span>}
+                <th className="py-2.5 px-3">No</th>
+                <th className="py-2.5 px-3">
+                  Nama Siswa{" "}
+                  {privacyMode && (
+                    <span className="font-normal text-emerald-600 dark:text-emerald-400">
+                      (Inisial a*** b***)
+                    </span>
+                  )}
                 </th>
-                <th className="py-2 px-3">Kelas</th>
-                <th className="py-2 px-3 text-center">Pre-Test</th>
-                <th className="py-2 px-3 text-center">Post-Test</th>
-                <th className="py-2 px-3 text-center">N-Gain (g)</th>
-                <th className="py-2 px-3 text-center">Kategori Hake</th>
-                <th className="py-2 px-3 text-center">Akurasi</th>
-                <th className="py-2 px-3 text-center">Waktu Respons</th>
-                <th className="py-2 px-3 text-center">Status</th>
+                <th className="py-2.5 px-2.5">Kelas</th>
+                <th className="py-2.5 px-2.5 text-center">Pre-Test</th>
+                <th className="py-2.5 px-3 text-center bg-rose-50/70 dark:bg-rose-950/30 text-rose-800 dark:text-rose-300 border-x border-rose-100 dark:border-rose-900/40">
+                  Siklus 1 (08&ndash;17 Okt 2026)
+                </th>
+                <th className="py-2.5 px-3 text-center bg-indigo-50/50 dark:bg-indigo-950/25 text-brand-700 dark:text-brand-300">
+                  Siklus 2 (02&ndash;11 Nov 2026)
+                </th>
+                <th className="py-2.5 px-2.5 text-center">N-Gain (g)</th>
+                <th className="py-2.5 px-2.5 text-center">Kategori Hake</th>
+                <th className="py-2.5 px-2.5 text-center">Akurasi (Okt &rarr; Nov)</th>
+                <th className="py-2.5 px-2.5 text-center">Waktu Respons (Okt &rarr; Nov)</th>
+                <th className="py-2.5 px-3 text-center">Status (Okt &rarr; Nov)</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100 dark:divide-slate-800 text-ink-800 dark:text-slate-200">
-              {displayedStudents.slice(0, 50).map((s, idx) => (
-                <tr key={s.id} className="hover:bg-slate-50/60 dark:hover:bg-slate-800/40">
-                  <td className="py-2 px-3 text-slate-400">{idx + 1}</td>
-                  <td className="py-2 px-3">
-                    <span className="font-semibold block font-mono">{s.displayName}</span>
-                    <span className="text-[10px] text-slate-400 font-mono">{s.displayEmail}</span>
-                  </td>
-                  <td className="py-2 px-3 font-medium">{s.className}</td>
-                  <td className="py-2 px-3 text-center text-slate-500 font-mono">
-                    {s.preTestScore}
-                  </td>
-                  <td className="py-2 px-3 text-center font-bold text-brand-600 dark:text-brand-400 font-mono">
-                    {s.postTestScore}
-                  </td>
-                  <td className="py-2 px-3 text-center font-mono font-bold">
-                    <span
-                      className={`inline-block px-1.5 py-0.5 rounded ${
-                        s.nGain >= 0.7
-                          ? "bg-emerald-50 text-emerald-700 dark:bg-emerald-950/60 dark:text-emerald-300"
-                          : "bg-amber-50 text-amber-700 dark:bg-amber-950/60 dark:text-amber-300"
-                      }`}
-                    >
-                      {s.nGain}
-                    </span>
-                  </td>
-                  <td className="py-2 px-3 text-center">
-                    <span
-                      className={`inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-bold ${
-                        s.hakeCategory === "Tinggi"
-                          ? "bg-emerald-100 text-emerald-800 dark:bg-emerald-900/40 dark:text-emerald-300"
-                          : "bg-amber-100 text-amber-800 dark:bg-amber-900/40 dark:text-amber-300"
-                      }`}
-                    >
-                      {s.hakeCategory}
-                    </span>
-                  </td>
-                  <td className="py-2 px-3 text-center font-mono">
-                    {s.decisionAccuracy}%
-                  </td>
-                  <td className="py-2 px-3 text-center font-mono">
-                    <span className={s.isResponseUnder15s ? "text-emerald-600 dark:text-emerald-400" : "text-amber-600"}>
-                      {s.responseTimeSeconds}s
-                    </span>
-                  </td>
-                  <td className="py-2 px-3 text-center">
-                    <span className="inline-flex items-center gap-1 text-[11px] font-semibold text-emerald-600 dark:text-emerald-400">
-                      <CheckCircle2 className="h-3 w-3" /> Lulus SPAB
-                    </span>
-                  </td>
-                </tr>
-              ))}
+              {paginatedStudents.map((s, idx) => {
+                const rowNumber = startIndex + idx + 1;
+                return (
+                  <tr key={s.id} className="hover:bg-slate-50/60 dark:hover:bg-slate-800/40">
+                    <td className="py-2.5 px-3 font-mono font-semibold text-slate-400">
+                      {rowNumber}
+                    </td>
+                    <td className="py-2.5 px-3">
+                      <span className="font-semibold block font-mono">{s.displayName}</span>
+                      <span className="text-[10px] text-slate-400 font-mono">{s.displayEmail}</span>
+                    </td>
+                    <td className="py-2.5 px-2.5 font-medium whitespace-nowrap">{s.className}</td>
+                    <td className="py-2.5 px-2.5 text-center text-slate-500 font-mono">
+                      {s.preTestScore}
+                    </td>
+
+                    {/* Siklus 1 (Oktober 2026) */}
+                    <td className="py-2.5 px-3 bg-rose-50/35 dark:bg-rose-950/15 border-x border-rose-100/70 dark:border-rose-900/30">
+                      <div className="flex items-center justify-center gap-1.5 font-mono">
+                        <span className="inline-flex items-center gap-1 rounded bg-rose-100/90 dark:bg-rose-950/80 px-1.5 py-0.5 text-[9px] font-sans font-semibold text-rose-700 dark:text-rose-300">
+                          <Calendar className="h-2.5 w-2.5" /> {s.initialTrialDate}
+                        </span>
+                        <span className="font-bold text-rose-600 dark:text-rose-400">
+                          {s.initialPostTestScore}
+                        </span>
+                        <span className="text-[10px] px-1.5 py-0.5 rounded bg-rose-100 text-rose-800 dark:bg-rose-900/50 dark:text-rose-300 font-bold">
+                          g={s.initialNGain}
+                        </span>
+                      </div>
+                      <div className="mt-1 flex items-center justify-center gap-1.5">
+                        <span
+                          className={`inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-bold shrink-0 ${
+                            s.initialSpabStatus === "Gagal SPAB"
+                              ? "bg-rose-600 text-white"
+                              : s.initialSpabStatus === "Remedial SPAB"
+                              ? "bg-amber-500 text-white"
+                              : "bg-slate-200 text-slate-700 dark:bg-slate-700 dark:text-slate-200"
+                          }`}
+                        >
+                          {s.initialSpabStatus === "Gagal SPAB" && <XCircle className="h-2.5 w-2.5" />}
+                          {s.initialSpabStatus === "Remedial SPAB" && (
+                            <AlertTriangle className="h-2.5 w-2.5" />
+                          )}
+                          {s.initialSpabStatus}
+                        </span>
+                        <span className="text-[10px] text-rose-700/85 dark:text-rose-300/85 truncate max-w-[165px]" title={s.initialFailureNote}>
+                          {s.initialFailureNote}
+                        </span>
+                      </div>
+                    </td>
+
+                    {/* Siklus 2 (Awal November 2026) */}
+                    <td className="py-2.5 px-3 text-center font-bold text-brand-600 dark:text-brand-400 font-mono bg-indigo-50/20 dark:bg-indigo-950/10">
+                      <div className="flex items-center justify-center gap-1.5">
+                        <span className="inline-flex items-center gap-1 rounded bg-indigo-100/80 dark:bg-indigo-950/80 px-1.5 py-0.5 text-[9px] font-sans font-semibold text-indigo-700 dark:text-indigo-300">
+                          <Calendar className="h-2.5 w-2.5" /> {s.finalTrialDate}
+                        </span>
+                        <span className="text-sm">{s.postTestScore}</span>
+                      </div>
+                      <span className="block text-[10px] text-emerald-600 dark:text-emerald-400 font-semibold mt-0.5">
+                        +{Math.round((s.postTestScore - s.initialPostTestScore) * 10) / 10} poin dari Okt
+                      </span>
+                    </td>
+
+                    <td className="py-2.5 px-2.5 text-center font-mono font-bold">
+                      <span
+                        className={`inline-block px-1.5 py-0.5 rounded ${
+                          s.nGain >= 0.7
+                            ? "bg-emerald-50 text-emerald-700 dark:bg-emerald-950/60 dark:text-emerald-300"
+                            : "bg-amber-50 text-amber-700 dark:bg-amber-950/60 dark:text-amber-300"
+                        }`}
+                      >
+                        {s.nGain}
+                      </span>
+                    </td>
+
+                    <td className="py-2.5 px-2.5 text-center">
+                      <span
+                        className={`inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-bold ${
+                          s.hakeCategory === "Tinggi"
+                            ? "bg-emerald-100 text-emerald-800 dark:bg-emerald-900/40 dark:text-emerald-300"
+                            : "bg-amber-100 text-amber-800 dark:bg-amber-900/40 dark:text-amber-300"
+                        }`}
+                      >
+                        {s.hakeCategory}
+                      </span>
+                    </td>
+
+                    <td className="py-2.5 px-2.5 text-center font-mono whitespace-nowrap">
+                      <span className="text-rose-500 line-through text-[10px] mr-1">
+                        {s.initialDecisionAccuracy}%
+                      </span>
+                      <ArrowRight className="inline h-2.5 w-2.5 text-slate-400 mr-1" />
+                      <strong className="text-ink-900 dark:text-white">
+                        {s.decisionAccuracy}%
+                      </strong>
+                    </td>
+
+                    <td className="py-2.5 px-2.5 text-center font-mono whitespace-nowrap">
+                      <span className="text-rose-500 line-through text-[10px] mr-1">
+                        {s.initialResponseTimeSeconds}s
+                      </span>
+                      <ArrowRight className="inline h-2.5 w-2.5 text-slate-400 mr-1" />
+                      <span
+                        className={`font-bold ${
+                          s.isResponseUnder15s
+                            ? "text-emerald-600 dark:text-emerald-400"
+                            : "text-amber-600"
+                        }`}
+                      >
+                        {s.responseTimeSeconds}s
+                      </span>
+                    </td>
+
+                    <td className="py-2.5 px-3 text-center whitespace-nowrap">
+                      <div className="flex flex-col items-center gap-0.5">
+                        <span className="text-[10px] text-rose-500 line-through">
+                          Okt: {s.initialSpabStatus}
+                        </span>
+                        <span className="inline-flex items-center gap-1 text-[11px] font-semibold text-emerald-600 dark:text-emerald-400">
+                          <CheckCircle2 className="h-3 w-3" /> Nov: Lulus SPAB
+                        </span>
+                      </div>
+                    </td>
+                  </tr>
+                );
+              })}
             </tbody>
           </table>
         </div>
 
-        {filteredStudents.length > 50 && (
-          <p className="text-[11px] text-center text-slate-400 italic">
-            Menampilkan 50 dari {filteredStudents.length} siswa. Unduh CSV untuk data lengkap.
-          </p>
-        )}
+        {/* Full Bottom Pagination Bar */}
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pt-2 border-t border-slate-100 dark:border-slate-800 text-xs">
+          <div className="flex flex-wrap items-center gap-2 text-slate-500 dark:text-slate-400">
+            <span>
+              Menampilkan siswa ke-<strong>{displayedStudents.length > 0 ? startIndex + 1 : 0}</strong> sampai{" "}
+              <strong>{endIndex}</strong> dari total <strong>{displayedStudents.length}</strong> siswa
+            </span>
+            {pageSize < displayedStudents.length && (
+              <button
+                type="button"
+                onClick={() => setPageSize(320)}
+                className="inline-flex items-center gap-1 rounded-lg bg-brand-50 dark:bg-brand-950/60 px-2.5 py-1 text-[11px] font-bold text-brand-700 dark:text-brand-300 hover:bg-brand-100 transition-all"
+              >
+                <Users className="h-3 w-3" />
+                <span>Tampilkan Semua 320 Siswa</span>
+              </button>
+            )}
+            {pageSize >= 320 && displayedStudents.length > 50 && (
+              <button
+                type="button"
+                onClick={() => setPageSize(50)}
+                className="inline-flex items-center gap-1 rounded-lg bg-slate-100 dark:bg-slate-800 px-2.5 py-1 text-[11px] font-semibold text-slate-700 dark:text-slate-300 hover:bg-slate-200 transition-all"
+              >
+                <span>Kembali ke 50 Siswa / Halaman</span>
+              </button>
+            )}
+          </div>
+
+          {totalPages > 1 && (
+            <div className="flex flex-wrap items-center gap-1">
+              <button
+                type="button"
+                disabled={safeCurrentPage <= 1}
+                onClick={() => setCurrentPage(1)}
+                title="Halaman Pertama"
+                className="p-1.5 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-600 dark:text-slate-300 disabled:opacity-40 hover:bg-slate-50"
+              >
+                <ChevronsLeft className="h-3.5 w-3.5" />
+              </button>
+              <button
+                type="button"
+                disabled={safeCurrentPage <= 1}
+                onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
+                className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 font-semibold text-slate-700 dark:text-slate-200 disabled:opacity-40 hover:bg-slate-50"
+              >
+                <ChevronLeft className="h-3.5 w-3.5" />
+                <span>Prev</span>
+              </button>
+
+              {pageNumbers.map((pageNum) => {
+                const isActive = pageNum === safeCurrentPage;
+                const pStart = (pageNum - 1) * pageSize + 1;
+                const pEnd = Math.min(pageNum * pageSize, displayedStudents.length);
+                return (
+                  <button
+                    key={pageNum}
+                    type="button"
+                    onClick={() => setCurrentPage(pageNum)}
+                    title={`Siswa No. ${pStart}–${pEnd}`}
+                    className={`px-2.5 py-1.5 rounded-lg font-bold transition-all ${
+                      isActive
+                        ? "bg-brand-600 text-white shadow-xs"
+                        : "border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-300 hover:bg-slate-50"
+                    }`}
+                  >
+                    {pageNum}
+                  </button>
+                );
+              })}
+
+              <button
+                type="button"
+                disabled={safeCurrentPage >= totalPages}
+                onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
+                className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg bg-brand-600 font-semibold text-white disabled:opacity-40 hover:bg-brand-700 shadow-xs"
+              >
+                <span>Next {pageSize}</span>
+                <ChevronRight className="h-3.5 w-3.5" />
+              </button>
+              <button
+                type="button"
+                disabled={safeCurrentPage >= totalPages}
+                onClick={() => setCurrentPage(totalPages)}
+                title="Halaman Terakhir"
+                className="p-1.5 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-600 dark:text-slate-300 disabled:opacity-40 hover:bg-slate-50"
+              >
+                <ChevronsRight className="h-3.5 w-3.5" />
+              </button>
+            </div>
+          )}
+        </div>
       </div>
     </div>
   );

@@ -60,7 +60,7 @@ test("TeacherDashboardView and SurveyAnalyticsView include Learning Gain navigat
     path.resolve(process.cwd(), "apps/web/src/components/dashboard/views/analytics/SurveyAnalyticsView.tsx"),
     "utf8"
   );
-  assert.match(surveySrc, /Validasi Empiris Slide 13 PPT/);
+  assert.match(surveySrc, /Evaluasi Empiris SPAB/);
   assert.match(surveySrc, /N-Gain = 0,74/);
   assert.match(surveySrc, /learning-gain/);
 });
@@ -104,6 +104,9 @@ test("Demo Mode accessibility and Privacy Masking (a*** b***) integrity", async 
   assert.match(viewSrc, /a\*\*\* b\*\*\*/);
   assert.match(viewSrc, /maskNamePrivacy/);
   assert.match(viewSrc, /displayedStudents/);
+  assert.match(viewSrc, /paginatedStudents/);
+  assert.match(viewSrc, /totalPages/);
+  assert.match(viewSrc, /Tampilkan Semua \(320 Siswa\)/);
 
   // Verify DashboardView and LoginPage have quick access links for demo users
   const dashSrc = fs.readFileSync(path.resolve(process.cwd(), "apps/web/src/components/dashboard/DashboardView.tsx"), "utf8");
@@ -145,11 +148,31 @@ test("320+ Students Cohort & Database Persistence Integrity (All 320 students ha
   assert.equal(metrics.learningConsistencyPercent, 89);
   assert.equal(metrics.transferOfLearningPercent, 83);
 
-  // 4. Verify all 320 individual students have valid numerical metrics
+  // 4. Verify all 320 individual students have valid numerical metrics (both Percobaan Awal & Percobaan Baru)
+  const initMetrics = HARMONY_EMPIRICAL_VALIDATION_SUMMARY.initialTrialMetrics;
+  assert.ok(initMetrics, "initialTrialMetrics must exist");
+  assert.equal(initMetrics.avgPreTest, 46.5);
+  assert.equal(initMetrics.avgPostTest, 58.8);
+  assert.equal(initMetrics.normalizedGain, 0.23);
+  assert.match(initMetrics.hakeCategory, /Rendah/);
+  assert.equal(initMetrics.decisionAccuracyPercent, 53);
+  assert.equal(initMetrics.responseEfficiencyPercent, 34);
+  assert.equal(initMetrics.learningConsistencyPercent, 51);
+  assert.equal(initMetrics.transferOfLearningPercent, 49);
+  assert.ok(initMetrics.failedStudentsCount >= 250, "Most students should fail in Initial Trial (Siklus 1)");
+
   for (const s of students) {
     assert.ok(s.id && s.id.startsWith("st-sman1ngoro-"));
     assert.ok(s.name && s.name.length > 2);
     assert.ok(s.preTestScore >= 20 && s.preTestScore <= 70);
+    // Initial trial (Data Lama Oktober 2026) low scores & failure records
+    assert.ok(s.initialTrialDate && s.initialTrialDate.includes("Okt 2026"));
+    assert.ok(s.finalTrialDate && s.finalTrialDate.includes("Nov 2026"));
+    assert.ok(s.initialPostTestScore >= s.preTestScore && s.initialPostTestScore < s.postTestScore);
+    assert.ok(s.initialNGain >= 0.05 && s.initialNGain <= 0.50);
+    assert.ok(["Gagal SPAB", "Remedial SPAB", "Lulus Bersyarat"].includes(s.initialSpabStatus));
+    assert.ok(s.initialFailureNote && s.initialFailureNote.length > 5);
+    // New trial (Percobaan Baru - Siklus 2 / Slide 13) high scores
     assert.ok(s.postTestScore >= 70 && s.postTestScore <= 100);
     assert.ok(s.nGain >= 0.50 && s.nGain <= 1.0);
     assert.ok(s.decisionAccuracy >= 60 && s.decisionAccuracy <= 100);

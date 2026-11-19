@@ -187,7 +187,7 @@ export function SurveyAnalyticsView() {
           <div className="space-y-1">
             <div className="inline-flex items-center gap-1.5 rounded-full bg-emerald-100 px-2.5 py-0.5 text-[11px] font-bold text-emerald-800 dark:bg-emerald-950/60 dark:text-emerald-300">
               <Sparkles className="h-3 w-3" />
-              <span>Validasi Empiris Slide 13 PPT — Normalized Learning Gain</span>
+              <span>Evaluasi Empiris SPAB — Normalized Learning Gain</span>
             </div>
             <h3 className="font-display text-base font-extrabold text-ink-900 dark:text-white">
               Uji Coba Efektivitas 320 Siswa SMAN 1 Ngoro: N-Gain = 0,74 (Kategori Tinggi)

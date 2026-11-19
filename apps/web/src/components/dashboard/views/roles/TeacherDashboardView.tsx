@@ -721,9 +721,6 @@ export function TeacherDashboardView() {
           >
             <Sparkles className="h-4 w-4 text-amber-300 animate-pulse" />
             <span>Efektivitas &amp; Learning Gain (0,7+)</span>
-            <span className="rounded-full bg-emerald-400/20 px-2 py-0.5 text-[10px] font-bold text-emerald-300 ring-1 ring-emerald-400/30">
-              Slide 13
-            </span>
           </button>
         </div>
       </div>
