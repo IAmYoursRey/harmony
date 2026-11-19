@@ -1010,8 +1010,8 @@ export function DisasterQuestionView() {
           </div>
           <h2 className="mt-3 font-display text-2xl font-extrabold tracking-tight sm:text-3xl">
             {locale === "id"
-              ? "Pusat Pertanyaan Bencana"
-              : "Disaster Question Center"}
+              ? "Latihan Soal"
+              : "Question Center"}
           </h2>
           <p className="mt-1.5 max-w-xl text-sm text-brand-100">
             {locale === "id"
@@ -1032,7 +1032,7 @@ export function DisasterQuestionView() {
           }`}
         >
           <Sparkles className="h-4 w-4" />
-          <span>{locale === "id" ? "Evaluasi Interaktif" : "Interactive Quiz"}</span>
+          <span>{locale === "id" ? "Latihan Soal" : "Interactive Quiz"}</span>
         </button>
         <button
           type="button"
@@ -1044,7 +1044,7 @@ export function DisasterQuestionView() {
           }`}
         >
           <BookOpen className="h-4 w-4" />
-          <span>{locale === "id" ? "Materi Berkelanjutan" : "Learning Materials"}</span>
+          <span>{locale === "id" ? "Materi Mitigasi" : "Study Modules"}</span>
         </button>
         <button
           type="button"
@@ -1056,7 +1056,7 @@ export function DisasterQuestionView() {
           }`}
         >
           <Compass className="h-4 w-4" />
-          <span>{locale === "id" ? "Panduan Evakuasi Diri" : "Evacuation Guide"}</span>
+          <span>{locale === "id" ? "Panduan Evakuasi" : "Evacuation Guide"}</span>
         </button>
       </div>
 
@@ -1129,7 +1129,7 @@ export function DisasterQuestionView() {
                         <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-white/80 dark:bg-slate-900/70 shadow-xs">
                           <Icon className={`h-5 w-5 ${topicItem.color}`} />
                         </span>
-                        <ChevronRight className="h-4 w-4 text-slate-400 opacity-0 group-hover:opacity-100 group-hover:translate-x-0.5 transition-all" />
+                        <ChevronRight className="h-4 w-4 text-slate-400 opacity-100 sm:opacity-0 sm:group-hover:opacity-100 group-hover:translate-x-0.5 transition-all" />
                       </div>
                       <p className="font-display text-sm font-bold text-slate-900 dark:text-white leading-tight">
                         {topicItem.label}
@@ -1446,8 +1446,7 @@ export function DisasterQuestionView() {
                 </span>
                 <div>
                   <h3 className="font-display text-base font-bold text-slate-900 dark:text-white">
-                    Kurikulum Berkelanjutan: Mitigasi{" "}
-                    {learningMaterials[selectedMaterialIdx].topic}
+                    Mitigasi {learningMaterials[selectedMaterialIdx].topic}
                   </h3>
                   <p className="text-xs text-slate-500 dark:text-slate-400">
                     {learningMaterials[selectedMaterialIdx].chapters.length} modul ringkas kesiapsiagaan
@@ -1499,7 +1498,7 @@ export function DisasterQuestionView() {
               </span>
               <div>
                 <h3 className="font-display text-base font-bold text-slate-900 dark:text-white">
-                  Buku Saku Panduan Tata Cara Evakuasi Diri Mandiri
+                  Panduan Evakuasi
                 </h3>
                 <p className="text-xs text-slate-500 dark:text-slate-400">
                   Klik setiap langkah untuk menandai pemahaman kesiapsiagaan Anda

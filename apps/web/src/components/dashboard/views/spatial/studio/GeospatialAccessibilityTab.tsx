@@ -329,7 +329,7 @@ export const GeospatialAccessibilityTab: React.FC<GeospatialAccessibilityTabProp
           <div>
             <div className="flex items-center gap-2">
               <h3 className="text-sm font-bold text-slate-800 dark:text-white">
-                Akses Layanan 15 Menit & Kesenjangan Fasilitas
+                Akses Layanan
               </h3>
               <span className="text-[10px] font-extrabold uppercase px-2 py-0.5 rounded-full bg-blue-500/15 text-blue-700 dark:text-blue-300 border border-blue-500/25">
                 Estimasi Radial
@@ -356,7 +356,7 @@ export const GeospatialAccessibilityTab: React.FC<GeospatialAccessibilityTabProp
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b border-slate-100 dark:border-slate-700/60">
           <div>
             <h4 className="text-sm font-bold text-slate-900 dark:text-white flex items-center gap-2">
-              <Compass className="w-4 h-4 text-blue-500" /> Moda Transportasi & Parameter Isokron
+              <Compass className="w-4 h-4 text-blue-500" /> Parameter Isokron
             </h4>
             <p className="text-xs text-slate-500 dark:text-slate-400">
               Pilih profil pergerakan untuk menghitung poligon kontur jangkauan waktu
@@ -453,7 +453,7 @@ export const GeospatialAccessibilityTab: React.FC<GeospatialAccessibilityTabProp
       <div className="p-4 rounded-3xl bg-white dark:bg-slate-800/90 border border-slate-200 dark:border-slate-700/80 shadow-sm space-y-3">
         <div className="flex items-center justify-between pb-2 border-b border-slate-100 dark:border-slate-700/60">
           <h4 className="text-sm font-bold text-slate-900 dark:text-white flex items-center gap-2">
-            <CheckCircle2 className="w-4 h-4 text-emerald-500" /> Estimasi Akses Layanan Esensial (15 Menit)
+            <CheckCircle2 className="w-4 h-4 text-emerald-500" /> Estimasi Akses
           </h4>
           <span
             className={`px-2.5 py-0.5 rounded-full text-xs font-bold ${
@@ -523,7 +523,7 @@ export const GeospatialAccessibilityTab: React.FC<GeospatialAccessibilityTabProp
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
           <div>
             <h4 className="text-sm font-bold text-indigo-900 dark:text-indigo-200 flex items-center gap-2">
-              <TrendingUp className="w-4 h-4 text-indigo-600" /> Skenario Perencanaan Fasilitas Baru (Uji Dampak)
+              <TrendingUp className="w-4 h-4 text-indigo-600" /> Simulasi Fasilitas
             </h4>
             <p className="text-xs text-indigo-700 dark:text-indigo-300">
               Simulasikan penambahan fasilitas kandidat untuk mengukur peningkatan jangkauan warga
@@ -616,7 +616,7 @@ export const GeospatialAccessibilityTab: React.FC<GeospatialAccessibilityTabProp
             <div>
               <div className="flex items-center gap-2">
                 <h4 className="text-xs font-bold text-slate-900 dark:text-white">
-                  Telemetri Lalu Lintas & Kecepatan Ruas Jalan (TomTom Traffic Flow)
+                  Lalu Lintas Aktual
                 </h4>
                 <span className="text-[10px] font-extrabold uppercase px-2 py-0.5 rounded-full bg-amber-500/15 text-amber-700 dark:text-amber-300 border border-amber-500/25 flex items-center gap-1">
                   <span className="w-1.5 h-1.5 rounded-full bg-amber-500 animate-pulse" />

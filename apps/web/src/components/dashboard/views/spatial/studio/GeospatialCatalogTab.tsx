@@ -29,7 +29,7 @@ export const GeospatialCatalogTab: React.FC = () => {
           <div>
             <div className="flex items-center gap-2">
               <h3 className="text-sm font-bold text-white">
-                Katalog Data Spasial & Provenansi Metadata
+                Katalog Data
               </h3>
               <span className="text-[10px] font-extrabold uppercase px-2 py-0.5 rounded-full bg-indigo-500/20 text-indigo-300 border border-indigo-500/30">
                 SNI ISO 19115:2012

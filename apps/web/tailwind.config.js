@@ -7,6 +7,7 @@ export default {
       fontFamily: {
         sans: ['Inter', 'system-ui', 'sans-serif'],
         display: ['"Plus Jakarta Sans"', 'system-ui', 'sans-serif'],
+        mono: ['"JetBrains Mono"', 'ui-monospace', 'SFMono-Regular', 'monospace'],
       },
       colors: {
         brand: {
@@ -36,9 +37,22 @@ export default {
         },
       },
       boxShadow: {
+        '2xs': '0 1px 1px 0 rgb(0 0 0 / 0.04)',
+        xs: '0 1px 2px 0 rgb(0 0 0 / 0.05)',
         glass: '0 8px 32px 0 hsla(var(--brand-800), 0.12)',
         'glass-lg': '0 20px 60px -10px hsla(var(--brand-800), 0.25)',
         glow: '0 0 40px hsla(var(--brand-500), 0.35)',
+      },
+      spacing: {
+        '0.2': '0.05rem',
+        '8.5': '2.125rem',
+        '84': '21rem',
+      },
+      borderRadius: {
+        xs: '0.125rem',
+      },
+      backdropBlur: {
+        xs: '2px',
       },
       backgroundImage: {
         'grid-pattern':

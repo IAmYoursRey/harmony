@@ -41,16 +41,16 @@ function StatCard({
   return (
     <div
       ref={ref}
-      className="reveal is-visible glass group h-full rounded-2xl p-6 text-center transition-all hover:-translate-y-1 hover:shadow-glass-lg"
+      className="reveal is-visible glass group h-full min-w-0 rounded-2xl p-4 sm:p-6 text-center transition-all hover:-translate-y-1 hover:shadow-glass-lg"
       style={{ transitionDelay: `${index * 60}ms` }}
     >
-      <p className="font-display text-4xl font-extrabold text-brand-700 sm:text-5xl">
+      <p className="font-display text-2xl sm:text-4xl lg:text-5xl font-extrabold text-brand-700 tabular-nums">
         {stat.value.toLocaleString()}
         <span className="text-brand-500 dark:text-brand-400">
           {stat.suffix}
         </span>
       </p>
-      <p className="mt-2 text-sm font-medium text-ink-600 dark:text-slate-300">
+      <p className="mt-2 break-words text-sm font-medium text-ink-600 dark:text-slate-300">
         {locale === "id" ? stat.labelId : stat.labelEn}
       </p>
     </div>
@@ -68,8 +68,8 @@ export function Stats() {
           </span>
           <h2 className="mt-3 font-display text-3xl font-extrabold tracking-tight text-ink-900 sm:text-4xl">
             {locale === "id"
-              ? "Dipercaya pendidik, dibangun untuk ketahanan"
-              : "Trusted by educators, built for resilience"}
+              ? "Ketahanan Sekolah Terukur"
+              : "Trusted for resilience"}
           </h2>
         </Reveal>
         <div className="grid grid-cols-2 gap-4 sm:gap-6 lg:grid-cols-4">

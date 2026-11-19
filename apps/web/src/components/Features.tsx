@@ -55,7 +55,7 @@ export function Features() {
             Fitur Utama
           </span>
           <h2 className="mt-3 font-display text-3xl font-extrabold tracking-tight text-ink-900 dark:text-white sm:text-4xl">
-            Empat pilar kesiapsiagaan sekolah
+            Pilar Kesiapsiagaan
           </h2>
           <p className="mt-4 text-ink-600 dark:text-slate-300">
             Menghubungkan data risiko lokasi dengan latihan simulasi terstruktur di kelas.

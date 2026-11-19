@@ -15,7 +15,9 @@ export interface PreciseLocationInfo {
   fullAddress: string;    // Alamat lengkap terformat
   shortDisplay: string;   // Ringkasan: "Desa Lolawang, Kec. Ngoro, Kab. Mojokerto"
   accuracyM?: number;     // Akurasi satelit GPS dalam meter
-  source: 'nominatim' | 'bigdatacloud' | 'vector_topojson' | 'spatial_fallback';
+  source: 'nominatim' | 'bigdatacloud' | 'vector_topojson' | 'unavailable';
+  isError?: boolean;
+  errorMessage?: string;
   lat: number;
   lng: number;
 }
@@ -395,61 +397,24 @@ class PreciseGeocodingService {
       console.warn('BigDataCloud reverse geocode fallback triggered:', bdcErr);
     }
 
-    // 3. Fallback: Spatial Region Approximation
-    return this.getSpatialFallback(lat, lng, accuracyM);
+    // 3. Explicit UNAVAILABLE / ERROR when live geocoders cannot resolve coordinates
+    return this.buildUnavailableLocation(lat, lng, accuracyM);
   }
 
-  /**
-   * Fast offline spatial fallback when network is unavailable
-   */
-  private getSpatialFallback(lat: number, lng: number, accuracyM?: number): PreciseLocationInfo {
-    // Mojokerto / Ngoro spatial polygon check
-    if (lat >= -7.65 && lat <= -7.45 && lng >= 112.50 && lng <= 112.70) {
-      return {
-        village: 'Desa Sedati',
-        subDistrict: 'Kecamatan Ngoro',
-        city: 'Kabupaten Mojokerto',
-        province: 'Jawa Timur',
-        road: 'Jl. Raya Ngoro Industri',
-        postcode: '61385',
-        country: 'Indonesia',
-        fullAddress: 'Desa Sedati, Kecamatan Ngoro, Kabupaten Mojokerto, Jawa Timur, Indonesia',
-        shortDisplay: 'Desa Sedati, Kec. Ngoro, Kab. Mojokerto',
-        accuracyM,
-        source: 'spatial_fallback',
-        lat,
-        lng,
-      };
-    }
-
-    // Surabaya spatial check
-    if (lat >= -7.38 && lat <= -7.18 && lng >= 112.65 && lng <= 112.82) {
-      return {
-        village: 'Kelurahan Wonokromo',
-        subDistrict: 'Kecamatan Wonokromo',
-        city: 'Kota Surabaya',
-        province: 'Jawa Timur',
-        country: 'Indonesia',
-        fullAddress: 'Wonokromo, Kota Surabaya, Jawa Timur, Indonesia',
-        shortDisplay: 'Kec. Wonokromo, Kota Surabaya',
-        accuracyM,
-        source: 'spatial_fallback',
-        lat,
-        lng,
-      };
-    }
-
-    // Generic Indonesian coordinates fallback
+  private buildUnavailableLocation(lat: number, lng: number, accuracyM?: number): PreciseLocationInfo {
+    const errorMessage = 'Layanan reverse geocoding (Nominatim & BigDataCloud) gagal dijangkau.';
     return {
-      village: undefined,
-      subDistrict: undefined,
-      city: 'Wilayah Geospasial Terverifikasi',
-      province: 'Indonesia',
+      village: 'Tidak Tersedia',
+      subDistrict: 'Tidak Tersedia',
+      city: 'Tidak Tersedia',
+      province: 'Tidak Tersedia',
       country: 'Indonesia',
-      fullAddress: `Koordinat Geodesi ${lat.toFixed(5)}°, ${lng.toFixed(5)}°`,
-      shortDisplay: `Koordinat ${lat.toFixed(4)}°, ${lng.toFixed(4)}°`,
+      fullAddress: `Koordinat ${lat.toFixed(5)}, ${lng.toFixed(5)} (Geocoding Error)`,
+      shortDisplay: `${lat.toFixed(4)}, ${lng.toFixed(4)}`,
       accuracyM,
-      source: 'spatial_fallback',
+      source: 'unavailable',
+      isError: true,
+      errorMessage,
       lat,
       lng,
     };

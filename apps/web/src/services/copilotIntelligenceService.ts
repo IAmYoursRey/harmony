@@ -275,20 +275,20 @@ export class CopilotIntelligenceService {
 
       let text = '';
       if (rainingCities.length > 0) {
-        text = `🌧️ **Wilayah Terpantau Hujan Saat Ini**:\n` +
+        text = `**Wilayah Terpantau Hujan Saat Ini**:\n` +
           rainingCities.map(c => `• **${c.name}** (${c.province}): ${c.desc} ${c.precip > 0 ? `(${c.precip} mm)` : ''}, ${c.temp}°C`).join('\n') +
           `\n\nKota utama lainnya (${dryCities.slice(0, 4).map(d => d.name).join(', ')}) terpantau berawan hingga cerah. Pantau sebaran awan hujan di radar cuaca.`;
       } else {
-        text = `⛅ **Kondisi Hujan Terkini di Indonesia**:\nSaat ini sebagian besar kota utama (${dryCities.slice(0, 5).map(d => d.name).join(', ')}) terpantau **cerah hingga berawan** tanpa curah hujan signifikan (0.0 mm). Pantau radar awan hujan selengkapnya di panel cuaca.`;
+        text = `**Kondisi Hujan Terkini di Indonesia**:\nSaat ini sebagian besar kota utama (${dryCities.slice(0, 5).map(d => d.name).join(', ')}) terpantau **cerah hingga berawan** tanpa curah hujan signifikan (0.0 mm). Pantau radar awan hujan selengkapnya di panel cuaca.`;
       }
 
       const result = {
         text,
         action: {
-          label: 'Buka Panel Cuaca & Radar ⛅',
+          label: 'Panel Cuaca',
           path: '/app/maps?open=weather',
           event: { name: 'harmony:open-weather', detail: { domain: 'weather' } },
-          icon: '⛅',
+          icon: 'cloud',
         },
       };
 
@@ -296,12 +296,12 @@ export class CopilotIntelligenceService {
       return result;
     } catch {
       return {
-        text: '⛅ Pantauan radar cuaca nasional aktif di Harmony Maps. Buka panel cuaca untuk melihat peta sebaran awan dan curah hujan satelit real-time.',
+        text: 'Pantauan radar cuaca nasional aktif di Peta Spasial. Buka panel cuaca untuk melihat sebaran awan dan curah hujan terkini.',
         action: {
-          label: 'Buka Panel Cuaca & Radar ⛅',
+          label: 'Panel Cuaca',
           path: '/app/maps?open=weather',
           event: { name: 'harmony:open-weather', detail: { domain: 'weather' } },
-          icon: '⛅',
+          icon: 'cloud',
         },
       };
     }
@@ -342,7 +342,7 @@ export class CopilotIntelligenceService {
       const code = Number(cur?.weather_code) || 1;
       const condition = decodeWmoWeather(code);
 
-      const text = `⛅ **Cuaca Hari Ini (${target.name}, ${target.province})**:\n` +
+      const text = `**Cuaca Hari Ini (${target.name}, ${target.province})**:\n` +
         `• Suhu: **${temp}°C** (Terasa ${appTemp}°C)\n` +
         `• Kondisi: **${condition}**\n` +
         `• Kelembapan: **${humidity}%** | Angin: **${wind} km/j**\n` +
@@ -352,10 +352,10 @@ export class CopilotIntelligenceService {
       const result = {
         text,
         action: {
-          label: `Buka Panel Cuaca (${target.name}) ⛅`,
+          label: `Cuaca ${target.name}`,
           path: '/app/maps?open=weather',
           event: { name: 'harmony:open-weather', detail: { domain: 'weather' } },
-          icon: '⛅',
+          icon: 'cloud',
         },
       };
 
@@ -363,12 +363,12 @@ export class CopilotIntelligenceService {
       return result;
     } catch {
       return {
-        text: `⛅ **Info Cuaca**: Pantauan cuaca ${target.name} dan sekitarnya dapat dilihat secara visual di Panel Cuaca Harmony Maps lengkap dengan suhu, arah angin, dan radar awan.`,
+        text: `**Info Cuaca**: Pantauan cuaca ${target.name} dan sekitarnya dapat dilihat pada Panel Cuaca lengkap dengan suhu, arah angin, dan radar awan.`,
         action: {
-          label: 'Buka Panel Cuaca ⛅',
+          label: 'Panel Cuaca',
           path: '/app/maps?open=weather',
           event: { name: 'harmony:open-weather', detail: { domain: 'weather' } },
-          icon: '⛅',
+          icon: 'cloud',
         },
       };
     }
@@ -382,34 +382,38 @@ export class CopilotIntelligenceService {
       const report: GnssElevationReport = await gnssElevationService.measureElevationAndPosition();
       const latStr = report.lat.toFixed(5);
       const lngStr = report.lng.toFixed(5);
-      const altStr = `${report.altitudeM >= 0 ? `+${report.altitudeM}` : report.altitudeM} mdpl`;
+      const altStr = report.altitudeM != null
+        ? `${report.altitudeM >= 0 ? `+${report.altitudeM}` : report.altitudeM} mdpl`
+        : 'Tidak tersedia (DEM & sensor offline)';
+      const pressStr = report.estimatedBarometricPressureHpa != null ? `${report.estimatedBarometricPressureHpa} hPa` : '—';
+      const boilStr = report.estimatedBoilingPointC != null ? `${report.estimatedBoilingPointC}°C` : '—';
 
-      const text = `📍 **Lokasi & Ketinggian Anda**:\n` +
+      const text = `**Lokasi & Ketinggian Anda**:\n` +
         `• **Koordinat**: ${report.dmsDisplay} (${latStr}°, ${lngStr}°)\n` +
         `• **Ketinggian**: **${altStr}** (${report.topographyZone})\n` +
-        `• **Tekanan Udara**: ${report.estimatedBarometricPressureHpa} hPa | Didih Air: ${report.estimatedBoilingPointC}°C\n` +
+        `• **Tekanan Udara**: ${pressStr} | Didih Air: ${boilStr}\n` +
         `• **Akurasi GPS**: ±${report.accuracyM} meter\n\n` +
-        `Titik koordinat dan profil elevasi Anda langsung dipusatkan di Harmony Maps!`;
+        `Titik koordinat dan profil elevasi Anda telah dipusatkan pada peta.`;
 
       return {
         text,
         action: {
-          label: 'Pusatkan Lokasi di Peta 📍',
+          label: 'Pusatkan Lokasi',
           path: '/app/maps?locate=true',
           event: {
             name: 'harmony:locate-user',
             detail: { lat: report.lat, lng: report.lng, report },
           },
-          icon: '📍',
+          icon: 'pin',
         },
       };
     } catch (err: any) {
       return {
-        text: `📍 **Permintaan Akses Lokasi**:\n${err.message || 'Mohon izinkan akses lokasi di peramban Anda agar AI dapat mengukur posisi koordinat dan elevasi (ketinggian mdpl) Anda secara presisi.'}\n\nAnda juga dapat membuka menu Harmony Maps untuk mengaktifkan pelacak GPS.`,
+        text: `**Permintaan Akses Lokasi**:\n${err.message || 'Mohon izinkan akses lokasi di peramban agar sistem dapat mengukur posisi koordinat dan elevasi.'}\n\nAnda juga dapat membuka Peta Spasial untuk mengaktifkan pelacak GPS.`,
         action: {
-          label: 'Buka Harmony Maps & GPS 🗺️',
+          label: 'Buka Peta',
           path: '/app/maps',
-          icon: '🗺️',
+          icon: 'map',
         },
       };
     }
@@ -420,21 +424,21 @@ export class CopilotIntelligenceService {
    */
   public getAllFeaturesSummary(): { text: string; action: CopilotNavigationAction } {
     const text = `**Menu Utama Platform Harmony**:\n` +
-      `1. **Peta Utama** (Harmony Maps): Pantau gempa BMKG, gunung api aktif, titik panas, cuaca, CCTV jalan, & rute aman.\n` +
-      `2. **Cuaca & Satelit**: Prakiraan cuaca harian, radar hujan, & info BMKG sekitar sekolah.\n` +
-      `3. **Tanya GeoBot**: Ngobrol dengan GeoBot (Indonesia / Jawa) & cek progres belajarmu.\n` +
-      `4. **Latihan Soal**: Kuis materi kebencanaan adaptif beserta pembahasan.\n` +
-      `5. **Simulasi Denah & Main Bareng**: Latihan evakuasi 2D di denah nyata SMAN 1 Ngoro (bisa mabar sekelas).\n` +
-      `6. **Skor Harmony & Ketahanan Sekolah**: Penilaian kesiapan sekolah standar BNPB.\n` +
-      `7. **Agenda & Lomba**: Info kegiatan simulasi dan lomba kebencanaan.\n\n` +
-      `Ketik saja *"buka peta"*, *"buka cuaca"*, atau *"buka latihan soal"* buat langsung pindah halaman.`;
+      `1. **Peta Utama**: Gempa BMKG, gunung api aktif, titik panas, cuaca, CCTV jalan, dan rute aman.\n` +
+      `2. **Studio Geospasial**: Prakiraan cuaca, radar hujan, & informasi BMKG.\n` +
+      `3. **Tanya GeoBot**: Konsultasi kebencanaan dan pemantauan progres belajar.\n` +
+      `4. **Latihan Soal**: Evaluasi materi kebencanaan adaptif beserta pembahasan.\n` +
+      `5. **Denah Evakuasi**: Simulasi evakuasi 2D pada denah sekolah beserta sesi kelas.\n` +
+      `6. **Ketahanan Sekolah**: Penilaian kesiapan sekolah standar BNPB.\n` +
+      `7. **Agenda Sekolah**: Jadwal kegiatan simulasi dan lomba kebencanaan.\n\n` +
+      `Ketik *"buka peta"*, *"buka cuaca"*, atau *"buka latihan soal"* untuk navigasi langsung.`;
 
     return {
       text,
       action: {
-        label: 'Buka Peta Utama',
+        label: 'Peta Utama',
         path: '/app/maps',
-        icon: '🗺️',
+        icon: 'map',
       },
     };
   }

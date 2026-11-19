@@ -29,7 +29,7 @@ interface NavigationAction {
   label: string;
   path: string;
   event?: { name: string; detail?: any };
-  icon: string;
+  icon?: string;
 }
 
 interface ChatMessage {
@@ -54,10 +54,9 @@ const findNavigationIntent = (query: string): NavigationAction | null => {
     lower.includes("pancaroba")
   ) {
     return {
-      label: "Buka Panel Cuaca & Iklim",
+      label: "Panel Cuaca",
       path: "/app/maps?open=weather",
       event: { name: "harmony:open-weather", detail: { domain: "weather" } },
-      icon: "⛅",
     };
   }
 
@@ -68,10 +67,9 @@ const findNavigationIntent = (query: string): NavigationAction | null => {
     lower.includes("pengaturan peta")
   ) {
     return {
-      label: "Buka Lapisan & Mode Peta",
+      label: "Mode & Lapisan",
       path: "/app/maps",
       event: { name: "harmony:open-layers" },
-      icon: "🗺️",
     };
   }
 
@@ -82,9 +80,8 @@ const findNavigationIntent = (query: string): NavigationAction | null => {
     lower.includes("lintasan")
   ) {
     return {
-      label: "Buka Harmony Maps",
+      label: "Peta Utama",
       path: "/app/maps",
-      icon: "🗺️",
     };
   }
 
@@ -95,9 +92,8 @@ const findNavigationIntent = (query: string): NavigationAction | null => {
     lower.includes("satelit")
   ) {
     return {
-      label: "Buka Geospatial Studio",
+      label: "Studio Geospasial",
       path: "/app/geospatial",
-      icon: "🛰️",
     };
   }
 
@@ -107,9 +103,8 @@ const findNavigationIntent = (query: string): NavigationAction | null => {
     lower.includes("beranda")
   ) {
     return {
-      label: "Buka Dashboard Utama",
+      label: "Dasbor Utama",
       path: "/app/dashboard",
-      icon: "📊",
     };
   }
 
@@ -119,9 +114,8 @@ const findNavigationIntent = (query: string): NavigationAction | null => {
     lower.includes("pembelajaran ai")
   ) {
     return {
-      label: "Buka AI Learning",
+      label: "Tanya GeoBot",
       path: "/app/ai-learning",
-      icon: "🧠",
     };
   }
 
@@ -133,9 +127,8 @@ const findNavigationIntent = (query: string): NavigationAction | null => {
     lower.includes("kuis")
   ) {
     return {
-      label: "Buka Simulasi Pertanyaan Bencana",
+      label: "Latihan Soal",
       path: "/app/simulation",
-      icon: "⚡",
     };
   }
 
@@ -145,9 +138,8 @@ const findNavigationIntent = (query: string): NavigationAction | null => {
     lower.includes("skenario")
   ) {
     return {
-      label: "Buka Harmony Digital Twin",
+      label: "Simulasi Denah",
       path: "/app/digital-twin",
-      icon: "📦",
     };
   }
 
@@ -157,9 +149,8 @@ const findNavigationIntent = (query: string): NavigationAction | null => {
     lower.includes("room")
   ) {
     return {
-      label: "Buka Game Edukasi",
+      label: "Ruang Sesi",
       path: "/app/student-game",
-      icon: "🎮",
     };
   }
 
@@ -169,9 +160,8 @@ const findNavigationIntent = (query: string): NavigationAction | null => {
     lower.includes("harmony score")
   ) {
     return {
-      label: "Buka Harmony Score (GSS)",
+      label: "Skor Harmony",
       path: "/app/gss",
-      icon: "📈",
     };
   }
 
@@ -180,9 +170,8 @@ const findNavigationIntent = (query: string): NavigationAction | null => {
     lower.includes("ketahanan")
   ) {
     return {
-      label: "Buka Ketahanan Sekolah",
+      label: "Ketahanan Sekolah",
       path: "/app/resilience",
-      icon: "🛡️",
     };
   }
 
@@ -191,9 +180,8 @@ const findNavigationIntent = (query: string): NavigationAction | null => {
     lower.includes("survey")
   ) {
     return {
-      label: "Buka Survey Analytics",
+      label: "Survei Sekolah",
       path: "/app/survey",
-      icon: "📋",
     };
   }
 
@@ -202,9 +190,8 @@ const findNavigationIntent = (query: string): NavigationAction | null => {
     lower.includes("teacher")
   ) {
     return {
-      label: "Buka Dashboard Guru",
+      label: "Dasbor Guru",
       path: "/app/teacher",
-      icon: "👨‍🏫",
     };
   }
 
@@ -214,9 +201,8 @@ const findNavigationIntent = (query: string): NavigationAction | null => {
     lower.includes("acara")
   ) {
     return {
-      label: "Buka Events & Lomba",
+      label: "Agenda Sekolah",
       path: "/app/events",
-      icon: "🏆",
     };
   }
 
@@ -226,9 +212,8 @@ const findNavigationIntent = (query: string): NavigationAction | null => {
     lower.includes("user account")
   ) {
     return {
-      label: "Buka Akun Pengguna",
+      label: "Kelola Akun",
       path: "/app/dev-dashboard",
-      icon: "👤",
     };
   }
 
@@ -409,7 +394,7 @@ export function FloatingAICopilot() {
           text.toLowerCase() === "cuaca" ||
           text.toLowerCase() === "peta")
       ) {
-        reply = `Membuka **${navIntent.label}** untuk Anda sekarang. ${navIntent.icon}`;
+        reply = `Membuka **${navIntent.label}** sekarang.`;
         actionToAttach = navIntent;
         executeNavigationAction(navIntent);
       }
@@ -449,8 +434,8 @@ export function FloatingAICopilot() {
     } catch {
       chatHistory.current = chatHistory.current.slice(0, -1);
       const fallbackReply = navIntent
-        ? `Membuka **${navIntent.label}** untuk Anda. ${navIntent.icon}`
-        : "Maaf, koneksi ke asisten AI sedang sibuk. Coba ulangi atau pakai perintah seperti 'buka peta'.";
+        ? `Membuka **${navIntent.label}**.`
+        : "Maaf, layanan AI sedang sibuk. Silakan ulangi atau gunakan perintah seperti 'buka peta'.";
 
       setChatMessages((prev) =>
         trimRollingChatMemory(
@@ -538,8 +523,8 @@ export function FloatingAICopilot() {
             transition={{ type: "spring", stiffness: 350, damping: 28 }}
             className={`fixed z-[100020] right-3 sm:right-6 rounded-3xl bg-white/95 dark:bg-slate-900/95 backdrop-blur-2xl border border-slate-200/90 dark:border-slate-800 shadow-2xl flex flex-col overflow-hidden text-slate-800 dark:text-slate-100 pointer-events-auto ${
               isExpanded
-                ? "bottom-[calc(1rem+env(safe-area-inset-bottom))] w-[calc(100vw-1.5rem)] sm:w-[540px] h-[min(85dvh,calc(100dvh-2rem-env(safe-area-inset-top)-env(safe-area-inset-bottom)))]"
-                : `${isMapsRoute ? "bottom-[calc(9rem+env(safe-area-inset-bottom))]" : "bottom-[calc(4.75rem+env(safe-area-inset-bottom))] sm:bottom-[calc(5.5rem+env(safe-area-inset-bottom))]"} w-[calc(100vw-1.5rem)] sm:w-[410px] h-[520px] max-h-[calc(100dvh-7.5rem-env(safe-area-inset-top)-env(safe-area-inset-bottom))]`
+                ? "bottom-[calc(1rem+env(safe-area-inset-bottom))] w-[calc(100vw-1.5rem)] sm:w-[540px] h-[min(calc(var(--vh-full)*0.85),calc(var(--vh-full)-2rem-env(safe-area-inset-top)-env(safe-area-inset-bottom)))]"
+                : `${isMapsRoute ? "bottom-[calc(9rem+env(safe-area-inset-bottom))]" : "bottom-[calc(4.75rem+env(safe-area-inset-bottom))] sm:bottom-[calc(5.5rem+env(safe-area-inset-bottom))]"} w-[calc(100vw-1.5rem)] sm:w-[410px] h-[520px] max-h-[calc(var(--vh-full)-7.5rem-env(safe-area-inset-top)-env(safe-area-inset-bottom))]`
             }`}
             style={{ fontFamily: "Inter, system-ui, sans-serif" }}
           >
@@ -552,13 +537,13 @@ export function FloatingAICopilot() {
                 </div>
                 <div>
                   <h3 className="text-xs sm:text-[13px] font-bold text-slate-900 dark:text-white leading-tight flex items-center gap-1.5">
-                    <span>GeoBot Harmony</span>
-                    <span className="text-[9px] px-1.5 py-0.2 rounded-full font-bold bg-indigo-100 dark:bg-indigo-950/80 text-indigo-600 dark:text-indigo-400 border border-indigo-200 dark:border-indigo-800">
-                      Memori {Math.min(chatMessages.filter((m) => m.id !== "welcome").length, MAX_CHAT_MEMORY)}/{MAX_CHAT_MEMORY}
+                    <span>GeoBot</span>
+                    <span className="text-[9px] px-1.5 py-0.2 rounded-full font-bold bg-indigo-100 dark:bg-indigo-950/80 text-indigo-600 dark:text-indigo-400 border border-indigo-200 dark:border-indigo-800 tabular-nums">
+                      {Math.min(chatMessages.filter((m) => m.id !== "welcome").length, MAX_CHAT_MEMORY)}/{MAX_CHAT_MEMORY}
                     </span>
                   </h3>
                   <p className="text-[10px] text-slate-400 dark:text-slate-500">
-                    Ngobrol santai Indonesia/Jawa &amp; buka menu
+                    Konsultasi &amp; navigasi sistem
                   </p>
                 </div>
               </div>
@@ -644,14 +629,14 @@ export function FloatingAICopilot() {
                         {msg.action && (
                           <div className="mt-2.5 pt-2 border-t border-slate-200 dark:border-slate-700/80 flex items-center justify-between gap-2">
                             <span className="text-[10px] font-semibold text-emerald-600 dark:text-emerald-400 flex items-center gap-1">
-                              <span>✓</span> Aksi Terbuka
+                              <ShieldCheck className="w-3 h-3" /> Aksi Siap
                             </span>
                             <button
                               type="button"
                               onClick={() => executeNavigationAction(msg.action!)}
                               className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-[10.5px] font-bold bg-brand-600 hover:bg-brand-700 text-white transition-colors cursor-pointer shadow-xs"
                             >
-                              <span>{msg.action.icon}</span>
+                              <Compass className="w-3 h-3" />
                               <span>{msg.action.label}</span>
                               <ExternalLink className="w-2.5 h-2.5 ml-0.5" />
                             </button>

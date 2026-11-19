@@ -4,19 +4,32 @@ import { type ThemePreset, presets } from "@/context/coreThemeColor";
 import { useThemeColor } from "@/hooks/useThemeColor";
 import { motion, AnimatePresence } from "framer-motion";
 
-export function ThemePicker() {
+interface ThemePickerProps {
+  align?: "right" | "sidebar";
+}
+
+export function ThemePicker({ align = "right" }: ThemePickerProps = {}) {
   const { preset, setPreset } = useThemeColor();
   const [open, setOpen] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
-    function handleClickOutside(event: MouseEvent) {
+    function handlePointerDown(event: PointerEvent) {
       if (ref.current && !ref.current.contains(event.target as Node)) {
         setOpen(false);
       }
     }
-    document.addEventListener("mousedown", handleClickOutside);
-    return () => document.removeEventListener("mousedown", handleClickOutside);
+    function handleKeyDown(event: KeyboardEvent) {
+      if (event.key === "Escape") {
+        setOpen(false);
+      }
+    }
+    document.addEventListener("pointerdown", handlePointerDown);
+    document.addEventListener("keydown", handleKeyDown);
+    return () => {
+      document.removeEventListener("pointerdown", handlePointerDown);
+      document.removeEventListener("keydown", handleKeyDown);
+    };
   }, []);
 
   const presetList: { id: ThemePreset; name: string; bgClass: string }[] = [
@@ -49,7 +62,11 @@ export function ThemePicker() {
             animate={{ opacity: 1, scale: 1, y: 0 }}
             exit={{ opacity: 0, scale: 0.95, y: 10 }}
             transition={{ duration: 0.15 }}
-            className="absolute right-0 top-full mt-2 w-64 rounded-2xl bg-white p-4 shadow-glass-lg ring-1 ring-black/5 dark:bg-slate-900 dark:ring-white/10 z-50"
+            className={`absolute top-full mt-2 rounded-2xl bg-white p-4 shadow-glass-lg ring-1 ring-black/5 dark:bg-slate-900 dark:ring-white/10 z-50 ${
+              align === "sidebar"
+                ? "-right-12 w-[min(15rem,calc(85vw-1.5rem))]"
+                : "right-0 w-[min(16rem,calc(100vw-1.5rem))]"
+            }`}
           >
             <h3 className="mb-3 text-sm font-bold text-ink-900 dark:text-white">
               Warna Tema

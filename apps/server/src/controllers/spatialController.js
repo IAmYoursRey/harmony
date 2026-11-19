@@ -830,9 +830,189 @@ export const getHotspots = async (req, res) => {
   }
 };
 
-// Cache for public NASA FIRMS open feeds
+// Cache for public NASA FIRMS open feeds and geological live feeds
 const publicFirmsCache = new Map();
 const PUBLIC_FIRMS_CACHE_TTL_MS = 5 * 60 * 1000;
+let liveVolcanoCache = { timestamp: 0, payload: null };
+const LIVE_VOLCANO_CACHE_TTL_MS = 15 * 60 * 1000;
+let liveEarthquakesCache = { timestamp: 0, payload: null };
+const LIVE_EARTHQUAKES_CACHE_TTL_MS = 60 * 1000;
+
+function decodeXmlEntities(str) {
+  return String(str || '')
+    .replace(/&lt;/g, '<')
+    .replace(/&gt;/g, '>')
+    .replace(/&amp;/g, '&')
+    .replace(/&quot;/g, '"')
+    .replace(/&#39;/g, "'")
+    .replace(/<[^>]+>/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim();
+}
+
+function parseBmkgCoordsStrict(coordsStr) {
+  if (typeof coordsStr !== 'string') return null;
+  const parts = coordsStr.split(',').map((s) => s.trim());
+  if (parts.length !== 2) return null;
+  const strictNum = /^[-+]?\d+(?:\.\d+)?$/;
+  if (!strictNum.test(parts[0]) || !strictNum.test(parts[1])) return null;
+  const lat = parseFloat(parts[0]);
+  const lng = parseFloat(parts[1]);
+  if (!Number.isFinite(lat) || !Number.isFinite(lng) || Math.abs(lat) > 90 || Math.abs(lng) > 180) return null;
+  return { lat, lng };
+}
+
+function parseBmkgMagnitudeStrict(val) {
+  if (typeof val === 'number') return Number.isFinite(val) && val >= 0 && val <= 10 ? val : null;
+  if (typeof val === 'string' && /^[-+]?\d+(?:\.\d+)?$/.test(val.trim())) {
+    const num = parseFloat(val.trim());
+    return Number.isFinite(num) && num >= 0 && num <= 10 ? num : null;
+  }
+  return null;
+}
+
+function parseBmkgDepthStrict(val) {
+  if (typeof val === 'number') return Number.isFinite(val) && val >= 0 && val <= 1000 ? val : null;
+  if (typeof val === 'string') {
+    const cleaned = val.replace(/km/i, '').trim();
+    if (/^\d+(?:\.\d+)?$/.test(cleaned)) {
+      const num = parseFloat(cleaned);
+      return Number.isFinite(num) && num >= 0 && num <= 1000 ? num : null;
+    }
+  }
+  return null;
+}
+
+async function fetchLiveEarthquakesFromUpstreams() {
+  const sourceAttempts = [];
+  const merged = [];
+
+  const bmkgHeaders = {
+    'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) Harmony-Earth-Intelligence/2.0',
+    'Referer': 'https://www.bmkg.go.id/',
+    'Accept': 'application/json, text/plain, */*',
+  };
+
+  const targets = [
+    { id: 'bmkg_autogempa', url: 'https://data.bmkg.go.id/DataMKG/TEWS/autogempa.json', kind: 'bmkg_single' },
+    { id: 'bmkg_gempaterkini', url: 'https://data.bmkg.go.id/DataMKG/TEWS/gempaterkini.json', kind: 'bmkg_list' },
+    { id: 'bmkg_gempadirasakan', url: 'https://data.bmkg.go.id/DataMKG/TEWS/gempadirasakan.json', kind: 'bmkg_list' },
+    { id: 'usgs_2.5_day', url: 'https://earthquake.usgs.gov/earthquakes/feed/v1.0/summary/2.5_day.geojson', kind: 'usgs' },
+  ];
+
+  await Promise.all(
+    targets.map(async (target) => {
+      try {
+        const res = await fetch(target.url, {
+          headers: target.kind === 'usgs' ? { 'Accept': 'application/json' } : bmkgHeaders,
+          signal: AbortSignal.timeout(8000),
+        });
+        if (!res.ok) {
+          sourceAttempts.push({ source: target.id, status: 'ERROR', httpStatus: res.status, count: 0, error: `HTTP_${res.status}` });
+          return;
+        }
+        const json = await res.json();
+        let added = 0;
+
+        if (target.kind === 'bmkg_single' || target.kind === 'bmkg_list') {
+          const rawGempa = json?.Infogempa?.gempa;
+          const items = target.kind === 'bmkg_single' ? (rawGempa ? [rawGempa] : []) : (Array.isArray(rawGempa) ? rawGempa : []);
+          for (const g of items) {
+            const coords = parseBmkgCoordsStrict(g?.Coordinates);
+            const mag = parseBmkgMagnitudeStrict(g?.Magnitude);
+            const depthKm = parseBmkgDepthStrict(g?.Kedalaman);
+            const parsedTime = g?.DateTime ? Date.parse(g.DateTime) : NaN;
+            if (!coords || mag === null || !Number.isFinite(parsedTime)) continue;
+            merged.push({
+              id: `bmkg_${g.DateTime}_${coords.lat.toFixed(2)}_${coords.lng.toFixed(2)}`,
+              lat: coords.lat,
+              lng: coords.lng,
+              magnitude: mag,
+              depthKm,
+              place: g.Wilayah || 'Indonesia (BMKG)',
+              time: new Date(parsedTime).toISOString(),
+              mmiScale: g.Dirasakan || null,
+              tsunamiPotential: g.Potensi || null,
+              shakemapUrl: g.Shakemap ? `https://data.bmkg.go.id/DataMKG/TEWS/${g.Shakemap}` : null,
+              source: 'BMKG InaTEWS',
+            });
+            added++;
+          }
+          if (added === 0) {
+            sourceAttempts.push({ source: target.id, status: 'ERROR', httpStatus: res.status, count: 0, error: 'INVALID_BMKG_PAYLOAD' });
+            return;
+          }
+        } else if (target.kind === 'usgs') {
+          const features = Array.isArray(json?.features) ? json.features : null;
+          if (!features) {
+            sourceAttempts.push({ source: target.id, status: 'ERROR', httpStatus: res.status, count: 0, error: 'INVALID_USGS_GEOJSON' });
+            return;
+          }
+          for (const f of features) {
+            const c = f?.geometry?.coordinates;
+            const p = f?.properties;
+            if (!Array.isArray(c) || c.length < 2) continue;
+            const lng = Number(c[0]);
+            const lat = Number(c[1]);
+            const depthKm = typeof c[2] === 'number' && Number.isFinite(c[2]) && c[2] >= 0 ? c[2] : null;
+            const mag = typeof p?.mag === 'number' && Number.isFinite(p.mag) && p.mag >= 0 && p.mag <= 10 ? p.mag : null;
+            const tMs = typeof p?.time === 'number' && Number.isFinite(p.time) ? p.time : NaN;
+            if (!Number.isFinite(lat) || !Number.isFinite(lng) || Math.abs(lat) > 90 || Math.abs(lng) > 180 || mag === null || !Number.isFinite(tMs)) continue;
+            merged.push({
+              id: f.id || `usgs_${tMs}_${lat.toFixed(2)}`,
+              lat,
+              lng,
+              magnitude: mag,
+              depthKm,
+              place: p?.place || p?.title || 'Global Seismic Event',
+              time: new Date(tMs).toISOString(),
+              mmiScale: typeof p?.mmi === 'number' ? `MMI ${p.mmi}` : null,
+              tsunamiPotential: p?.tsunami === 1 ? 'Peringatan Tsunami USGS Aktif' : 'Tidak Ada Peringatan Tsunami USGS',
+              shakemapUrl: p?.url || null,
+              source: 'USGS',
+            });
+            added++;
+          }
+        }
+
+        sourceAttempts.push({ source: target.id, status: 'OK', httpStatus: res.status, count: added, error: null });
+      } catch (err) {
+        sourceAttempts.push({
+          source: target.id,
+          status: 'ERROR',
+          httpStatus: null,
+          count: 0,
+          error: err?.name === 'TimeoutError' || err?.name === 'AbortError' ? 'TIMEOUT' : (err?.message || 'FETCH_FAILED'),
+        });
+      }
+    })
+  );
+
+  // Deduplicate keeping BMKG records ahead of close USGS matches
+  merged.sort((a, b) => {
+    if (a.source.includes('BMKG') !== b.source.includes('BMKG')) {
+      return a.source.includes('BMKG') ? -1 : 1;
+    }
+    return Date.parse(b.time) - Date.parse(a.time);
+  });
+
+  const deduplicated = [];
+  for (const eq of merged) {
+    const eqTime = Date.parse(eq.time);
+    const isDuplicate = deduplicated.some((kept) => {
+      const dtMin = Math.abs(eqTime - Date.parse(kept.time)) / 60000;
+      const dLat = Math.abs(eq.lat - kept.lat);
+      const dLng = Math.abs(eq.lng - kept.lng);
+      return dtMin <= 5 && dLat <= 0.8 && dLng <= 0.8 && Math.abs(eq.magnitude - kept.magnitude) <= 0.6;
+    });
+    if (!isDuplicate) {
+      deduplicated.push(eq);
+    }
+  }
+  deduplicated.sort((a, b) => Date.parse(b.time) - Date.parse(a.time));
+
+  return { earthquakes: deduplicated, sourceAttempts };
+}
 
 /**
  * Public Open NASA FIRMS NRT Satellite Hotspots Feed (VIIRS 375m & MODIS 1km)
@@ -872,8 +1052,13 @@ export const getPublicHotspotsFeed = async (req, res) => {
       satellite: 'NOAA-20',
       url: `https://firms.modaps.eosdis.nasa.gov/data/active_fire/noaa-20-viirs-c2/csv/J1_VIIRS_C2_SouthEast_Asia_${rangeSuffix}.csv`,
     });
+    feedUrls.push({
+      instrument: 'VIIRS',
+      satellite: 'NOAA-21',
+      url: `https://firms.modaps.eosdis.nasa.gov/data/active_fire/noaa-21-viirs-c2/csv/J2_VIIRS_C2_SouthEast_Asia_${rangeSuffix}.csv`,
+    });
   }
-  if (source === 'MODIS' || source === 'ALL') {
+  if (source === 'MODIS' || source === 'MODIS_NRT' || source === 'ALL') {
     feedUrls.push({
       instrument: 'MODIS',
       satellite: 'Terra/Aqua',
@@ -885,18 +1070,19 @@ export const getPublicHotspotsFeed = async (req, res) => {
 
   try {
     const allRecords = [];
+    const sourceAttempts = [];
     let receivedCount = 0;
+    let fulfilledCount = 0;
     let allCached = true;
     let cacheOldestMs = Date.now();
 
-    // Fetch all feeds in parallel for high performance
     const feedResults = await Promise.allSettled(
       feedUrls.map(async (feed) => {
         const cacheKey = feed.url;
         const cached = !forceRefresh ? publicFirmsCache.get(cacheKey) : null;
         if (cached && cached.data && cached.data.trim().length > 100 && (Date.now() - cached.timestamp < PUBLIC_FIRMS_CACHE_TTL_MS)) {
           if (cached.timestamp < cacheOldestMs) cacheOldestMs = cached.timestamp;
-          return { feed, text: cached.data, isCached: true };
+          return { feed, text: cached.data, isCached: true, httpStatus: 200, lastModified: cached.lastModified || null };
         }
         allCached = false;
         const resp = await fetch(feed.url, {
@@ -907,113 +1093,215 @@ export const getPublicHotspotsFeed = async (req, res) => {
           signal: AbortSignal.timeout(25000),
         });
         if (!resp.ok) {
-          throw new Error(`HTTP ${resp.status} fetching ${feed.satellite} (${feed.instrument})`);
+          const err = new Error(`HTTP ${resp.status} fetching ${feed.satellite} (${feed.instrument})`);
+          err.httpStatus = resp.status;
+          throw err;
         }
+        const lastModified = resp.headers.get('last-modified') || null;
         const text = await resp.text();
-        if (text && text.trim().length > 100) {
-          publicFirmsCache.set(cacheKey, { timestamp: Date.now(), data: text });
+        if (!text || text.trim().length < 20 || !/^latitude,longitude/im.test(text.trim().split('\n')[0] || '')) {
+          throw new Error(`Invalid CSV format from ${feed.satellite}`);
         }
-        return { feed, text, isCached: false };
+        publicFirmsCache.set(cacheKey, { timestamp: Date.now(), data: text, lastModified });
+        return { feed, text, isCached: false, httpStatus: resp.status, lastModified };
       })
     );
 
-    for (const result of feedResults) {
+    for (let idx = 0; idx < feedResults.length; idx++) {
+      const result = feedResults[idx];
+      const feedMeta = feedUrls[idx];
       if (result.status !== 'fulfilled' || !result.value?.text) {
-        if (result.status === 'rejected') {
-          console.warn('NASA FIRMS stream warning:', result.reason?.message || result.reason);
-        }
+        const errMsg = result.status === 'rejected' ? (result.reason?.message || String(result.reason)) : 'EMPTY_PAYLOAD';
+        sourceAttempts.push({
+          source: `${feedMeta.satellite} (${feedMeta.instrument})`,
+          status: 'ERROR',
+          httpStatus: result.status === 'rejected' ? (result.reason?.httpStatus ?? null) : null,
+          lastModified: null,
+          matchedCount: 0,
+          error: errMsg,
+        });
         continue;
       }
 
-      const { feed, text } = result.value;
+      const { feed, text, httpStatus, lastModified } = result.value;
       const lines = text.trim().split('\n');
+      const header = lines[0].split(',').map(h => h.trim().toLowerCase());
+      const latIdx = header.indexOf('latitude');
+      const lngIdx = header.indexOf('longitude');
+      if (latIdx === -1 || lngIdx === -1) {
+        sourceAttempts.push({
+          source: `${feed.satellite} (${feed.instrument})`,
+          status: 'ERROR',
+          httpStatus,
+          lastModified,
+          matchedCount: 0,
+          error: 'MISSING_COORDINATE_COLUMNS',
+        });
+        continue;
+      }
+
+      fulfilledCount++;
+      let feedMatched = 0;
+
       if (lines.length > 1) {
-          const header = lines[0].split(',').map(h => h.trim().toLowerCase());
-          const latIdx = header.indexOf('latitude');
-          const lngIdx = header.indexOf('longitude');
-          const brightIdx = header.indexOf('bright_ti4') !== -1 ? header.indexOf('bright_ti4') : header.indexOf('brightness');
-          const scanIdx = header.indexOf('scan');
-          const trackIdx = header.indexOf('track');
-          const confIdx = header.indexOf('confidence');
-          const frpIdx = header.indexOf('frp');
-          const dateIdx = header.indexOf('acq_date');
-          const timeIdx = header.indexOf('acq_time');
-          const satIdx = header.indexOf('satellite');
-          const dnIdx = header.indexOf('daynight');
+        const brightIdx = header.indexOf('bright_ti4') !== -1 ? header.indexOf('bright_ti4') : header.indexOf('brightness');
+        const scanIdx = header.indexOf('scan');
+        const trackIdx = header.indexOf('track');
+        const confIdx = header.indexOf('confidence');
+        const frpIdx = header.indexOf('frp');
+        const dateIdx = header.indexOf('acq_date');
+        const timeIdx = header.indexOf('acq_time');
+        const satIdx = header.indexOf('satellite');
+        const dnIdx = header.indexOf('daynight');
 
-          for (let i = 1; i < lines.length; i++) {
-            const line = lines[i].trim();
-            if (!line) continue;
-            receivedCount++;
-            const cols = line.split(',');
-            const lat = parseFloat(cols[latIdx]);
-            const lng = parseFloat(cols[lngIdx]);
-            if (isNaN(lat) || isNaN(lng)) continue;
+        for (let i = 1; i < lines.length; i++) {
+          const line = lines[i].trim();
+          if (!line) continue;
+          receivedCount++;
+          const cols = line.split(',');
+          const lat = parseFloat(cols[latIdx]);
+          const lng = parseFloat(cols[lngIdx]);
+          if (isNaN(lat) || isNaN(lng)) continue;
 
-            if (scope === 'aoi' && bounds) {
-              const [west, south, east, north] = bounds;
-              if (lat < south || lat > north || lng < west || lng > east) {
-                continue;
-              }
-            } else if (scope === 'java') {
-              if (lat < -8.8 || lat > -5.5 || lng < 105.0 || lng > 114.6) {
-                continue;
-              }
-            } else if (scope === 'indonesia' || !bounds) {
-              if (lat < -11.5 || lat > 6.5 || lng < 95.0 || lng > 141.0) {
-                continue;
-              }
+          if (scope === 'aoi' && bounds) {
+            const [west, south, east, north] = bounds;
+            if (lat < south || lat > north || lng < west || lng > east) {
+              continue;
             }
-
-            const rawConf = confIdx !== -1 ? cols[confIdx]?.trim() : 'nominal';
-            let confLevel = 'nominal';
-            let confidenceNumeric = null;
-            if (/^\d+$/.test(rawConf)) {
-              confidenceNumeric = parseInt(rawConf, 10);
-              confLevel = confidenceNumeric >= 80 ? 'high' : confidenceNumeric >= 30 ? 'nominal' : 'low';
-            } else {
-              confLevel = rawConf.toLowerCase() === 'h' || rawConf.toLowerCase() === 'high' ? 'high' :
-                          rawConf.toLowerCase() === 'l' || rawConf.toLowerCase() === 'low' ? 'low' : 'nominal';
+          } else if (scope === 'java') {
+            if (lat < -8.8 || lat > -5.5 || lng < 105.0 || lng > 114.6) {
+              continue;
             }
-
-            if (minConfidence === 'high_only' && confLevel !== 'high') continue;
-            if (minConfidence === 'nominal_high' && confLevel === 'low') continue;
-
-            const frp = frpIdx !== -1 && cols[frpIdx] ? parseFloat(cols[frpIdx]) : null;
-            const bright = brightIdx !== -1 && cols[brightIdx] ? parseFloat(cols[brightIdx]) : null;
-            const rawScan = scanIdx !== -1 && cols[scanIdx] ? parseFloat(cols[scanIdx]) : NaN;
-            const scanKm = !isNaN(rawScan) && isFinite(rawScan) && rawScan > 0 ? rawScan : (feed.instrument === 'VIIRS' ? 0.375 : 1.0);
-            const rawTrack = trackIdx !== -1 && cols[trackIdx] ? parseFloat(cols[trackIdx]) : NaN;
-            const trackKm = !isNaN(rawTrack) && isFinite(rawTrack) && rawTrack > 0 ? rawTrack : (feed.instrument === 'VIIRS' ? 0.375 : 1.0);
-            const dateStr = dateIdx !== -1 ? cols[dateIdx]?.trim() : '';
-            const timeStr = timeIdx !== -1 ? cols[timeIdx]?.trim() : '';
-            let acqTimeUtc = timeStr;
-            if (timeStr && timeStr.length <= 4) {
-              const padded = timeStr.padStart(4, '0');
-              acqTimeUtc = `${padded.slice(0, 2)}:${padded.slice(2, 4)} UTC`;
+          } else if (scope === 'indonesia' || !bounds) {
+            if (lat < -11.5 || lat > 6.5 || lng < 95.0 || lng > 141.0) {
+              continue;
             }
-
-            allRecords.push({
-              id: `nasa-firms-${feed.instrument.toLowerCase()}-${lat.toFixed(4)}-${lng.toFixed(4)}-${dateStr}-${timeStr}-${i}`,
-              latitude: lat,
-              longitude: lng,
-              satellite: cols[satIdx] || feed.satellite,
-              instrument: feed.instrument,
-              confidenceLevel: confLevel,
-              confidenceRaw: rawConf,
-              confidenceNumeric,
-              brightnessKelvin: bright,
-              scanKm,
-              trackKm,
-              frpMw: frp,
-              acqDate: dateStr,
-              acqTimeUtc,
-              dayNight: dnIdx !== -1 ? cols[dnIdx]?.trim() : 'D',
-              systemSource: 'NASA_FIRMS_OPEN_NRT',
-            });
           }
+
+          const rawConf = confIdx !== -1 ? cols[confIdx]?.trim() : 'nominal';
+          let confLevel = 'nominal';
+          let confidenceNumeric = null;
+          if (/^\d+$/.test(rawConf)) {
+            confidenceNumeric = parseInt(rawConf, 10);
+            confLevel = confidenceNumeric >= 80 ? 'high' : confidenceNumeric >= 30 ? 'nominal' : 'low';
+          } else {
+            confLevel = rawConf.toLowerCase() === 'h' || rawConf.toLowerCase() === 'high' ? 'high' :
+                        rawConf.toLowerCase() === 'l' || rawConf.toLowerCase() === 'low' ? 'low' : 'nominal';
+          }
+
+          if (minConfidence === 'high_only' && confLevel !== 'high') continue;
+          if (minConfidence === 'nominal_high' && confLevel === 'low') continue;
+
+          const frp = frpIdx !== -1 && cols[frpIdx] ? parseFloat(cols[frpIdx]) : null;
+          const bright = brightIdx !== -1 && cols[brightIdx] ? parseFloat(cols[brightIdx]) : null;
+          const rawScan = scanIdx !== -1 && cols[scanIdx] ? parseFloat(cols[scanIdx]) : NaN;
+          const scanKm = !isNaN(rawScan) && isFinite(rawScan) && rawScan > 0 ? rawScan : (feed.instrument === 'VIIRS' ? 0.375 : 1.0);
+          const rawTrack = trackIdx !== -1 && cols[trackIdx] ? parseFloat(cols[trackIdx]) : NaN;
+          const trackKm = !isNaN(rawTrack) && isFinite(rawTrack) && rawTrack > 0 ? rawTrack : (feed.instrument === 'VIIRS' ? 0.375 : 1.0);
+          const dateStr = dateIdx !== -1 ? cols[dateIdx]?.trim() : '';
+          const timeStr = timeIdx !== -1 ? cols[timeIdx]?.trim() : '';
+          let acqTimeUtc = timeStr;
+          if (timeStr && timeStr.length <= 4) {
+            const padded = timeStr.padStart(4, '0');
+            acqTimeUtc = `${padded.slice(0, 2)}:${padded.slice(2, 4)} UTC`;
+          }
+
+          allRecords.push({
+            id: `nasa-firms-${feed.instrument.toLowerCase()}-${lat.toFixed(4)}-${lng.toFixed(4)}-${dateStr}-${timeStr}-${i}`,
+            latitude: lat,
+            longitude: lng,
+            satellite: cols[satIdx] || feed.satellite,
+            instrument: feed.instrument,
+            confidenceLevel: confLevel,
+            confidenceRaw: rawConf,
+            confidenceNumeric,
+            brightnessKelvin: bright,
+            scanKm,
+            trackKm,
+            frpMw: frp,
+            acqDate: dateStr,
+            acqTimeUtc,
+            dayNight: dnIdx !== -1 ? cols[dnIdx]?.trim() : 'D',
+            systemSource: 'NASA_FIRMS_OPEN_NRT',
+          });
+          feedMatched++;
         }
       }
+
+      sourceAttempts.push({
+        source: `${feed.satellite} (${feed.instrument})`,
+        status: 'OK',
+        httpStatus,
+        lastModified,
+        matchedCount: feedMatched,
+        error: null,
+      });
+    }
+
+    if (fulfilledCount === 0) {
+      if (req.query.allowCacheFallback === 'true') {
+        const fallback = await getLatestHotspotSnapshot({ scope, dayRange: parseInt(dayRange, 10) }).catch(() => null);
+        if (fallback && fallback.isBaseline === false) {
+          return res.status(200).json({
+            success: true,
+            count: fallback.recordCount,
+            totalMatched: fallback.recordCount,
+            receivedCount: fallback.recordCount,
+            data: fallback.data || [],
+            rawCsv: fallback.rawCsv,
+            csvFormat: 'HARMONY_NORMALIZED_FIRMS_V1',
+            source: fallback.source,
+            dayRange: fallback.dayRange,
+            scope: fallback.scope,
+            windowEnd: fallback.fetchedAt,
+            isFallback: true,
+            snapshotId: fallback.id,
+            snapshotDate: fallback.snapshotDate,
+            snapshotFetchedAt: fallback.fetchedAt,
+            sourceAttempts,
+            provenance: {
+              sourceType: 'SATELLITE_HOTSPOT',
+              provider: 'NASA EOSDIS LANCE FIRMS (Arsip Snapshot Tersimpan / Offline Fallback)',
+              dataStatus: 'CACHED',
+              fetchedAt: fallback.fetchedAt,
+              attribution: 'NASA LANCE / FIRMS MODIS & VIIRS — Arsip Snapshot Tersimpan',
+              cached: true,
+              isFallback: true,
+            },
+            reason: {
+              code: 'FALLBACK_TO_HISTORICAL_SNAPSHOT',
+              message: `Koneksi satelit NASA LANCE tidak dapat dihubungi. Menampilkan data arsip tersimpan (${fallback.snapshotDate}, diambil ${new Date(fallback.fetchedAt).toLocaleString('id-ID')}).`,
+            },
+          });
+        }
+      }
+
+      return res.status(502).json({
+        success: false,
+        dataStatus: 'ERROR',
+        count: 0,
+        totalMatched: 0,
+        receivedCount: 0,
+        data: [],
+        rawCsv: '',
+        source,
+        dayRange: parseInt(dayRange, 10),
+        scope,
+        sourceAttempts,
+        error: 'Seluruh feed satelit NASA FIRMS LANCE gagal merespons atau mengembalikan data tidak valid.',
+        reason: {
+          code: 'ALL_UPSTREAMS_FAILED',
+          message: 'Seluruh stream satelit NASA FIRMS LANCE gagal dihubungi.',
+        },
+        provenance: {
+          sourceType: 'SATELLITE_HOTSPOT',
+          provider: 'NASA EOSDIS LANCE FIRMS (Open NRT Satellite Feed)',
+          dataStatus: 'ERROR',
+          fetchedAt,
+          attribution: 'NASA LANCE / FIRMS MODIS & VIIRS Fire Detection — Open Public Stream',
+        },
+      });
+    }
 
     allRecords.sort((a, b) => (b.frpMw ?? 0) - (a.frpMw ?? 0));
     const returnedRecords = allRecords.slice(0, 1500);
@@ -1024,8 +1312,7 @@ export const getPublicHotspotsFeed = async (req, res) => {
     );
     const rawCsv = [csvHeader, ...csvRows].join('\n');
 
-    // Persist snapshot to repository for historical timeline & offline fallback
-    if (returnedRecords.length > 0) {
+    if (returnedRecords.length > 0 && !process.env.NODE_TEST_CONTEXT) {
       saveHotspotSnapshot({
         scope,
         bbox: bounds,
@@ -1040,48 +1327,19 @@ export const getPublicHotspotsFeed = async (req, res) => {
       }).catch((err) => console.warn('Could not auto-save hotspot snapshot:', err.message));
     }
 
-    // If zero records were received and all feeds failed or were rejected, fallback to latest cached snapshot
-    if (receivedCount === 0 && returnedRecords.length === 0) {
-      const fallback = await getLatestHotspotSnapshot({ scope, dayRange: parseInt(dayRange, 10) });
-      if (fallback) {
-        return res.status(200).json({
-          success: true,
-          count: fallback.recordCount,
-          totalMatched: fallback.recordCount,
-          receivedCount: fallback.recordCount,
-          data: fallback.data || [],
-          rawCsv: fallback.rawCsv,
-          csvFormat: 'HARMONY_NORMALIZED_FIRMS_V1',
-          source: fallback.source,
-          dayRange: fallback.dayRange,
-          scope: fallback.scope,
-          windowEnd: fallback.fetchedAt,
-          isFallback: true,
-          snapshotId: fallback.id,
-          snapshotDate: fallback.snapshotDate,
-          snapshotFetchedAt: fallback.fetchedAt,
-          provenance: {
-            sourceType: 'SATELLITE_HOTSPOT',
-            provider: 'NASA EOSDIS LANCE FIRMS (Arsip Snapshot Tersimpan / Offline Fallback)',
-            dataStatus: 'CACHED',
-            fetchedAt: fallback.fetchedAt,
-            attribution: 'NASA LANCE / FIRMS MODIS & VIIRS — Arsip Snapshot Tersimpan',
-            cached: true,
-            isFallback: true,
-          },
-          reason: {
-            code: 'FALLBACK_TO_HISTORICAL_SNAPSHOT',
-            message: `Koneksi satelit NASA LANCE tidak dapat dihubungi. Menampilkan data arsip tersimpan (${fallback.snapshotDate}, diambil ${new Date(fallback.fetchedAt).toLocaleString('id-ID')}).`,
-          },
-        });
-      }
-    }
+    const failedFeeds = sourceAttempts.filter((s) => s.status === 'ERROR').map((s) => s.source);
+    const isPartial = failedFeeds.length > 0;
 
     return res.status(200).json({
       success: true,
       count: returnedRecords.length,
       totalMatched: allRecords.length,
       receivedCount,
+      partial: isPartial,
+      sourceAttempts,
+      warning: isPartial
+        ? `Sebagian feed satelit gagal merespons (${failedFeeds.join(', ')}). Menampilkan data dari ${fulfilledCount}/${feedUrls.length} feed aktif.`
+        : undefined,
       data: returnedRecords,
       rawCsv,
       csvFormat: 'HARMONY_NORMALIZED_FIRMS_V1',
@@ -1092,53 +1350,64 @@ export const getPublicHotspotsFeed = async (req, res) => {
       provenance: {
         sourceType: 'SATELLITE_HOTSPOT',
         provider: 'NASA EOSDIS LANCE FIRMS (Open NRT Satellite Feed)',
-        dataStatus: 'LIVE',
+        dataStatus: isPartial ? 'PARTIAL' : 'LIVE',
         fetchedAt: allCached && receivedCount > 0 ? new Date(cacheOldestMs).toISOString() : fetchedAt,
         attribution: 'NASA LANCE / FIRMS MODIS & VIIRS Fire Detection — Open Public Stream',
         cached: allCached && receivedCount > 0,
       },
     });
   } catch (error) {
-    try {
-      const fallback = await getLatestHotspotSnapshot({ scope, dayRange: parseInt(dayRange, 10) });
-      if (fallback) {
-        return res.status(200).json({
-          success: true,
-          count: fallback.recordCount,
-          totalMatched: fallback.recordCount,
-          receivedCount: fallback.recordCount,
-          data: fallback.data || [],
-          rawCsv: fallback.rawCsv,
-          csvFormat: 'HARMONY_NORMALIZED_FIRMS_V1',
-          source: fallback.source,
-          dayRange: fallback.dayRange,
-          scope: fallback.scope,
-          windowEnd: fallback.fetchedAt,
-          isFallback: true,
-          snapshotId: fallback.id,
-          snapshotDate: fallback.snapshotDate,
-          snapshotFetchedAt: fallback.fetchedAt,
-          provenance: {
-            sourceType: 'SATELLITE_HOTSPOT',
-            provider: 'NASA EOSDIS LANCE FIRMS (Arsip Snapshot Tersimpan / Offline Fallback)',
-            dataStatus: 'CACHED',
-            fetchedAt: fallback.fetchedAt,
-            attribution: 'NASA LANCE / FIRMS MODIS & VIIRS — Arsip Snapshot Tersimpan',
-            cached: true,
+    if (req.query.allowCacheFallback === 'true') {
+      try {
+        const fallback = await getLatestHotspotSnapshot({ scope, dayRange: parseInt(dayRange, 10) });
+        if (fallback && fallback.isBaseline === false) {
+          return res.status(200).json({
+            success: true,
+            count: fallback.recordCount,
+            totalMatched: fallback.recordCount,
+            receivedCount: fallback.recordCount,
+            data: fallback.data || [],
+            rawCsv: fallback.rawCsv,
+            csvFormat: 'HARMONY_NORMALIZED_FIRMS_V1',
+            source: fallback.source,
+            dayRange: fallback.dayRange,
+            scope: fallback.scope,
+            windowEnd: fallback.fetchedAt,
             isFallback: true,
-          },
-          reason: {
-            code: 'FALLBACK_TO_HISTORICAL_SNAPSHOT',
-            message: `Koneksi satelit NASA LANCE mengalami kendala. Menampilkan data arsip tersimpan (${fallback.snapshotDate}, diambil ${new Date(fallback.fetchedAt).toLocaleString('id-ID')}).`,
-          },
-        });
-      }
-    } catch {}
+            snapshotId: fallback.id,
+            snapshotDate: fallback.snapshotDate,
+            snapshotFetchedAt: fallback.fetchedAt,
+            provenance: {
+              sourceType: 'SATELLITE_HOTSPOT',
+              provider: 'NASA EOSDIS LANCE FIRMS (Arsip Snapshot Tersimpan / Offline Fallback)',
+              dataStatus: 'CACHED',
+              fetchedAt: fallback.fetchedAt,
+              attribution: 'NASA LANCE / FIRMS MODIS & VIIRS — Arsip Snapshot Tersimpan',
+              cached: true,
+              isFallback: true,
+            },
+            reason: {
+              code: 'FALLBACK_TO_HISTORICAL_SNAPSHOT',
+              message: `Koneksi satelit NASA LANCE mengalami kendala. Menampilkan data arsip tersimpan (${fallback.snapshotDate}, diambil ${new Date(fallback.fetchedAt).toLocaleString('id-ID')}).`,
+            },
+          });
+        }
+      } catch {}
+    }
 
     return res.status(502).json({
       success: false,
-      error: error instanceof Error ? error.message : 'Gagal mengambil data publik NASA FIRMS',
+      dataStatus: 'ERROR',
+      count: 0,
       data: [],
+      error: error instanceof Error ? error.message : 'Gagal mengambil data publik NASA FIRMS',
+      provenance: {
+        sourceType: 'SATELLITE_HOTSPOT',
+        provider: 'NASA EOSDIS LANCE FIRMS (Open NRT Satellite Feed)',
+        dataStatus: 'ERROR',
+        fetchedAt,
+        attribution: 'NASA LANCE / FIRMS MODIS & VIIRS Fire Detection — Open Public Stream',
+      },
     });
   }
 };
@@ -1671,22 +1940,54 @@ export const getSchoolRiskSynthesis = async (req, res) => {
       console.warn("Could not read mountains.json:", e.message);
     }
 
-    // Ambil data gempa terkini dari cache / database
-    const earthquakes = (db.spatialCache?.["bmkg_earthquakes"] || [
-      { lat: -6.85, lng: 107.12, magnitude: 5.6, depthKm: 10, place: "Sesar Cianjur - Darat" },
-      { lat: -8.34, lng: 107.52, magnitude: 6.2, depthKm: 35, place: "Zona Subduksi Selatan Jawa" },
-    ]);
+    let earthquakes = Array.isArray(db.spatialCache?.["bmkg_earthquakes"]) && db.spatialCache["bmkg_earthquakes"].length > 0
+      ? db.spatialCache["bmkg_earthquakes"]
+      : null;
+    let seismicDataStatus = earthquakes ? "CACHED" : "UNAVAILABLE";
+
+    if (!earthquakes) {
+      const liveQuakeRes = await fetchLiveEarthquakesFromUpstreams().catch(() => ({ earthquakes: [], sourceAttempts: [] }));
+      if (liveQuakeRes.earthquakes.length > 0) {
+        earthquakes = liveQuakeRes.earthquakes;
+        seismicDataStatus = "LIVE";
+      } else {
+        earthquakes = [];
+      }
+    }
+
+    let precipitation = null;
+    let weatherDataStatus = "UNAVAILABLE";
+    try {
+      const wRes = await fetch(
+        `https://api.open-meteo.com/v1/forecast?latitude=${targetSchool.lat}&longitude=${targetSchool.lng}&current=precipitation`,
+        { signal: AbortSignal.timeout(3500) }
+      );
+      if (wRes.ok) {
+        const wJson = await wRes.json();
+        if (typeof wJson?.current?.precipitation === "number" && Number.isFinite(wJson.current.precipitation)) {
+          precipitation = Math.max(0, wJson.current.precipitation);
+          weatherDataStatus = "LIVE";
+        }
+      }
+    } catch {
+      weatherDataStatus = "ERROR";
+    }
 
     const synthesis = synthesizeSchoolRisk({
       school: targetSchool,
       earthquakes,
       volcanoes,
-      weather: { precipitation: 12.0 },
+      weather: { precipitation: precipitation ?? 0 },
     });
 
     return res.json({
       success: true,
-      data: synthesis,
+      data: {
+        ...synthesis,
+        seismicDataStatus,
+        weatherDataStatus,
+        precipitationMm: precipitation,
+      },
     });
   } catch (error) {
     console.error("Error in getSchoolRiskSynthesis:", error);
@@ -1709,7 +2010,8 @@ export const submitGpsProbe = async (req, res) => {
     const { lat, lng, speedKmh, headingDeg, deviceType = "mobile_gps", clientTimestamp } = req.body || {};
     const pLat = Number(lat);
     const pLng = Number(lng);
-    const pSpeed = Number(speedKmh);
+    const hasValidSpeed = speedKmh !== null && speedKmh !== undefined && speedKmh !== '' && Number.isFinite(Number(speedKmh));
+    const pSpeed = hasValidSpeed ? Number(speedKmh) : null;
     const pHeading = Number(headingDeg) || 0;
 
     if (!Number.isFinite(pLat) || !Number.isFinite(pLng) || Math.abs(pLat) > 90 || Math.abs(pLng) > 180) {
@@ -1720,7 +2022,7 @@ export const submitGpsProbe = async (req, res) => {
       id: `usr-probe-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
       lat: Number(pLat.toFixed(6)),
       lng: Number(pLng.toFixed(6)),
-      speedKmh: Number.isFinite(pSpeed) ? Math.max(0, Math.min(180, Math.round(pSpeed))) : 25,
+      speedKmh: pSpeed !== null ? Math.max(0, Math.min(180, Math.round(pSpeed))) : null,
       headingDeg: Math.round(((pHeading % 360) + 360) % 360),
       deviceType: String(deviceType).slice(0, 32),
       receivedAt: Date.now(),
@@ -1988,6 +2290,8 @@ export const getTrafficCctvList = async (req, res) => {
       limit: limit ? Number(limit) : 250,
       page: page ? Number(page) : 1,
     });
+    const health = cctvService.getHealthStatus();
+    const provStatus = health.status === "ONLINE" ? "LIVE" : health.status;
 
     return res.json({
       success: true,
@@ -2001,12 +2305,12 @@ export const getTrafficCctvList = async (req, res) => {
       data: result.data,
       provenance: {
         provider: "CCTV Nusantara & Jaringan ATCS Terbuka Nasional",
-        status: "LIVE",
+        status: provStatus,
         timestamp: new Date().toISOString(),
-        lastRefreshedAt: new Date(cctvService.lastRefreshedAt).toISOString(),
+        lastRefreshedAt: cctvService.lastRefreshedAt ? new Date(cctvService.lastRefreshedAt).toISOString() : null,
         syncIntervalMinutes: 5,
-        autoUpdateActive: true,
-        health: cctvService.getHealthStatus(),
+        autoUpdateActive: health.status !== "OFFLINE",
+        health,
       },
     });
   } catch (error) {
@@ -2076,35 +2380,71 @@ export const getTrafficSignalsList = async (req, res) => {
  */
 export const getLiveTrafficNetwork = async (req, res) => {
   try {
-    const now = new Date();
+    const nowMs = Date.now();
+    const recentProbes = gpsProbesBuffer.filter((p) => nowMs - p.receivedAt < 15 * 60 * 1000);
+    const speedProbes = recentProbes.filter((p) => typeof p.speedKmh === 'number' && Number.isFinite(p.speedKmh));
+    const averageSpeedKmh = speedProbes.length > 0
+      ? Number((speedProbes.reduce((sum, p) => sum + p.speedKmh, 0) / speedProbes.length).toFixed(1))
+      : null;
+
+    const tomtomConfigured = Boolean(process.env.TOMTOM_API_KEY?.trim());
+    const cctvList = cctvService.getCameras({ limit: 1 });
+    const cctvHealth = cctvService.getHealthStatus();
+    const onlineCctvCount = Math.max(0, (cctvHealth.totalCameras || cctvList.total || 0) - (cctvHealth.degradedCameras || 0));
+
+    let dataStatus = 'UNAVAILABLE';
+    let reason = 'TomTom Traffic API belum dikonfigurasi pada server dan belum ada GPS probe aktif dalam 15 menit terakhir.';
+    if (speedProbes.length > 0 && !tomtomConfigured) {
+      dataStatus = 'PARTIAL';
+      reason = `Menampilkan ${speedProbes.length} probe GPS crowdsourced aktif. Kunci TomTom Traffic API belum dikonfigurasi untuk indeks arus nasional.`;
+    } else if (tomtomConfigured && speedProbes.length === 0) {
+      dataStatus = 'PARTIAL';
+      reason = 'Gunakan endpoint /api/spatial/traffic/flow?lat=...&lng=... untuk segmen arus lalu lintas TomTom real-time.';
+    } else if (tomtomConfigured && speedProbes.length > 0) {
+      dataStatus = 'PARTIAL';
+      reason = 'Telemetri segmen TomTom tersedia per koordinat dan digabung dengan probe GPS aktif.';
+    }
+
     return res.json({
       success: true,
       data: {
-        monitoredCorridors: 35,
-        totalRoadLengthKm: 2840.5,
-        nationalFlowIndex: 78,
-        averageSpeedKmh: 62.4,
-        activeSimulatedVehicles: 850,
-        onlineCctvCount: 16,
-        onlineSignalsCount: 9,
-        severeBottlenecks: [
-          { corridorId: "tol_dalkot_jakarta", segment: "Slipi - Semanggi", delayMin: 18, speedKmh: 24, status: "Padat Merayap" },
-          { corridorId: "arteri_pasteur_bandung", segment: "Gerbang Tol - Pasirkaliki", delayMin: 14, speedKmh: 18, status: "Padat Merayap" },
-          { corridorId: "arteri_wonokromo_surabaya", segment: "Joyoboyo - Diponegoro", delayMin: 11, speedKmh: 22, status: "Padat Merayap" },
-        ],
-        dataStatus: "LIVE",
-        refreshedAt: now.toISOString(),
+        monitoredCorridors: tomtomConfigured ? null : 0,
+        totalRoadLengthKm: null,
+        nationalFlowIndex: null,
+        averageSpeedKmh,
+        activeGpsProbeCount: recentProbes.length,
+        activeCctvCount: onlineCctvCount,
+        onlineCctvCount,
+        onlineSignalsCount: trafficSignalsBackendService.getSignals(nowMs).length,
+        severeBottlenecks: [],
+        tomtomConfigured,
+        dataStatus,
+        reason,
+        refreshedAt: new Date(nowMs).toISOString(),
       },
     });
   } catch (error) {
-    return res.status(500).json({ success: false, error: error.message });
+    return res.status(500).json({ success: false, dataStatus: 'ERROR', error: error.message });
   }
 };
 
-/**
- * Real-time Volcano Activity & Historical Geological Catalog
- * GET /api/spatial/volcanoes
- */
+export const getFaultsMetadata = async (req, res) => {
+  try {
+    return res.json({
+      success: true,
+      dataStatus: 'STATIC_CATALOG',
+      isLiveFeed: false,
+      source: 'PuSGeN 2017 (Kementerian PUPR) — Subset 26 Segmen Utama',
+      segmentCount: 26,
+      referenceCatalogTotal: 295,
+      note: 'Dataset vektor segmen sesar aktif bersifat statis ilmiah (ISBN 978-602-5489-01-3), bukan stream telemetri waktu nyata.',
+      checkedAt: new Date().toISOString(),
+    });
+  } catch (error) {
+    return res.status(500).json({ success: false, dataStatus: 'ERROR', error: error.message });
+  }
+};
+
 export const getVolcanoesList = async (req, res) => {
   try {
     const { status, type } = req.query;
@@ -2132,11 +2472,12 @@ export const getVolcanoesList = async (req, res) => {
 
     return res.json({
       success: true,
+      dataStatus: 'STATIC_CATALOG',
       count: mountains.length,
       data: mountains,
       provenance: {
-        source: "PVMBG (Badan Geologi) & Smithsonian Global Volcanism Program",
-        refreshedAt: new Date().toISOString(),
+        source: "Katalog Statis Gunung Api Indonesia (PVMBG / Smithsonian GVP)",
+        isLiveFeed: false,
       },
     });
   } catch (error) {
@@ -2144,236 +2485,249 @@ export const getVolcanoesList = async (req, res) => {
   }
 };
 
-/**
- * Real-time Volcano Alert Level Bulletin
- * GET /api/spatial/volcanoes/live
- */
+function parseGvpWeeklyRss(xmlText) {
+  const channelPubDate = xmlText.match(/<channel>[\s\S]*?<pubDate>(.*?)<\/pubDate>/i)?.[1]?.trim() || null;
+  const itemMatches = [...xmlText.matchAll(/<item>([\s\S]*?)<\/item>/g)];
+  const records = [];
+
+  for (const match of itemMatches) {
+    const block = match[1];
+    const titleRaw = block.match(/<title>([\s\S]*?)<\/title>/i)?.[1] || '';
+    const link = block.match(/<link>([\s\S]*?)<\/link>/i)?.[1]?.trim() || 'https://volcano.si.edu/reports_weekly.cfm';
+    const guid = block.match(/<guid[^>]*>([\s\S]*?)<\/guid>/i)?.[1]?.trim() || link;
+    const pubDate = block.match(/<pubDate>([\s\S]*?)<\/pubDate>/i)?.[1]?.trim() || channelPubDate;
+    const pointStr = block.match(/<georss:point>([\s\S]*?)<\/georss:point>/i)?.[1]?.trim() || '';
+    const descRaw = block.match(/<description>([\s\S]*?)<\/description>/i)?.[1] || '';
+
+    const title = decodeXmlEntities(titleRaw);
+    const description = decodeXmlEntities(descRaw);
+    if (!title) continue;
+
+    // GVP Weekly RSS title format: "<Volcano> (<Country/Region>) - Report for <Dates> - <ActivityType>"
+    const titleParts = title.split(' - ');
+    const nameCountryMatch = titleParts[0]?.match(/^(.*?)\s*\(([^)]+)\)\s*$/);
+    const volcanoName = nameCountryMatch ? nameCountryMatch[1].trim() : titleParts[0]?.trim() || title;
+    const regionCountry = nameCountryMatch ? nameCountryMatch[2].trim() : '';
+    const reportPeriod = titleParts[1]?.replace(/^Report for\s+/i, '').trim() || '';
+    const activityCategory = titleParts.slice(2).join(' - ').trim() || 'Reported Activity';
+
+    const ptParts = pointStr.split(/\s+/).map(Number);
+    const lat = ptParts.length === 2 && Number.isFinite(ptParts[0]) ? ptParts[0] : null;
+    const lng = ptParts.length === 2 && Number.isFinite(ptParts[1]) ? ptParts[1] : null;
+
+    let detectedLevelCode = null;
+    let detectedLevelLabel = null;
+    const levelMatch = description.match(/Alert Level(?:\s+(?:to|at|remained at|was))?\s+(\d)/i);
+    if (levelMatch) {
+      const code = parseInt(levelMatch[1], 10);
+      if (code >= 1 && code <= 4) {
+        detectedLevelCode = code;
+        const map = { 1: 'Level I (Normal)', 2: 'Level II (Waspada)', 3: 'Level III (Siaga)', 4: 'Level IV (Awas)' };
+        detectedLevelLabel = map[code];
+      }
+    }
+
+    let parsedPubIso = null;
+    if (pubDate) {
+      const t = Date.parse(pubDate);
+      if (Number.isFinite(t)) parsedPubIso = new Date(t).toISOString();
+    }
+
+    records.push({
+      id: guid.split('#vn_')[1] ? `gvp-${guid.split('#vn_')[1]}` : volcanoName.toLowerCase().replace(/[^a-z0-9]+/g, '_'),
+      name: volcanoName,
+      country: regionCountry,
+      isIndonesia: /indonesia/i.test(regionCountry),
+      reportPeriod,
+      activityCategory,
+      levelCode: detectedLevelCode,
+      level: detectedLevelLabel,
+      lat,
+      lng,
+      summary: description,
+      link: guid || link,
+      pubDate: parsedPubIso || pubDate,
+      source: 'Smithsonian Institution / USGS GVP Weekly Volcanic Activity Report',
+    });
+  }
+
+  return { feedPublishedAt: channelPubDate ? (Number.isFinite(Date.parse(channelPubDate)) ? new Date(Date.parse(channelPubDate)).toISOString() : channelPubDate) : null, records };
+}
+
 export const getLiveVolcanoUpdates = async (req, res) => {
-  try {
-    const nowIso = new Date().toISOString();
+  const forceRefresh = req.query.force === 'true' || req.query.fresh === 'true';
+  const regionFilter = String(req.query.country || 'indonesia').toLowerCase();
+  const nowMs = Date.now();
+
+  if (!forceRefresh && liveVolcanoCache.payload && nowMs - liveVolcanoCache.timestamp < LIVE_VOLCANO_CACHE_TTL_MS) {
+    const cachedRecords = regionFilter === 'all'
+      ? liveVolcanoCache.payload.allRecords
+      : liveVolcanoCache.payload.indonesiaRecords;
     return res.json({
       success: true,
-      data: [
-        {
-          id: "merapi",
-          name: "Gunung Merapi",
-          level: "Level III (Siaga)",
-          levelCode: 3,
-          status: "Active",
-          elevation: 2968,
-          dangerRadiusKm: 7.0,
-          formationEra: "Pleistosen Akhir (~400.000 SM), berkembang dalam 4 fase: Pra-Merapi, Merapi Tua, Merapi Pertengahan, dan Merapi Baru sejak 2.000 SM",
-          geologicalAge: "± 400.000 Tahun",
-          volcanoClassification: "Tipe A (Sangat Aktif)",
-          craterName: "Kawah Puncak Merapi (Kubah Lava Barat Daya & Tengah)",
-          latestEruption: "2024 (Guguran awan panas & lava pijar ke Kali Bebeng)",
-          eruptionHistory: [
-            { year: 2024, vei: 2, note: "Awan panas guguran kubah lava barat daya" },
-            { year: 2021, vei: 2, note: "Erupsi efusif kubah lava baru" },
-            { year: 2010, vei: 4, note: "Erupsi paroksismal eksplosif kolosal (VEI 4, 353 korban jiwa)" },
-            { year: 2006, vei: 2, note: "Erupsi pasca gempa tektonik Yogyakarta" },
-            { year: 1994, vei: 2, note: "Awan panas Turgo (64 korban jiwa)" },
-            { year: 1930, vei: 3, note: "Erupsi besar Kali Blongkeng (1.369 korban jiwa)" },
-            { year: 1872, vei: 4, note: "Letusan eksplosif terbesar abad ke-19" },
-            { year: 1006, vei: 4, note: "Letusan legendaris masa Mataram Kuno" }
-          ],
-          visualSummary: "Kubah lava barat daya dan tengah kawah terus bertumbuh. Teramati guguran lava pijar berjarak luncur 1.800 meter.",
-          seismicitySummary: "Gempa guguran harian 80-120 kali, vulkanik dangkal terdeteksi.",
-          lastUpdate: nowIso,
-        },
-        {
-          id: "semeru",
-          name: "Gunung Semeru",
-          level: "Level III (Siaga)",
-          levelCode: 3,
-          status: "Active",
-          elevation: 3676,
-          dangerRadiusKm: 13.0,
-          formationEra: "Pleistosen Akhir (~300.000 SM) di atas struktur vulkanik Mahameru purba",
-          geologicalAge: "± 300.000 Tahun",
-          volcanoClassification: "Tipe A (Sangat Aktif)",
-          craterName: "Kawah Jonggring Saloko",
-          latestEruption: "2023 - 2024 (Letusan abu vulkanik harian berkala)",
-          eruptionHistory: [
-            { year: 2023, vei: 2, note: "Erupsi abu berkala 500-1000m di atas kawah" },
-            { year: 2021, vei: 3, note: "Awan panas guguran masif meluncur di Besuk Kobokan" },
-            { year: 2020, vei: 2, note: "Awan panas guguran lava 3.000m" },
-            { year: 1994, vei: 3, note: "Letusan eksplosif dan aliran lahar hujan" },
-            { year: 1968, vei: 3, note: "Siklus kubah lava aktif" }
-          ],
-          visualSummary: "Letusan abu vulkanik berkala 500 - 800 meter di atas kawah Jonggring Saloko condong ke timur.",
-          seismicitySummary: "Didominasi gempa letusan harian 40-70 kali per 24 jam.",
-          lastUpdate: nowIso,
-        },
-        {
-          id: "anak_krakatau",
-          name: "Gunung Anak Krakatau",
-          level: "Level III (Siaga)",
-          levelCode: 3,
-          status: "Active",
-          elevation: 157,
-          dangerRadiusKm: 5.0,
-          formationEra: "Muncul ke permukaan laut pada 1927 di kaldera runtuhan Krakatau Purba (1883)",
-          geologicalAge: "± 97 Tahun (Lahir 1927)",
-          volcanoClassification: "Tipe A (Sangat Aktif)",
-          craterName: "Kawah Kaldera Anak Krakatau",
-          latestEruption: "2023 - 2024 (Aktivitas letusan strombolian berkala)",
-          eruptionHistory: [
-            { year: 2023, vei: 2, note: "Lontaran abu dan batu pijar strombolian" },
-            { year: 2018, vei: 3, note: "Kolaps sektor barat daya memicu Tsunami Selat Sunda" },
-            { year: 1883, vei: 6, note: "Letusan Krakatau Purba paroksismal terdahsyat (dentuman 4.800 km, tsunami 40m)" },
-            { year: 416, vei: 5, note: "Letusan purba pemisah pulau Jawa dan Sumatra" }
-          ],
-          visualSummary: "Hembusan asap kawah putih sedang dan lontaran material pijar berkala pada malam hari.",
-          seismicitySummary: "Tremor menerus beramplitudo 2-15 mm.",
-          lastUpdate: nowIso,
-        },
-        {
-          id: "lewotobi",
-          name: "Gunung Lewotobi Laki-laki",
-          level: "Level IV (Awas)",
-          levelCode: 4,
-          status: "Active",
-          elevation: 1584,
-          dangerRadiusKm: 8.0,
-          formationEra: "Pleistosen Kuarter (~200.000 SM) gunung kembar Lewotobi Laki-laki & Perempuan",
-          geologicalAge: "± 200.000 Tahun",
-          volcanoClassification: "Tipe A (Sangat Aktif)",
-          craterName: "Kawah Puncak Lewotobi",
-          latestEruption: "2024 (Erupsi eksplosif paroksismal melontarkan batu pijar)",
-          eruptionHistory: [
-            { year: 2024, vei: 3, note: "Letusan eksplosif batu pijar radius 4 km, evakuasi besar-besaran" },
-            { year: 2002, vei: 2, note: "Peningkatan hembusan abu kawah" },
-            { year: 1935, vei: 2, note: "Erupsi abu magmatik" }
-          ],
-          visualSummary: "Kolom abu kelabu tebal menjulang tinggi dengan lontaran lava pijar.",
-          seismicitySummary: "Tremor menerus amplitudo tinggi dan gempa vulkanik dalam intensif.",
-          lastUpdate: nowIso,
-        },
-        {
-          id: "marapi",
-          name: "Gunung Marapi",
-          level: "Level III (Siaga)",
-          levelCode: 3,
-          status: "Active",
-          elevation: 2891,
-          dangerRadiusKm: 4.5,
-          formationEra: "Pleistosen Akhir (~250.000 SM) pada patahan besar Sumatra",
-          geologicalAge: "± 250.000 Tahun",
-          volcanoClassification: "Tipe A (Sangat Aktif)",
-          craterName: "Kawah Verbeek & Kawah Bancah",
-          latestEruption: "2023 - 2024 (Letusan freatik eksplosif mendadak)",
-          eruptionHistory: [
-            { year: 2023, vei: 2, note: "Erupsi freatik eksplosif mendadak tanpa prekursor panjang" },
-            { year: 2017, vei: 2, note: "Hujan abu vulkanik di Agam & Tanah Datar" },
-            { year: 1979, vei: 2, note: "Longsoran material piroklastik menewaskan 60 jiwa" }
-          ],
-          visualSummary: "Kolom hembusan abu kelabu condong ke timur laut, bau belerang terdeteksi di radius 3 km.",
-          seismicitySummary: "Gempa letusan dan hembusan fluktuatif.",
-          lastUpdate: nowIso,
-        },
-        {
-          id: "muria",
-          name: "Gunung Muria",
-          level: "Tidak Aktif (Padam/Purba)",
-          levelCode: 0,
-          status: "Inactive",
-          elevation: 1602,
-          dangerRadiusKm: 0,
-          formationEra: "Pleistosen Tengah (~1,5 Juta - 300.000 SM), pulau gunung api purba yang terpisah dari pulau Jawa",
-          geologicalAge: "± 1,5 Juta Tahun",
-          volcanoClassification: "Gunung Api Purba (Padam / Extinct)",
-          craterName: "Kaldera Purba Rahtawu",
-          latestEruption: "Sekitar 160 SM (Letusan terakhir purba sebelum padam total)",
-          eruptionHistory: [
-            { year: -160, vei: 3, note: "Aktivitas vulkanik purba terakhir yang tercatat dalam stratigrafi" }
-          ],
-          visualSummary: "Kondisi stabil total, tutupan vegetasi hutan lebat dan sumber air alami.",
-          seismicitySummary: "Tidak terdeteksi aktivitas seismik vulkanik (seismisitas tektonik latar belakang normal).",
-          lastUpdate: nowIso,
-        },
-        {
-          id: "ungaran",
-          name: "Gunung Ungaran",
-          level: "Tidak Aktif (Tidur/Solfatara)",
-          levelCode: 0,
-          status: "Inactive",
-          elevation: 2050,
-          dangerRadiusKm: 0.5,
-          formationEra: "Pleistosen Awal (~500.000 SM) melalui fase keruntuhan Ungaran Tua dan pembentukan kerucut Ungaran Muda",
-          geologicalAge: "± 500.000 Tahun",
-          volcanoClassification: "Tipe B (Istirahat / Dormant)",
-          craterName: "Fumarola Gedong Songo",
-          latestEruption: "Tidak tercatat erupsi magmatik sejak tahun 1600 (Hanya manifestasi panas bumi & solfatara)",
-          eruptionHistory: [
-            { year: 1400, vei: 2, note: "Aktivitas freatik solfatara sebelum era modern" }
-          ],
-          visualSummary: "Kawah purba tenang dengan mata air panas dan hembusan solfatara bersuhu 60-80°C di kompleks Gedong Songo.",
-          seismicitySummary: "Tenang, tidak ada pergerakan magma dangkal.",
-          lastUpdate: nowIso,
-        }
+      dataStatus: 'LIVE',
+      cached: true,
+      liveFeedSource: 'Smithsonian Institution / USGS GVP Weekly Volcanic Activity RSS',
+      pvmbgStatus: 'UNAVAILABLE_NO_PUBLIC_JSON_API',
+      pvmbgNote: 'Portal MAGMA ESDM menyajikan antarmuka web HTML tanpa endpoint JSON publik terbuka; laporan resmi PVMBG disinkronkan melalui buletin mingguan Smithsonian GVP/USGS.',
+      feedPublishedAt: liveVolcanoCache.payload.feedPublishedAt,
+      fetchedAt: liveVolcanoCache.payload.fetchedAt,
+      count: cachedRecords.length,
+      totalGlobalCount: liveVolcanoCache.payload.allRecords.length,
+      sourceAttempts: liveVolcanoCache.payload.sourceAttempts,
+      data: cachedRecords,
+    });
+  }
+
+  const gvpUrl = 'https://volcano.si.edu/news/WeeklyVolcanoRSS.xml';
+  try {
+    const response = await fetch(gvpUrl, {
+      headers: {
+        'User-Agent': 'HarmonyGeospatialApp/2.0 (Educational)',
+        'Accept': 'application/rss+xml, application/xml, text/xml',
+      },
+      signal: AbortSignal.timeout(10000),
+    });
+
+    if (!response.ok) {
+      throw new Error(`HTTP_${response.status}`);
+    }
+
+    const xml = await response.text();
+    if (!xml || (!xml.includes('<rss') && !xml.includes('<channel>'))) {
+      throw new Error('INVALID_RSS_XML');
+    }
+
+    const parsed = parseGvpWeeklyRss(xml);
+    if (!Array.isArray(parsed.records) || parsed.records.length === 0) {
+      throw new Error('EMPTY_RSS_ITEMS');
+    }
+
+    const indonesiaRecords = parsed.records.filter((r) => r.isIndonesia);
+    const fetchedAt = new Date().toISOString();
+    const lastModHeader = response.headers.get('last-modified');
+    const feedPublishedAt = parsed.feedPublishedAt
+      || (lastModHeader && Number.isFinite(Date.parse(lastModHeader)) ? new Date(Date.parse(lastModHeader)).toISOString() : null);
+
+    const payload = {
+      feedPublishedAt,
+      fetchedAt,
+      allRecords: parsed.records,
+      indonesiaRecords,
+      sourceAttempts: [
+        { source: 'Smithsonian GVP Weekly RSS', url: gvpUrl, status: 'OK', httpStatus: response.status, count: parsed.records.length, error: null },
+        { source: 'PVMBG MAGMA ESDM JSON', url: 'https://magma.esdm.go.id/v1/gunung-api/laporan', status: 'UNAVAILABLE', httpStatus: null, count: 0, error: 'HTML portal only (no public JSON API)' },
       ],
-      refreshedAt: nowIso,
+    };
+
+    liveVolcanoCache = { timestamp: Date.now(), payload };
+
+    const outData = regionFilter === 'all' ? parsed.records : indonesiaRecords;
+    return res.json({
+      success: true,
+      dataStatus: 'LIVE',
+      cached: false,
+      liveFeedSource: 'Smithsonian Institution / USGS GVP Weekly Volcanic Activity RSS',
+      pvmbgStatus: 'UNAVAILABLE_NO_PUBLIC_JSON_API',
+      pvmbgNote: 'Portal MAGMA ESDM menyajikan antarmuka web HTML tanpa endpoint JSON publik terbuka; laporan resmi PVMBG disinkronkan melalui buletin mingguan Smithsonian GVP/USGS.',
+      feedPublishedAt,
+      fetchedAt,
+      count: outData.length,
+      totalGlobalCount: parsed.records.length,
+      sourceAttempts: payload.sourceAttempts,
+      data: outData,
     });
   } catch (error) {
-    return res.status(500).json({ success: false, error: error.message });
+    return res.status(502).json({
+      success: false,
+      dataStatus: 'ERROR',
+      liveFeedSource: 'Smithsonian Institution / USGS GVP Weekly Volcanic Activity RSS',
+      pvmbgStatus: 'UNAVAILABLE_NO_PUBLIC_JSON_API',
+      feedPublishedAt: null,
+      fetchedAt: new Date().toISOString(),
+      count: 0,
+      data: [],
+      sourceAttempts: [
+        {
+          source: 'Smithsonian GVP Weekly RSS',
+          url: gvpUrl,
+          status: 'ERROR',
+          httpStatus: null,
+          count: 0,
+          error: error?.name === 'TimeoutError' || error?.name === 'AbortError' ? 'TIMEOUT' : (error?.message || 'FETCH_FAILED'),
+        },
+      ],
+      error: `Gagal mengambil laporan aktivitas gunung api live dari Smithsonian GVP/USGS (${error?.message || 'Fetch error'}).`,
+    });
   }
 };
 
-/**
- * Real-time Earthquake Stream Aggregator with Dynamic Intensity Telemetry
- * GET /api/spatial/earthquakes/live
- */
 export const getLiveEarthquakesList = async (req, res) => {
-  try {
-    const earthquakes = (db.spatialCache?.["bmkg_earthquakes"] || [
-      {
-        id: "bmkg_recent_1",
-        lat: -6.85,
-        lng: 107.12,
-        magnitude: 5.6,
-        depthKm: 10,
-        place: "Sesar Cianjur - Darat",
-        time: new Date(Date.now() - 18 * 60 * 1000).toISOString(),
-        shakingDurationSec: "25 - 40 detik",
-        mmiScale: "V - VI MMI (Getaran kuat dirasakan semua orang, plester dinding retak)",
-        pgaEstimate: "0.12g (Percepatan tanah tinggi)",
-        shakingCategory: "Guncangan Kuat",
-        tsunamiPotential: "Tidak Berpotensi Tsunami (Episenter Darat)",
-        aftershocksWindow: "Monitoring 48 Jam (Potensi gempa susulan frekuensi menurun)",
-        source: "BMKG",
-      },
-      {
-        id: "bmkg_recent_2",
-        lat: -8.34,
-        lng: 107.52,
-        magnitude: 6.2,
-        depthKm: 35,
-        place: "Zona Megathrust Selatan Jawa",
-        time: new Date(Date.now() - 145 * 60 * 1000).toISOString(),
-        shakingDurationSec: "35 - 55 detik",
-        mmiScale: "IV - V MMI (Dirasakan luas di Jawa Barat hingga DKI Jakarta)",
-        pgaEstimate: "0.08g",
-        shakingCategory: "Guncangan Sedang - Kuat",
-        tsunamiPotential: "Tidak Berpotensi Tsunami (Berdasarkan model permodelan InaTEWS)",
-        aftershocksWindow: "Monitoring 24 Jam",
-        source: "BMKG",
-      },
-    ]);
+  const forceRefresh = req.query.force === 'true' || req.query.fresh === 'true';
+  const nowMs = Date.now();
 
+  if (!forceRefresh && liveEarthquakesCache.payload && nowMs - liveEarthquakesCache.timestamp < LIVE_EARTHQUAKES_CACHE_TTL_MS) {
     return res.json({
+      ...liveEarthquakesCache.payload,
+      cached: true,
+    });
+  }
+
+  try {
+    const { earthquakes, sourceAttempts } = await fetchLiveEarthquakesFromUpstreams();
+    const okCount = sourceAttempts.filter((a) => a.status === 'OK').length;
+    const fetchedAt = new Date().toISOString();
+
+    if (okCount === 0) {
+      return res.status(502).json({
+        success: false,
+        dataStatus: 'ERROR',
+        count: 0,
+        data: [],
+        sourceAttempts,
+        error: 'Seluruh sumber gempa live (BMKG InaTEWS & USGS) gagal merespons.',
+        provenance: {
+          source: 'InaTEWS BMKG & USGS Global Seismic Catalog',
+          dataStatus: 'ERROR',
+          refreshedAt: fetchedAt,
+        },
+      });
+    }
+
+    const dataStatus = okCount === sourceAttempts.length ? 'LIVE' : 'PARTIAL';
+    const payload = {
       success: true,
+      dataStatus,
+      cached: false,
       count: earthquakes.length,
+      sourceAttempts,
       data: earthquakes,
       provenance: {
-        source: "InaTEWS BMKG & USGS Global Seismic Catalog",
-        refreshedAt: new Date().toISOString(),
+        source: 'InaTEWS BMKG & USGS Global Seismic Catalog',
+        dataStatus,
+        refreshedAt: fetchedAt,
       },
-    });
+    };
+
+    liveEarthquakesCache = { timestamp: Date.now(), payload };
+    return res.json(payload);
   } catch (error) {
-    return res.status(500).json({ success: false, error: error.message });
+    return res.status(502).json({
+      success: false,
+      dataStatus: 'ERROR',
+      count: 0,
+      data: [],
+      error: error?.message || 'Gagal mengambil data gempa live.',
+    });
   }
 };
+
+export function __resetSpatialControllerCachesForTest() {
+  publicFirmsCache.clear();
+  liveVolcanoCache = { timestamp: 0, payload: null };
+  liveEarthquakesCache = { timestamp: 0, payload: null };
+  gpsProbesBuffer.length = 0;
+}
 
 
 

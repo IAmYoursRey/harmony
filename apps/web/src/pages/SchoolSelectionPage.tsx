@@ -138,7 +138,7 @@ export default function SchoolSelectionPage() {
   ];
 
   return (
-    <div className="relative min-h-screen overflow-hidden bg-gradient-to-br from-brand-50 via-white to-sky-50 dark:from-slate-950 dark:via-slate-900 dark:to-slate-950">
+    <div className="relative min-h-viewport overflow-hidden bg-gradient-to-br from-brand-50 via-white to-sky-50 dark:from-slate-950 dark:via-slate-900 dark:to-slate-950">
       {/* Background */}
       <div className="absolute inset-0 -z-10">
         <div className="absolute inset-0 bg-grid-pattern bg-[size:44px_44px] opacity-50 dark:opacity-20" />
@@ -185,19 +185,19 @@ export default function SchoolSelectionPage() {
         </div>
 
         {/* Stepper */}
-        <div className="mx-auto mb-8 flex max-w-3xl items-center justify-center gap-1 sm:gap-2">
+        <div className="mx-auto mb-8 flex w-full max-w-3xl items-start justify-between sm:justify-center gap-1 sm:gap-2">
           {stepLabels.map((label, i) => {
             const stepNum = (i + 1) as Step;
             const active = step >= stepNum;
             const current = step === stepNum;
             return (
-              <div key={label} className="flex items-center">
+              <div key={label} className={`flex items-center ${i > 0 ? "flex-1 sm:flex-initial" : ""}`}>
                 {i > 0 && (
                   <div
-                    className={`h-0.5 w-6 sm:w-12 ${active ? "bg-brand-500" : "bg-brand-100 dark:bg-slate-700"}`}
+                    className={`h-0.5 flex-1 min-w-[0.75rem] sm:w-12 sm:flex-none -mt-5 sm:-mt-5 mx-1 ${active ? "bg-brand-500" : "bg-brand-100 dark:bg-slate-700"}`}
                   />
                 )}
-                <div className="flex flex-col items-center gap-1">
+                <div className="flex flex-col items-center gap-1 shrink-0">
                   <div
                     className={`flex h-9 w-9 items-center justify-center rounded-full text-sm font-bold transition-all ${
                       current
@@ -214,7 +214,7 @@ export default function SchoolSelectionPage() {
                     )}
                   </div>
                   <span
-                    className={`text-[10px] font-semibold sm:text-xs ${active ? "text-ink-900 dark:text-white" : "text-ink-400 dark:text-slate-500"}`}
+                    className={`max-w-[4.5rem] sm:max-w-none text-center leading-tight text-[10px] font-semibold sm:text-xs ${active ? "text-ink-900 dark:text-white" : "text-ink-400 dark:text-slate-500"}`}
                   >
                     {label}
                   </span>

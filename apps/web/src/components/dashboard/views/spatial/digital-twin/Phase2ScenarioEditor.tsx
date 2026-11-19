@@ -2,7 +2,7 @@ import React, { useEffect, useState, useRef } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { Phase1Map, Phase1Scenario, Phase1ScenarioObject } from "./Phase1Types";
 import { phase1Api } from "./Phase1API";
-import { Eye, Save, Trash2, ArrowLeft } from "lucide-react";
+import { Eye, Save, Trash2, ArrowLeft, MousePointer2, Eraser } from "lucide-react";
 import { AssetRenderer } from "./Phase1AssetRenderer";
 import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
 import { Phase1Canvas } from "./Phase1Canvas";
@@ -139,7 +139,7 @@ export function Phase2ScenarioEditor({
 
   if (loading) {
     return (
-      <div className="h-[100dvh] w-full bg-slate-900 flex items-center justify-center text-white">
+      <div className="h-viewport w-full bg-slate-900 flex items-center justify-center text-white">
         Loading Scenario Editor...
       </div>
     );
@@ -147,7 +147,7 @@ export function Phase2ScenarioEditor({
   if (!map || !scenario) return null;
 
   return (
-    <div className="h-[100dvh] w-full bg-slate-100 dark:bg-slate-950 flex flex-col font-sans overflow-hidden">
+    <div className="h-viewport w-full bg-slate-100 dark:bg-slate-950 flex flex-col font-sans overflow-hidden">
       {/* TOP BAR */}
       <div className="h-14 bg-white dark:bg-slate-900 border-b border-slate-200 dark:border-slate-800 flex items-center justify-between px-4 shrink-0 shadow-sm z-10 overflow-x-auto gap-4">
         <div className="flex items-center gap-4">
@@ -161,11 +161,11 @@ export function Phase2ScenarioEditor({
             <h1 className="font-bold text-slate-800 dark:text-white leading-tight">
               {scenario.name}{" "}
               <span className="text-sm font-normal text-slate-500 ml-2">
-                (Base: {map.name})
+                (Denah: {map.name})
               </span>
             </h1>
             <div className="text-xs text-slate-500 font-medium">
-              {unsaved ? "Unsaved changes" : "Saved"}
+              {unsaved ? "Belum tersimpan" : "Tersimpan"}
             </div>
           </div>
         </div>
@@ -187,16 +187,16 @@ export function Phase2ScenarioEditor({
           <button
             onClick={handleUndo}
             disabled={historyIndex <= 0}
-            className="p-2 text-slate-500 hover:text-slate-800 disabled:opacity-30"
+            className="p-2 text-slate-500 hover:text-slate-800 disabled:opacity-30 text-xs font-semibold"
           >
-            ↩ Undo
+            Urung
           </button>
           <button
             onClick={handleRedo}
             disabled={historyIndex >= history.length - 1}
-            className="p-2 text-slate-500 hover:text-slate-800 disabled:opacity-30"
+            className="p-2 text-slate-500 hover:text-slate-800 disabled:opacity-30 text-xs font-semibold"
           >
-            ↪ Redo
+            Ulangi
           </button>
         </div>
 
@@ -206,7 +206,7 @@ export function Phase2ScenarioEditor({
             className={`flex items-center gap-2 px-4 py-2 rounded-lg font-bold text-sm shadow-sm transition-colors ${isPreviewMode ? "bg-indigo-100 text-indigo-700" : "bg-slate-100 text-slate-700 hover:bg-slate-200"}`}
           >
             <Eye className="h-4 w-4" />{" "}
-            {isPreviewMode ? "Exit Preview" : "Preview"}
+            {isPreviewMode ? "Tutup Pratinjau" : "Pratinjau"}
           </button>
           <button
             onClick={handleSave}
@@ -214,7 +214,7 @@ export function Phase2ScenarioEditor({
             className="flex items-center gap-2 bg-brand-600 hover:bg-brand-700 disabled:opacity-50 text-white px-4 py-2 rounded-lg font-bold text-sm shadow-sm transition-colors"
           >
             <Save className="h-4 w-4" />{" "}
-            {saving ? "Saving..." : "Save Scenario"}
+            {saving ? "Menyimpan..." : "Simpan Skenario"}
           </button>
         </div>
       </div>
@@ -225,8 +225,8 @@ export function Phase2ScenarioEditor({
           <div className="w-full sm:w-16 h-auto sm:h-auto bg-white dark:bg-slate-900 border-b sm:border-b-0 sm:border-r border-slate-200 dark:border-slate-800 flex flex-row sm:flex-col items-center py-2 sm:py-4 px-4 sm:px-0 gap-2 z-10 shrink-0 shadow-[0_2px_10px_rgba(0,0,0,0.05)] sm:shadow-[2px_0_10px_rgba(0,0,0,0.05)] overflow-x-auto sm:overflow-y-auto overflow-y-hidden sm:overflow-x-visible">
             <ToolBtn
               type="select"
-              label="Select"
-              icon="👆"
+              label="Pilih"
+              icon={<MousePointer2 className="h-5 w-5 mb-1" />}
               tool="select"
               active={activeTool}
               set={setActiveTool}
@@ -234,39 +234,39 @@ export function Phase2ScenarioEditor({
             <div className="w-px h-8 sm:w-8 sm:h-px bg-slate-200 dark:bg-slate-800 my-0 mx-2 sm:my-2 sm:mx-0 shrink-0" />
 
             <div className="text-[10px] font-bold text-slate-400 mb-1">
-              HAZARDS
+              BAHAYA
             </div>
             <ToolBtn
               type="FIRE"
-              label="Fire"
+              label="Api"
               tool="FIRE"
               active={activeTool}
               set={setActiveTool}
             />
             <ToolBtn
               type="SMOKE"
-              label="Smoke"
+              label="Asap"
               tool="SMOKE"
               active={activeTool}
               set={setActiveTool}
             />
             <ToolBtn
               type="DANGER_ZONE"
-              label="Danger"
+              label="Bahaya"
               tool="DANGER_ZONE"
               active={activeTool}
               set={setActiveTool}
             />
             <ToolBtn
               type="DAMAGE_ZONE"
-              label="Damage"
+              label="Risiko"
               tool="DAMAGE_ZONE"
               active={activeTool}
               set={setActiveTool}
             />
             <ToolBtn
               type="BLOCKED_AREA"
-              label="Block"
+              label="Blokir"
               tool="BLOCKED_AREA"
               active={activeTool}
               set={setActiveTool}
@@ -274,32 +274,32 @@ export function Phase2ScenarioEditor({
             <div className="w-px h-8 sm:w-8 sm:h-px bg-slate-200 dark:bg-slate-800 my-0 mx-2 sm:my-2 sm:mx-0 shrink-0" />
 
             <div className="text-[10px] font-bold text-slate-400 mb-1">
-              SAFETY & SPAWN
+              AMAN
             </div>
             <ToolBtn
               type="SPAWN"
-              label="Spawn"
+              label="Mulai"
               tool="SPAWN"
               active={activeTool}
               set={setActiveTool}
             />
             <ToolBtn
               type="SAFE_ZONE"
-              label="Safe"
+              label="Aman"
               tool="SAFE_ZONE"
               active={activeTool}
               set={setActiveTool}
             />
             <ToolBtn
               type="EXIT"
-              label="Exit"
+              label="Keluar"
               tool="EXIT"
               active={activeTool}
               set={setActiveTool}
             />
             <ToolBtn
               type="OBJECTIVE"
-              label="Objective"
+              label="Target"
               tool="OBJECTIVE"
               active={activeTool}
               set={setActiveTool}
@@ -308,8 +308,8 @@ export function Phase2ScenarioEditor({
 
             <ToolBtn
               type="eraser"
-              label="Eraser"
-              icon="🧽"
+              label="Hapus"
+              icon={<Eraser className="h-5 w-5 mb-1" />}
               tool="eraser"
               active={activeTool}
               set={setActiveTool}
@@ -321,7 +321,7 @@ export function Phase2ScenarioEditor({
         <div className="flex-1 relative bg-slate-200 dark:bg-slate-950 overflow-hidden min-h-[40vh]">
           {isPreviewMode && (
             <div className="absolute top-4 left-1/2 -translate-x-1/2 bg-slate-900/80 text-white px-4 py-2 rounded-full text-sm font-bold shadow-lg z-20 pointer-events-none">
-              PREVIEW MODE
+              MODE PRATINJAU
             </div>
           )}
           <Phase1Canvas
@@ -360,14 +360,14 @@ export function Phase2ScenarioEditor({
           <div className="w-full sm:w-64 h-48 sm:h-auto bg-white dark:bg-slate-900 border-t sm:border-t-0 sm:border-l border-slate-200 dark:border-slate-800 flex flex-col z-10 shrink-0 shadow-[0_-2px_10px_rgba(0,0,0,0.05)] sm:shadow-[-2px_0_10px_rgba(0,0,0,0.05)] overflow-y-auto">
             <div className="p-4 border-b border-slate-200 dark:border-slate-800">
               <h3 className="font-bold text-slate-800 dark:text-white">
-                Scenario Object
+                Objek Skenario
               </h3>
               <p className="text-xs text-slate-500">ID: {selectedItem.id}</p>
             </div>
             <div className="p-4 space-y-4">
               <div>
                 <label className="block text-xs font-bold text-slate-500 mb-1">
-                  Type
+                  Jenis
                 </label>
                 <div className="text-sm font-medium px-3 py-2 bg-slate-100 dark:bg-slate-800 rounded-lg">
                   {selectedItem.object_type}
@@ -376,7 +376,7 @@ export function Phase2ScenarioEditor({
 
               <div>
                 <label className="block text-xs font-bold text-slate-500 mb-1">
-                  Position (Grid)
+                  Posisi Grid
                 </label>
                 <div className="flex gap-2">
                   <div className="flex-1 px-3 py-2 bg-slate-100 dark:bg-slate-800 rounded-lg text-sm">
@@ -390,7 +390,7 @@ export function Phase2ScenarioEditor({
 
               <div>
                 <label className="block text-xs font-bold text-slate-500 mb-1">
-                  Size (Width x Height)
+                  Ukuran (L × T)
                 </label>
                 <div className="flex gap-2">
                   <input name="input_z2qha" id="phase2scenarioeditor-input_z2qha"
@@ -697,7 +697,7 @@ function ToolBtn({
   set,
 }: {
   type: string;
-  icon?: string;
+  icon?: React.ReactNode;
   label: string;
   tool: Tool;
   active: Tool;
@@ -726,7 +726,7 @@ function ToolBtn({
         className={`w-12 h-12 flex flex-col items-center justify-center rounded-xl transition-all relative ${isActive ? "bg-brand-100 text-brand-700 shadow-sm border-2 border-brand-200 dark:bg-brand-900/30 dark:border-brand-700/50 dark:text-brand-400" : "text-slate-500 hover:bg-slate-100 dark:hover:bg-slate-800 border-2 border-transparent"}`}
       >
         {icon ? (
-          <span className="text-xl leading-none mb-1">{icon}</span>
+          icon
         ) : (
           <img
             src={dataUrl}
@@ -740,8 +740,8 @@ function ToolBtn({
       {/* Hover Tooltip */}
       <div className="absolute left-full top-1/2 -translate-y-1/2 ml-2 hidden group-hover:flex flex-col bg-slate-800 text-white text-xs rounded shadow-lg p-2 z-50 w-32 pointer-events-none">
         <span className="font-bold text-brand-300">{label}</span>
-        <span className="text-[10px] text-slate-300">Footprint: 1x1</span>
-        <span className="text-[10px] text-slate-400 mt-1">Scenario Object</span>
+        <span className="text-[10px] text-slate-300">Ukuran: 1x1</span>
+        <span className="text-[10px] text-slate-400 mt-1">Objek Skenario</span>
       </div>
     </div>
   );

@@ -86,7 +86,7 @@ export function MapList({ maps, schoolId, onRefresh }: Props) {
           onClick={() => setCreating(true)}
           className="flex items-center gap-2 px-4 py-2 bg-brand-600 text-white text-sm font-bold rounded-lg hover:bg-brand-700 shadow-glow"
         >
-          <Plus className="h-4 w-4" /> Buat Peta Baru
+          <Plus className="h-4 w-4" /> Buat Peta
         </button>
       </div>
 
@@ -94,7 +94,7 @@ export function MapList({ maps, schoolId, onRefresh }: Props) {
       {creating && (
         <div className="rounded-xl border border-brand-200 dark:border-slate-700 bg-brand-50 dark:bg-slate-900 p-5 space-y-4">
           <h4 className="font-bold text-sm text-ink-900 dark:text-white">
-            Konfigurasi Peta Baru
+            Konfigurasi Peta
           </h4>
           <div className="grid grid-cols-2 gap-3">
             <div className="col-span-2">

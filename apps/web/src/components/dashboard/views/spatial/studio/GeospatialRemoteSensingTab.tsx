@@ -1016,7 +1016,7 @@ export const GeospatialRemoteSensingTab: React.FC<GeospatialRemoteSensingTabProp
           <div>
             <div className="flex items-center gap-2">
               <h3 className="text-sm font-bold text-slate-800 dark:text-white">
-                Observasi Bumi & Indeks Spektral Satelit
+                Observasi Satelit
               </h3>
               <span className="text-[10px] font-extrabold uppercase px-2 py-0.5 rounded-full bg-emerald-500/15 text-emerald-700 dark:text-emerald-300 border border-emerald-500/25">
                 Copernicus ESA & USGS Landsat
@@ -1049,7 +1049,7 @@ export const GeospatialRemoteSensingTab: React.FC<GeospatialRemoteSensingTabProp
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 pb-2 border-b border-slate-100 dark:border-slate-700/60">
           <div>
             <h4 className="text-xs font-bold uppercase tracking-wider text-slate-700 dark:text-slate-300 flex items-center gap-1.5">
-              <Layers className="w-3.5 h-3.5 text-indigo-500" /> Sumber Scene & Produk Raster Satelit
+              <Layers className="w-3.5 h-3.5 text-indigo-500" /> Sumber Citra
             </h4>
             <p className="text-[11px] text-slate-500">
               Data metadata dan band spektral diambil langsung dari katalog STAC (AWS Element84 / Microsoft Planetary Computer).
@@ -1255,9 +1255,9 @@ export const GeospatialRemoteSensingTab: React.FC<GeospatialRemoteSensingTabProp
             </div>
             <div>
               <h4 className="text-xs font-bold uppercase tracking-wider text-slate-800 dark:text-slate-200 flex items-center gap-2">
-                Analisis Termal Permukaan Wilayah (LST Landsat-9 TIRS-2)
+                Suhu Permukaan (LST)
                 <span className="text-[10px] font-extrabold px-2 py-0.5 rounded-full bg-rose-500/15 text-rose-700 dark:text-rose-300 border border-rose-500/25">
-                  USGS C2 L2 ST_B10 Engine
+                  Landsat-9 TIRS-2
                 </span>
               </h4>
               <p className="text-[11px] text-slate-500 dark:text-slate-400">

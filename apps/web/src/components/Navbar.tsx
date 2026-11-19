@@ -5,6 +5,7 @@ import { Logo } from "@/components/Logo";
 import { useTheme } from "@/hooks/useTheme";
 import { useI18n } from "@/hooks/useI18n";
 import { ThemePicker } from "@/components/ThemePicker";
+import { safeScrollY } from "@/utils/browserCompat";
 
 interface NavLinkItem {
   label: string;
@@ -34,7 +35,7 @@ export function Navbar() {
     if (el) {
       const headerOffset = 80;
       const elementPosition = el.getBoundingClientRect().top;
-      const offsetPosition = elementPosition + window.pageYOffset - headerOffset;
+      const offsetPosition = elementPosition + safeScrollY() - headerOffset;
       window.scrollTo({
         top: offsetPosition,
         behavior: "smooth",
@@ -78,12 +79,13 @@ export function Navbar() {
   // Scroll spy & background shadow on scroll
   useEffect(() => {
     const onScroll = () => {
-      setScrolled(window.scrollY > 12);
+      const currentScroll = safeScrollY();
+      setScrolled(currentScroll > 12);
 
       if (location.pathname !== "/" && location.pathname !== "") return;
 
       const navHeight = 120;
-      const scrollPosition = window.scrollY + navHeight;
+      const scrollPosition = currentScroll + navHeight;
       const sectionIds = ["features", "how-it-works", "impact", "sdgs", "about"];
       let currentSection = "";
 

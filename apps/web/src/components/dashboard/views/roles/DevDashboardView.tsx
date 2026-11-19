@@ -222,7 +222,7 @@ function SchoolFilterCombobox({
     <div className="relative" ref={wrapperRef}>
       <button
         onClick={() => setIsOpen(!isOpen)}
-        className="flex items-center justify-between w-64 px-3 py-1.5 text-xs font-semibold rounded-lg bg-slate-50 hover:bg-slate-100 dark:bg-slate-800 dark:hover:bg-slate-700 text-ink-700 dark:text-slate-300 transition-colors border border-slate-200 dark:border-slate-700"
+        className="flex items-center justify-between w-full sm:w-64 px-3 py-1.5 text-xs font-semibold rounded-lg bg-slate-50 hover:bg-slate-100 dark:bg-slate-800 dark:hover:bg-slate-700 text-ink-700 dark:text-slate-300 transition-colors border border-slate-200 dark:border-slate-700"
       >
         <span className="truncate">
           {value === "all" ? "Semua Sekolah" : schoolNamesMap[value] || value}
@@ -237,7 +237,7 @@ function SchoolFilterCombobox({
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, y: -5 }}
             transition={{ duration: 0.15 }}
-            className="absolute z-50 w-80 mt-2 bg-white dark:bg-slate-800 rounded-xl shadow-xl border border-slate-200 dark:border-slate-700 overflow-hidden right-0"
+            className="absolute z-50 w-[min(20rem,calc(100vw-2rem))] mt-2 bg-white dark:bg-slate-800 rounded-xl shadow-xl border border-slate-200 dark:border-slate-700 overflow-hidden right-0"
           >
             <div className="p-2 border-b border-slate-100 dark:border-slate-700">
               <input name="search" id="devdashboardview-search"
@@ -602,7 +602,7 @@ export function DevDashboardView() {
               <ShieldAlert className="h-5 w-5" />
             </div>
             <h2 className="font-display text-2xl font-bold tracking-tight text-ink-900 dark:text-white">
-              User Account
+              Akun Pengguna
             </h2>
           </div>
           <p className="mt-1 text-sm text-ink-500 dark:text-slate-400">
@@ -639,14 +639,14 @@ export function DevDashboardView() {
             bg: "bg-brand-50 dark:bg-brand-500/10",
           },
           {
-            label: "Guru / Pengguna",
+            label: "Guru / Staf",
             value: stats.teachers,
             icon: BookOpen,
             color: "text-amber-600",
             bg: "bg-amber-50 dark:bg-amber-500/10",
           },
           {
-            label: "Admin (Dev)",
+            label: "Pengembang",
             value: stats.devs,
             icon: ShieldAlert,
             color: "text-red-600",
@@ -937,14 +937,14 @@ export function DevDashboardView() {
                         onClick={() => setRegRole("teacher")}
                         className={`flex items-center justify-center gap-2 rounded-xl border-2 py-3 text-sm font-bold transition-all ${regRole === "teacher" ? "border-brand-600 bg-brand-50 text-brand-700 dark:bg-brand-500/20 dark:text-brand-400" : "border-slate-200 bg-white text-ink-500 hover:bg-slate-50 hover:border-slate-300 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-400"}`}
                       >
-                        <BookOpen className="h-4 w-4" /> Guru / Pendidik
+                        <BookOpen className="h-4 w-4" /> Guru
                       </button>
                       <button
                         type="button"
                         onClick={() => setRegRole("student")}
                         className={`flex items-center justify-center gap-2 rounded-xl border-2 py-3 text-sm font-bold transition-all ${regRole === "student" ? "border-brand-600 bg-brand-50 text-brand-700 dark:bg-brand-500/20 dark:text-brand-400" : "border-slate-200 bg-white text-ink-500 hover:bg-slate-50 hover:border-slate-300 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-400"}`}
                       >
-                        <GraduationCap className="h-4 w-4" /> Murid / Siswa
+                        <GraduationCap className="h-4 w-4" /> Siswa
                       </button>
                     </div>
                   </div>

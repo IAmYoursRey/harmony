@@ -238,7 +238,7 @@ export const DisasterRiskCenterModal: React.FC<DisasterRiskCenterModalProps> = (
               <div>
                 <div className="flex items-center gap-2">
                   <h3 className="font-display text-base sm:text-lg font-extrabold text-slate-900 dark:text-white leading-snug">
-                    Pusat Daerah Rawan &amp; Risiko Bencana Geologi
+                    Risiko Bencana
                   </h3>
                   <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-rose-500/15 text-rose-700 dark:text-rose-300 border border-rose-500/30">
                     Akses Cepat Mitigasi
@@ -346,7 +346,7 @@ export const DisasterRiskCenterModal: React.FC<DisasterRiskCenterModalProps> = (
                         </div>
                         <div>
                           <h4 className="text-xs font-bold text-slate-900 dark:text-white">
-                            Zona Kerentanan Gerakan Tanah
+                            Zona Longsor
                           </h4>
                           <span className="text-[10px] text-amber-600 dark:text-amber-400 font-semibold">
                             Standar PVMBG (Sangat Tinggi / Menengah)
@@ -384,7 +384,7 @@ export const DisasterRiskCenterModal: React.FC<DisasterRiskCenterModalProps> = (
                         </div>
                         <div>
                           <h4 className="text-xs font-bold text-slate-900 dark:text-white">
-                            Sesar Aktif &amp; Batas Tektonik
+                            Sesar &amp; Tektonik
                           </h4>
                           <span className="text-[10px] text-violet-600 dark:text-violet-400 font-semibold">
                             Peta Sesar Nasional PuSGeN 2017
@@ -422,7 +422,7 @@ export const DisasterRiskCenterModal: React.FC<DisasterRiskCenterModalProps> = (
                         </div>
                         <div>
                           <h4 className="text-xs font-bold text-slate-900 dark:text-white">
-                            KRB Gunung Api Aktif (127 Gunung)
+                            Gunung Api Aktif
                           </h4>
                           <span className="text-[10px] text-orange-600 dark:text-orange-400 font-semibold">
                             Zonasi Bahaya KRB III, II, I PVMBG
@@ -460,7 +460,7 @@ export const DisasterRiskCenterModal: React.FC<DisasterRiskCenterModalProps> = (
                         </div>
                         <div>
                           <h4 className="text-xs font-bold text-slate-900 dark:text-white">
-                            Zona Rawan Tsunami Pesisir
+                            Rawan Tsunami
                           </h4>
                           <span className="text-[10px] text-cyan-600 dark:text-cyan-400 font-semibold">
                             Pantai Terbuka &amp; Garis Inundasi
@@ -577,7 +577,7 @@ export const DisasterRiskCenterModal: React.FC<DisasterRiskCenterModalProps> = (
                         <div>
                           <h4 className="text-xs font-bold text-white flex items-center gap-1.5">
                             <Navigation className="w-4 h-4 text-emerald-400" />
-                            <span>Simulasi Rute Evakuasi Sekolah Tangguh Bencana</span>
+                            <span>Evakuasi Sekolah</span>
                           </h4>
                           <p className="text-[11px] text-slate-400 mt-0.5">
                             Hitung jalur penyelamatan jalan kaki dan armada darurat menuju titik kumpul aman (TES).
@@ -606,7 +606,7 @@ export const DisasterRiskCenterModal: React.FC<DisasterRiskCenterModalProps> = (
                     </div>
                     <div className="space-y-1">
                       <h4 className="text-sm font-bold text-slate-800 dark:text-white">
-                        Belum Ada Sekolah yang Dipilih
+                        Sekolah Belum Dipilih
                       </h4>
                       <p className="text-xs text-slate-500 max-w-sm mx-auto">
                         Klik salah satu ikon sekolah pada peta atau cari nama sekolah pada bilah pencarian di bagian atas untuk melihat profil kerawanan bencananya.
@@ -622,7 +622,7 @@ export const DisasterRiskCenterModal: React.FC<DisasterRiskCenterModalProps> = (
               <div className="space-y-3 text-xs">
                 <div className="p-3.5 rounded-2xl bg-slate-50 dark:bg-slate-900/60 border border-slate-200 dark:border-slate-800 space-y-1">
                   <h4 className="font-bold text-rose-600 dark:text-rose-400">
-                    Kawasan Rawan Bencana (KRB) Gunung Api (PVMBG)
+                    KRB Gunung Api
                   </h4>
                   <ul className="list-disc pl-4 space-y-0.5 text-slate-600 dark:text-slate-400 text-[11px] leading-relaxed">
                     <li><strong>KRB III (Zona Bahaya Utama):</strong> Kawasan yang sering terlanda awan panas, aliran lava, dan lontaran batu pijar. Tidak diperkenankan untuk permukiman atau bangunan sekolah.</li>
@@ -633,7 +633,7 @@ export const DisasterRiskCenterModal: React.FC<DisasterRiskCenterModalProps> = (
 
                 <div className="p-3.5 rounded-2xl bg-slate-50 dark:bg-slate-900/60 border border-slate-200 dark:border-slate-800 space-y-1">
                   <h4 className="font-bold text-amber-600 dark:text-amber-400">
-                    Zona Kerentanan Gerakan Tanah / Longsor (PVMBG)
+                    Kerentanan Longsor
                   </h4>
                   <p className="text-slate-600 dark:text-slate-400 text-[11px] leading-relaxed">
                     Klasifikasi ilmiah yang membagi wilayah lereng berdasarkan kemiringan sudut lereng, ketebalan tanah lapuk, jenis batuan dasar, dan intensitas curah hujan akumulatif pemicu kegagalan lereng.
@@ -642,7 +642,7 @@ export const DisasterRiskCenterModal: React.FC<DisasterRiskCenterModalProps> = (
 
                 <div className="p-3.5 rounded-2xl bg-slate-50 dark:bg-slate-900/60 border border-slate-200 dark:border-slate-800 space-y-1">
                   <h4 className="font-bold text-violet-600 dark:text-violet-400">
-                    Sesar Aktif (Active Fault) &amp; Megathrust
+                    Sesar &amp; Megathrust
                   </h4>
                   <p className="text-slate-600 dark:text-slate-400 text-[11px] leading-relaxed">
                     Patahan pada kerak bumi yang pernah bergerak dalam kurun 10.000 tahun terakhir (Holosen) dan berpotensi menghasilkan gempa dangkal merusak. Pusat Studi Gempa Nasional (PuSGeN) memetakan lebih dari 295 sesar aktif di kepulauan Indonesia.

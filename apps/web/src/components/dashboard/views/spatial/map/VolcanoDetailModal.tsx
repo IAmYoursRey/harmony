@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { X, Flame, ShieldAlert, Mountain, Clock, History, AlertTriangle, Compass, MapPin, ExternalLink } from 'lucide-react';
-import type { VolcanoLiveStatus } from '@/services/volcanoService';
+import { volcanoService, type VolcanoLiveStatus } from '@/services/volcanoService';
 
 interface VolcanoDetailModalProps {
   volcano: VolcanoLiveStatus | null;
@@ -22,6 +22,8 @@ export const VolcanoDetailModal: React.FC<VolcanoDetailModalProps> = ({
   const isLevel2 = volcano.levelCode === 2;
   const isLevel1 = volcano.levelCode === 1;
   const isInactive = volcano.levelCode === 0 || !volcano.isGeologicallyActive;
+  const isLiveVerified = volcano.operationalStatus === 'VERIFIED_GVP_WEEKLY_FEED' || volcano.operationalStatus === 'VERIFIED_LIVE_FEED';
+  const liveSyncState = volcanoService.getLiveSyncState();
 
   const badgeColor = isLevel4
     ? 'bg-rose-500/15 text-rose-600 dark:text-rose-400 border-rose-500/30'
@@ -72,8 +74,22 @@ export const VolcanoDetailModal: React.FC<VolcanoDetailModalProps> = ({
                   {volcano.volcanoClassification}
                 </span>
 
-                <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-indigo-50 dark:bg-indigo-950/40 text-indigo-600 dark:text-indigo-400 border border-indigo-200/60 dark:border-indigo-800/40">
-                  ⛰️ {volcano.elevation.toLocaleString('id-ID')} mdpl
+                <span className="inline-flex items-center gap-1 text-[10px] font-bold px-2 py-0.5 rounded-full bg-indigo-50 dark:bg-indigo-950/40 text-indigo-600 dark:text-indigo-400 border border-indigo-200/60 dark:border-indigo-800/40 tabular-nums">
+                  <Mountain className="w-3 h-3" /> {volcano.elevation > 0 ? `${volcano.elevation.toLocaleString('id-ID')} mdpl` : 'Elevasi —'}
+                </span>
+
+                <span className={`inline-flex items-center gap-1 text-[10px] font-bold px-2 py-0.5 rounded-full border ${
+                  isLiveVerified
+                    ? 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-500/30'
+                    : liveSyncState.status === 'ERROR'
+                    ? 'bg-rose-500/10 text-rose-600 dark:text-rose-400 border-rose-500/30'
+                    : 'bg-amber-500/10 text-amber-600 dark:text-amber-400 border-amber-500/30'
+                }`}>
+                  {isLiveVerified
+                    ? 'Tersinkron Buletin GVP/USGS Live'
+                    : liveSyncState.status === 'ERROR'
+                    ? 'Sync Live Gagal (ERROR)'
+                    : 'Katalog Referensi (Bukan Live PVMBG)'}
                 </span>
               </div>
 
@@ -152,6 +168,27 @@ export const VolcanoDetailModal: React.FC<VolcanoDetailModalProps> = ({
         <div className="p-4 sm:p-5 overflow-y-auto space-y-4 flex-1 text-slate-700 dark:text-slate-300 text-xs leading-relaxed">
           {activeTab === 'status' && (
             <div className="space-y-4">
+              {!isLiveVerified && (
+                <div className={`p-3 rounded-2xl border text-[11px] flex items-start gap-2.5 ${
+                  liveSyncState.status === 'ERROR'
+                    ? 'bg-rose-500/10 border-rose-500/30 text-rose-700 dark:text-rose-300'
+                    : 'bg-amber-500/10 border-amber-500/30 text-amber-800 dark:text-amber-300'
+                }`}>
+                  <AlertTriangle className="w-4 h-4 shrink-0 mt-0.5" />
+                  <div>
+                    <strong className="block">
+                      {liveSyncState.status === 'ERROR'
+                        ? 'Sinkronisasi Laporan Gunung Api Live Gagal (ERROR)'
+                        : 'Data Katalog Referensi (PVMBG MAGMA JSON Publik Belum Terhubung)'}
+                    </strong>
+                    <span className="opacity-90">
+                      {liveSyncState.status === 'ERROR'
+                        ? liveSyncState.error
+                        : `Pembaruan status: ${volcano.lastUpdate}. Verifikasi status terkini langsung di magma.esdm.go.id.`}
+                    </span>
+                  </div>
+                </div>
+              )}
               {/* Danger Radius Alert */}
               <div className={`p-3.5 rounded-2xl border flex items-start gap-3 ${
                 isLevel4 ? 'bg-rose-500/10 border-rose-500/30 text-rose-900 dark:text-rose-200' :
@@ -162,7 +199,7 @@ export const VolcanoDetailModal: React.FC<VolcanoDetailModalProps> = ({
                 <AlertTriangle className="w-5 h-5 shrink-0 mt-0.5 text-amber-500" />
                 <div className="min-w-0 flex-1">
                   <h4 className="font-bold text-xs uppercase tracking-wider mb-0.5">
-                    Zona Bahaya & Rekomendasi Steril
+                    Zona Bahaya
                   </h4>
                   <p className="text-[11px] leading-relaxed">
                     {volcano.dangerRadiusKm > 0
@@ -199,7 +236,7 @@ export const VolcanoDetailModal: React.FC<VolcanoDetailModalProps> = ({
               {volcano.recommendations && volcano.recommendations.length > 0 && (
                 <div className="p-3.5 rounded-2xl bg-indigo-50/50 dark:bg-indigo-950/20 border border-indigo-200/60 dark:border-indigo-800/40 space-y-2">
                   <h4 className="font-bold text-xs text-indigo-900 dark:text-indigo-300">
-                    Protokol Keselamatan PVMBG / Badan Geologi:
+                    Protokol PVMBG
                   </h4>
                   <ul className="list-disc list-inside space-y-1 text-[11px] text-slate-700 dark:text-slate-300">
                     {volcano.recommendations.map((rec, idx) => (

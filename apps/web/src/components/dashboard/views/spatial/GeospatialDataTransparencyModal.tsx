@@ -34,6 +34,7 @@ import {
   RotateCcw,
   ExternalLink,
 } from 'lucide-react';
+import { safeCopyToClipboard } from '@/utils/browserCompat';
 import {
   geospatialDataTelemetryService,
   TelemetryLogEntry,
@@ -216,11 +217,13 @@ export const GeospatialDataTransparencyModal: React.FC<GeospatialDataTransparenc
     await geospatialDataTelemetryService.pingEndpoint(endpointId, lat, lng);
   };
 
-  const handleCopyLogs = () => {
+  const handleCopyLogs = async () => {
     const text = geospatialDataTelemetryService.exportLogsAsText();
-    navigator.clipboard.writeText(text);
-    setIsCopied(true);
-    setTimeout(() => setIsCopied(false), 2000);
+    const ok = await safeCopyToClipboard(text);
+    if (ok) {
+      setIsCopied(true);
+      setTimeout(() => setIsCopied(false), 2000);
+    }
   };
 
   const handleDownloadLogs = () => {
@@ -305,6 +308,7 @@ export const GeospatialDataTransparencyModal: React.FC<GeospatialDataTransparenc
     const offline = list.filter((e) => e.status === 'OFFLINE').length;
     const checking = list.filter((e) => e.status === 'CHECKING').length;
     const unchecked = list.filter((e) => e.status === 'UNCHECKED').length;
+    const unverifiable = list.filter((e) => e.status === 'UNVERIFIABLE').length;
     const notConfigured = list.filter((e) => e.errorMessage?.includes('belum dikonfigurasi') || e.errorMessage?.includes('NOT_CONFIGURED')).length;
     const noCoverage = list.filter((e) => e.errorMessage?.includes('NO_COVERAGE') || e.errorMessage?.includes('cakupan')).length;
     const avgLatency =
@@ -318,6 +322,7 @@ export const GeospatialDataTransparencyModal: React.FC<GeospatialDataTransparenc
       offline,
       checking,
       unchecked,
+      unverifiable,
       notConfigured,
       noCoverage,
       avgLatency: Math.round(avgLatency),
@@ -345,7 +350,7 @@ export const GeospatialDataTransparencyModal: React.FC<GeospatialDataTransparenc
             <div>
               <div className="flex items-center gap-2">
                 <h3 className="text-base font-bold text-slate-800 dark:text-white">
-                  Pusat Transparansi Data, Status Web/API & Log Audit AI
+                  Transparansi Data
                 </h3>
                 <span className="inline-flex items-center gap-1 text-[10px] font-extrabold px-2 py-0.5 rounded-full bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20">
                   <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
@@ -399,7 +404,7 @@ export const GeospatialDataTransparencyModal: React.FC<GeospatialDataTransparenc
                   : `${endpointStats.online}/${endpointStats.total} Sumber Online`}
               </span>
               <span className="text-[10px] text-slate-500 block">
-                {endpointStats.online} Online • {endpointStats.checking > 0 ? `${endpointStats.checking} Memeriksa... • ` : ''}{endpointStats.degraded + endpointStats.noCoverage} Parsial/Cakupan • {endpointStats.notConfigured} Perlu Kunci
+                {endpointStats.online} Online • {endpointStats.offline} Error/Offline • {endpointStats.degraded + endpointStats.unverifiable + endpointStats.noCoverage} Parsial
               </span>
             </div>
           </div>
@@ -435,12 +440,12 @@ export const GeospatialDataTransparencyModal: React.FC<GeospatialDataTransparenc
               <ShieldCheck className="w-4 h-4" />
             </div>
             <div>
-              <span className="text-[10px] text-slate-400 uppercase font-bold block">Uji Akurasi Konsensus</span>
+              <span className="text-[10px] text-slate-400 uppercase font-bold block">Skor Konsistensi Fisika</span>
               <span className="font-bold text-slate-800 dark:text-white">
-                {accuracyScorecard ? `${accuracyScorecard.overallConfidenceScore.toFixed(1)}% Terverifikasi` : 'Belum diuji'}
+                {accuracyScorecard?.overallConfidenceScore != null ? `${accuracyScorecard.overallConfidenceScore.toFixed(1)}% Lolos Uji` : 'Belum diuji'}
               </span>
               <span className="text-[10px] text-slate-500 block">
-                {accuracyScorecard ? `${accuracyScorecard.consistencyChecks.filter(c => c.passed).length}/${accuracyScorecard.consistencyChecks.length} Uji Fisika Lolos Verifikasi` : 'Akurasi memerlukan pengamatan pembanding'}
+                {accuracyScorecard ? `${accuracyScorecard.consistencyChecks.filter(c => c.passed).length}/${accuracyScorecard.consistencyChecks.length} Uji Fisika Lolos` : 'Belum ada data prakiraan'}
               </span>
             </div>
           </div>
@@ -568,7 +573,7 @@ export const GeospatialDataTransparencyModal: React.FC<GeospatialDataTransparenc
                 <div>
                   <h4 className="text-xs font-bold text-slate-800 dark:text-white flex items-center gap-1.5">
                     <Globe className="w-4 h-4 text-purple-500" />
-                    <span>Daftar Endpoint Terhubung & Pemeriksaan Koneksi Web/API</span>
+                    <span>Daftar Endpoint</span>
                   </h4>
                   <p className="text-[11px] text-slate-500">
                     Cek apakah pengambilan data dari Web Windy, BMKG Satu Peta MKG, Open-Meteo, & Copernicus berhasil atau gagal
@@ -624,17 +629,17 @@ export const GeospatialDataTransparencyModal: React.FC<GeospatialDataTransparenc
                               </span>
                             ) : ep.status === 'UNCHECKED' ? (
                               <span className="px-2 py-0.5 rounded-md bg-slate-100 dark:bg-slate-800 text-slate-500 text-[10px] font-bold">Belum diperiksa</span>
-                            ) : ep.id === 'windy_embed' && isOnline ? (
-                              <span className="px-2 py-0.5 rounded-md bg-sky-500/10 text-sky-600 dark:text-sky-400 text-[10px] font-bold border border-sky-500/20 flex items-center gap-1">
-                                <CheckCircle2 className="w-3 h-3" /> Tampilan Aktif (Iframe Visual)
+                            ) : ep.status === 'UNVERIFIABLE' ? (
+                              <span className="px-2 py-0.5 rounded-md bg-sky-500/10 text-sky-600 dark:text-sky-400 text-[10px] font-bold border border-sky-500/20 flex items-center gap-1" title={ep.errorMessage}>
+                                <Info className="w-3 h-3" /> Iframe Opaque (HTTP Tak Terverifikasi)
                               </span>
                             ) : isOnline ? (
                               <span className="px-2 py-0.5 rounded-md bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 text-[10px] font-bold border border-emerald-500/20 flex items-center gap-1">
-                                <CheckCircle2 className="w-3 h-3" /> Data valid (HTTP {ep.httpStatus})
+                                <CheckCircle2 className="w-3 h-3" /> Online (HTTP {ep.httpStatus ?? 'OK'})
                               </span>
                             ) : isDegraded ? (
-                              <span className="px-2 py-0.5 rounded-md bg-amber-500/10 text-amber-600 text-[10px] font-bold border border-amber-500/20 flex items-center gap-1">
-                                <AlertTriangle className="w-3 h-3" /> Sebagian ({ep.errorMessage || 'Respons lambat'})
+                              <span className="px-2 py-0.5 rounded-md bg-amber-500/10 text-amber-600 text-[10px] font-bold border border-amber-500/20 flex items-center gap-1" title={ep.errorMessage}>
+                                <AlertTriangle className="w-3 h-3" /> Parsial ({ep.errorMessage || 'Respons terbatas'})
                               </span>
                             ) : ep.errorMessage?.includes('belum dikonfigurasi') || ep.errorMessage?.includes('NOT_CONFIGURED') || ep.errorMessage?.includes('alamat email') || ep.errorMessage?.includes('INVALID_KEY') ? (
                               <span className="px-2 py-0.5 rounded-md bg-amber-500/10 text-amber-600 dark:text-amber-400 text-[10px] font-bold border border-amber-500/20 flex items-center gap-1" title={ep.errorMessage}>
@@ -642,11 +647,11 @@ export const GeospatialDataTransparencyModal: React.FC<GeospatialDataTransparenc
                               </span>
                             ) : ep.errorMessage?.includes('kosong dari server hulu') || ep.errorMessage?.includes('NO_COVERAGE') || ep.errorMessage?.includes('cakupan') ? (
                               <span className="px-2 py-0.5 rounded-md bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 text-[10px] font-bold border border-slate-300/60 dark:border-slate-700 flex items-center gap-1" title={ep.errorMessage}>
-                                <Info className="w-3 h-3 text-slate-400" /> Data Hulu Kosong (Pemeliharaan BoM)
+                                <Info className="w-3 h-3 text-slate-400" /> Data Hulu Kosong
                               </span>
                             ) : (
-                              <span className="px-2 py-0.5 rounded-md bg-rose-500/10 text-rose-600 text-[10px] font-bold border border-rose-500/20 flex items-center gap-1">
-                                <WifiOff className="w-3 h-3" /> Gagal ({ep.errorMessage || 'Offline'})
+                              <span className="px-2 py-0.5 rounded-md bg-rose-500/10 text-rose-600 dark:text-rose-400 text-[10px] font-bold border border-rose-500/20 flex items-center gap-1" title={ep.errorMessage}>
+                                <WifiOff className="w-3 h-3" /> ERROR ({ep.errorMessage || 'Offline'})
                               </span>
                             )}
                           </div>
@@ -715,7 +720,7 @@ export const GeospatialDataTransparencyModal: React.FC<GeospatialDataTransparenc
                 <div>
                   <h4 className="text-xs font-bold text-slate-800 dark:text-white flex items-center gap-1.5">
                     <Database className="w-4 h-4 text-sky-500" />
-                    <span>Data Mentah Masuk (Raw Ingestion Payload) Sebelum Diproses AI</span>
+                    <span>Data Mentah</span>
                   </h4>
                   <p className="text-[11px] text-slate-500">
                     Hanya nilai asli dari respons yang diperiksa untuk koordinat pilihan. Nama negara menunjukkan asal model, bukan pengambilan seluruh wilayah negara. Data yang hilang tidak dibuatkan angka pengganti.
@@ -878,7 +883,7 @@ export const GeospatialDataTransparencyModal: React.FC<GeospatialDataTransparenc
                             : 'bg-white dark:bg-slate-900/90 text-slate-700 dark:text-slate-300 border border-slate-300/80 dark:border-slate-800 hover:border-amber-400/50 dark:hover:border-amber-500/50 hover:bg-slate-50 dark:hover:bg-slate-800 hover:text-amber-600 dark:hover:text-amber-400 shadow-2xs font-semibold'
                         }`}
                       >
-                        <span>🌧️ Sensor Fisik</span>
+                        <span>Sensor Fisik</span>
                         <span className="opacity-80 text-[11px] font-mono">({categoryCounts.surface_sensor})</span>
                       </button>
                       <button
@@ -889,7 +894,7 @@ export const GeospatialDataTransparencyModal: React.FC<GeospatialDataTransparenc
                             : 'bg-white dark:bg-slate-900/90 text-slate-700 dark:text-slate-300 border border-slate-300/80 dark:border-slate-800 hover:border-pink-400/50 dark:hover:border-pink-500/50 hover:bg-slate-50 dark:hover:bg-slate-800 hover:text-pink-600 dark:hover:text-pink-400 shadow-2xs font-semibold'
                         }`}
                       >
-                        <span>🔬 Atmosfer CAMS</span>
+                        <span>Atmosfer CAMS</span>
                         <span className="opacity-80 text-[11px] font-mono">({categoryCounts.air_quality})</span>
                       </button>
                     </div>
@@ -1054,7 +1059,7 @@ export const GeospatialDataTransparencyModal: React.FC<GeospatialDataTransparenc
                 <div className="relative rounded-2xl bg-slate-950 p-4 border border-slate-800 font-mono text-xs text-sky-300 max-h-96 overflow-y-auto custom-scrollbar">
                   <div className="sticky top-0 right-0 flex justify-end gap-2 mb-2">
                     <button
-                      onClick={() => {
+                      onClick={async () => {
                         const content = JSON.stringify(
                           {
                             title: 'Matriks Data Mentah Negara Tetangga & Dunia (Ingestion Layer)',
@@ -1067,9 +1072,11 @@ export const GeospatialDataTransparencyModal: React.FC<GeospatialDataTransparenc
                           null,
                           2
                         );
-                        navigator.clipboard.writeText(content);
-                        setIsCopied(true);
-                        setTimeout(() => setIsCopied(false), 1500);
+                        const ok = await safeCopyToClipboard(content);
+                        if (ok) {
+                          setIsCopied(true);
+                          setTimeout(() => setIsCopied(false), 1500);
+                        }
                       }}
                       className="px-2.5 py-1 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 text-[10px] font-bold flex items-center gap-1 cursor-pointer transition-colors"
                     >
@@ -1098,7 +1105,7 @@ export const GeospatialDataTransparencyModal: React.FC<GeospatialDataTransparenc
                 <div className="relative rounded-2xl bg-slate-950 p-4 border border-slate-800 font-mono text-xs text-sky-300 max-h-96 overflow-y-auto custom-scrollbar">
                   <div className="sticky top-0 right-0 flex justify-end gap-2 mb-2">
                     <button
-                      onClick={() => {
+                      onClick={async () => {
                         const content = JSON.stringify(
                           activeRawSubTab === 'json_weather'
                             ? latestSnapshot?.rawWeatherResponse
@@ -1106,9 +1113,11 @@ export const GeospatialDataTransparencyModal: React.FC<GeospatialDataTransparenc
                           null,
                           2
                         );
-                        navigator.clipboard.writeText(content);
-                        setIsCopied(true);
-                        setTimeout(() => setIsCopied(false), 1500);
+                        const ok = await safeCopyToClipboard(content);
+                        if (ok) {
+                          setIsCopied(true);
+                          setTimeout(() => setIsCopied(false), 1500);
+                        }
                       }}
                       className="px-2.5 py-1 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 text-[10px] font-bold flex items-center gap-1 cursor-pointer transition-colors"
                     >
@@ -1136,7 +1145,7 @@ export const GeospatialDataTransparencyModal: React.FC<GeospatialDataTransparenc
               <div className="p-3.5 rounded-2xl bg-slate-50 dark:bg-slate-800/50 border border-slate-200/80 dark:border-slate-700/60">
                 <h4 className="text-xs font-bold text-slate-800 dark:text-white flex items-center gap-1.5">
                   <Sparkles className="w-4 h-4 text-purple-500" />
-                  <span>Audit Perubahan Data: Nilai Mentah Sebelum AI vs Nilai Setelah Diproses AI</span>
+                  <span>Audit Perubahan Data</span>
                 </h4>
                 <p className="text-[11px] text-slate-500">
                   Transparansi penuh mengapa data berubah: harmonisasi ensemble, koreksi anomali sensor gerimis, komputasi 7 persamaan fisika NWP, & sintesis AI
@@ -1186,34 +1195,43 @@ export const GeospatialDataTransparencyModal: React.FC<GeospatialDataTransparenc
               </div>
 
               {/* NWP Equations Highlight */}
-              {weatherData?.aiNwpVerification && (
+              {weatherData?.aiNwpVerification && (() => {
+                const eqs = weatherData.aiNwpVerification.equationsStatus || [];
+                const validEqCount = eqs.filter((eq) => eq.status === 'VALID' || eq.status === 'OK').length;
+                const allValid = eqs.length > 0 && validEqCount === eqs.length;
+                return (
                 <div className="p-4 rounded-2xl bg-gradient-to-r from-purple-950/40 via-indigo-950/30 to-slate-900/60 border border-purple-500/30">
                   <div className="flex items-center justify-between mb-3">
                     <span className="text-xs font-bold text-white flex items-center gap-1.5">
                       <Cpu className="w-4 h-4 text-sky-400" />
                       Status perhitungan diagnostik atmosfer
                     </span>
-                    <span className="text-[10px] font-mono text-emerald-400 bg-emerald-500/10 px-2 py-0.5 rounded-full border border-emerald-500/20">
-                      7 / 7 PERSAMAAN VALID
+                    <span className={`text-[10px] font-mono px-2 py-0.5 rounded-full border ${allValid ? 'text-emerald-400 bg-emerald-500/10 border-emerald-500/20' : 'text-amber-300 bg-amber-500/10 border-amber-500/20'}`}>
+                      {validEqCount} / {eqs.length} PERSAMAAN VALID
                     </span>
                   </div>
 
                   <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5 text-xs">
-                    {weatherData.aiNwpVerification.equationsStatus.map((eq) => (
+                    {eqs.map((eq) => {
+                      const isOk = eq.status === 'VALID' || eq.status === 'OK';
+                      const isWarn = eq.status === 'WARNING';
+                      return (
                       <div key={eq.id} className="p-2.5 rounded-xl bg-slate-900/80 border border-slate-800">
                         <div className="flex items-center justify-between mb-1">
                           <span className="font-bold text-slate-200 truncate">{eq.name}</span>
-                          <span className="text-[9px] font-bold px-1.5 py-0.2 rounded bg-emerald-500/20 text-emerald-400">
+                          <span className={`text-[9px] font-bold px-1.5 py-0.2 rounded ${isOk ? 'bg-emerald-500/20 text-emerald-400' : isWarn ? 'bg-amber-500/20 text-amber-400' : 'bg-rose-500/20 text-rose-400'}`}>
                             {eq.status}
                           </span>
                         </div>
                         <span className="text-[10px] font-mono text-sky-400 block mb-1">{eq.formula}</span>
                         <p className="text-[10px] text-slate-400">{eq.evaluatedValue}</p>
                       </div>
-                    ))}
+                      );
+                    })}
                   </div>
                 </div>
-              )}
+                );
+              })()}
             </div>
           )}
 
@@ -1223,7 +1241,7 @@ export const GeospatialDataTransparencyModal: React.FC<GeospatialDataTransparenc
               <div className="p-3.5 rounded-2xl bg-slate-50 dark:bg-slate-800/50 border border-slate-200/80 dark:border-slate-700/60">
                 <h4 className="text-xs font-bold text-slate-800 dark:text-white flex items-center gap-1.5">
                   <ShieldCheck className="w-4 h-4 text-emerald-500" />
-                  <span>Status Validasi Akurasi Cuaca</span>
+                  <span>Validasi Cuaca</span>
                 </h4>
                 <p className="text-[11px] text-slate-500">
                   Membuktikan secara ilmiah apakah data cuaca, suhu, hujan, dan angin akurat dengan cross-validation hukum termodinamika atmosfer
@@ -1233,12 +1251,12 @@ export const GeospatialDataTransparencyModal: React.FC<GeospatialDataTransparenc
               {/* Accuracy KPI Grid */}
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
                 <div className="p-4 rounded-2xl bg-emerald-500/10 border border-emerald-500/30 text-emerald-800 dark:text-emerald-300">
-                  <span className="text-xs font-bold block mb-1">Skor Akurasi Konsensus</span>
+                  <span className="text-xs font-bold block mb-1">Skor Konsistensi Fisika</span>
                   <span className="text-3xl font-black block">
                     {accuracyScorecard?.overallConfidenceScore != null ? `${accuracyScorecard.overallConfidenceScore.toFixed(1)}%` : 'Belum diuji'}
                   </span>
                   <span className="text-[10px] opacity-80">
-                    {accuracyScorecard ? 'Berdasarkan keselarasan dispersi ensemble model dan batas fisik' : 'Belum ada pengamatan lapangan yang dipasangkan dengan prakiraan untuk menghitung akurasi'}
+                    {accuracyScorecard ? 'Persentase uji batas fisika & keselarasan input yang lolos (bukan pembanding AWS darat)' : 'Belum ada data prakiraan untuk diuji konsistensi fisikanya'}
                   </span>
                 </div>
 
@@ -1277,25 +1295,32 @@ export const GeospatialDataTransparencyModal: React.FC<GeospatialDataTransparenc
                           <th className="p-3 font-bold">Data Mentahan</th>
                           <th className="p-3 font-bold">Konsensus / Terkalibrasi</th>
                           <th className="p-3 font-bold">Dispersi / Deviasi</th>
-                          <th className="p-3 font-bold">Skor & Status</th>
+                          <th className="p-3 font-bold">Status Validasi</th>
                           <th className="p-3 font-bold">Metodologi & Referensi</th>
                         </tr>
                       </thead>
                       <tbody className="divide-y divide-slate-100 dark:divide-slate-800 text-slate-700 dark:text-slate-300">
-                        {accuracyScorecard.metricsAudit.map((m, idx) => (
+                        {accuracyScorecard.metricsAudit.map((m, idx) => {
+                          const pillClass = m.status === 'LOLOS UJI'
+                            ? 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-500/20'
+                            : m.status === 'PARSIAL'
+                              ? 'bg-amber-500/10 text-amber-600 dark:text-amber-400 border-amber-500/20'
+                              : 'bg-rose-500/10 text-rose-600 dark:text-rose-400 border-rose-500/20';
+                          return (
                           <tr key={idx} className="hover:bg-slate-50/50 dark:hover:bg-slate-800/40">
                             <td className="p-3 font-bold text-slate-900 dark:text-white">{m.parameter}</td>
                             <td className="p-3 font-mono text-[11px] text-slate-500">{m.sensorRaw}</td>
                             <td className="p-3 font-mono font-bold text-emerald-600 dark:text-emerald-400">{m.aiCalibrated}</td>
                             <td className="p-3 text-[11px] font-mono text-purple-600 dark:text-purple-400">{m.spreadOrStdDev}</td>
                             <td className="p-3">
-                              <span className="px-2 py-0.5 rounded-md text-[10px] font-bold bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20">
-                                {m.accuracyScore}% ({m.status})
+                              <span className={`px-2 py-0.5 rounded-md text-[10px] font-bold border ${pillClass}`}>
+                                {m.accuracyScore != null ? `${m.accuracyScore}% (${m.status})` : m.status}
                               </span>
                             </td>
                             <td className="p-3 text-[11px] text-slate-500 max-w-xs">{m.methodology}</td>
                           </tr>
-                        ))}
+                          );
+                        })}
                       </tbody>
                     </table>
                   </div>
@@ -1315,7 +1340,11 @@ export const GeospatialDataTransparencyModal: React.FC<GeospatialDataTransparenc
                     >
                       <div className="space-y-1">
                         <div className="flex items-center gap-2">
-                          <CheckCircle2 className="w-4 h-4 text-emerald-500 shrink-0" />
+                          {chk.passed ? (
+                            <CheckCircle2 className="w-4 h-4 text-emerald-500 shrink-0" />
+                          ) : (
+                            <AlertTriangle className="w-4 h-4 text-rose-500 shrink-0" />
+                          )}
                           <span className="text-xs font-bold text-slate-900 dark:text-white">
                             {chk.testName}
                           </span>
@@ -1328,8 +1357,12 @@ export const GeospatialDataTransparencyModal: React.FC<GeospatialDataTransparenc
                         </p>
                       </div>
 
-                      <span className="px-2.5 py-1 rounded-xl bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 text-xs font-bold border border-emerald-500/20 shrink-0 self-start sm:self-auto">
-                        TERVERIFIKASI
+                      <span className={`px-2.5 py-1 rounded-xl text-xs font-bold border shrink-0 self-start sm:self-auto ${
+                        chk.passed
+                          ? 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-500/20'
+                          : 'bg-rose-500/10 text-rose-600 dark:text-rose-400 border-rose-500/20'
+                      }`}>
+                        {chk.passed ? 'LOLOS UJI FISIKA' : 'GAGAL / TIDAK TERSEDIA'}
                       </span>
                     </div>
                   ))}

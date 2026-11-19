@@ -353,7 +353,7 @@ export function SchoolLocationSelector() {
               : "border-transparent text-ink-500 hover:text-ink-800 dark:text-slate-400 dark:hover:text-white"
           }`}
         >
-          {locale === "id" ? "🔍 Pencarian Manual" : "🔍 Manual Search"}
+          {locale === "id" ? "Pencarian Manual" : "Manual Search"}
         </button>
         <button
           onClick={() => setActiveTab("zonasi")}
@@ -364,8 +364,8 @@ export function SchoolLocationSelector() {
           }`}
         >
           {locale === "id"
-            ? "📍 Deteksi Lokasi & Zonasi PPDB"
-            : "📍 Auto Proximity / Zonasi"}
+            ? "Deteksi Lokasi"
+            : "Proximity Scan"}
         </button>
       </div>
 

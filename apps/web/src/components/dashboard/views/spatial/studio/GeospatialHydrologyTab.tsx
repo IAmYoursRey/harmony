@@ -20,7 +20,7 @@ import { aoiService, useActiveAOI } from '../../../../../services/geospatial/aoi
 interface GeospatialHydrologyTabProps {
   lat: number;
   lng: number;
-  elevationM: number;
+  elevationM: number | null;
   regionName: string;
 }
 
@@ -72,7 +72,7 @@ export const GeospatialHydrologyTab: React.FC<GeospatialHydrologyTabProps> = ({
           <div>
             <div className="flex items-center gap-2">
               <h3 className="text-sm font-bold text-slate-800 dark:text-white">
-                Hidrologi, Daerah Aliran Sungai (DAS) & Tutupan Lahan
+                Hidrologi & DAS
               </h3>
               <span className="text-[10px] font-extrabold uppercase px-2 py-0.5 rounded-full bg-sky-500/15 text-sky-700 dark:text-sky-300 border border-sky-500/25">
                 Kementerian PUPR & BIG
@@ -157,7 +157,7 @@ export const GeospatialHydrologyTab: React.FC<GeospatialHydrologyTabProps> = ({
         <div className="flex items-center justify-between pb-3 border-b border-slate-100 dark:border-slate-700/60">
           <div>
             <h4 className="text-sm font-bold text-slate-900 dark:text-white flex items-center gap-2">
-              <TreePine className="w-4 h-4 text-emerald-500" /> Komposisi Tutupan Lahan (ESA WorldCover 2021 v200)
+              <TreePine className="w-4 h-4 text-emerald-500" /> Tutupan Lahan
             </h4>
             <p className="text-xs text-slate-500 dark:text-slate-400">
               Klasifikasi kawasan kedap air (impervious) vs lahan serapan air alami

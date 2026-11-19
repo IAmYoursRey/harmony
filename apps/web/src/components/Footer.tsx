@@ -13,11 +13,12 @@ import {
 import { Link } from "react-router-dom";
 import { Logo } from "@/components/Logo";
 import { useI18n } from "@/hooks/useI18n";
+import { safeScrollY } from "@/utils/browserCompat";
 
 const poweredBy = [
-  { icon: Brain, label: "Artificial Intelligence" },
-  { icon: Boxes, label: "Harmony Twin" },
-  { icon: Satellite, label: "Geospatial Technology" },
+  { icon: Brain, label: "Kecerdasan Buatan" },
+  { icon: Boxes, label: "Kembar Digital" },
+  { icon: Satellite, label: "Teknologi Geospasial" },
 ];
 
 const columns = [
@@ -78,7 +79,7 @@ export function Footer() {
         if (el) {
           const headerOffset = 80;
           const elementPosition = el.getBoundingClientRect().top;
-          const offsetPosition = elementPosition + window.pageYOffset - headerOffset;
+          const offsetPosition = elementPosition + safeScrollY() - headerOffset;
           window.scrollTo({
             top: offsetPosition,
             behavior: "smooth",
@@ -98,9 +99,9 @@ export function Footer() {
       <div className="absolute -top-24 left-1/2 h-64 w-[700px] -translate-x-1/2 rounded-full bg-brand-600/15 blur-[120px]" />
 
       <div className="section-container relative py-14 sm:py-16">
-        <div className="grid gap-10 lg:grid-cols-5">
+        <div className="grid gap-8 sm:grid-cols-2 lg:grid-cols-5">
           {/* Brand + contact */}
-          <div className="lg:col-span-2">
+          <div className="sm:col-span-2 lg:col-span-2">
             <Link to="/" className="block">
               <Logo variant="full" size={40} light />
             </Link>
@@ -123,7 +124,7 @@ export function Footer() {
               </a>
               <p className="flex items-center gap-2 text-ink-400">
                 <MapPin className="h-4 w-4 text-brand-400" /> SMA Negeri 1
-                Ngoro, Mojokerto, East Java, Indonesia
+                Ngoro, Mojokerto, Jawa Timur, Indonesia
               </p>
             </div>
           </div>

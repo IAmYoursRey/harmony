@@ -248,7 +248,7 @@ export const MapLayerManager: React.FC<MapLayerManagerProps> = ({
   if (!isOpen) return null;
 
   return (
-    <div className="fixed sm:absolute top-16 sm:top-20 right-2 sm:right-4 z-50 w-[calc(100vw-1rem)] sm:w-[26rem] max-w-full rounded-3xl bg-white/95 dark:bg-slate-900/95 p-4 shadow-2xl backdrop-blur-2xl border border-slate-200/90 dark:border-slate-800 animate-in fade-in slide-in-from-right-4 duration-200 text-slate-800 dark:text-slate-100 max-h-[calc(100vh-5.5rem)] flex flex-col overflow-hidden">
+    <div className="fixed sm:absolute top-16 sm:top-20 right-2 sm:right-4 z-50 w-[calc(100vw-1rem)] sm:w-[26rem] max-w-full rounded-3xl bg-white/95 dark:bg-slate-900/95 p-4 shadow-2xl backdrop-blur-2xl border border-slate-200/90 dark:border-slate-800 animate-in fade-in slide-in-from-right-4 duration-200 text-slate-800 dark:text-slate-100 max-h-[calc(var(--vh-full)-5.5rem)] flex flex-col overflow-hidden">
       {/* Header */}
       <div className="flex items-center justify-between pb-3 border-b border-slate-100 dark:border-slate-800 shrink-0">
         <div className="flex items-center gap-2.5">
@@ -257,8 +257,8 @@ export const MapLayerManager: React.FC<MapLayerManagerProps> = ({
           </div>
           <div>
             <h3 className="text-sm font-black text-slate-900 dark:text-white flex items-center gap-2">
-              <span>Manajer Lapisan Peta</span>
-              <span className="rounded-full bg-brand-500 px-2 py-0.5 text-[10px] font-bold text-white">
+              <span>Lapisan Peta</span>
+              <span className="rounded-full bg-brand-500 px-2 py-0.5 text-[10px] font-bold text-white tabular-nums">
                 {activeLayersCount} aktif
               </span>
             </h3>
@@ -337,10 +337,10 @@ export const MapLayerManager: React.FC<MapLayerManagerProps> = ({
           }`}
         >
           <div className="flex items-center gap-2 text-left">
-            <span className="text-base">🏫</span>
+            <School className="w-4 h-4 shrink-0 text-indigo-600 dark:text-indigo-400" />
             <div>
-              <span className="block leading-tight font-extrabold">Mode Sekolah Tangguh Bencana</span>
-              <span className="text-[10px] opacity-75 font-normal block">Tampilkan hanya 6 lapisan esensial (hindari visual berlebih)</span>
+              <span className="block leading-tight font-extrabold">Mode Sekolah</span>
+              <span className="text-[10px] opacity-75 font-normal block">Tampilkan 6 lapisan esensial</span>
             </div>
           </div>
           <span className={`text-[10px] font-black uppercase px-2 py-0.5 rounded-full border ${
@@ -357,7 +357,7 @@ export const MapLayerManager: React.FC<MapLayerManagerProps> = ({
       <div className="mt-2 flex items-center gap-1.5 overflow-x-auto pb-1 no-scrollbar shrink-0">
         {[
           { id: "all", label: "Semua" },
-          { id: "school_resilience", label: "🏫 Sekolah Tangguh" },
+          { id: "school_resilience", label: "Sekolah" },
           { id: "active", label: `Aktif (${activeLayersCount})` },
           { id: "user", label: "Alat GIS" },
           { id: "disaster", label: "Bencana" },

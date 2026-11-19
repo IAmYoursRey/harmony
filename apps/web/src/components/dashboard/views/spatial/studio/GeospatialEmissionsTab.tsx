@@ -139,7 +139,7 @@ export const GeospatialEmissionsTab: React.FC<GeospatialEmissionsTabProps> = ({
           <div>
             <div className="flex items-center gap-2">
               <h3 className="text-sm font-bold text-slate-800 dark:text-white">
-                Kalkulator Emisi Karbon Transportasi & Transisi Berkelanjutan
+                Emisi Karbon
               </h3>
               <span className="text-[10px] font-extrabold uppercase px-2 py-0.5 rounded-full bg-emerald-500/15 text-emerald-700 dark:text-emerald-300 border border-emerald-500/25">
                 UK DESNZ & ESDM
@@ -164,7 +164,7 @@ export const GeospatialEmissionsTab: React.FC<GeospatialEmissionsTabProps> = ({
       {/* Input Parameters Form */}
       <div className="p-5 rounded-3xl bg-white dark:bg-slate-800/90 border border-slate-200 dark:border-slate-700/80 shadow-sm space-y-4">
         <h4 className="text-sm font-bold text-slate-900 dark:text-white flex items-center gap-2 pb-2 border-b border-slate-100 dark:border-slate-700/60">
-          <Car className="w-4 h-4 text-emerald-500" /> Parameter Perjalanan & Armada Mobilitas
+          <Car className="w-4 h-4 text-emerald-500" /> Parameter Perjalanan
         </h4>
 
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
@@ -283,7 +283,7 @@ export const GeospatialEmissionsTab: React.FC<GeospatialEmissionsTabProps> = ({
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b border-emerald-500/20">
           <div>
             <h4 className="text-base font-bold text-slate-900 dark:text-white flex items-center gap-2">
-              <TrendingDown className="w-5 h-5 text-emerald-600" /> Hasil Komparasi Jejak Karbon
+              <TrendingDown className="w-5 h-5 text-emerald-600" /> Komparasi Emisi
             </h4>
             <p className="text-xs text-slate-500">
               Evaluasi penghematan emisi tahunan melalui peralihan moda transportasi
@@ -354,8 +354,8 @@ export const GeospatialEmissionsTab: React.FC<GeospatialEmissionsTabProps> = ({
               </p>
             </div>
           </div>
-          <div className="text-xl font-black whitespace-nowrap">
-            🌲 {comparison.treesEquivalentSaved} Pohon Dewasa
+          <div className="text-xl font-black whitespace-nowrap tabular-nums">
+            {comparison.treesEquivalentSaved} Pohon Dewasa
           </div>
         </div>
 

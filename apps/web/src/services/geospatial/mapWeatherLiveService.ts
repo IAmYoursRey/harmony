@@ -171,7 +171,7 @@ class MapWeatherLiveService {
         try {
           const backendUrl = `/api/spatial/weather/current?lat=${lat.toFixed(4)}&lng=${lng.toFixed(4)}`;
           const { data: bJson } = await fetchCheckedJson('map_weather_proxy', backendUrl,
-            d => d?.success && d?.data ? null : 'Proxy cuaca tidak tersedia.', { signal: requestController.signal }, 3000);
+            d => d?.success && d?.data ? null : 'Proxy cuaca tidak tersedia.', { signal: requestController.signal, ...(force ? { cache: 'no-store' as const } : {}) }, 3000);
           if (bJson) {
             if (bJson.success && bJson.data) {
               const d = bJson.data;
@@ -218,7 +218,7 @@ class MapWeatherLiveService {
         if (!payload) {
           const url = `https://api.open-meteo.com/v1/forecast?latitude=${lat.toFixed(4)}&longitude=${lng.toFixed(4)}&current=temperature_2m,relative_humidity_2m,apparent_temperature,precipitation,rain,weather_code,cloud_cover,surface_pressure,wind_speed_10m,wind_direction_10m,wind_gusts_10m&timeformat=unixtime&timezone=auto`;
           const { data: json, attempt } = await fetchCheckedJson('map_weather_direct', url,
-            d => validateCurrentWeather(d, lat, lng), { signal: requestController.signal }, 6000);
+            d => validateCurrentWeather(d, lat, lng), { signal: requestController.signal, ...(force ? { cache: 'no-store' as const } : {}) }, 6000);
           if (!json) throw new Error(attempt.error || 'Data cuaca tidak tersedia.');
           const current = json.current;
 

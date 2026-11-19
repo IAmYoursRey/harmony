@@ -299,7 +299,7 @@ export function SmartReadinessIndex({ result }: { result: ReadinessResult }) {
           <div className="pt-2 border-t border-brand-200/60 dark:border-slate-700/70">
             <p className="font-semibold text-ink-900 dark:text-white flex items-center gap-1.5">
               <BookOpen className="h-3.5 w-3.5 text-brand-500" />
-              Landasan Penilaian Pendidikan Bencana (Bukan Ambang Acak)
+              Landasan Penilaian
             </p>
             <ul className="mt-1.5 space-y-1 text-[11px] text-ink-500 dark:text-slate-400">
               {OFFICIAL_PREPAREDNESS_REFERENCES.map((ref) => (

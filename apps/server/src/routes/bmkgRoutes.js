@@ -474,4 +474,317 @@ router.get("/radar", (req, res) => {
   });
 });
 
+let noaaCache = {
+  metar: new Map(),
+  kpIndex: { data: null, timestamp: 0 },
+  ensoOni: { data: null, timestamp: 0 },
+};
+
+const NOAA_CACHE_TTL_MS = 10 * 60 * 1000;
+
+export function __resetBmkgNoaaCacheForTest() {
+  noaaCache.metar.clear();
+  noaaCache.kpIndex = { data: null, timestamp: 0 };
+  noaaCache.ensoOni = { data: null, timestamp: 0 };
+}
+
+router.get("/aviation/metar", async (req, res) => {
+  const rawIds = typeof req.query.ids === "string" && req.query.ids.trim() ? req.query.ids.trim() : "WARR,WIII,WADD";
+  const safeIdsList = rawIds
+    .split(",")
+    .map((s) => s.trim().toUpperCase())
+    .filter((s) => /^[A-Z0-9]{4}$/.test(s))
+    .slice(0, 12);
+
+  if (safeIdsList.length === 0) {
+    return res.status(400).json({
+      success: false,
+      dataStatus: "ERROR",
+      data: [],
+      error: "Parameter ICAO stasiun METAR tidak valid.",
+    });
+  }
+
+  const cacheKey = safeIdsList.join(",");
+  const force = req.query.force === "true";
+  const now = Date.now();
+  const cached = !force ? noaaCache.metar.get(cacheKey) : null;
+  if (cached && now - cached.timestamp < NOAA_CACHE_TTL_MS) {
+    return res.json({
+      success: true,
+      dataStatus: "LIVE",
+      cached: true,
+      provider: "NOAA Aviation Weather Center (Official ICAO METAR)",
+      fetchedAt: new Date(cached.timestamp).toISOString(),
+      count: cached.data.length,
+      data: cached.data,
+    });
+  }
+
+  const url = `https://aviationweather.gov/api/data/metar?ids=${encodeURIComponent(cacheKey)}&format=json`;
+  try {
+    const response = await fetch(url, {
+      headers: {
+        "User-Agent": "HarmonyGeospatialApp/2.0 (Educational)",
+        "Accept": "application/json",
+      },
+      signal: AbortSignal.timeout(8000),
+    });
+    if (!response.ok) {
+      throw new Error(`HTTP_${response.status}`);
+    }
+    const rawList = await response.json();
+    if (!Array.isArray(rawList)) {
+      throw new Error("INVALID_METAR_JSON_ARRAY");
+    }
+
+    const parsed = rawList
+      .filter((item) => item && typeof item.icaoId === "string" && typeof item.rawOb === "string")
+      .map((item) => ({
+        icaoId: item.icaoId,
+        name: item.name || item.icaoId,
+        reportTime: item.reportTime || item.receiptTime || null,
+        obsTime: typeof item.obsTime === "number" ? new Date(item.obsTime * 1000).toISOString() : null,
+        rawOb: item.rawOb,
+        tempC: typeof item.temp === "number" && Number.isFinite(item.temp) ? item.temp : null,
+        dewpointC: typeof item.dewp === "number" && Number.isFinite(item.dewp) ? item.dewp : null,
+        windDirDeg: typeof item.wdir === "number" && Number.isFinite(item.wdir) ? item.wdir : null,
+        windSpeedKt: typeof item.wspd === "number" && Number.isFinite(item.wspd) ? item.wspd : null,
+        visibility: item.visib != null ? String(item.visib) : null,
+        altimeterHpa: typeof item.altim === "number" && Number.isFinite(item.altim) ? item.altim : null,
+        flightCategory: item.fltCat || null,
+        clouds: Array.isArray(item.clouds) ? item.clouds : [],
+        lat: typeof item.lat === "number" ? item.lat : null,
+        lng: typeof item.lon === "number" ? item.lon : null,
+      }));
+
+    if (parsed.length === 0) {
+      throw new Error("NO_VALID_METAR_RECORDS");
+    }
+
+    noaaCache.metar.set(cacheKey, { timestamp: now, data: parsed });
+    return res.json({
+      success: true,
+      dataStatus: "LIVE",
+      cached: false,
+      provider: "NOAA Aviation Weather Center (Official ICAO METAR)",
+      fetchedAt: new Date(now).toISOString(),
+      count: parsed.length,
+      data: parsed,
+    });
+  } catch (err) {
+    return res.status(502).json({
+      success: false,
+      dataStatus: "ERROR",
+      provider: "NOAA Aviation Weather Center (Official ICAO METAR)",
+      fetchedAt: null,
+      count: 0,
+      data: [],
+      error: `Gagal mengambil data METAR live (${err?.message || "Fetch error"}).`,
+    });
+  }
+});
+
+router.get("/geophysics/kp-index", async (req, res) => {
+  const force = req.query.force === "true";
+  const now = Date.now();
+  if (!force && noaaCache.kpIndex.data && now - noaaCache.kpIndex.timestamp < NOAA_CACHE_TTL_MS) {
+    return res.json({
+      success: true,
+      dataStatus: "LIVE",
+      cached: true,
+      provider: "NOAA Space Weather Prediction Center (SWPC)",
+      fetchedAt: new Date(noaaCache.kpIndex.timestamp).toISOString(),
+      data: noaaCache.kpIndex.data,
+    });
+  }
+
+  const url = "https://services.swpc.noaa.gov/products/noaa-planetary-k-index.json";
+  try {
+    const response = await fetch(url, {
+      headers: {
+        "User-Agent": "HarmonyGeospatialApp/2.0 (Educational)",
+        "Accept": "application/json",
+      },
+      signal: AbortSignal.timeout(8000),
+    });
+    if (!response.ok) {
+      throw new Error(`HTTP_${response.status}`);
+    }
+    const raw = await response.json();
+    if (!Array.isArray(raw) || raw.length === 0) {
+      throw new Error("EMPTY_KP_RESPONSE");
+    }
+
+    let latest = null;
+    for (let i = raw.length - 1; i >= 0; i--) {
+      const row = raw[i];
+      if (row && !Array.isArray(row) && typeof row === "object") {
+        const kp = Number(row.Kp ?? row.kp);
+        const aRunning = row.a_running != null ? Number(row.a_running) : null;
+        const stationCount = row.station_count != null ? Number(row.station_count) : null;
+        if (row.time_tag && Number.isFinite(kp)) {
+          latest = {
+            timeTag: String(row.time_tag),
+            kpIndex: kp,
+            aRunning: Number.isFinite(aRunning) ? aRunning : null,
+            stationCount: Number.isFinite(stationCount) ? stationCount : null,
+          };
+          break;
+        }
+      } else if (Array.isArray(row) && row.length >= 2 && row[0] !== "time_tag") {
+        const kp = Number(row[1]);
+        const aRunning = row[2] != null ? Number(row[2]) : null;
+        const stationCount = row[3] != null ? Number(row[3]) : null;
+        if (Number.isFinite(kp)) {
+          latest = {
+            timeTag: String(row[0]),
+            kpIndex: kp,
+            aRunning: Number.isFinite(aRunning) ? aRunning : null,
+            stationCount: Number.isFinite(stationCount) ? stationCount : null,
+          };
+          break;
+        }
+      }
+    }
+
+    if (!latest) {
+      throw new Error("INVALID_KP_RECORDS");
+    }
+
+    let stormScale = "G0";
+    let statusText = "Tenang (Tidak ada badai geomagnetik)";
+    if (latest.kpIndex >= 9) {
+      stormScale = "G5";
+      statusText = "Badai Geomagnetik Ekstrem";
+    } else if (latest.kpIndex >= 8) {
+      stormScale = "G4";
+      statusText = "Badai Geomagnetik Parah";
+    } else if (latest.kpIndex >= 7) {
+      stormScale = "G3";
+      statusText = "Badai Geomagnetik Kuat";
+    } else if (latest.kpIndex >= 6) {
+      stormScale = "G2";
+      statusText = "Badai Geomagnetik Sedang";
+    } else if (latest.kpIndex >= 5) {
+      stormScale = "G1";
+      statusText = "Badai Geomagnetik Ringan";
+    } else if (latest.kpIndex >= 4) {
+      stormScale = "G0-Active";
+      statusText = "Aktif (Belum mencapai ambang badai G1)";
+    }
+
+    const result = {
+      ...latest,
+      stormScale,
+      statusText,
+    };
+
+    noaaCache.kpIndex = { data: result, timestamp: now };
+    return res.json({
+      success: true,
+      dataStatus: "LIVE",
+      cached: false,
+      provider: "NOAA Space Weather Prediction Center (SWPC)",
+      fetchedAt: new Date(now).toISOString(),
+      data: result,
+    });
+  } catch (err) {
+    return res.status(502).json({
+      success: false,
+      dataStatus: "ERROR",
+      provider: "NOAA Space Weather Prediction Center (SWPC)",
+      fetchedAt: null,
+      data: null,
+      error: `Gagal mengambil data Planetary Kp-Index live (${err?.message || "Fetch error"}).`,
+    });
+  }
+});
+
+router.get("/climate/enso-oni", async (req, res) => {
+  const force = req.query.force === "true";
+  const now = Date.now();
+  if (!force && noaaCache.ensoOni.data && now - noaaCache.ensoOni.timestamp < NOAA_CACHE_TTL_MS) {
+    return res.json({
+      success: true,
+      dataStatus: "LIVE",
+      cached: true,
+      provider: "NOAA Climate Prediction Center (CPC Niño 3.4 ONI)",
+      fetchedAt: new Date(noaaCache.ensoOni.timestamp).toISOString(),
+      data: noaaCache.ensoOni.data,
+    });
+  }
+
+  const url = "https://www.cpc.ncep.noaa.gov/data/indices/oni.ascii.txt";
+  try {
+    const response = await fetch(url, {
+      headers: {
+        "User-Agent": "HarmonyGeospatialApp/2.0 (Educational)",
+        "Accept": "text/plain",
+      },
+      signal: AbortSignal.timeout(8000),
+    });
+    if (!response.ok) {
+      throw new Error(`HTTP_${response.status}`);
+    }
+    const text = await response.text();
+    const lines = text.trim().split(/\r?\n/);
+    const rows = [];
+    for (const line of lines) {
+      const m = line.trim().match(/^([A-Z]{3})\s+(\d{4})\s+([-+]?\d+(?:\.\d+)?)\s+([-+]?\d+(?:\.\d+)?)$/);
+      if (m) {
+        const year = parseInt(m[2], 10);
+        const totalSstC = parseFloat(m[3]);
+        const anomalyOni = parseFloat(m[4]);
+        if (Number.isFinite(year) && Number.isFinite(totalSstC) && Number.isFinite(anomalyOni)) {
+          rows.push({ season: m[1], year, totalSstC, anomalyOni });
+        }
+      }
+    }
+
+    if (rows.length === 0) {
+      throw new Error("INVALID_ONI_ASCII_FORMAT");
+    }
+
+    const latest = rows[rows.length - 1];
+    let phase = "Netral";
+    if (latest.anomalyOni >= 2.0) phase = "El Niño Sangat Kuat";
+    else if (latest.anomalyOni >= 1.5) phase = "El Niño Kuat";
+    else if (latest.anomalyOni >= 1.0) phase = "El Niño Moderat";
+    else if (latest.anomalyOni >= 0.5) phase = "El Niño Lemah";
+    else if (latest.anomalyOni <= -2.0) phase = "La Niña Sangat Kuat";
+    else if (latest.anomalyOni <= -1.5) phase = "La Niña Kuat";
+    else if (latest.anomalyOni <= -1.0) phase = "La Niña Moderat";
+    else if (latest.anomalyOni <= -0.5) phase = "La Niña Lemah";
+
+    const result = {
+      season: latest.season,
+      year: latest.year,
+      totalSstC: latest.totalSstC,
+      anomalyOni: latest.anomalyOni,
+      phase,
+      recentSeries: rows.slice(-6),
+    };
+
+    noaaCache.ensoOni = { data: result, timestamp: now };
+    return res.json({
+      success: true,
+      dataStatus: "LIVE",
+      cached: false,
+      provider: "NOAA Climate Prediction Center (CPC Niño 3.4 ONI)",
+      fetchedAt: new Date(now).toISOString(),
+      data: result,
+    });
+  } catch (err) {
+    return res.status(502).json({
+      success: false,
+      dataStatus: "ERROR",
+      provider: "NOAA Climate Prediction Center (CPC Niño 3.4 ONI)",
+      fetchedAt: null,
+      data: null,
+      error: `Gagal mengambil data ENSO ONI live (${err?.message || "Fetch error"}).`,
+    });
+  }
+});
+
 export default router;

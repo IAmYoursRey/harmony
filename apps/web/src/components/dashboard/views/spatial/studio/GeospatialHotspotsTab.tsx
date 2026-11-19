@@ -208,7 +208,7 @@ export const GeospatialHotspotsTab: React.FC<GeospatialHotspotsTabProps> = ({
           const scopeLabel = targetScope === 'indonesia' ? 'Seluruh Indonesia' : targetScope === 'java' ? 'Pulau Jawa' : regionName;
           setFirmsMessage(
             response.reason?.message ||
-            `⚠️ Satelit NASA LANCE belum merespons. Menampilkan data arsip tersimpan (${snapDate}, diambil ${new Date(snapTime).toLocaleString('id-ID')}) untuk ${scopeLabel}.`
+            `Satelit NASA LANCE belum merespons. Menampilkan data arsip (${snapDate}, ${new Date(snapTime).toLocaleString('id-ID')}) untuk ${scopeLabel}.`
           );
           hotspotRepositoryClient.saveToLocalStorage({
             id: response.snapshotId || `fallback-${snapDate}`,
@@ -244,7 +244,7 @@ export const GeospatialHotspotsTab: React.FC<GeospatialHotspotsTabProps> = ({
           liveSourceRef.current = true;
           setFetchFailed(false);
           setLastUpdated(new Date());
-          setFirmsMessage(`⚠️ Satelit NASA LANCE offline. Menampilkan data arsip tersimpan lokal (${local.snapshotDate}, diambil ${new Date(local.fetchedAt).toLocaleString('id-ID')}).`);
+          setFirmsMessage(`Satelit NASA LANCE offline. Menampilkan data arsip lokal (${local.snapshotDate}, ${new Date(local.fetchedAt).toLocaleString('id-ID')}).`);
           return;
         }
 
@@ -320,7 +320,7 @@ export const GeospatialHotspotsTab: React.FC<GeospatialHotspotsTabProps> = ({
           liveSourceRef.current = true;
           setFetchFailed(false);
           setLastUpdated(new Date());
-          setFirmsMessage(`⚠️ Satelit offline. Menampilkan data arsip tersimpan (${local.snapshotDate}, diambil ${new Date(local.fetchedAt).toLocaleString('id-ID')}).`);
+          setFirmsMessage(`Satelit offline. Menampilkan data arsip (${local.snapshotDate}, ${new Date(local.fetchedAt).toLocaleString('id-ID')}).`);
         } else {
           setFetchFailed(true);
           setFirmsMessage(error instanceof Error ? error.message : 'Tidak dapat mengambil data satelit FIRMS.');
@@ -375,7 +375,7 @@ export const GeospatialHotspotsTab: React.FC<GeospatialHotspotsTabProps> = ({
         });
         const scopeLabel = snap.scope === 'indonesia' ? 'Seluruh Indonesia' : snap.scope === 'java' ? 'Pulau Jawa' : regionName;
         setFirmsMessage(
-          `📅 Garis Waktu Arsip: Data Satelit ${snap.snapshotDate} (Diambil ${new Date(snap.fetchedAt).toLocaleString('id-ID', { dateStyle: 'medium', timeStyle: 'short' })} WIB) • ${snap.recordCount} anomali termal di ${scopeLabel}.`
+          `Arsip Satelit ${snap.snapshotDate} (${new Date(snap.fetchedAt).toLocaleString('id-ID', { dateStyle: 'medium', timeStyle: 'short' })} WIB) • ${snap.recordCount} anomali di ${scopeLabel}.`
         );
       }
     } catch (e) {
@@ -604,7 +604,7 @@ export const GeospatialHotspotsTab: React.FC<GeospatialHotspotsTabProps> = ({
           <div>
             <div className="flex items-center gap-2">
               <h3 className="text-sm font-bold text-slate-800 dark:text-white">
-                Deteksi Titik Panas Permukaan Bumi Tidak Wajar (NASA FIRMS &amp; SiPongi)
+                Titik Panas
               </h3>
               <span className="text-[10px] font-extrabold uppercase px-2 py-0.5 rounded-full bg-rose-500/15 text-rose-700 dark:text-rose-300 border border-rose-500/25">
                 NRT Satelit
@@ -721,7 +721,7 @@ export const GeospatialHotspotsTab: React.FC<GeospatialHotspotsTabProps> = ({
                   <Calendar className="w-4 h-4" />
                 </span>
                 <h4 className="text-sm font-bold text-slate-900 dark:text-white">
-                  Garis Waktu &amp; Arsip Titik Panas Permukaan Bumi Tidak Wajar
+                  Arsip Titik Panas
                 </h4>
               </div>
               <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
@@ -775,7 +775,7 @@ export const GeospatialHotspotsTab: React.FC<GeospatialHotspotsTabProps> = ({
               >
                 {timelineSnapshots.map((snap) => (
                   <option key={snap.id} value={snap.id}>
-                    📅 {snap.snapshotDate} ({new Date(snap.fetchedAt).toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' })} WIB) • {snap.recordCount} Titik ({snap.scope.toUpperCase()}) — {snap.notes || 'Arsip Satelit'}
+                    {snap.snapshotDate} ({new Date(snap.fetchedAt).toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' })} WIB) • {snap.recordCount} Titik ({snap.scope.toUpperCase()}) — {snap.notes || 'Arsip Satelit'}
                   </option>
                 ))}
               </select>
@@ -947,7 +947,7 @@ export const GeospatialHotspotsTab: React.FC<GeospatialHotspotsTabProps> = ({
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b border-slate-100 dark:border-slate-700/60">
           <div>
             <h4 className="text-sm font-bold text-slate-900 dark:text-white flex items-center gap-2">
-              <Filter className="w-4 h-4 text-rose-500" /> Filter & Parameter Observasi
+              <Filter className="w-4 h-4 text-rose-500" /> Filter Observasi
             </h4>
             <p className="text-xs text-slate-500 dark:text-slate-400">
               Pilih batas keyakinan, sensor satelit, dan rentang waktu deteksi
@@ -1145,11 +1145,11 @@ export const GeospatialHotspotsTab: React.FC<GeospatialHotspotsTabProps> = ({
         <div className="flex flex-col sm:flex-row sm:items-center justify-between pb-2 border-b border-slate-100 dark:border-slate-700/60 gap-2">
           <div>
             <h4 className="text-sm font-bold text-slate-900 dark:text-white">
-              Daftar Anomali Termal Terdeteksi ({displayedHotspots.length})
+              Anomali Terdeteksi ({displayedHotspots.length})
             </h4>
             {snapshotInfo && (
-              <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-0.5">
-                📅 Tanggal Data: <span className="font-semibold text-slate-700 dark:text-slate-200">{snapshotInfo.date}</span> • Waktu Diambil: <span className="font-semibold text-slate-700 dark:text-slate-200">{new Date(snapshotInfo.fetchedAt).toLocaleString('id-ID', { dateStyle: 'medium', timeStyle: 'short' })} WIB</span>
+              <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-0.5 tabular-nums">
+                Tanggal: <span className="font-semibold text-slate-700 dark:text-slate-200">{snapshotInfo.date}</span> • Diambil: <span className="font-semibold text-slate-700 dark:text-slate-200">{new Date(snapshotInfo.fetchedAt).toLocaleString('id-ID', { dateStyle: 'medium', timeStyle: 'short' })} WIB</span>
                 {isFallbackSnapshot && (
                   <span className="ml-1.5 px-2 py-0.5 rounded-full bg-amber-500/20 text-amber-700 dark:text-amber-300 font-bold text-[10px]">
                     Data Arsip Tersimpan (Fallback)

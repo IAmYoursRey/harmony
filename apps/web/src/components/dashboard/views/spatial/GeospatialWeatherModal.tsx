@@ -153,14 +153,13 @@ interface StudioDomainDef {
 }
 
 export const STUDIO_DOMAINS: StudioDomainDef[] = [
-  // Prioritas Utama: Cuaca & Visualisasi Intuitif
   {
     id: 'weather',
-    name: 'Ringkasan Cuaca & Grafik',
+    name: 'Cuaca',
     badge: 'Model Lokasi',
     icon: Cloud,
     pillar: 'atmosfer',
-    pillarLabel: 'Atmosfer & Cuaca',
+    pillarLabel: 'Atmosfer',
     badgeColor: {
       active: 'bg-sky-500/15 text-sky-600 dark:text-sky-400 border-sky-500/30',
       inactive: 'bg-slate-100 text-slate-500 dark:bg-slate-800 dark:text-slate-400 border-slate-200 dark:border-slate-700',
@@ -169,22 +168,20 @@ export const STUDIO_DOMAINS: StudioDomainDef[] = [
   },
   {
     id: 'bmkg',
-    name: 'Satu Peta MKG',
+    name: 'Peta MKG',
     badge: 'BMKG Intel',
     icon: Radio,
     pillar: 'atmosfer',
-    pillarLabel: 'Atmosfer & MKG',
+    pillarLabel: 'Atmosfer',
     badgeColor: {
       active: 'bg-indigo-500/15 text-indigo-600 dark:text-indigo-400 border-indigo-500/30',
       inactive: 'bg-slate-100 text-slate-500 dark:bg-slate-800 dark:text-slate-400 border-slate-200 dark:border-slate-700',
       indicator: 'bg-indigo-500',
     },
   },
-
-  // Pilar 1: Observasi Bumi (5)
   {
     id: 'remote_sensing',
-    name: 'Penginderaan Jauh',
+    name: 'Citra Satelit',
     badge: 'Sentinel-1/2',
     icon: Satellite,
     pillar: 'observasi',
@@ -197,7 +194,7 @@ export const STUDIO_DOMAINS: StudioDomainDef[] = [
   },
   {
     id: 'terrain',
-    name: 'Topografi & DEM',
+    name: 'Topografi DEM',
     badge: 'SRTM 3D',
     icon: Mountain,
     pillar: 'observasi',
@@ -210,8 +207,8 @@ export const STUDIO_DOMAINS: StudioDomainDef[] = [
   },
   {
     id: 'positioning',
-    name: 'GNSS & Posisi',
-    badge: 'KORS / CORS',
+    name: 'GNSS Presisi',
+    badge: 'CORS',
     icon: Crosshair,
     pillar: 'observasi',
     pillarLabel: 'Observasi Bumi',
@@ -223,8 +220,8 @@ export const STUDIO_DOMAINS: StudioDomainDef[] = [
   },
   {
     id: 'hydrology',
-    name: 'Hidrologi & Lahan',
-    badge: 'DAS & Satelit',
+    name: 'Hidrologi',
+    badge: 'DAS',
     icon: Waves,
     pillar: 'observasi',
     pillarLabel: 'Observasi Bumi',
@@ -236,7 +233,7 @@ export const STUDIO_DOMAINS: StudioDomainDef[] = [
   },
   {
     id: 'field_survey',
-    name: 'Survei & Drone',
+    name: 'Survei Drone',
     badge: 'UAV / LiDAR',
     icon: Camera,
     pillar: 'observasi',
@@ -247,15 +244,13 @@ export const STUDIO_DOMAINS: StudioDomainDef[] = [
       indicator: 'bg-teal-500',
     },
   },
-
-  // Pilar 3: Analitik Spasial & Intelijensi (4)
   {
     id: 'analytics',
-    name: 'Analisis & Buffer',
-    badge: 'Spatial Pro',
+    name: 'Analisis Spasial',
+    badge: 'Buffer GIS',
     icon: Target,
     pillar: 'analitik',
-    pillarLabel: 'Analitik & Intelijensi',
+    pillarLabel: 'Analitik',
     badgeColor: {
       active: 'bg-purple-500/15 text-purple-600 dark:text-purple-400 border-purple-500/30',
       inactive: 'bg-slate-100 text-slate-500 dark:bg-slate-800 dark:text-slate-400 border-slate-200 dark:border-slate-700',
@@ -268,7 +263,7 @@ export const STUDIO_DOMAINS: StudioDomainDef[] = [
     badge: '30+ Visual',
     icon: Activity,
     pillar: 'analitik',
-    pillarLabel: 'Analitik & Intelijensi',
+    pillarLabel: 'Analitik',
     badgeColor: {
       active: 'bg-violet-500/15 text-violet-600 dark:text-violet-400 border-violet-500/30',
       inactive: 'bg-slate-100 text-slate-500 dark:bg-slate-800 dark:text-slate-400 border-slate-200 dark:border-slate-700',
@@ -277,11 +272,11 @@ export const STUDIO_DOMAINS: StudioDomainDef[] = [
   },
   {
     id: 'fusion',
-    name: 'Fusi Data Global',
+    name: 'Fusi Data',
     badge: 'Gap AI',
     icon: Globe,
     pillar: 'analitik',
-    pillarLabel: 'Analitik & Intelijensi',
+    pillarLabel: 'Analitik',
     badgeColor: {
       active: 'bg-pink-500/15 text-pink-600 dark:text-pink-400 border-pink-500/30',
       inactive: 'bg-slate-100 text-slate-500 dark:bg-slate-800 dark:text-slate-400 border-slate-200 dark:border-slate-700',
@@ -294,7 +289,7 @@ export const STUDIO_DOMAINS: StudioDomainDef[] = [
     badge: 'ISO 19115',
     icon: Database,
     pillar: 'analitik',
-    pillarLabel: 'Analitik & Intelijensi',
+    pillarLabel: 'Analitik',
     badgeColor: {
       active: 'bg-slate-500/15 text-slate-700 dark:text-slate-300 border-slate-500/30',
       inactive: 'bg-slate-100 text-slate-500 dark:bg-slate-800 dark:text-slate-400 border-slate-200 dark:border-slate-700',
@@ -303,7 +298,7 @@ export const STUDIO_DOMAINS: StudioDomainDef[] = [
   },
   {
     id: 'hotspots',
-    name: 'Titik Panas Permukaan Bumi Tidak Wajar',
+    name: 'Titik Panas',
     badge: 'NASA FIRMS',
     icon: Flame,
     pillar: 'observasi',
@@ -316,11 +311,11 @@ export const STUDIO_DOMAINS: StudioDomainDef[] = [
   },
   {
     id: 'accessibility',
-    name: 'Akses Layanan 15m',
-    badge: 'Network GIS',
+    name: 'Akses Layanan',
+    badge: '15 Menit',
     icon: Clock,
     pillar: 'analitik',
-    pillarLabel: 'Analitik & Intelijensi',
+    pillarLabel: 'Analitik',
     badgeColor: {
       active: 'bg-blue-500/15 text-blue-600 dark:text-blue-400 border-blue-500/30',
       inactive: 'bg-slate-100 text-slate-500 dark:bg-slate-800 dark:text-slate-400 border-slate-200 dark:border-slate-700',
@@ -329,11 +324,11 @@ export const STUDIO_DOMAINS: StudioDomainDef[] = [
   },
   {
     id: 'emissions',
-    name: 'Emisi Transportasi',
-    badge: 'Karbon GHG',
+    name: 'Emisi Karbon',
+    badge: 'GHG',
     icon: Leaf,
     pillar: 'analitik',
-    pillarLabel: 'Analitik & Intelijensi',
+    pillarLabel: 'Analitik',
     badgeColor: {
       active: 'bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 border-emerald-500/30',
       inactive: 'bg-slate-100 text-slate-500 dark:bg-slate-800 dark:text-slate-400 border-slate-200 dark:border-slate-700',
@@ -342,11 +337,11 @@ export const STUDIO_DOMAINS: StudioDomainDef[] = [
   },
   {
     id: 'swot',
-    name: 'Rencana Produk SWOT',
-    badge: 'Manajemen',
+    name: 'Analisis SWOT',
+    badge: 'Strategi',
     icon: FileText,
     pillar: 'analitik',
-    pillarLabel: 'Analitik & Intelijensi',
+    pillarLabel: 'Analitik',
     badgeColor: {
       active: 'bg-purple-500/15 text-purple-600 dark:text-purple-400 border-purple-500/30',
       inactive: 'bg-slate-100 text-slate-500 dark:bg-slate-800 dark:text-slate-400 border-slate-200 dark:border-slate-700',
@@ -380,29 +375,29 @@ const CustomWeatherChartTooltip: React.FC<CustomWeatherTooltipProps> = ({
   const cloud = pt.cloudCover ?? 0;
   const humidity = pt.humidity ?? 0;
 
-  let tempAdvice = 'Sejuk & Nyaman 🍃';
+  let tempAdvice = 'Nyaman';
   let tempColor = 'text-emerald-400 bg-emerald-950/60 border-emerald-800';
   if (temp >= 33 || appTemp >= 35) {
-    tempAdvice = 'Sangat Terik & Gerah ♨️';
+    tempAdvice = 'Sangat Terik';
     tempColor = 'text-red-300 bg-red-950/60 border-red-800';
   } else if (temp >= 29 || appTemp >= 31) {
-    tempAdvice = 'Hangat / Cukup Gerah 🌤️';
+    tempAdvice = 'Hangat';
     tempColor = 'text-amber-300 bg-amber-950/60 border-amber-800';
   } else if (temp < 23) {
-    tempAdvice = 'Dingin Sejuk ❄️';
+    tempAdvice = 'Sejuk';
     tempColor = 'text-sky-300 bg-sky-950/60 border-sky-800';
   }
 
-  let rainBadge = 'Aman tanpa payung ☀️';
+  let rainBadge = 'Aman';
   let rainAdviceColor = 'text-slate-200';
   if (precip >= 5 || prob >= 75) {
-    rainBadge = '⚠️ Wajib jas hujan / payung';
+    rainBadge = 'Sedia Jas Hujan';
     rainAdviceColor = 'text-rose-300';
   } else if (precip >= 1 || prob >= 50) {
-    rainBadge = '☂️ Sedia payung sebelum keluar';
+    rainBadge = 'Sedia Payung';
     rainAdviceColor = 'text-sky-300';
   } else if (precip > 0 || prob >= 25) {
-    rainBadge = '🧥 Bawa payung/jaket ringan';
+    rainBadge = 'Bawa Jaket';
     rainAdviceColor = 'text-cyan-300';
   }
 
@@ -437,19 +432,19 @@ const CustomWeatherChartTooltip: React.FC<CustomWeatherTooltipProps> = ({
           {isExactNow ? (
             <>
               <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-ping inline-block" />
-              <span>🔴 Detik Akurat</span>
+              <span>Terkini</span>
             </>
           ) : isNow ? (
-            '📍 Jam Ini (Live)'
+            'Jam Ini'
           ) : isPermanent ? (
             <>
               <Lock className="w-2.5 h-2.5 text-amber-300" />
-              <span>🔒 Permanen</span>
+              <span>Permanen</span>
             </>
           ) : pt.isPast ? (
-            '📜 Riwayat'
+            'Riwayat'
           ) : (
-            '🔮 Ramalan'
+            'Prakiraan'
           )}
         </span>
       </div>
@@ -575,8 +570,8 @@ export const GeospatialWeatherModal: React.FC<GeospatialWeatherModalProps> = ({
   const [activeRegionName, setActiveRegionName] = useState(() => {
     if (userPreciseLocation?.shortDisplay) return userPreciseLocation.shortDisplay;
     if (locationName && locationName !== 'Wilayah Geospasial') return locationName;
-    if (Math.abs(lat - (-6.2088)) < 0.05 && Math.abs(lng - 106.8456) < 0.05) return 'DKI Jakarta (Pusat)';
-    return locationName || `Koordinat (${lat.toFixed(3)}°, ${lng.toFixed(3)})`;
+    if (Math.abs(lat - (-6.2088)) < 0.05 && Math.abs(lng - 106.8456) < 0.05) return 'DKI Jakarta';
+    return locationName || `Koordinat (${lat.toFixed(3)}°, ${lng.toFixed(3)}°)`;
   });
 
   // Weather states
@@ -599,7 +594,7 @@ export const GeospatialWeatherModal: React.FC<GeospatialWeatherModalProps> = ({
   const [nearestFault, setNearestFault] = useState<NearestFaultResult | null>(null);
   const [terrainDem, setTerrainDem] = useState<TerrainIntelligenceResult | null>(null);
   const [endpointsHealth, setEndpointsHealth] = useState<EndpointHealthStatus[]>([]);
-  const [showMultiSourceHub, setShowMultiSourceHub] = useState<boolean>(true);
+  const [showMultiSourceHub, setShowMultiSourceHub] = useState<boolean>(false);
   const [selectedHubCategory, setSelectedHubCategory] = useState<'ALL' | 'WEATHER' | 'AIR' | 'SEISMIC' | 'ELEVATION' | 'SATELLITE' | 'AI' | 'BASEMAP'>('ALL');
 
   // 5-Minute Auto-Refresh Engine State
@@ -991,7 +986,7 @@ export const GeospatialWeatherModal: React.FC<GeospatialWeatherModalProps> = ({
       pointKey: 'LIVE_EXACT_NOW',
       time: currentTime.toISOString(),
       label: liveTimeString,
-      subLabel: `📍 Sekarang ${liveTimeString}`,
+      subLabel: `Sekarang ${liveTimeString}`,
       hour: liveH,
       minute: liveM,
       second: liveS,
@@ -1648,8 +1643,8 @@ export const GeospatialWeatherModal: React.FC<GeospatialWeatherModalProps> = ({
         userPreciseLocation?.shortDisplay ||
         (locationName && locationName !== 'Wilayah Geospasial' ? locationName : null) ||
         (Math.abs(lat - (-6.2088)) < 0.05 && Math.abs(lng - 106.8456) < 0.05
-          ? 'DKI Jakarta (Pusat)'
-          : locationName || 'DKI Jakarta (Pusat)');
+          ? 'DKI Jakarta'
+          : locationName || 'DKI Jakarta');
       setActiveRegionName(resolvedName);
       setSelectedRegionId('user');
       setSelectedHour(new Date().getHours());
@@ -1939,319 +1934,307 @@ export const GeospatialWeatherModal: React.FC<GeospatialWeatherModalProps> = ({
     const epMap = new Map<string, EndpointHealthStatus>();
     endpointsHealth.forEach((e) => epMap.set(e.id, e));
 
-    const getLatency = (id: string, fallback: string) => {
+    const getEpStatus = (
+      id: string,
+      fallback: 'ONLINE' | 'DEGRADED' | 'OFFLINE' | 'ERROR' | 'UNVERIFIABLE' | 'MAINTENANCE' | 'NEEDS_KEY' | 'UNCHECKED' = 'UNCHECKED'
+    ) => epMap.get(id)?.status ?? fallback;
+    const getEpHttpStatus = (id: string, fallback: number | string | null = null) =>
+      epMap.get(id)?.httpStatus ?? fallback;
+    const getLatency = (id: string) => {
       const ep = epMap.get(id);
-      return ep?.latencyMs != null ? `${ep.latencyMs} ms` : fallback;
+      return ep?.latencyMs != null ? `${ep.latencyMs} ms` : '—';
     };
-    const getPayload = (id: string, fallback: string) => {
+    const getPayload = (id: string) => {
       const ep = epMap.get(id);
-      return ep?.payloadSize && ep.payloadSize !== '—' ? ep.payloadSize : fallback;
+      return ep?.payloadSize && ep.payloadSize !== '—' ? ep.payloadSize : '—';
     };
 
-    const currentTemp = data?.current?.consensusTemperature != null ? `${data.current.consensusTemperature}°C` : '29.9°C';
-    const currentApparent = data?.current?.apparentTemperature != null ? `${data.current.apparentTemperature}°C` : '34.7°C';
-    const currentRain = data?.current?.precipitation != null ? `${data.current.precipitation} mm` : '0 mm';
-    const currentWind = data?.current?.windSpeed != null ? `${data.current.windSpeed} km/h` : '5.6 km/h';
-    const currentHumidity = data?.current?.humidity != null ? `${data.current.humidity}%` : '67%';
-    const currentCloud = data?.current?.cloudCover != null ? `${data.current.cloudCover}%` : '97%';
-    const pm25 = data?.current?.pm25 != null ? `${data.current.pm25} µg/m³` : '24.5 µg/m³';
-    const pm10 = data?.current?.pm10 != null ? `${data.current.pm10} µg/m³` : '38.2 µg/m³';
-    const ozone = data?.current?.ozone != null ? `${data.current.ozone} µg/m³` : '28.0 µg/m³';
+    const currentTemp = data?.current?.consensusTemperature != null ? `${data.current.consensusTemperature}°C` : '—';
+    const currentApparent = data?.current?.apparentTemperature != null ? `${data.current.apparentTemperature}°C` : '—';
+    const currentRain = data?.current?.precipitation != null ? `${data.current.precipitation} mm` : '—';
+    const currentWind = data?.current?.windSpeed != null ? `${data.current.windSpeed} km/h` : '—';
+    const currentHumidity = data?.current?.humidity != null ? `${data.current.humidity}%` : '—';
+    const currentCloud = data?.current?.cloudCover != null ? `${data.current.cloudCover}%` : '—';
+    const pm25 = data?.current?.pm25 != null ? `${data.current.pm25} µg/m³` : '—';
+    const pm10 = data?.current?.pm10 != null ? `${data.current.pm10} µg/m³` : '—';
+    const ozone = data?.current?.ozone != null ? `${data.current.ozone} µg/m³` : '—';
 
-    const eqMag = autoGempa?.magnitude != null ? `M${autoGempa.magnitude}` : 'M4.9';
-    const eqLoc = autoGempa?.location || 'Pusat gempa berada di laut kepulauan Indonesia';
-    const eqDepth = autoGempa?.depth || '10 km';
-    const eqTime = autoGempa?.time ? `${autoGempa.time} (${autoGempa.date})` : '06 Okt 2026, 20:11 WIB';
+    const eqMag = autoGempa?.magnitude != null ? `M${autoGempa.magnitude}` : '—';
+    const eqLoc = autoGempa?.location || 'Belum tersedia';
+    const eqDepth = autoGempa?.depth || '—';
+    const eqTime = autoGempa?.time ? `${autoGempa.time} (${autoGempa.date})` : '—';
 
-    const nearestFaultName = nearestFault?.fault.name || 'Sesar Aktif Regional';
-    const nearestFaultDist = nearestFault ? `${nearestFault.distanceKm} km` : '24.3 km';
-    const nearestFaultSlip = nearestFault?.fault.slipRateMmYear ? `${nearestFault.fault.slipRateMmYear} mm/thn` : '5.0 mm/thn';
+    const nearestFaultName = nearestFault?.fault.name || 'Belum termuat';
+    const nearestFaultDist = nearestFault ? `${nearestFault.distanceKm} km` : '—';
+    const nearestFaultSlip = nearestFault?.fault.slipRateMmYear ? `${nearestFault.fault.slipRateMmYear} mm/thn` : '—';
     const nearestFaultRegion = nearestFault?.fault.region || 'Indonesia';
 
-    const elevationVal = terrainDem?.elevationM != null ? `${terrainDem.elevationM} m dpl` : data?.elevation != null ? `${data.elevation} m dpl` : '11.3 m dpl';
-    const slopeVal = terrainDem?.slopeDeg != null ? `${terrainDem.slopeDeg}°` : '1.2°';
-    const morphVal = terrainDem?.morphologyClass || 'Datar (0-2°)';
+    const elevationVal = terrainDem?.elevationM != null ? `${terrainDem.elevationM} m dpl` : data?.elevation != null ? `${data.elevation} m dpl` : '—';
+    const slopeVal = terrainDem?.slopeDeg != null ? `${terrainDem.slopeDeg}°` : '—';
+    const morphVal = terrainDem?.morphologyClass || 'Tidak Tersedia';
 
-    const coriolisVal = data?.aiNwpVerification?.coriolisParamF != null ? `${data.aiNwpVerification.coriolisParamF} × 10⁻⁵ s⁻¹` : '-1.5773 × 10⁻⁵ s⁻¹';
-    const airDensityVal = data?.aiNwpVerification?.airDensityKgM3 != null ? `${data.aiNwpVerification.airDensityKgM3} kg/m³` : '1.164 kg/m³';
-    const stabilityVal = data?.aiNwpVerification?.convectiveStability || 'Stabil';
+    const coriolisVal = data?.aiNwpVerification?.coriolisParamF != null ? `${data.aiNwpVerification.coriolisParamF} × 10⁻⁵ s⁻¹` : '—';
+    const airDensityVal = data?.aiNwpVerification?.airDensityKgM3 != null ? `${data.aiNwpVerification.airDensityKgM3} kg/m³` : '—';
+    const stabilityVal = data?.aiNwpVerification?.convectiveStability || '—';
 
     return [
-      // 1. Open-Meteo Best Match
       {
         id: 'open_meteo_weather',
         name: 'Open-Meteo Best Match — Cuaca Lokasi Pilihan',
         category: 'Weather Model',
         badgeLabel: 'Cuaca Resolusi Tinggi',
         url: `https://api.open-meteo.com/v1/forecast?latitude=${activeLat.toFixed(4)}&longitude=${activeLng.toFixed(4)}...`,
-        status: 'ONLINE' as const,
-        httpStatus: 200,
-        latencyText: getLatency('open_meteo_weather', '221 ms'),
-        payloadSize: getPayload('open_meteo_weather', '23265 B'),
+        status: getEpStatus('open_meteo_weather', data?.current ? 'ONLINE' : 'UNCHECKED'),
+        httpStatus: getEpHttpStatus('open_meteo_weather'),
+        latencyText: getLatency('open_meteo_weather'),
+        payloadSize: getPayload('open_meteo_weather'),
         previewSnippet: `{"suhu": "${currentTemp}", "terasa": "${currentApparent}", "kelembapan": "${currentHumidity}", "angin": "${currentWind}", "hujan": "${currentRain}", "awan": "${currentCloud}"}`,
         targetDomain: 'weather' as StudioDomain,
         targetSubTab: 'overview' as TabCategory,
         details: 'Asimilasi multi-sensor model cuaca lokal terbaik dengan interpolasi grid koordinat WGS84.',
       },
-      // 2. Multi-Model NWP
       {
         id: 'open_meteo_models',
-        name: 'Perbandingan 9 Model Global NWP (ECMWF, GFS, ICON, GEM)',
+        name: 'Perbandingan Model Global NWP (ECMWF, GFS, ICON, GEM)',
         category: 'Weather Model',
-        badgeLabel: 'Konsensus 9 Model Global',
+        badgeLabel: 'Konsensus Model Global',
         url: `https://api.open-meteo.com/v1/forecast?latitude=${activeLat.toFixed(4)}&longitude=${activeLng.toFixed(4)}&models=ecmwf,gfs,icon,jma,bom,cma,gem...`,
-        status: 'ONLINE' as const,
-        httpStatus: 200,
-        latencyText: getLatency('open_meteo_models', '280 ms'),
-        payloadSize: getPayload('open_meteo_models', '19701 B'),
-        previewSnippet: `{"models": ["ECMWF IFS 0.25°", "NOAA GFS", "DWD ICON", "JMA GSM", "UK Met Office", "Météo-France", "CMC GEM"], "spread": "${data?.modelSpread != null ? `${data.modelSpread}°C` : '2.9°C'}"}`,
+        status: getEpStatus('open_meteo_models'),
+        httpStatus: getEpHttpStatus('open_meteo_models'),
+        latencyText: getLatency('open_meteo_models'),
+        payloadSize: getPayload('open_meteo_models'),
+        previewSnippet: `{"models": ["ECMWF IFS 0.25°", "NOAA GFS", "DWD ICON", "JMA GSM", "UK Met Office", "Météo-France", "CMC GEM"], "spread": "${data?.modelSpread != null ? `${Number(data.modelSpread).toFixed(1)}°C` : '—'}"}`,
         targetDomain: 'weather' as StudioDomain,
         targetSubTab: 'temp' as TabCategory,
         details: 'Perbandingan kurva suhu independen antar-lembaga meteorologi dunia pada jam dan lintang yang identik.',
       },
-      // 3. Copernicus CAMS
       {
         id: 'open_meteo_air',
         name: 'Copernicus CAMS — Kualitas Udara & Ozon Atmosferik',
         category: 'Atmosphere Sensor',
         badgeLabel: 'Atmosfer & ISPU',
         url: `https://air-quality-api.open-meteo.com/v1/air-quality?latitude=${activeLat.toFixed(4)}&longitude=${activeLng.toFixed(4)}&current=pm10,pm2_5,ozone...`,
-        status: 'ONLINE' as const,
-        httpStatus: 200,
-        latencyText: getLatency('open_meteo_air', '213 ms'),
-        payloadSize: getPayload('open_meteo_air', '5706 B'),
-        previewSnippet: `{"pm2_5": "${pm25}", "pm10": "${pm10}", "ozone": "${ozone}", "ispu_kategori": "${ispuSummary?.category || 'Sedang'}"}`,
+        status: getEpStatus('open_meteo_air'),
+        httpStatus: getEpHttpStatus('open_meteo_air'),
+        latencyText: getLatency('open_meteo_air'),
+        payloadSize: getPayload('open_meteo_air'),
+        previewSnippet: `{"pm2_5": "${pm25}", "pm10": "${pm10}", "ozone": "${ozone}", "ispu_kategori": "${ispuSummary?.category || '—'}"}`,
         targetDomain: 'weather' as StudioDomain,
         targetSubTab: 'air' as TabCategory,
         details: 'Model kimia atmosfer reanalysis Copernicus Atmosphere Monitoring Service (ESA/ECMWF).',
       },
-      // 4. BMKG InaTEWS Autogempa
       {
         id: 'bmkg_tews',
         name: 'BMKG InaTEWS — Informasi Gempa Terkini & Tsunami',
         category: 'BMKG Radar/InaTEWS',
         badgeLabel: 'Seismologi Nasional',
         url: 'https://data.bmkg.go.id/DataMKG/TEWS/autogempa.json',
-        status: 'ONLINE' as const,
-        httpStatus: 200,
-        latencyText: getLatency('bmkg_tews', '171 ms'),
-        payloadSize: getPayload('bmkg_tews', '349 B'),
-        previewSnippet: `{"gempa_terkini": "${eqMag}", "kedalaman": "${eqDepth}", "wilayah": "${eqLoc}", "waktu": "${eqTime}", "potensi": "${autoGempa?.potential || 'Tidak berpotensi tsunami'}"}`,
+        status: getEpStatus('bmkg_tews', autoGempa ? 'ONLINE' : 'UNCHECKED'),
+        httpStatus: getEpHttpStatus('bmkg_tews'),
+        latencyText: getLatency('bmkg_tews'),
+        payloadSize: getPayload('bmkg_tews'),
+        previewSnippet: `{"gempa_terkini": "${eqMag}", "kedalaman": "${eqDepth}", "wilayah": "${eqLoc}", "waktu": "${eqTime}", "potensi": "${autoGempa?.potential || '—'}"}`,
         targetDomain: 'bmkg' as StudioDomain,
         details: 'Pusat gempa bumi & peringatan dini tsunami nasional BMKG Indonesia (InaTEWS).',
       },
-      // 5. USGS Seismologi Global M2.5+
       {
         id: 'usgs_earthquake',
         name: 'USGS — Gempa Bumi Global M2.5+ Terkini',
         category: 'BMKG Radar/InaTEWS',
         badgeLabel: 'Seismologi Global M2.5+',
         url: 'https://earthquake.usgs.gov/earthquakes/feed/v1.0/summary/2.5_week.geojson',
-        status: 'ONLINE' as const,
-        httpStatus: 200,
-        latencyText: getLatency('usgs_earthquake', '575 ms'),
-        payloadSize: getPayload('usgs_earthquake', '202977 B'),
-        previewSnippet: `{"type": "FeatureCollection", "features_count": ${earthquakes.length > 0 ? earthquakes.length : 124}, "feed": "USGS M2.5+ 7-Days Global", "format": "GeoJSON WGS84"}`,
+        status: getEpStatus('usgs_earthquake', earthquakes.length > 0 ? 'ONLINE' : 'UNCHECKED'),
+        httpStatus: getEpHttpStatus('usgs_earthquake'),
+        latencyText: getLatency('usgs_earthquake'),
+        payloadSize: getPayload('usgs_earthquake'),
+        previewSnippet: `{"type": "FeatureCollection", "features_count": ${earthquakes.length}, "feed": "USGS M2.5+ 7-Days Global", "format": "GeoJSON WGS84"}`,
         targetDomain: 'bmkg' as StudioDomain,
         details: 'Katalog feed gempa bumi global United States Geological Survey (Pacific Ring of Fire).',
       },
-      // 6. PuSGeN 295 Sesar & Patahan Aktif
       {
         id: 'pusgen_active_faults',
-        name: 'PuSGeN — Peta 295 Sesar & Patahan Aktif Tektonik',
+        name: 'PuSGeN — Katalog 26 Segmen Sesar Aktif Indonesia',
         category: 'BMKG Radar/InaTEWS',
-        badgeLabel: '295 Sesar Tektonik',
+        badgeLabel: '26 Segmen Sesar Aktif',
         url: '/api/spatial/faults',
-        status: 'ONLINE' as const,
-        httpStatus: 200,
-        latencyText: getLatency('pusgen_active_faults', '15 ms'),
-        payloadSize: getPayload('pusgen_active_faults', '295 Garis Sesar Geometri WGS84'),
-        previewSnippet: `{"sesar_terdekat": "${nearestFaultName}", "jarak": "${nearestFaultDist}", "laju_geser": "${nearestFaultSlip}", "wilayah": "${nearestFaultRegion}", "status": "295 Segmen Terindeks"}`,
+        status: getEpStatus('pusgen_active_faults'),
+        httpStatus: getEpHttpStatus('pusgen_active_faults'),
+        latencyText: getLatency('pusgen_active_faults'),
+        payloadSize: getPayload('pusgen_active_faults'),
+        previewSnippet: `{"sesar_terdekat": "${nearestFaultName}", "jarak": "${nearestFaultDist}", "laju_geser": "${nearestFaultSlip}", "wilayah": "${nearestFaultRegion}", "katalog": "26 Segmen Statis PuSGeN"}`,
         targetDomain: 'bmkg' as StudioDomain,
-        details: 'Peta sumber gempa dan sesar aktif nasional Pusat Studi Gempa Bumi Nasional (PuSGeN 2017 & SNI 1726:2019).',
+        details: 'Katalog referensi sesar aktif nasional Pusat Studi Gempa Bumi Nasional (PuSGeN 2017 & SNI 1726:2019).',
       },
-      // 7. Open-Elevation DEM Topografi
       {
         id: 'elevation_dem',
         name: 'Open-Elevation DEM — Profil Elevasi & Topografi SRTM 3D',
         category: 'Elevation DEM',
         badgeLabel: 'Elevasi & Hipsometri',
         url: `https://api.open-elevation.com/api/v1/lookup?locations=${activeLat.toFixed(4)},${activeLng.toFixed(4)}`,
-        status: 'ONLINE' as const,
-        httpStatus: 200,
-        latencyText: getLatency('elevation_dem', '1803 ms'),
-        payloadSize: getPayload('elevation_dem', '77 B'),
+        status: getEpStatus('elevation_dem', terrainDem?.status === 'ERROR' ? 'ERROR' : terrainDem?.status === 'AVAILABLE' ? 'ONLINE' : 'UNCHECKED'),
+        httpStatus: getEpHttpStatus('elevation_dem'),
+        latencyText: getLatency('elevation_dem'),
+        payloadSize: getPayload('elevation_dem'),
         previewSnippet: `{"elevasi": "${elevationVal}", "kelerengan": "${slopeVal}", "geomorfologi": "${morphVal}", "algoritma": "Horn 3x3 Finite Difference"}`,
         targetDomain: 'terrain' as StudioDomain,
-        details: 'Model elevasi digital (DEM) global berbasis SRTM NASA resolusi 30 meter dengan kalkulasi lereng spasial.',
+        details: 'Model elevasi digital (DEM) global berbasis SRTM NASA / Copernicus dengan kalkulasi lereng spasial.',
       },
-      // 8. MET Norway Fallback
       {
         id: 'met_norway_fallback',
         name: 'MET Norway — Prakiraan Fallback Cuaca MEPS/HRES',
         category: 'Weather Model',
         badgeLabel: 'Meteorologi Skandinavia',
         url: `https://api.met.no/weatherapi/locationforecast/2.0/compact?lat=${activeLat.toFixed(4)}&lon=${activeLng.toFixed(4)}`,
-        status: 'ONLINE' as const,
-        httpStatus: 200,
-        latencyText: getLatency('met_norway_fallback', '908 ms'),
-        payloadSize: getPayload('met_norway_fallback', '39592 B'),
-        previewSnippet: `{"tipe": "Point Forecast GeoJSON", "lembaga": "Meteorologisk institutt", "koordinat": [${activeLng.toFixed(3)}, ${activeLat.toFixed(3)}], "status": "Siap Fallback"}`,
+        status: getEpStatus('met_norway_fallback'),
+        httpStatus: getEpHttpStatus('met_norway_fallback'),
+        latencyText: getLatency('met_norway_fallback'),
+        payloadSize: getPayload('met_norway_fallback'),
+        previewSnippet: `{"tipe": "Point Forecast GeoJSON", "lembaga": "Meteorologisk institutt", "koordinat": [${activeLng.toFixed(3)}, ${activeLat.toFixed(3)}], "status": "${getEpStatus('met_norway_fallback')}"}`,
         targetDomain: 'weather' as StudioDomain,
         targetSubTab: 'temp' as TabCategory,
-        details: 'Prakiraan cuaca numerik resolusi tinggi Eropa utara dari Meteorologisk institutt Norwegia.',
+        details: 'Prakiraan cuaca numerik resolusi tinggi dari Meteorologisk institutt Norwegia.',
       },
-      // 9. Web Windy Radar & Satelit
       {
         id: 'windy_embed',
         name: 'Web Windy/Radar — Peta Radar Doppler & Satelit Visual',
         category: 'Web Windy/Radar',
         badgeLabel: 'Radar Doppler & Satelit',
         url: 'https://embed.windy.com/embed.html',
-        status: 'ONLINE' as const,
-        httpStatus: 200,
-        latencyText: getLatency('windy_embed', '359 ms'),
-        payloadSize: 'Iframe View',
-        previewSnippet: `{"lapisan_aktif": "${windyOverlay}", "radar": "Doppler Live", "satelit": "Inframerah IR / Visibel", "vektor_angin": "Streamline WGS84"}`,
+        status: getEpStatus('windy_embed', 'UNVERIFIABLE'),
+        httpStatus: getEpHttpStatus('windy_embed'),
+        latencyText: getLatency('windy_embed'),
+        payloadSize: 'Iframe Embed',
+        previewSnippet: `{"lapisan_aktif": "${windyOverlay}", "radar": "Windy Iframe", "catatan": "Cross-origin iframe (status tidak terbaca JS)"}`,
         targetDomain: 'weather' as StudioDomain,
         targetSubTab: 'windy' as TabCategory,
-        details: 'Peta visualisasi atmosfer dinamis interaktif dengan integrasi citra satelit dan radar doppler real-time.',
+        details: 'Peta visualisasi atmosfer eksternal dalam iframe lintas-asal Windy.',
       },
-      // 10. AI Inference Gemini NWP
       {
         id: 'ai_nwp',
         name: 'AI Inference — Penjelasan Fisika Atmosfer Gemini Flash',
         category: 'AI Inference',
         badgeLabel: 'Sintesis Gemini AI NWP',
         url: '/api/ai/weather-nwp-verify',
-        status: 'ONLINE' as const,
-        httpStatus: 200,
-        latencyText: getLatency('ai_nwp', '2424 ms'),
-        payloadSize: getPayload('ai_nwp', '2268 B'),
+        status: getEpStatus('ai_nwp', data?.aiNwpVerification ? 'ONLINE' : 'UNCHECKED'),
+        httpStatus: getEpHttpStatus('ai_nwp'),
+        latencyText: getLatency('ai_nwp'),
+        payloadSize: getPayload('ai_nwp'),
         previewSnippet: `{"coriolis_f": "${coriolisVal}", "kerapatan_rho": "${airDensityVal}", "stabilitas": "${stabilityVal}", "ai_model": "gemini-flash-lite-latest"}`,
         targetDomain: 'weather' as StudioDomain,
         targetSubTab: 'nwp' as TabCategory,
         details: 'Pemeriksaan 7 persamaan fluida geofisika atmosfer dan sintesis meteorologi bertenaga Google Gemini AI.',
       },
-      // 11. NASA FIRMS Satelit Termal
       {
-        id: 'nasa_firms',
+        id: 'nasa_firms_public',
         name: 'NASA FIRMS — Anomali Termal Satelit VIIRS & MODIS',
         category: 'Satellite Hotspot',
-        badgeLabel: 'Titik Panas Permukaan Bumi Tidak Wajar',
-        url: '/api/spatial/hotspots?bbox=94,-11,141.5,6.5&source=VIIRS_SNPP_NRT&dayRange=1',
-        status: 'ONLINE' as const,
-        httpStatus: 200,
-        latencyText: getLatency('nasa_firms', '250 ms'),
-        payloadSize: getPayload('nasa_firms', 'Satelit NRT Feed'),
-        previewSnippet: `{"satelit": ["Suomi-NPP", "NOAA-20", "Aqua", "Terra"], "sensor": "VIIRS 375m / MODIS 1km", "wilayah": "Indonesia", "cakupan": "24 Jam NRT"}`,
+        badgeLabel: 'Titik Panas Permukaan Bumi NRT',
+        url: '/api/spatial/hotspots/public-feed?scope=indonesia&dayRange=1',
+        status: getEpStatus('nasa_firms_public'),
+        httpStatus: getEpHttpStatus('nasa_firms_public'),
+        latencyText: getLatency('nasa_firms_public'),
+        payloadSize: getPayload('nasa_firms_public'),
+        previewSnippet: `{"satelit": ["Suomi-NPP", "NOAA-20", "NOAA-21", "MODIS"], "sensor": "VIIRS 375m / MODIS 1km", "wilayah": "Indonesia", "cakupan": "24 Jam NRT"}`,
         targetDomain: 'hotspots' as StudioDomain,
         details: 'Sistem penginderaan jauh deteksi kebakaran hutan dan lahan NASA Fire Information for Resource Management System.',
       },
-      // 12. CMA GRAPES Regional NWP
       {
         id: 'open_meteo_model_cma',
         name: 'CMA GRAPES — China Meteorological Administration',
         category: 'Neighboring NWP',
         badgeLabel: 'Regional Asia Timur-Pasifik',
         url: `https://api.open-meteo.com/v1/forecast?latitude=${activeLat.toFixed(4)}&longitude=${activeLng.toFixed(4)}&models=cma_grapes_global...`,
-        status: 'ONLINE' as const,
-        httpStatus: 200,
-        latencyText: getLatency('open_meteo_model_cma', '393 ms'),
-        payloadSize: getPayload('open_meteo_model_cma', '5655 B'),
+        status: getEpStatus('open_meteo_model_cma'),
+        httpStatus: getEpHttpStatus('open_meteo_model_cma'),
+        latencyText: getLatency('open_meteo_model_cma'),
+        payloadSize: getPayload('open_meteo_model_cma'),
         previewSnippet: `{"model": "cma_grapes_global", "grid": "0.25° WGS84", "negara": "Tiongkok (CMA)", "cakupan": "Asia Timur & Pasifik Barat"}`,
         targetDomain: 'weather' as StudioDomain,
         targetSubTab: 'temp' as TabCategory,
         details: 'Model prakiraan cuaca numerik global dan regional Asia dari Administrasi Meteorologi Tiongkok.',
       },
-      // 13. JMA GSM/MSM Regional NWP
       {
         id: 'open_meteo_model_jma',
         name: 'JMA GSM/MSM — Japan Meteorological Agency',
         category: 'Neighboring NWP',
         badgeLabel: 'Regional Maritim Pasifik',
         url: `https://api.open-meteo.com/v1/forecast?latitude=${activeLat.toFixed(4)}&longitude=${activeLng.toFixed(4)}&models=jma_seamless...`,
-        status: 'ONLINE' as const,
-        httpStatus: 200,
-        latencyText: getLatency('open_meteo_model_jma', '423 ms'),
-        payloadSize: getPayload('open_meteo_model_jma', '5649 B'),
+        status: getEpStatus('open_meteo_model_jma'),
+        httpStatus: getEpHttpStatus('open_meteo_model_jma'),
+        latencyText: getLatency('open_meteo_model_jma'),
+        payloadSize: getPayload('open_meteo_model_jma'),
         previewSnippet: `{"model": "jma_seamless", "negara": "Jepang (JMA)", "grid": "0.05°/0.25°", "asimilasi": "Radar & Satelit Maritim Asia"}`,
         targetDomain: 'weather' as StudioDomain,
         targetSubTab: 'temp' as TabCategory,
         details: 'Model cuaca resolusi tinggi badan meteorologi Jepang (JMA) dengan asimilasi radar maritim Pasifik.',
       },
-      // 14. OpenStreetMap Slippy Tiles
       {
         id: 'osm_tile_basemap',
         name: 'OpenStreetMap (OSM) — Tile Server Slippy Map XYZ',
         category: 'Basemap / Spatial',
         badgeLabel: 'Kartografi Vektor Spasial',
         url: 'https://tile.openstreetmap.org/0/0/0.png',
-        status: 'ONLINE' as const,
-        httpStatus: 200,
-        latencyText: getLatency('osm_tile_basemap', '70 ms'),
-        payloadSize: '256x256 Tile PNG',
+        status: getEpStatus('osm_tile_basemap'),
+        httpStatus: getEpHttpStatus('osm_tile_basemap'),
+        latencyText: getLatency('osm_tile_basemap'),
+        payloadSize: getPayload('osm_tile_basemap'),
         previewSnippet: `{"proyeksi": "EPSG:3857 Web Mercator", "skema": "XYZ Slippy Map", "sumber": "Komunitas Global OpenStreetMap WGS84"}`,
         targetDomain: 'analytics' as StudioDomain,
         details: 'Layanan tile server peta dasar geospasial terbuka untuk rendering layer spasial, jalan, dan batas wilayah.',
       },
-      // 15. ESRI World Imagery Satelit
       {
         id: 'esri_world_imagery',
         name: 'ESRI World Imagery — Satelit Optik Komposit Global',
         category: 'Basemap / Spatial',
         badgeLabel: 'Citra Satelit Sub-Meter',
         url: 'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/0/0/0',
-        status: 'ONLINE' as const,
-        httpStatus: 200,
-        latencyText: getLatency('esri_world_imagery', '70 ms'),
-        payloadSize: '256x256 Tile JPG',
+        status: getEpStatus('esri_world_imagery'),
+        httpStatus: getEpHttpStatus('esri_world_imagery'),
+        latencyText: getLatency('esri_world_imagery'),
+        payloadSize: getPayload('esri_world_imagery'),
         previewSnippet: `{"resolusi": "Sub-Meter s.d. 15m", "komposit": "Maxar / Sentinel / Landsat / GeoEye", "standar": "ArcGIS REST WGS84"}`,
         targetDomain: 'remote_sensing' as StudioDomain,
         details: 'Citra satelit resolusi tinggi komposit optik permukaan bumi dari ArcGIS Online World Imagery.',
       },
-      // 16. ESRI World Topo Kontur
       {
         id: 'esri_world_topo',
         name: 'ESRI World Topo — Peta Topografi & Elevasi Kontur',
         category: 'Basemap / Spatial',
         badgeLabel: 'Topografi & Hipsometri',
         url: 'https://server.arcgisonline.com/ArcGIS/rest/services/World_Topo_Map/MapServer/tile/0/0/0',
-        status: 'ONLINE' as const,
-        httpStatus: 200,
-        latencyText: getLatency('esri_world_topo', '69 ms'),
-        payloadSize: '256x256 Tile PNG',
+        status: getEpStatus('esri_world_topo'),
+        httpStatus: getEpHttpStatus('esri_world_topo'),
+        latencyText: getLatency('esri_world_topo'),
+        payloadSize: getPayload('esri_world_topo'),
         previewSnippet: `{"layer": "Kontur Elevasi & Relief Shaded", "hipsometri": "Gradasi Ketinggian", "standar": "ESRI Topographic WGS84"}`,
         targetDomain: 'terrain' as StudioDomain,
         details: 'Peta topografi kontur medan, garis ketinggian hipsometri, dan geomorfologi medan bumi.',
       },
-      // 17. BoM ACCESS-G (Australia) - Pemeliharaan
       {
         id: 'open_meteo_model_bom',
         name: 'BoM ACCESS-G — Australia Bureau of Meteorology',
         category: 'Neighboring NWP',
-        badgeLabel: 'Pemeliharaan Upstream',
+        badgeLabel: 'NWP Regional Australia',
         url: `https://api.open-meteo.com/v1/forecast?latitude=${activeLat.toFixed(4)}&longitude=${activeLng.toFixed(4)}&models=bom_access_global...`,
-        status: 'MAINTENANCE' as const,
-        httpStatus: 200,
-        latencyText: getLatency('open_meteo_model_bom', '595 ms'),
-        payloadSize: getPayload('open_meteo_model_bom', '5659 B'),
-        previewSnippet: `{"status": "Data Hulu Kosong (Pemeliharaan BoM Australia)", "catatan": "Server hulu BoM sedang dalam jadwal siklus pemeliharaan"}`,
+        status: getEpStatus('open_meteo_model_bom'),
+        httpStatus: getEpHttpStatus('open_meteo_model_bom'),
+        latencyText: getLatency('open_meteo_model_bom'),
+        payloadSize: getPayload('open_meteo_model_bom'),
+        previewSnippet: `{"model": "bom_access_global", "status": "${getEpStatus('open_meteo_model_bom')}"}`,
         targetDomain: 'weather' as StudioDomain,
         targetSubTab: 'temp' as TabCategory,
-        details: 'Model cuaca biro meteorologi Australia (BoM ACCESS-G) saat ini dalam status pemeliharaan penyedia hulu.',
+        details: 'Model cuaca biro meteorologi Australia (BoM ACCESS-G) melalui agregator Open-Meteo.',
       },
-      // 18. TomTom Traffic Flow - Perlu Kunci
       {
         id: 'tomtom_traffic',
         name: 'TomTom Traffic Flow Proxy — Kecepatan Ruas Jalan',
         category: 'Traffic Flow',
         badgeLabel: 'Kunci Server Opsional',
         url: `/api/spatial/traffic/flow?lat=${activeLat.toFixed(4)}&lng=${activeLng.toFixed(4)}`,
-        status: 'NEEDS_KEY' as const,
-        httpStatus: 'Key Req',
-        latencyText: getLatency('tomtom_traffic', '99 ms'),
-        payloadSize: getPayload('tomtom_traffic', '336 B'),
+        status: getEpStatus('tomtom_traffic', 'NEEDS_KEY'),
+        httpStatus: getEpHttpStatus('tomtom_traffic', 'Key Req'),
+        latencyText: getLatency('tomtom_traffic'),
+        payloadSize: getPayload('tomtom_traffic'),
         previewSnippet: `{"kunci": "Perlu Kunci Server", "fungsi": "Kecepatan lalu lintas real-time & kemacetan jalan", "layanan": "Opsional"}`,
         targetDomain: 'accessibility' as StudioDomain,
         details: 'Layanan kecepatan ruas jalan kota TomTom Traffic (memerlukan konfigurasi TOMTOM_API_KEY di server).',
@@ -2314,39 +2297,30 @@ export const GeospatialWeatherModal: React.FC<GeospatialWeatherModalProps> = ({
         onClick={(e) => e.stopPropagation()}
       >
       {/* Main Header Bar */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between px-3.5 py-2.5 sm:px-5 sm:py-3.5 border-b border-slate-100 dark:border-slate-800/80 bg-slate-50/90 dark:bg-slate-900/80 gap-2 sm:gap-3">
-        <div className="flex items-center gap-2.5 sm:gap-3 min-w-0">
-          <div className="flex h-8 w-8 sm:h-10 sm:w-10 shrink-0 items-center justify-center rounded-xl sm:rounded-2xl bg-gradient-to-tr from-sky-500 via-indigo-600 to-purple-600 text-white shadow-lg shadow-indigo-500/25">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between px-4 py-3 sm:px-6 border-b border-slate-100 dark:border-slate-800/80 bg-white/95 dark:bg-slate-900/90 gap-2 sm:gap-3">
+        <div className="flex items-center gap-3 min-w-0">
+          <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-gradient-to-tr from-sky-500 via-indigo-600 to-purple-600 text-white shadow-sm">
             <Satellite className="w-4 h-4 sm:w-5 sm:h-5" />
           </div>
           <div className="min-w-0">
-            <div className="flex items-center gap-2">
-              <h2 className="text-sm sm:text-base font-bold text-slate-800 dark:text-white truncate">
-                Cuaca &amp; Studio Satelit Harmony
-              </h2>
-              <span className="hidden xl:inline-flex shrink-0 whitespace-nowrap items-center gap-1 text-[10px] font-extrabold uppercase px-2 py-0.5 rounded-full bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 border border-indigo-500/20">
-                <Sparkles className="w-3 h-3" /> BMKG &amp; Satelit
-              </span>
-            </div>
-            <p className="hidden sm:block text-xs text-slate-500 dark:text-slate-400 truncate">
-              Pantauan cuaca lokal, info BMKG, peta wilayah, dan analisis keselamatan sekolah
-            </p>
+            <h2 className="font-display text-sm sm:text-base font-bold text-slate-900 dark:text-white truncate">
+              Studio Geospasial
+            </h2>
           </div>
         </div>
 
         {/* Region Switcher & Close Controls */}
         <div className="flex items-center justify-between sm:justify-end gap-2 w-full sm:w-auto shrink-0">
-          {/* Indonesian Places Picker Trigger */}
           <div className="relative">
             <button
               type="button"
               onClick={() => setIsLocationPickerOpen(true)}
-              className="flex items-center gap-1.5 text-xs font-semibold px-3 py-1.5 rounded-xl bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 hover:border-indigo-500 text-slate-800 dark:text-slate-200 shadow-sm transition-all max-w-[190px] sm:max-w-[230px] whitespace-nowrap"
-              title="Pilih Titik Lokasi Indonesia (38 Provinsi, Kab/Kota & Pelosok)"
+              className="flex items-center gap-1.5 text-xs font-semibold px-3 py-1.5 rounded-xl bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 hover:border-indigo-500 text-slate-800 dark:text-slate-200 shadow-2xs transition-all max-w-[190px] sm:max-w-[230px] whitespace-nowrap"
+              title="Pilih Lokasi"
             >
               <MapPin className="w-3.5 h-3.5 text-indigo-500 shrink-0" />
-              <span className="truncate">{activeRegionName || 'Pilih Lokasi...'}</span>
-              <ChevronDown className="w-3 h-3 text-slate-400 shrink-0 ml-1" />
+              <span className="truncate">{activeRegionName || 'Pilih Lokasi'}</span>
+              <ChevronDown className="w-3 h-3 text-slate-400 shrink-0 ml-0.5" />
             </button>
           </div>
 
@@ -2356,37 +2330,32 @@ export const GeospatialWeatherModal: React.FC<GeospatialWeatherModalProps> = ({
               if (activeDomain !== 'weather') {
                 setActiveDomain('weather');
               }
+              setShowMultiSourceHub(true);
               setTimeout(() => {
                 const el = document.getElementById('hub-16-sumber-geospasial');
                 el?.scrollIntoView({ behavior: 'smooth' });
               }, 50);
             }}
-            className="hidden lg:flex shrink-0 whitespace-nowrap items-center gap-1.5 px-2.5 py-1.5 rounded-xl bg-emerald-500/10 hover:bg-emerald-500/20 border border-emerald-500/25 text-xs font-bold text-emerald-600 dark:text-emerald-400 transition-all cursor-pointer shadow-2xs"
-            title={`Lihat status dan cuplikan data dari ${onlineSourcesCount}/${activeGeospatialSources.length} sumber geospasial aktif`}
+            className="hidden lg:flex shrink-0 whitespace-nowrap items-center gap-1.5 px-3 py-1.5 rounded-xl bg-emerald-500/10 hover:bg-emerald-500/20 border border-emerald-500/20 text-xs font-semibold text-emerald-700 dark:text-emerald-300 transition-all cursor-pointer tabular-nums"
+            title="Lihat Sumber Data"
           >
-            <Layers className="w-3.5 h-3.5 text-emerald-500 shrink-0" />
+            <Layers className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400 shrink-0" />
             <span>{onlineSourcesCount}/{activeGeospatialSources.length} Sumber</span>
-            <span className="text-[10px] font-mono px-1 py-0.2 rounded bg-emerald-500/20 text-emerald-700 dark:text-emerald-300">
-              LIVE
-            </span>
           </button>
 
-          {/* Centralized 5-Minute Auto-Refresh Pill with Live Countdown */}
           <div
-            className="flex shrink-0 whitespace-nowrap items-center gap-1.5 px-2.5 sm:px-3 py-1.5 rounded-xl bg-slate-100 dark:bg-slate-800 border border-slate-200/80 dark:border-slate-700 text-xs font-semibold text-slate-700 dark:text-slate-300 shadow-2xs"
-            title="Seluruh data eksternal (Open-Meteo, Multi-Models, BMKG, Copernicus, USGS, PuSGeN, TomTom) otomatis diperbarui setiap 5 menit"
+            className="flex shrink-0 whitespace-nowrap items-center gap-1.5 px-2.5 sm:px-3 py-1.5 rounded-xl bg-slate-100 dark:bg-slate-800 border border-slate-200/80 dark:border-slate-700 text-xs font-semibold text-slate-700 dark:text-slate-300 tabular-nums"
+            title="Sinkronisasi otomatis setiap 5 menit"
           >
             <span className="relative flex h-2 w-2 shrink-0">
-              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
               <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
             </span>
-            <span className="hidden xl:inline text-slate-400 text-[10px] uppercase font-bold">Auto-Sync 5m:</span>
-            <span className="font-mono font-bold text-indigo-600 dark:text-indigo-400">{formattedCountdown}</span>
+            <span className="font-mono font-semibold text-indigo-600 dark:text-indigo-400">{formattedCountdown}</span>
             <button
               onClick={handleManualRefreshAll}
               disabled={loading}
-              className="p-1 -mr-1 rounded-lg hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-500 hover:text-slate-800 dark:text-slate-400 dark:hover:text-slate-100 transition-colors cursor-pointer"
-              title="Sinkronisasi & Perbarui Semua Data Sekarang (Bypass Cache)"
+              className="p-0.5 -mr-0.5 rounded-lg hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-500 hover:text-slate-800 dark:text-slate-400 dark:hover:text-slate-100 transition-colors cursor-pointer"
+              title="Perbarui Data"
             >
               <RefreshCw className={`w-3.5 h-3.5 ${loading ? 'animate-spin' : ''}`} />
             </button>
@@ -2396,7 +2365,7 @@ export const GeospatialWeatherModal: React.FC<GeospatialWeatherModalProps> = ({
             <button
               onClick={onClose}
               className="flex shrink-0 whitespace-nowrap items-center gap-1.5 px-3 py-1.5 rounded-xl bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 text-xs font-semibold transition-colors"
-              title="Kembali ke Peta Spasial"
+              title="Kembali ke Peta"
             >
               <ArrowLeft className="w-4 h-4" />
               <span className="hidden sm:inline">Kembali</span>
@@ -2405,7 +2374,7 @@ export const GeospatialWeatherModal: React.FC<GeospatialWeatherModalProps> = ({
             <button
               onClick={onClose}
               className="p-2 rounded-xl text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors"
-              title="Tutup Studio"
+              title="Tutup"
             >
               <X className="w-5 h-5" />
             </button>
@@ -2414,20 +2383,16 @@ export const GeospatialWeatherModal: React.FC<GeospatialWeatherModalProps> = ({
       </div>
 
         {/* Geospatial Domain Navigation Header & Segmented Tabs */}
-        <div className="bg-slate-100/80 dark:bg-slate-900/80 border-b border-slate-200/80 dark:border-slate-800 backdrop-blur-md">
+        <div className="bg-slate-50/90 dark:bg-slate-900/80 border-b border-slate-200/80 dark:border-slate-800 backdrop-blur-md">
           {/* Pillar Filters & Scroll Chevrons */}
           <div className="flex flex-col sm:flex-row sm:items-center justify-between px-3 sm:px-4 pt-2 pb-1 gap-2 border-b border-slate-200/40 dark:border-slate-800/50">
-            {/* Quick Pillar Filter Pills */}
-            <div className="flex items-center gap-1 overflow-x-auto no-scrollbar py-0.5">
-              <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400 mr-1 shrink-0">
-                Pilar:
-              </span>
+            <div className="flex items-center gap-1.5 overflow-x-auto no-scrollbar py-0.5">
               <button
                 onClick={() => setDomainPillarFilter('all')}
-                className={`px-2.5 py-1 rounded-xl text-[11px] font-bold whitespace-nowrap transition-all ${
+                className={`px-2.5 py-1 rounded-xl text-[11px] font-semibold whitespace-nowrap transition-all ${
                   domainPillarFilter === 'all'
                     ? 'bg-indigo-600 text-white shadow-xs'
-                    : 'bg-white/60 dark:bg-slate-800/60 text-slate-600 dark:text-slate-400 hover:bg-white dark:hover:bg-slate-800'
+                    : 'bg-white/70 dark:bg-slate-800/60 text-slate-600 dark:text-slate-400 hover:bg-white dark:hover:bg-slate-800'
                 }`}
               >
                 Semua ({STUDIO_DOMAINS.length})
@@ -2439,14 +2404,14 @@ export const GeospatialWeatherModal: React.FC<GeospatialWeatherModalProps> = ({
                     setActiveDomain('remote_sensing');
                   }
                 }}
-                className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-xl text-[11px] font-bold whitespace-nowrap transition-all ${
+                className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-xl text-[11px] font-semibold whitespace-nowrap transition-all ${
                   domainPillarFilter === 'observasi'
                     ? 'bg-emerald-600 text-white shadow-xs'
-                    : 'bg-white/60 dark:bg-slate-800/60 text-slate-600 dark:text-slate-400 hover:bg-white dark:hover:bg-slate-800'
+                    : 'bg-white/70 dark:bg-slate-800/60 text-slate-600 dark:text-slate-400 hover:bg-white dark:hover:bg-slate-800'
                 }`}
               >
                 <Satellite className="w-3 h-3 shrink-0" />
-                <span>Observasi Bumi ({STUDIO_DOMAINS.filter(d => d.pillar === 'observasi').length})</span>
+                <span>Observasi ({STUDIO_DOMAINS.filter(d => d.pillar === 'observasi').length})</span>
               </button>
               <button
                 onClick={() => {
@@ -2455,14 +2420,14 @@ export const GeospatialWeatherModal: React.FC<GeospatialWeatherModalProps> = ({
                     setActiveDomain('weather');
                   }
                 }}
-                className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-xl text-[11px] font-bold whitespace-nowrap transition-all ${
+                className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-xl text-[11px] font-semibold whitespace-nowrap transition-all ${
                   domainPillarFilter === 'atmosfer'
                     ? 'bg-sky-600 text-white shadow-xs'
-                    : 'bg-white/60 dark:bg-slate-800/60 text-slate-600 dark:text-slate-400 hover:bg-white dark:hover:bg-slate-800'
+                    : 'bg-white/70 dark:bg-slate-800/60 text-slate-600 dark:text-slate-400 hover:bg-white dark:hover:bg-slate-800'
                 }`}
               >
                 <CloudSun className="w-3 h-3 shrink-0" />
-                <span>Atmosfer &amp; MKG ({STUDIO_DOMAINS.filter(d => d.pillar === 'atmosfer').length})</span>
+                <span>Atmosfer ({STUDIO_DOMAINS.filter(d => d.pillar === 'atmosfer').length})</span>
               </button>
               <button
                 onClick={() => {
@@ -2471,14 +2436,14 @@ export const GeospatialWeatherModal: React.FC<GeospatialWeatherModalProps> = ({
                     setActiveDomain('analytics');
                   }
                 }}
-                className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-xl text-[11px] font-bold whitespace-nowrap transition-all ${
+                className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-xl text-[11px] font-semibold whitespace-nowrap transition-all ${
                   domainPillarFilter === 'analitik'
                     ? 'bg-purple-600 text-white shadow-xs'
-                    : 'bg-white/60 dark:bg-slate-800/60 text-slate-600 dark:text-slate-400 hover:bg-white dark:hover:bg-slate-800'
+                    : 'bg-white/70 dark:bg-slate-800/60 text-slate-600 dark:text-slate-400 hover:bg-white dark:hover:bg-slate-800'
                 }`}
               >
                 <BarChart3 className="w-3 h-3 shrink-0" />
-                <span>Analitik &amp; Data ({STUDIO_DOMAINS.filter(d => d.pillar === 'analitik').length})</span>
+                <span>Analitik ({STUDIO_DOMAINS.filter(d => d.pillar === 'analitik').length})</span>
               </button>
             </div>
 
@@ -2487,7 +2452,7 @@ export const GeospatialWeatherModal: React.FC<GeospatialWeatherModalProps> = ({
               <button
                 onClick={() => handleScrollTabs('left')}
                 className="p-1 rounded-lg bg-white/70 dark:bg-slate-800/70 hover:bg-white dark:hover:bg-slate-800 text-slate-500 hover:text-slate-800 dark:hover:text-slate-200 border border-slate-200/60 dark:border-slate-700/60 transition-colors shadow-xs"
-                title="Geser Tab ke Kiri"
+                title="Geser Kiri"
                 aria-label="Geser Kiri"
               >
                 <ChevronLeft className="w-3.5 h-3.5" />
@@ -2495,7 +2460,7 @@ export const GeospatialWeatherModal: React.FC<GeospatialWeatherModalProps> = ({
               <button
                 onClick={() => handleScrollTabs('right')}
                 className="p-1 rounded-lg bg-white/70 dark:bg-slate-800/70 hover:bg-white dark:hover:bg-slate-800 text-slate-500 hover:text-slate-800 dark:hover:text-slate-200 border border-slate-200/60 dark:border-slate-700/60 transition-colors shadow-xs"
-                title="Geser Tab ke Kanan"
+                title="Geser Kanan"
                 aria-label="Geser Kanan"
               >
                 <ChevronRight className="w-3.5 h-3.5" />
@@ -2516,25 +2481,18 @@ export const GeospatialWeatherModal: React.FC<GeospatialWeatherModalProps> = ({
                   <button
                     key={d.id}
                     onClick={() => setActiveDomain(d.id)}
-                    className={`group flex items-center gap-2 px-3 py-1.5 rounded-xl transition-all shrink-0 border ${
+                    className={`group flex items-center gap-1.5 px-3 py-1.5 rounded-xl transition-all shrink-0 border ${
                       isActive
-                        ? 'bg-white dark:bg-slate-800 text-slate-900 dark:text-white shadow-sm border-indigo-500/40 dark:border-indigo-400/40 ring-1 ring-indigo-500/20 font-bold'
+                        ? 'bg-white dark:bg-slate-800 text-slate-900 dark:text-white shadow-sm border-indigo-500/40 dark:border-indigo-400/40 ring-1 ring-indigo-500/20 font-semibold'
                         : 'border-transparent text-slate-600 dark:text-slate-400 hover:bg-white/60 dark:hover:bg-slate-800/60 hover:text-slate-900 dark:hover:text-slate-200 font-medium'
                     }`}
                   >
                     {isActive ? (
-                      <span className={`w-1.5 h-1.5 rounded-full ${d.badgeColor.indicator} shrink-0 animate-pulse`} />
+                      <span className={`w-1.5 h-1.5 rounded-full ${d.badgeColor.indicator} shrink-0`} />
                     ) : (
                       <Icon className="w-3.5 h-3.5 shrink-0 text-slate-400 group-hover:text-indigo-500 transition-colors" />
                     )}
                     <span className="whitespace-nowrap">{d.name}</span>
-                    <span
-                      className={`text-[9px] font-mono font-semibold px-1.5 py-0.5 rounded-md border ${
-                        isActive ? d.badgeColor.active : d.badgeColor.inactive
-                      } shrink-0`}
-                    >
-                      {d.badge}
-                    </span>
                   </button>
                 );
               })}
@@ -2604,7 +2562,7 @@ export const GeospatialWeatherModal: React.FC<GeospatialWeatherModalProps> = ({
             <GeospatialHydrologyTab
               lat={activeLat}
               lng={activeLng}
-              elevationM={data?.elevation ?? 10}
+              elevationM={terrainDem?.elevationM ?? data?.elevation ?? null}
               regionName={activeRegionName}
             />
           )}
@@ -2669,7 +2627,7 @@ export const GeospatialWeatherModal: React.FC<GeospatialWeatherModalProps> = ({
               lat={activeLat}
               lng={activeLng}
               regionName={activeRegionName}
-              onApplyFeaturesToMap={(features) => onApplyFeaturesToMap?.(features, 'Titik Panas Permukaan Bumi Tidak Wajar')}
+              onApplyFeaturesToMap={(features) => onApplyFeaturesToMap?.(features, 'Titik Panas')}
               refreshSignal={refreshSignal}
             />
           )}
@@ -2709,29 +2667,19 @@ export const GeospatialWeatherModal: React.FC<GeospatialWeatherModalProps> = ({
               </div>}
               {!data && <button type="button" onClick={() => setIsTelemetryModalOpen(true)} className="text-xs font-bold text-indigo-600 dark:text-indigo-300 underline">Lihat status pengambilan data</button>}
               {data && <>
-              <div role="status" className="px-3 py-2 sm:p-3.5 rounded-2xl border border-slate-200/80 dark:border-slate-700/80 bg-slate-50/70 dark:bg-slate-900/50 text-xs text-slate-600 dark:text-slate-300 flex flex-col sm:flex-row sm:items-center justify-between gap-2 sm:gap-3">
-                <div className="space-y-0.5 sm:space-y-1 min-w-0">
-                  <div className="flex items-center gap-2 flex-wrap">
-                    <span className="font-bold text-slate-800 dark:text-white flex items-center gap-1.5 text-[11px] sm:text-xs">
-                      <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse inline-block" />
+              <div role="status" className="px-3.5 py-2 rounded-2xl border border-slate-200/80 dark:border-slate-700/80 bg-slate-50/70 dark:bg-slate-900/50 text-xs text-slate-600 dark:text-slate-300 flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+                <div className="space-y-0.5 min-w-0">
+                  <div className="flex items-center gap-2.5 flex-wrap">
+                    <span className="font-semibold text-slate-800 dark:text-white flex items-center gap-1.5 text-[11px] sm:text-xs tabular-nums">
+                      <span className="w-2 h-2 rounded-full bg-emerald-500 inline-block" />
                       {data.dataStatus === 'PARTIAL'
                         ? `Sebagian Sumber (${onlineSourcesCount}/${activeGeospatialSources.length})`
-                        : `${onlineSourcesCount} Sumber Data Aktif (LIVE)`}
+                        : `${onlineSourcesCount}/${activeGeospatialSources.length} Sumber`}
                     </span>
-                    <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold border ${
-                      data.servedFromCache
-                        ? 'bg-amber-500/10 text-amber-700 dark:text-amber-300 border-amber-500/20'
-                        : 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-500/20'
-                    }`}>
-                      {data.servedFromCache ? 'Buffer 5m' : 'Live Baru'}
-                    </span>
-                    <span className="hidden sm:inline text-[10px] text-slate-500 dark:text-slate-400 font-mono">
-                      Auto-Sync: <strong className="text-indigo-600 dark:text-indigo-400">{formattedCountdown}</strong>
+                    <span className="hidden sm:inline text-[11px] text-slate-500 dark:text-slate-400 tabular-nums">
+                      {new Date(data.dataTime).toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit', timeZone: tz })} {tzAbbr || data.timezone}
                     </span>
                   </div>
-                  <p className="hidden sm:block text-[11px] text-slate-500 dark:text-slate-400 truncate">
-                    Waktu data: <span className="font-mono">{data.dataTime}</span> · Zona: {data.timezone}
-                  </p>
                   {data.sourceFetches.filter(source => source.status !== 'SUCCESS').map(source => (
                     <p key={source.id} className="text-amber-700 dark:text-amber-300 text-[10px]">{source.id}: {source.error || source.status}</p>
                   ))}
@@ -2741,16 +2689,16 @@ export const GeospatialWeatherModal: React.FC<GeospatialWeatherModalProps> = ({
                     type="button"
                     onClick={handleManualRefreshAll}
                     disabled={loading}
-                    className="inline-flex items-center gap-1.5 px-2.5 py-1 sm:px-3 sm:py-1.5 rounded-xl bg-white dark:bg-slate-800 hover:bg-slate-100 dark:hover:bg-slate-700 border border-slate-200 dark:border-slate-700 text-[11px] sm:text-xs font-bold text-slate-700 dark:text-slate-200 shadow-2xs transition-all cursor-pointer disabled:opacity-50"
-                    title="Ambil data baru langsung dari API Open-Meteo & BMKG (Bypass Cache)"
+                    className="inline-flex items-center gap-1.5 px-3 py-1 rounded-xl bg-white dark:bg-slate-800 hover:bg-slate-100 dark:hover:bg-slate-700 border border-slate-200 dark:border-slate-700 text-[11px] font-semibold text-slate-700 dark:text-slate-200 shadow-2xs transition-all cursor-pointer disabled:opacity-50"
+                    title="Perbarui Data"
                   >
                     <RefreshCw className={`w-3.5 h-3.5 ${loading ? 'animate-spin' : ''}`} />
-                    <span>Segarkan API</span>
+                    <span>Segarkan</span>
                   </button>
                 </div>
               </div>
 
-              {/* Notifikasi Lokasi & Pintasan Deteksi GPS Akurat */}
+              {/* Lokasi Default Notice */}
               {(Math.abs(activeLat - (-6.2088)) < 0.05 && Math.abs(activeLng - 106.8456) < 0.05) && (
                 <div className="p-3.5 rounded-2xl bg-gradient-to-r from-blue-500/10 via-indigo-500/10 to-sky-500/10 border border-blue-500/30 text-slate-800 dark:text-slate-200 flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs">
                   <div className="flex items-start sm:items-center gap-2.5">
@@ -2759,14 +2707,13 @@ export const GeospatialWeatherModal: React.FC<GeospatialWeatherModalProps> = ({
                     </div>
                     <div>
                       <p className="font-bold flex items-center gap-1.5">
-                        <span>Titik Pengamatan Saat Ini: DKI Jakarta (Pusat) / Monas</span>
-                        <span className="text-[10px] px-2 py-0.2 rounded-full bg-slate-200 dark:bg-slate-700 font-normal">Default</span>
+                        <span>Lokasi Default: DKI Jakarta</span>
                       </p>
                       <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-0.5">
-                        Di tempat Anda sedang hujan tapi aplikasi masih 0 mm? Klik tombol di kanan agar sensor GPS perangkat langsung menyinkronkan cuaca di koordinat rumah/lokasi Anda.
+                        Aktifkan GPS perangkat untuk menyinkronkan prakiraan ke posisi Anda.
                       </p>
                       {gpsError && (
-                        <p className="text-[11px] text-rose-500 font-semibold mt-1">⚠️ {gpsError}</p>
+                        <p className="text-[11px] text-rose-500 font-semibold mt-1">{gpsError}</p>
                       )}
                     </div>
                   </div>
@@ -2774,53 +2721,34 @@ export const GeospatialWeatherModal: React.FC<GeospatialWeatherModalProps> = ({
                     type="button"
                     onClick={handleAcquireDeviceGps}
                     disabled={isAcquiringGps}
-                    className="inline-flex items-center justify-center gap-1.5 px-3.5 py-2 rounded-xl bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white font-bold text-xs shadow-md shadow-indigo-500/20 transition-all shrink-0 cursor-pointer active:scale-95 disabled:opacity-50"
-                    title="Gunakan sensor GPS browser/perangkat untuk mendapatkan koordinat dan cuaca presisi Anda"
+                    className="inline-flex items-center justify-center gap-1.5 px-3.5 py-2 rounded-xl bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white font-semibold text-xs shadow-sm transition-all shrink-0 cursor-pointer active:scale-95 disabled:opacity-50"
                   >
                     <Crosshair className={`w-3.5 h-3.5 ${isAcquiringGps ? 'animate-spin' : ''}`} />
-                    <span>{isAcquiringGps ? 'Mencari Koordinat...' : '📍 Gunakan GPS Lokasi Saya'}</span>
+                    <span>{isAcquiringGps ? 'Mencari GPS...' : 'Gunakan GPS'}</span>
                   </button>
                 </div>
               )}
               {/* Weather Sub-Header KPI Banner */}
               <div className="px-5 py-3.5 rounded-2xl bg-gradient-to-r from-sky-500/10 via-indigo-500/10 to-purple-500/10 border border-slate-200/80 dark:border-slate-800/80 flex flex-wrap items-center justify-between gap-3">
                 <div className="flex items-center gap-4 flex-wrap">
-                  <div className="flex items-baseline gap-1.5">
+                  <div className="flex items-baseline gap-2 tabular-nums">
                     <span className="text-3xl font-black text-slate-900 dark:text-white tracking-tight">
                       {data?.current?.consensusTemperature != null ? `${data.current.consensusTemperature}°C` : '--'}
                     </span>
                     <span className="text-xs text-slate-500 dark:text-slate-400 font-medium">
-                      (Terasa {data?.current?.apparentTemperature != null ? `${data.current.apparentTemperature}°C` : '--'})
+                      Terasa {data?.current?.apparentTemperature != null ? `${data.current.apparentTemperature}°C` : '--'}
                     </span>
                   </div>
 
                   <div className="h-6 w-[1px] bg-slate-200 dark:bg-slate-700 hidden sm:block" />
 
                   <div className="flex items-center gap-2 text-xs flex-wrap">
-                    <span className="px-2 py-0.5 rounded-lg bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 font-bold border border-emerald-500/20 flex items-center gap-1">
-                      <CheckCircle2 className="w-3 h-3" /> Konsensus Tervalidasi
+                    <span className="px-2.5 py-0.5 rounded-lg bg-emerald-500/10 text-emerald-700 dark:text-emerald-300 font-semibold border border-emerald-500/20 flex items-center gap-1">
+                      <CheckCircle2 className="w-3 h-3" /> Tervalidasi
                     </span>
-                    <span className="text-slate-600 dark:text-slate-300 font-medium">
-                      {data?.current?.conditionText ?? 'Kondisi tidak tersedia'}
+                    <span className="text-slate-700 dark:text-slate-200 font-semibold">
+                      {data?.current?.conditionText ?? 'Tidak tersedia'}
                     </span>
-                    {data?.aiNwpVerification && (
-                      <span className="px-2 py-0.5 rounded-lg bg-sky-500/10 text-sky-600 dark:text-sky-400 font-bold border border-sky-500/20 flex items-center gap-1">
-                        <Sparkles className="w-3 h-3 text-sky-500" />
-                        {data.aiNwpVerification.isAiVerified ? 'Penjelasan AI tersedia' : 'Diagnostik lokal · AI tidak tersedia'}
-                      </span>
-                    )}
-                    <button
-                      type="button"
-                      onClick={() => {
-                        const el = document.getElementById('hub-16-sumber-geospasial');
-                        el?.scrollIntoView({ behavior: 'smooth' });
-                      }}
-                      className="px-2.5 py-0.5 rounded-lg bg-indigo-500/10 hover:bg-indigo-500/20 text-indigo-600 dark:text-indigo-400 font-bold border border-indigo-500/25 flex items-center gap-1.5 transition-all cursor-pointer text-xs"
-                      title="Lihat status dan cuplikan data dari seluruh 16 sumber geospasial real-time"
-                    >
-                      <Layers className="w-3.5 h-3.5 text-indigo-500" />
-                      <span>{onlineSourcesCount}/{activeGeospatialSources.length} Sumber Spasial Aktif</span>
-                    </button>
                   </div>
                 </div>
 
@@ -2829,11 +2757,10 @@ export const GeospatialWeatherModal: React.FC<GeospatialWeatherModalProps> = ({
                   <button
                     onClick={handleReverifyAi}
                     disabled={isVerifyingAi}
-                    className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-gradient-to-r from-sky-500 to-indigo-600 hover:from-sky-600 hover:to-indigo-700 text-white text-xs font-bold transition-all shadow-md shadow-indigo-500/20 active:scale-95 disabled:opacity-50"
-                    title="Kalkulasi ulang verifikasi cuaca dengan Gemini AI NWP"
+                    className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-gradient-to-r from-sky-500 to-indigo-600 hover:from-sky-600 hover:to-indigo-700 text-white text-xs font-semibold transition-all shadow-sm active:scale-95 disabled:opacity-50"
                   >
-                    <RefreshCw className={`w-3.5 h-3.5 ${isVerifyingAi ? 'animate-spin' : ''}`} />
-                    <span>{isVerifyingAi ? 'Memeriksa Masukan...' : 'Jelaskan dengan AI'}</span>
+                    <Sparkles className={`w-3.5 h-3.5 ${isVerifyingAi ? 'animate-spin' : ''}`} />
+                    <span>{isVerifyingAi ? 'Memproses...' : 'Analisis AI'}</span>
                   </button>
 
                   <div className="grid grid-cols-3 sm:inline-flex items-center gap-1 p-1 rounded-xl bg-white/80 dark:bg-slate-800/80 border border-slate-200/80 dark:border-slate-700/80 text-[11px] sm:text-xs font-semibold w-full sm:w-auto">
@@ -2872,7 +2799,7 @@ export const GeospatialWeatherModal: React.FC<GeospatialWeatherModalProps> = ({
               </div>
 
               {/* Weather Sub-Category Tabs */}
-              <div className="flex items-center gap-2 overflow-x-auto pb-1 text-xs font-bold no-scrollbar scroll-smooth touch-pan-x">
+              <div className="flex items-center gap-1.5 overflow-x-auto pb-1 text-xs font-semibold no-scrollbar scroll-smooth touch-pan-x">
                 <button
                   onClick={() => setActiveWeatherTab('overview')}
                   className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl transition-all shrink-0 ${
@@ -2881,7 +2808,7 @@ export const GeospatialWeatherModal: React.FC<GeospatialWeatherModalProps> = ({
                       : 'text-slate-500 hover:bg-slate-100 dark:hover:bg-slate-800'
                   }`}
                 >
-                  <Gauge className="w-3.5 h-3.5" /> Ringkasan Multivariabel
+                  <Gauge className="w-3.5 h-3.5" /> Ringkasan
                 </button>
                 <button
                   onClick={() => setActiveWeatherTab('nwp')}
@@ -2892,10 +2819,7 @@ export const GeospatialWeatherModal: React.FC<GeospatialWeatherModalProps> = ({
                   }`}
                 >
                   <Cpu className="w-3.5 h-3.5 text-sky-500" />
-                  <span>Analisis Cuaca AI</span>
-                  <span className="text-[9px] px-1.5 py-0.2 rounded-full bg-sky-500/20 text-sky-600 dark:text-sky-400 font-extrabold">
-                    AI
-                  </span>
+                  <span>Analisis AI</span>
                 </button>
                 <button
                   onClick={() => setActiveWeatherTab('rain')}
@@ -2905,7 +2829,7 @@ export const GeospatialWeatherModal: React.FC<GeospatialWeatherModalProps> = ({
                       : 'text-slate-500 hover:bg-slate-100 dark:hover:bg-slate-800'
                   }`}
                 >
-                  <CloudRain className="w-3.5 h-3.5" /> Curah Hujan & Presipitasi
+                  <CloudRain className="w-3.5 h-3.5" /> Curah Hujan
                 </button>
                 <button
                   onClick={() => setActiveWeatherTab('temp')}
@@ -2915,7 +2839,7 @@ export const GeospatialWeatherModal: React.FC<GeospatialWeatherModalProps> = ({
                       : 'text-slate-500 hover:bg-slate-100 dark:hover:bg-slate-800'
                   }`}
                 >
-                  <Thermometer className="w-3.5 h-3.5" /> Komparasi Multi-Model Suhu
+                  <Thermometer className="w-3.5 h-3.5" /> Multi-Model
                 </button>
                 <button
                   onClick={() => setActiveWeatherTab('wind')}
@@ -2925,7 +2849,7 @@ export const GeospatialWeatherModal: React.FC<GeospatialWeatherModalProps> = ({
                       : 'text-slate-500 hover:bg-slate-100 dark:hover:bg-slate-800'
                   }`}
                 >
-                  <Wind className="w-3.5 h-3.5" /> Angin & Tekanan Atmosfer
+                  <Wind className="w-3.5 h-3.5" /> Angin
                 </button>
                 <button
                   onClick={() => setActiveWeatherTab('air')}
@@ -2935,7 +2859,7 @@ export const GeospatialWeatherModal: React.FC<GeospatialWeatherModalProps> = ({
                       : 'text-slate-500 hover:bg-slate-100 dark:hover:bg-slate-800'
                   }`}
                 >
-                  <Activity className="w-3.5 h-3.5" /> Kualitas Udara & Ozon (O₃)
+                  <Activity className="w-3.5 h-3.5" /> Kualitas Udara
                 </button>
                 <button
                   onClick={() => setActiveWeatherTab('ai')}
@@ -2945,7 +2869,7 @@ export const GeospatialWeatherModal: React.FC<GeospatialWeatherModalProps> = ({
                       : 'text-slate-500 hover:bg-slate-100 dark:hover:bg-slate-800'
                   }`}
                 >
-                  <Sparkles className="w-3.5 h-3.5 text-amber-500" /> AI Weather Agent
+                  <Sparkles className="w-3.5 h-3.5 text-amber-500" /> Asisten Cuaca
                 </button>
                 <button
                   onClick={() => setActiveWeatherTab('windy')}
@@ -2956,10 +2880,7 @@ export const GeospatialWeatherModal: React.FC<GeospatialWeatherModalProps> = ({
                   }`}
                 >
                   <Radio className="w-3.5 h-3.5 text-sky-500" />
-                  <span>Radar & Satelit Windy</span>
-                  <span className="text-[9px] px-1.5 py-0.2 rounded-full bg-sky-500/20 text-sky-600 dark:text-sky-400 font-extrabold animate-pulse">
-                    LIVE
-                  </span>
+                  <span>Radar Windy</span>
                 </button>
               </div>
 
@@ -2970,10 +2891,10 @@ export const GeospatialWeatherModal: React.FC<GeospatialWeatherModalProps> = ({
                   <div className="flex items-center justify-between mb-2">
                     <span className="text-xs font-bold text-slate-700 dark:text-slate-300 flex items-center gap-1.5">
                       <Clock className="w-3.5 h-3.5 text-indigo-500" />
-                      Pilih Jam (Terpilih: {currentHourPoint ? `${currentHourPoint.label} (${new Date(currentHourPoint.time || Date.now()).toLocaleDateString('id-ID', { day: 'numeric', month: 'short', timeZone: data?.timezone || 'UTC' })})` : `${selectedHour.toString().padStart(2, '0')}:00`} {data?.timezone || ''})
+                      Prakiraan Per Jam · {currentHourPoint ? currentHourPoint.label : `${selectedHour.toString().padStart(2, '0')}:00`}
                     </span>
-                    <span className="text-[11px] text-slate-500">
-                      Prakiraan jam terpilih: <strong className="text-slate-900 dark:text-white">{currentHourPoint?.temperature != null ? `${currentHourPoint.temperature}°C` : '--'}</strong> | Hujan: <strong>{currentHourPoint?.precipitation != null ? `${currentHourPoint.precipitation} mm` : 'Tidak tersedia'}</strong>
+                    <span className="text-[11px] text-slate-500 tabular-nums">
+                      <strong className="text-slate-900 dark:text-white">{currentHourPoint?.temperature != null ? `${currentHourPoint.temperature}°C` : '--'}</strong> · Hujan <strong>{currentHourPoint?.precipitation != null ? `${currentHourPoint.precipitation} mm` : '--'}</strong>
                     </span>
                   </div>
 
@@ -2988,7 +2909,7 @@ export const GeospatialWeatherModal: React.FC<GeospatialWeatherModalProps> = ({
                             setSelectedPointKey(pKey);
                             setSelectedHour(h.hour);
                           }}
-                          className={`flex flex-col items-center justify-center min-w-[52px] py-1.5 px-2 rounded-xl text-xs font-medium transition-all ${
+                          className={`flex flex-col items-center justify-center min-w-[52px] py-1.5 px-2 rounded-xl text-xs font-medium transition-all tabular-nums ${
                             isSelected
                               ? 'bg-indigo-600 text-white font-bold shadow-md shadow-indigo-500/30 scale-105'
                               : 'bg-white dark:bg-slate-800 text-slate-600 dark:text-slate-400 hover:bg-slate-200 dark:hover:bg-slate-700 border border-slate-200/60 dark:border-slate-700/60'
@@ -2997,8 +2918,9 @@ export const GeospatialWeatherModal: React.FC<GeospatialWeatherModalProps> = ({
                           <span className="text-[10px] opacity-80">{h.label}</span>
                           <span className="font-bold text-xs mt-0.5">{h.temperature != null ? `${h.temperature}°` : '--'}</span>
                           {h.precipitation != null && h.precipitation > 0 && (
-                            <span className="text-[9px] text-blue-400 flex items-center">
-                              💧{h.precipitation}
+                            <span className="text-[9px] text-sky-400 flex items-center gap-0.5">
+                              <Droplets className="w-2.5 h-2.5" />
+                              {h.precipitation}
                             </span>
                           )}
                         </button>
@@ -3008,21 +2930,21 @@ export const GeospatialWeatherModal: React.FC<GeospatialWeatherModalProps> = ({
                 </div>
               )}
 
-              {/* OVERVIEW SUB-TAB: RINGKASAN INTUITIF & GRAFIK STANDAR */}
+              {/* OVERVIEW SUB-TAB */}
               {activeWeatherTab === 'overview' && (
                 <div className="space-y-4">
-                  {/* 1. KARTU INTISARI 4 METRIK POKOK (Suhu, Hujan, Awan, Angin) */}
+                  {/* 4 Metric Cards */}
                   <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
-                    {/* Kartu 1: Suhu & Rasa Panas Sesuai Jam & Menit Realtime */}
+                    {/* Kartu 1: Suhu Udara */}
                     <div className="p-4 rounded-2xl bg-gradient-to-br from-amber-500/10 via-orange-500/5 to-transparent border border-amber-500/30 flex flex-col justify-between">
                       <div>
                         <div className="flex items-center justify-between text-amber-600 dark:text-amber-400 mb-1">
                           <span className="text-xs font-bold flex items-center gap-1.5">
                             <Sun className="w-4 h-4 text-amber-500" />
-                            Suhu & Rasa Panas
+                            Suhu Udara
                           </span>
                           <div className="flex items-center gap-1.5">
-                            <span className="text-[10px] font-mono font-bold px-2 py-0.5 rounded-full bg-amber-500/15 text-amber-800 dark:text-amber-200 border border-amber-500/30">
+                            <span className="text-[10px] font-mono font-semibold px-2 py-0.5 rounded-full bg-amber-500/15 text-amber-800 dark:text-amber-200 border border-amber-500/30 tabular-nums">
                               {displayTimeBadge}
                             </span>
                             <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-amber-500/20 text-amber-700 dark:text-amber-300">
@@ -3030,50 +2952,42 @@ export const GeospatialWeatherModal: React.FC<GeospatialWeatherModalProps> = ({
                             </span>
                           </div>
                         </div>
-                        <div className="flex items-baseline gap-2 mt-1">
+                        <div className="flex items-baseline gap-2 mt-1 tabular-nums">
                           <span className="text-2xl sm:text-3xl font-black text-slate-900 dark:text-white">
                             {cardTemperature != null ? `${cardTemperature}°C` : '--'}
                           </span>
                           <span className="text-xs text-slate-500 font-medium">
-                            (Terasa {cardApparentTemp != null ? `${cardApparentTemp}°C` : '--'})
-                          </span>
-                          <span className="text-[10px] text-slate-400 ml-auto font-mono">
-                            {isCustomHour ? 'Prakiraan pilihan' : 'Saat ini'}
+                            Terasa {cardApparentTemp != null ? `${cardApparentTemp}°C` : '--'}
                           </span>
                         </div>
                       </div>
 
-                      <div className="mt-3 pt-2.5 border-t border-amber-500/20 text-[10px] space-y-1 text-slate-500 dark:text-slate-400">
+                      <div className="mt-3 pt-2.5 border-t border-amber-500/20 text-[10px] space-y-1 text-slate-500 dark:text-slate-400 tabular-nums">
                         <div className="flex items-center justify-between gap-1 flex-wrap">
-                          <span className="flex items-center gap-1">
-                            <span className="text-amber-600 dark:text-amber-400 font-medium">🔥 Tertinggi:</span>
-                            <span className="font-semibold text-slate-700 dark:text-slate-200">
-                              {weatherInsights?.peakHeatTemp != null ? `${weatherInsights.peakHeatTemp}°C` : '--'}
-                            </span>
-                            <span className="text-[9px] text-slate-400">({weatherInsights?.peakHeatHour || '--'})</span>
+                          <span>
+                            <span className="text-amber-600 dark:text-amber-400 font-semibold">Maks:</span>{' '}
+                            <strong className="text-slate-700 dark:text-slate-200">{weatherInsights?.peakHeatTemp != null ? `${weatherInsights.peakHeatTemp}°C` : '--'}</strong>{' '}
+                            ({weatherInsights?.peakHeatHour || '--'})
                           </span>
-                          <span className="text-slate-300 dark:text-slate-600">•</span>
-                          <span className="flex items-center gap-1">
-                            <span className="text-sky-600 dark:text-sky-400 font-medium">❄️ Terendah:</span>
-                            <span className="font-semibold text-slate-700 dark:text-slate-200">
-                              {weatherInsights?.minHeatTemp != null ? `${weatherInsights.minHeatTemp}°C` : '--'}
-                            </span>
-                            <span className="text-[9px] text-slate-400">({weatherInsights?.minHeatHour || '--'})</span>
+                          <span>
+                            <span className="text-sky-600 dark:text-sky-400 font-semibold">Min:</span>{' '}
+                            <strong className="text-slate-700 dark:text-slate-200">{weatherInsights?.minHeatTemp != null ? `${weatherInsights.minHeatTemp}°C` : '--'}</strong>{' '}
+                            ({weatherInsights?.minHeatHour || '--'})
                           </span>
                         </div>
                         <div className="text-slate-400 dark:text-slate-500 text-[9.5px]">
-                          Rentang antar-model: {data?.current?.tempMin ?? '--'}°C – {data?.current?.tempMax ?? '--'}°C
+                          Rentang model: {data?.current?.tempMin ?? '--'}°C – {data?.current?.tempMax ?? '--'}°C
                         </div>
                       </div>
                     </div>
 
-                    {/* Kartu 2: Hujan & Gerimis */}
+                    {/* Kartu 2: Curah Hujan */}
                     <div className="p-4 rounded-2xl bg-gradient-to-br from-sky-500/10 via-blue-500/5 to-transparent border border-sky-500/30 flex flex-col justify-between">
                       <div>
                         <div className="flex items-center justify-between text-sky-600 dark:text-sky-400 mb-1">
                           <span className="text-xs font-bold flex items-center gap-1.5">
                             <CloudRain className="w-4 h-4 text-sky-500" />
-                            Presipitasi / Hujan
+                            Curah Hujan
                           </span>
                           <span className={`text-[10px] font-semibold px-2 py-0.5 rounded-full ${
                             cardPrecipitation != null && cardPrecipitation > 0
@@ -3087,11 +3001,11 @@ export const GeospatialWeatherModal: React.FC<GeospatialWeatherModalProps> = ({
                               : cardPrecipitation > 0
                               ? `Hujan (${cardPrecipitation} mm)`
                               : isRainWmoCode
-                              ? 'Gerimis / Hujan Lokal'
+                              ? 'Gerimis'
                               : 'Kering'}
                           </span>
                         </div>
-                        <div className="flex items-baseline gap-2 mt-1">
+                        <div className="flex items-baseline gap-2 mt-1 tabular-nums">
                           <span className="text-2xl sm:text-3xl font-black text-slate-900 dark:text-white">
                             {cardPrecipitation != null ? cardPrecipitation : '—'}
                           </span>
@@ -3099,24 +3013,24 @@ export const GeospatialWeatherModal: React.FC<GeospatialWeatherModalProps> = ({
                             mm/jam
                           </span>
                           <span className="text-[11px] text-slate-400 ml-auto font-medium">
-                            Peluang: <strong className="text-sky-600 dark:text-sky-400">{cardPrecipitationProb != null ? `${cardPrecipitationProb}%` : 'Tidak tersedia'}</strong>
+                            Peluang: <strong className="text-sky-600 dark:text-sky-400">{cardPrecipitationProb != null ? `${cardPrecipitationProb}%` : '—'}</strong>
                           </span>
                         </div>
                       </div>
 
                       <div className="mt-3 pt-2.5 border-t border-sky-500/20 text-[11px] space-y-1">
-                        <div className="font-bold text-sky-600 dark:text-sky-400 truncate" title={calibratedRainAnalysis.calibratedRainWindowText}>
-                          💧 {calibratedRainAnalysis.calibratedRainWindowCompact || weatherInsights?.rainWindowText || 'Data hujan belum tersedia'}
+                        <div className="font-semibold text-sky-600 dark:text-sky-400 truncate flex items-center gap-1" title={calibratedRainAnalysis.calibratedRainWindowText}>
+                          <Droplets className="w-3 h-3 shrink-0" />
+                          <span className="truncate">{calibratedRainAnalysis.calibratedRainWindowCompact || weatherInsights?.rainWindowText || 'Data belum tersedia'}</span>
                         </div>
                         <div className="flex items-center justify-between gap-1 text-[10px] text-slate-500 dark:text-slate-400">
-                          <span className="truncate" title={`Zona: ${calibratedRainAnalysis.seasonalZoneName} · ${calibratedRainAnalysis.seasonName}`}>
-                            {calibratedRainAnalysis.seasonBadge} · <strong>{data?.current?.conditionText || 'Tidak tersedia'}</strong>
+                          <span className="truncate" title={calibratedRainAnalysis.seasonalZoneName}>
+                            {calibratedRainAnalysis.seasonBadge}
                           </span>
                           <button
                             type="button"
                             onClick={() => setActiveWeatherTab('windy')}
-                            className="text-sky-600 dark:text-sky-400 font-bold hover:underline shrink-0 text-[10px] flex items-center gap-0.5 cursor-pointer"
-                            title="Buka Radar Doppler Live Windy untuk melihat pergerakan awan hujan di atas lokasi Anda secara real-time"
+                            className="text-sky-600 dark:text-sky-400 font-semibold hover:underline shrink-0 text-[10px] flex items-center gap-0.5 cursor-pointer"
                           >
                             <span>Radar Live</span>
                             <ArrowRight className="w-3 h-3" />
@@ -3125,50 +3039,59 @@ export const GeospatialWeatherModal: React.FC<GeospatialWeatherModalProps> = ({
                       </div>
                     </div>
 
-                    {/* Kartu 3: Awan & Kondisi Langit */}
+                    {/* Kartu 3: Tutupan Awan */}
                     <div className="p-4 rounded-2xl bg-gradient-to-br from-indigo-500/10 via-slate-500/5 to-transparent border border-indigo-500/30 flex flex-col justify-between">
                       <div>
                         <div className="flex items-center justify-between text-indigo-600 dark:text-indigo-400 mb-1">
                           <span className="text-xs font-bold flex items-center gap-1.5">
                             <Cloud className="w-4 h-4 text-indigo-500" />
-                            Tutupan Awan & Langit
+                            Tutupan Awan
                           </span>
                           <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-indigo-500/20 text-indigo-700 dark:text-indigo-300">
-                            {weatherInsights?.cloudStatus || 'Berawan'}
+                            {(() => {
+                              const cc = data?.current?.cloudCover;
+                              if (cc == null) return 'Tidak tersedia';
+                              if (cc >= 75) return 'Berawan Tebal';
+                              if (cc >= 40) return 'Berawan Sebagian';
+                              if (cc > 20) return 'Cerah Berawan';
+                              return 'Langit Cerah';
+                            })()}
                           </span>
                         </div>
-                        <div className="flex items-baseline gap-2 mt-1">
+                        <div className="flex items-baseline gap-2 mt-1 tabular-nums">
                           <span className="text-2xl sm:text-3xl font-black text-slate-900 dark:text-white">
                             {data?.current?.cloudCover != null ? `${data.current.cloudCover}%` : '—'}
                           </span>
                           <span className="text-xs text-slate-500 font-medium">
-                            langit tertutup
+                            tertutup
                           </span>
                         </div>
                       </div>
 
-                      <div className="mt-3 pt-2.5 border-t border-indigo-500/20 text-[11px] space-y-1">
-                        <div className="font-bold text-indigo-600 dark:text-indigo-400">
-                          ☀️ Indeks UV: {data?.current?.uvIndex ?? '—'} (waktu data pilihan)
+                      <div className="mt-3 pt-2.5 border-t border-indigo-500/20 text-[11px] space-y-1 tabular-nums">
+                        <div className="font-semibold text-indigo-600 dark:text-indigo-400 flex items-center gap-1">
+                          <Sun className="w-3.5 h-3.5 shrink-0" />
+                          <span>Indeks UV: {data?.current?.uvIndex ?? '—'}</span>
                         </div>
                         <div className="text-slate-500 dark:text-slate-400 text-[10px]">
-                          Rata-rata awan harian: {weatherInsights?.avgCloud != null ? `~${weatherInsights.avgCloud}%` : 'belum tersedia'}
+                          Rata-rata harian: {weatherInsights?.avgCloud != null ? `~${weatherInsights.avgCloud}%` : '—'}
                         </div>
                       </div>
                     </div>
 
-                    {/* Kartu 4: Angin & Kelembapan */}
+                    {/* Kartu 4: Angin */}
                     <div className="p-4 rounded-2xl bg-gradient-to-br from-teal-500/10 via-emerald-500/5 to-transparent border border-teal-500/30 flex flex-col justify-between group hover:border-teal-500/50 transition-all">
                       <div>
                         <div className="flex items-center justify-between text-teal-600 dark:text-teal-400 mb-1 flex-wrap gap-1">
                           <span className="text-xs font-bold flex items-center gap-1.5">
                             <Wind className="w-4 h-4 text-teal-500" />
-                            Angin & Kelembapan
+                            Angin
                           </span>
                           <div className="flex items-center gap-1 flex-wrap">
                             {windCompassText && (
-                              <span className="text-[10px] font-mono font-semibold px-2 py-0.5 rounded-full bg-teal-500/15 text-teal-800 dark:text-teal-200 border border-teal-500/30" title={`Arah datang angin: ${windCompassText}`}>
-                                🧭 {windCompassText}
+                              <span className="inline-flex items-center gap-1 text-[10px] font-mono font-semibold px-2 py-0.5 rounded-full bg-teal-500/15 text-teal-800 dark:text-teal-200 border border-teal-500/30 tabular-nums">
+                                <Compass className="w-2.5 h-2.5 shrink-0" />
+                                {windCompassText}
                               </span>
                             )}
                             <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-teal-500/20 text-teal-700 dark:text-teal-300">
@@ -3176,32 +3099,35 @@ export const GeospatialWeatherModal: React.FC<GeospatialWeatherModalProps> = ({
                             </span>
                           </div>
                         </div>
-                        <div className="flex items-baseline gap-2 mt-1">
+                        <div className="flex items-baseline gap-2 mt-1 tabular-nums">
                           <span className="text-2xl sm:text-3xl font-black text-slate-900 dark:text-white">
                             {cardWindSpeed != null ? cardWindSpeed : '—'}
                           </span>
                           <span className="text-xs font-semibold text-slate-500">
-                            km/h
+                            km/j
                           </span>
                           <span className="text-[11px] text-slate-400 ml-auto font-medium">
-                            Hembusan: <strong>{cardWindGusts != null ? `${cardWindGusts} km/h` : '—'}</strong>
+                            Hembusan: <strong>{cardWindGusts != null ? `${cardWindGusts} km/j` : '—'}</strong>
                           </span>
                         </div>
                       </div>
 
-                      <div className="mt-3 pt-2.5 border-t border-teal-500/20 text-[11px] space-y-1.5">
-                        <div className="font-bold text-teal-600 dark:text-teal-400 flex items-center justify-between">
-                          <span>💧 Kelembapan Udara: {cardHumidity != null ? `${cardHumidity}%` : '—'}</span>
+                      <div className="mt-3 pt-2.5 border-t border-teal-500/20 text-[11px] space-y-1.5 tabular-nums">
+                        <div className="font-semibold text-teal-600 dark:text-teal-400 flex items-center justify-between">
+                          <span className="flex items-center gap-1">
+                            <Droplets className="w-3 h-3 shrink-0" />
+                            Kelembapan: {cardHumidity != null ? `${cardHumidity}%` : '—'}
+                          </span>
                           {humidityComfortText && (
                             <span className="text-[10px] font-medium text-slate-500 dark:text-slate-400">
-                              ({humidityComfortText})
+                              {humidityComfortText}
                             </span>
                           )}
                         </div>
                         <div className="flex items-center justify-between gap-1 text-[10px] text-slate-500 dark:text-slate-400 flex-wrap">
-                          <span>Partikulat PM2.5: {cardPm25 != null ? `${cardPm25} µg/m³` : 'Data Sensor Belum Tersedia'}</span>
+                          <span>PM2.5: {cardPm25 != null ? `${cardPm25} µg/m³` : '—'}</span>
                           {cardAqiCategory && (
-                            <span className={`px-2 py-0.5 rounded-full font-bold text-[9.5px] border ${cardAqiCategory.badgeStyle}`}>
+                            <span className={`px-2 py-0.5 rounded-full font-semibold text-[9.5px] border ${cardAqiCategory.badgeStyle}`}>
                               {cardAqiCategory.label}
                             </span>
                           )}
@@ -3210,19 +3136,17 @@ export const GeospatialWeatherModal: React.FC<GeospatialWeatherModalProps> = ({
                           <button
                             type="button"
                             onClick={() => setActiveWeatherTab('wind')}
-                            className="text-teal-600 dark:text-teal-400 font-bold hover:underline cursor-pointer flex items-center gap-1"
-                            title="Buka grafik kurva angin & tekanan atmosfer"
+                            className="text-teal-600 dark:text-teal-400 font-semibold hover:underline cursor-pointer flex items-center gap-1"
                           >
-                            <span>Dinamika Angin</span>
+                            <span>Grafik Angin</span>
                             <ArrowRight className="w-3 h-3" />
                           </button>
                           <button
                             type="button"
                             onClick={() => setActiveWeatherTab('air')}
-                            className="text-indigo-600 dark:text-indigo-400 font-bold hover:underline cursor-pointer flex items-center gap-1"
-                            title="Buka panel kualitas udara CAMS & ISPU"
+                            className="text-indigo-600 dark:text-indigo-400 font-semibold hover:underline cursor-pointer flex items-center gap-1"
                           >
-                            <span>Analisis ISPU Udara</span>
+                            <span>Detail ISPU</span>
                             <ArrowRight className="w-3 h-3" />
                           </button>
                         </div>
@@ -3230,59 +3154,38 @@ export const GeospatialWeatherModal: React.FC<GeospatialWeatherModalProps> = ({
                     </div>
                   </div>
 
-                  {/* 2. PANEL GRAFIK STANDAR & INTUITIF (Suhu, Hujan, Awan) */}
+                  {/* 2. PANEL GRAFIK CUACA */}
                   <div className="p-4 sm:p-5 rounded-3xl bg-white dark:bg-slate-900/90 border border-slate-200/80 dark:border-slate-800 shadow-sm">
                     {/* Header Grafik & Pill Switcher */}
                     <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-4 pb-3 border-b border-slate-100 dark:border-slate-800">
                       <div className="min-w-0 flex-1 pr-2">
                         <h3 className="text-sm font-bold text-slate-900 dark:text-white flex items-center gap-2 flex-wrap">
-                          <span className="shrink-0">Grafik Dinamika Cuaca Multihari & Arsip Permanen</span>
+                          <span className="shrink-0">Grafik Cuaca</span>
                           <span
-                            className="text-[10px] px-2 py-0.5 rounded-full bg-indigo-50 dark:bg-indigo-950/60 text-indigo-600 dark:text-indigo-400 font-bold border border-indigo-200/60 dark:border-indigo-800 max-w-[180px] sm:max-w-[240px] truncate"
+                            className="text-[10px] px-2.5 py-0.5 rounded-full bg-indigo-50 dark:bg-indigo-950/60 text-indigo-600 dark:text-indigo-400 font-semibold border border-indigo-200/60 dark:border-indigo-800 max-w-[180px] sm:max-w-[240px] truncate"
                             title={activeRegionName}
                           >
                             {activeRegionName}
                           </span>
-                          <span
-                            className="text-[10px] px-2 py-0.5 rounded-full bg-amber-500/10 dark:bg-amber-950/60 text-amber-600 dark:text-amber-400 font-bold border border-amber-400/40 shrink-0 flex items-center gap-1"
-                            title="Titik cuaca masa lalu (≥ 5 menit lalu) dibekukan dan tersimpan permanen di perangkat untuk riwayat grafik bulanan"
-                          >
-                            <Lock className="w-2.5 h-2.5" />
-                            <span>≥5 mnt Permanen</span>
-                          </span>
                           {mainVisualGraph === 'rain' && (
                             <span
-                              className="text-[10px] px-2 py-0.5 rounded-full bg-sky-50 dark:bg-sky-950/60 text-sky-600 dark:text-sky-400 font-bold border border-sky-200/60 dark:border-sky-800 shrink-0"
-                              title={`Zona: ${calibratedRainAnalysis.seasonalZoneName} · ${calibratedRainAnalysis.seasonName}`}
+                              className="text-[10px] px-2 py-0.5 rounded-full bg-sky-50 dark:bg-sky-950/60 text-sky-600 dark:text-sky-400 font-semibold border border-sky-200/60 dark:border-sky-800 shrink-0"
                             >
                               {calibratedRainAnalysis.seasonBadge}
                             </span>
                           )}
                         </h3>
-                        <p
-                          className="text-xs text-slate-500 dark:text-slate-400 mt-0.5 truncate"
-                          title={
-                            mainVisualGraph === 'temp'
-                              ? `Kurva suhu & jam puncak panas (${weatherInsights?.peakHeatHour || '--'}: ${weatherInsights?.peakHeatTemp ?? '--'}°C)`
-                              : mainVisualGraph === 'rain'
-                              ? `Prediksi presipitasi & peluang hujan (${calibratedRainAnalysis.calibratedRainWindowText})`
-                              : mainVisualGraph === 'wind'
-                              ? `Kecepatan angin & hembusan ekstrem (${chartSummary?.maxWind || '--'})`
-                              : mainVisualGraph === 'cloud'
-                              ? `Dinamika tutupan awan & kelembapan udara sepanjang hari`
-                              : `Ringkasan gabungan multi-parameter suhu, presipitasi, angin, dan awan`
-                          }
-                        >
-                          {mainVisualGraph === 'temp' && `Kurva suhu & puncak panas (${weatherInsights?.peakHeatHour || '--'}: ${weatherInsights?.peakHeatTemp ?? '--'}°C)`}
-                          {mainVisualGraph === 'rain' && `Prediksi hujan (${calibratedRainAnalysis.calibratedRainWindowCompact})`}
-                          {mainVisualGraph === 'wind' && `Kecepatan & hembusan angin (${chartSummary?.maxWind || '--'})`}
-                          {mainVisualGraph === 'cloud' && `Dinamika tutupan awan & kelembapan sepanjang hari`}
-                          {mainVisualGraph === 'all' && `Ringkasan gabungan multi-parameter cuaca`}
+                        <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5 truncate tabular-nums">
+                          {mainVisualGraph === 'temp' && `Puncak suhu: ${weatherInsights?.peakHeatHour || '--'} (${weatherInsights?.peakHeatTemp ?? '--'}°C)`}
+                          {mainVisualGraph === 'rain' && `${calibratedRainAnalysis.calibratedRainWindowCompact}`}
+                          {mainVisualGraph === 'wind' && `Kecepatan maks: ${chartSummary?.maxWind || '--'}`}
+                          {mainVisualGraph === 'cloud' && `Tutupan awan & kelembapan`}
+                          {mainVisualGraph === 'all' && `Gabungan suhu, hujan, dan awan`}
                         </p>
                       </div>
 
                       {/* Pill Switcher */}
-                      <div className="flex items-center gap-1 p-1 rounded-2xl bg-slate-100 dark:bg-slate-800 text-xs font-semibold overflow-x-auto no-scrollbar shrink-0 shadow-xs">
+                      <div className="flex items-center gap-1 p-1 rounded-2xl bg-slate-100 dark:bg-slate-800 text-xs font-semibold overflow-x-auto no-scrollbar shrink-0">
                         <button
                           type="button"
                           onClick={() => setMainVisualGraph('temp')}
@@ -3293,7 +3196,7 @@ export const GeospatialWeatherModal: React.FC<GeospatialWeatherModalProps> = ({
                           }`}
                         >
                           <Sun className="w-3.5 h-3.5" />
-                          <span>Suhu & Panas</span>
+                          <span>Suhu</span>
                         </button>
                         <button
                           type="button"
@@ -3305,7 +3208,7 @@ export const GeospatialWeatherModal: React.FC<GeospatialWeatherModalProps> = ({
                           }`}
                         >
                           <CloudRain className="w-3.5 h-3.5" />
-                          <span>Hujan & Gerimis</span>
+                          <span>Hujan</span>
                         </button>
                         <button
                           type="button"
@@ -3317,7 +3220,7 @@ export const GeospatialWeatherModal: React.FC<GeospatialWeatherModalProps> = ({
                           }`}
                         >
                           <Wind className="w-3.5 h-3.5" />
-                          <span>Angin & Hembusan</span>
+                          <span>Angin</span>
                         </button>
                         <button
                           type="button"
@@ -3329,7 +3232,7 @@ export const GeospatialWeatherModal: React.FC<GeospatialWeatherModalProps> = ({
                           }`}
                         >
                           <Cloud className="w-3.5 h-3.5" />
-                          <span>Awan & Langit</span>
+                          <span>Awan</span>
                         </button>
                         <button
                           type="button"
@@ -3346,75 +3249,51 @@ export const GeospatialWeatherModal: React.FC<GeospatialWeatherModalProps> = ({
                       </div>
                     </div>
 
-                    {/* Panduan Ringkas Cepat untuk Awam (4 Kartu Wawasan) */}
-                    <div className="grid grid-cols-2 lg:grid-cols-4 gap-2.5 mb-3.5">
+                    {/* 3 Kartu Ringkasan Eksekutif */}
+                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5 mb-3.5 tabular-nums">
                       <div className="p-3 rounded-2xl bg-amber-500/10 dark:bg-amber-950/30 border border-amber-500/20 dark:border-amber-800/40 flex flex-col justify-between">
-                        <div className="flex items-center gap-1.5 text-amber-700 dark:text-amber-400 font-bold text-xs mb-1">
+                        <div className="flex items-center gap-1.5 text-amber-700 dark:text-amber-400 font-semibold text-xs mb-1">
                           <Sun className="w-3.5 h-3.5 shrink-0 text-amber-500" />
-                          <span>Paling Panas</span>
+                          <span>Suhu Maksimum</span>
                         </div>
                         <div className="text-base sm:text-lg font-black text-slate-900 dark:text-white">
-                          {weatherInsights?.peakHeatHour || '--'}:00
+                          {weatherInsights?.peakHeatHour || '--'}
                           <span className="text-xs font-semibold text-amber-600 dark:text-amber-400 ml-1.5">
-                            ({weatherInsights?.peakHeatTemp != null ? `${weatherInsights.peakHeatTemp}°C` : '--'})
+                            {weatherInsights?.peakHeatTemp != null ? `${weatherInsights.peakHeatTemp}°C` : '--'}
                           </span>
-                        </div>
-                        <div className="text-[10.5px] text-slate-500 dark:text-slate-400 mt-1 line-clamp-1">
-                          {weatherInsights?.peakHeatTemp && weatherInsights.peakHeatTemp >= 32 ? 'Terik siang, siapkan air minum' : 'Hangat bersahabat'}
                         </div>
                       </div>
 
                       <div className="p-3 rounded-2xl bg-cyan-500/10 dark:bg-cyan-950/30 border border-cyan-500/20 dark:border-cyan-800/40 flex flex-col justify-between">
-                        <div className="flex items-center gap-1.5 text-cyan-700 dark:text-cyan-400 font-bold text-xs mb-1">
+                        <div className="flex items-center gap-1.5 text-cyan-700 dark:text-cyan-400 font-semibold text-xs mb-1">
                           <Thermometer className="w-3.5 h-3.5 shrink-0 text-cyan-500" />
-                          <span>Paling Sejuk</span>
+                          <span>Suhu Minimum</span>
                         </div>
                         <div className="text-base sm:text-lg font-black text-slate-900 dark:text-white">
-                          {weatherInsights?.minHeatHour || '--'}:00
+                          {weatherInsights?.minHeatHour || '--'}
                           <span className="text-xs font-semibold text-cyan-600 dark:text-cyan-400 ml-1.5">
-                            ({weatherInsights?.minHeatTemp != null ? `${weatherInsights.minHeatTemp}°C` : '--'})
+                            {weatherInsights?.minHeatTemp != null ? `${weatherInsights.minHeatTemp}°C` : '--'}
                           </span>
-                        </div>
-                        <div className="text-[10.5px] text-slate-500 dark:text-slate-400 mt-1 line-clamp-1">
-                          Waktu paling nyaman & segar
                         </div>
                       </div>
 
                       <div className="p-3 rounded-2xl bg-sky-500/10 dark:bg-sky-950/30 border border-sky-500/20 dark:border-sky-800/40 flex flex-col justify-between">
-                        <div className="flex items-center gap-1.5 text-sky-700 dark:text-sky-400 font-bold text-xs mb-1">
+                        <div className="flex items-center gap-1.5 text-sky-700 dark:text-sky-400 font-semibold text-xs mb-1">
                           <CloudRain className="w-3.5 h-3.5 shrink-0 text-sky-500" />
-                          <span>Perlu Payung?</span>
+                          <span>Potensi Hujan</span>
                         </div>
-                        <div className="text-xs sm:text-sm font-black text-slate-900 dark:text-white line-clamp-1">
-                          {calibratedRainAnalysis.hasRainExpected ? '⚠️ Sedia Payung/Jas Hujan' : '✅ Aman Tanpa Payung'}
+                        <div className="text-sm sm:text-base font-black text-slate-900 dark:text-white truncate">
+                          {calibratedRainAnalysis.hasRainExpected ? 'Berpotensi Hujan' : 'Cenderung Kering'}
                         </div>
-                        <div className="text-[10.5px] text-slate-500 dark:text-slate-400 mt-1 line-clamp-1">
+                        <div className="text-[10.5px] text-slate-500 dark:text-slate-400 mt-0.5 truncate">
                           {calibratedRainAnalysis.calibratedRainWindowCompact}
-                        </div>
-                      </div>
-
-                      <div className="p-3 rounded-2xl bg-indigo-500/10 dark:bg-indigo-950/30 border border-indigo-500/20 dark:border-indigo-800/40 flex flex-col justify-between">
-                        <div className="flex items-center gap-1.5 text-indigo-700 dark:text-indigo-400 font-bold text-xs mb-1">
-                          <Eye className="w-3.5 h-3.5 shrink-0 text-indigo-500" />
-                          <span>Tips Baca Grafik</span>
-                        </div>
-                        <div className="text-[11px] font-bold text-slate-800 dark:text-slate-200 line-clamp-1">
-                          Klik titik untuk detail jam
-                        </div>
-                        <div className="text-[10.5px] text-indigo-600 dark:text-indigo-400 mt-1 line-clamp-1">
-                          Garis putus = perkiraan / sensasi
                         </div>
                       </div>
                     </div>
 
-                    {/* Toolbar Zoom Resolusi Waktu & Indikator Titik Jam */}
+                    {/* Toolbar Resolusi Waktu & Indikator Titik Jam */}
                     <div className="flex flex-wrap items-center justify-between gap-2.5 mb-3 px-3 py-2 rounded-2xl bg-slate-50 dark:bg-slate-800/60 border border-slate-200/70 dark:border-slate-700/60">
-                      {/* Kontrol Zoom Resolusi Waktu */}
                       <div className="flex items-center gap-1.5 flex-wrap">
-                        <span className="text-[11px] font-bold text-slate-500 dark:text-slate-400 flex items-center gap-1 mr-1">
-                          <ZoomIn className="w-3.5 h-3.5 text-indigo-500" />
-                          <span>Tampilan:</span>
-                        </span>
                         <div className="flex items-center gap-1 bg-white dark:bg-slate-900 p-0.5 rounded-xl border border-slate-200/60 dark:border-slate-700/60 flex-wrap">
                           <button
                             type="button"
@@ -3424,10 +3303,9 @@ export const GeospatialWeatherModal: React.FC<GeospatialWeatherModalProps> = ({
                                 ? 'bg-indigo-600 text-white shadow-xs font-bold'
                                 : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
                             }`}
-                            title="Tampilkan seluruh 24 jam pas di layar tanpa perlu menggeser (Mode Sekali Lirik)"
                           >
                             <Eye className="w-3 h-3" />
-                            <span>Pas Layar (Sekali Lirik)</span>
+                            <span>24 Jam</span>
                           </button>
                           <button
                             type="button"
@@ -3437,10 +3315,9 @@ export const GeospatialWeatherModal: React.FC<GeospatialWeatherModalProps> = ({
                                 ? 'bg-indigo-600 text-white shadow-xs font-bold'
                                 : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
                             }`}
-                            title="Linimasa multi-hari 72 jam: geser kiri untuk hari kemarin & lusa lalu, geser kanan untuk ramalan mendatang"
                           >
                             <Compass className="w-3 h-3" />
-                            <span>Multihari (72 Jam)</span>
+                            <span>72 Jam</span>
                           </button>
                           <button
                             type="button"
@@ -3450,10 +3327,9 @@ export const GeospatialWeatherModal: React.FC<GeospatialWeatherModalProps> = ({
                                 ? 'bg-emerald-600 text-white shadow-xs font-bold'
                                 : 'text-emerald-700 dark:text-emerald-400 hover:bg-emerald-50 dark:hover:bg-emerald-950/40'
                             }`}
-                            title="Tampilkan grafik riwayat cuaca bulanan 30 hari (arsip tersimpan)"
                           >
                             <Calendar className="w-3 h-3" />
-                            <span>Grafik Bulanan (30H)</span>
+                            <span>30 Hari</span>
                           </button>
                           <button
                             type="button"
@@ -3463,9 +3339,8 @@ export const GeospatialWeatherModal: React.FC<GeospatialWeatherModalProps> = ({
                                 ? 'bg-indigo-600 text-white shadow-xs font-bold'
                                 : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
                             }`}
-                            title="Tampilkan grafik rentang 24 jam"
                           >
-                            Mode 24 Jam
+                            36 Jam
                           </button>
                           <button
                             type="button"
@@ -3475,9 +3350,8 @@ export const GeospatialWeatherModal: React.FC<GeospatialWeatherModalProps> = ({
                                 ? 'bg-indigo-600 text-white shadow-xs font-bold'
                                 : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
                             }`}
-                            title="Fokus rentang 6 jam di sekitar jam terpilih"
                           >
-                            Fokus 6 Jam
+                            6 Jam
                           </button>
                           <button
                             type="button"
@@ -3487,29 +3361,19 @@ export const GeospatialWeatherModal: React.FC<GeospatialWeatherModalProps> = ({
                                 ? 'bg-purple-600 text-white shadow-xs font-bold'
                                 : 'text-purple-600 dark:text-purple-400 hover:bg-purple-50 dark:hover:bg-purple-950/40'
                             }`}
-                            title="Zoom resolusi tinggi per 5 menit (interpolasi kurva spline)"
                           >
-                            <span>Per Menit (5m)</span>
-                            <span className="text-[9px] px-1 py-0.2 rounded-full bg-white/20 dark:bg-purple-900/60 font-black">
-                              HD
-                            </span>
+                            <span>5 Menit</span>
                           </button>
                         </div>
                       </div>
 
-                      {/* Penanda Waktu Live & Tombol Navigasi Jam */}
-                      <div className="flex items-center gap-2 flex-wrap">
-                        {/* Jam Sekarang Badge */}
-                        <div
-                          className="flex items-center gap-1.5 px-2.5 py-1 rounded-xl bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20 text-xs font-semibold"
-                          title="Waktu aktual sistem pengguna saat ini"
-                        >
-                          <span className="w-2 h-2 rounded-full bg-emerald-500 animate-ping inline-block" />
+                      {/* Penanda Waktu Live & Stepper */}
+                      <div className="flex items-center gap-2 flex-wrap tabular-nums">
+                        <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-xl bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20 text-xs font-semibold">
                           <Clock className="w-3.5 h-3.5 text-emerald-500" />
-                          <span>Saat Ini: <strong>{liveTimeString} {tzAbbr}</strong></span>
+                          <span>{liveTimeString} {tzAbbr}</span>
                         </div>
 
-                        {/* Jam Terpilih dengan Stepper Arrows */}
                         <div className="flex items-center gap-1 px-2 py-0.5 rounded-xl bg-indigo-50 dark:bg-indigo-950/60 text-indigo-700 dark:text-indigo-300 border border-indigo-200/60 dark:border-indigo-800/80 text-xs font-semibold">
                           <button
                             type="button"
@@ -3524,12 +3388,12 @@ export const GeospatialWeatherModal: React.FC<GeospatialWeatherModalProps> = ({
                               }
                             }}
                             className="p-1 hover:bg-indigo-100 dark:hover:bg-indigo-900/80 rounded-lg transition-colors cursor-pointer"
-                            title="Mundur 1 jam (riwayat sebelumnya)"
+                            title="Sebelumnya"
                           >
                             <ChevronLeft className="w-3.5 h-3.5" />
                           </button>
                           <span className="px-1 font-bold">
-                            Titik: {activeChartPoint?.label || `${String(selectedHour).padStart(2, '0')}:00`}
+                            {activeChartPoint?.label || `${String(selectedHour).padStart(2, '0')}:00`}
                           </span>
                           <button
                             type="button"
@@ -3544,7 +3408,7 @@ export const GeospatialWeatherModal: React.FC<GeospatialWeatherModalProps> = ({
                               }
                             }}
                             className="p-1 hover:bg-indigo-100 dark:hover:bg-indigo-900/80 rounded-lg transition-colors cursor-pointer"
-                            title="Maju 1 jam (ramalan berikutnya)"
+                            title="Berikutnya"
                           >
                             <ChevronRight className="w-3.5 h-3.5" />
                           </button>
@@ -3552,12 +3416,12 @@ export const GeospatialWeatherModal: React.FC<GeospatialWeatherModalProps> = ({
                       </div>
                     </div>
 
-                    {/* Linimasa Navigasi Pintas Hari (Quick Day Jump Bar) */}
+                    {/* Linimasa Navigasi Pintas Hari */}
                     {chartZoomLevel !== 'monthly' && availableDaysInChart.length > 0 && (
-                      <div className="flex items-center gap-1.5 overflow-x-auto no-scrollbar py-1 px-1 mb-2.5 bg-slate-100/70 dark:bg-slate-800/50 rounded-xl border border-slate-200/60 dark:border-slate-700/60">
-                        <span className="text-[11px] font-bold text-slate-500 dark:text-slate-400 shrink-0 px-1.5 flex items-center gap-1">
-                          <Clock className="w-3.5 h-3.5 text-indigo-500" />
-                          <span>Lompat Hari:</span>
+                      <div className="flex items-center gap-1.5 overflow-x-auto no-scrollbar py-1 px-1.5 mb-2.5 bg-slate-100/70 dark:bg-slate-800/50 rounded-xl border border-slate-200/60 dark:border-slate-700/60">
+                        <span className="text-[11px] font-semibold text-slate-500 dark:text-slate-400 shrink-0 px-1 flex items-center gap-1">
+                          <Calendar className="w-3.5 h-3.5 text-indigo-500" />
+                          <span>Hari</span>
                         </span>
                         <div className="flex items-center gap-1">
                           {availableDaysInChart.map((d) => {
@@ -3570,33 +3434,19 @@ export const GeospatialWeatherModal: React.FC<GeospatialWeatherModalProps> = ({
                                 key={`jump-day-${d.dayDiff}`}
                                 type="button"
                                 onClick={() => (isToday ? handleCenterNow() : handleJumpToDay(d.dayDiff))}
-                                className={`px-2.5 py-1 rounded-lg text-xs font-bold whitespace-nowrap transition-all cursor-pointer flex items-center gap-1 shrink-0 ${
+                                className={`px-2.5 py-1 rounded-lg text-xs font-semibold whitespace-nowrap transition-all cursor-pointer flex items-center gap-1 shrink-0 ${
                                   isSelected
                                     ? isToday
-                                      ? 'bg-indigo-600 text-white shadow-xs ring-2 ring-indigo-400/40'
+                                      ? 'bg-indigo-600 text-white shadow-xs'
                                       : isPast
                                       ? 'bg-amber-600 text-white shadow-xs'
-                                      : 'bg-indigo-600 text-white shadow-xs ring-2 ring-indigo-400/40'
+                                      : 'bg-indigo-600 text-white shadow-xs'
                                     : isToday
                                     ? 'bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 border border-emerald-500/30 hover:bg-emerald-500/25'
-                                    : isPast
-                                    ? 'bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-700 border border-slate-200/80 dark:border-slate-700'
                                     : 'bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-700 border border-slate-200/80 dark:border-slate-700'
                                 }`}
-                                title={
-                                  isPast
-                                    ? `${d.label} — Data pengamatan permanen tersimpan (tidak berubah lagi)`
-                                    : isToday
-                                    ? `Hari Ini — Pembaruan sensor live (${liveTimeString})`
-                                    : `${d.label} — Prakiraan masa depan dinamis`
-                                }
                               >
-                                {isToday && <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-ping inline-block" />}
-                                {isPast && <Lock className="w-3 h-3 text-amber-500 shrink-0" />}
                                 <span>{d.label}</span>
-                                <span className="text-[10px] opacity-75 font-normal">
-                                  ({d.dayDiff === 0 ? 'Live' : d.dayDiff < 0 ? `${d.dayDiff}H` : `+${d.dayDiff}H`})
-                                </span>
                               </button>
                             );
                           })}
@@ -3604,16 +3454,15 @@ export const GeospatialWeatherModal: React.FC<GeospatialWeatherModalProps> = ({
                         <button
                           type="button"
                           onClick={() => setChartZoomLevel('monthly')}
-                          className="ml-auto px-2.5 py-1 rounded-lg text-xs font-bold whitespace-nowrap bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 border border-emerald-500/30 hover:bg-emerald-500/25 transition-all flex items-center gap-1 shrink-0 cursor-pointer"
-                          title="Lihat grafik bulanan 30 hari"
+                          className="ml-auto px-2.5 py-1 rounded-lg text-xs font-semibold whitespace-nowrap bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 border border-emerald-500/30 hover:bg-emerald-500/25 transition-all flex items-center gap-1 shrink-0 cursor-pointer"
                         >
                           <History className="w-3.5 h-3.5" />
-                          <span>Arsip Bulanan 30H</span>
+                          <span>Arsip 30H</span>
                         </button>
                       </div>
                     )}
 
-                    {/* Ringkasan Arsip Cuaca Bulanan (30 Hari) */}
+                    {/* Ringkasan Arsip Bulanan */}
                     {chartZoomLevel === 'monthly' && (
                       <div className="mb-3 p-3.5 rounded-2xl bg-gradient-to-r from-emerald-500/10 via-teal-500/10 to-indigo-500/10 border border-emerald-500/20 dark:border-emerald-800/40">
                         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 pb-2 mb-2 border-b border-emerald-500/20">
@@ -3622,70 +3471,50 @@ export const GeospatialWeatherModal: React.FC<GeospatialWeatherModalProps> = ({
                               <Calendar className="w-4 h-4" />
                             </div>
                             <div>
-                              <h4 className="text-xs font-black text-slate-900 dark:text-white flex items-center gap-1.5">
-                                <span>Arsip Cuaca Bulanan: {monthlyArchiveSummary.monthName}</span>
-                                <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-100 dark:bg-emerald-900/60 text-emerald-700 dark:text-emerald-300 flex items-center gap-1">
-                                  <Lock className="w-2.5 h-2.5" />
-                                  <span>{monthlyArchiveSummary.recordedDaysCount} Hari Tersimpan Permanen</span>
+                              <h4 className="text-xs font-bold text-slate-900 dark:text-white flex items-center gap-2">
+                                <span>Arsip Bulanan · {monthlyArchiveSummary.monthName}</span>
+                                <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-emerald-100 dark:bg-emerald-900/60 text-emerald-700 dark:text-emerald-300">
+                                  {monthlyArchiveSummary.recordedDaysCount} Hari
                                 </span>
                               </h4>
-                              <p className="text-[11px] text-slate-500 dark:text-slate-400">
-                                Data pengamatan masa lalu (≥ 5 menit yang lalu) otomatis dibekukan dan disimpan permanen di perangkat, tidak dapat diubah oleh ramalan baru.
-                              </p>
                             </div>
                           </div>
                           <button
                             type="button"
                             onClick={() => setChartZoomLevel('multiday')}
-                            className="px-3 py-1 rounded-xl text-xs font-bold bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-700 border border-slate-200 dark:border-slate-700 shadow-xs cursor-pointer self-start sm:self-auto"
+                            className="px-3 py-1 rounded-xl text-xs font-semibold bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-700 border border-slate-200 dark:border-slate-700 cursor-pointer self-start sm:self-auto"
                           >
-                            Kembali ke Linimasa Multihari
+                            Linimasa 72J
                           </button>
                         </div>
 
-                        <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 text-xs">
+                        <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 text-xs tabular-nums">
                           <div className="p-2 rounded-xl bg-white/80 dark:bg-slate-900/80 border border-slate-200/60 dark:border-slate-800/80">
-                            <div className="text-[10.5px] font-semibold text-slate-500 flex items-center gap-1">
-                              <Thermometer className="w-3 h-3 text-amber-500" />
-                              <span>Suhu Min / Max Bulan Ini</span>
-                            </div>
+                            <div className="text-[10.5px] font-semibold text-slate-500">Rentang Suhu</div>
                             <div className="text-sm font-black text-slate-900 dark:text-white mt-0.5">
                               {monthlyArchiveSummary.overallTempMin}°C – {monthlyArchiveSummary.overallTempMax}°C
                             </div>
-                            <div className="text-[10px] text-slate-400">Rata-rata: ~{monthlyArchiveSummary.overallTempAvg}°C</div>
                           </div>
 
                           <div className="p-2 rounded-xl bg-white/80 dark:bg-slate-900/80 border border-slate-200/60 dark:border-slate-800/80">
-                            <div className="text-[10.5px] font-semibold text-slate-500 flex items-center gap-1">
-                              <CloudRain className="w-3 h-3 text-sky-500" />
-                              <span>Total Presipitasi Hujan</span>
-                            </div>
+                            <div className="text-[10.5px] font-semibold text-slate-500">Total Presipitasi</div>
                             <div className="text-sm font-black text-slate-900 dark:text-white mt-0.5">
                               {monthlyArchiveSummary.totalRainfallMm} mm
                             </div>
-                            <div className="text-[10px] text-sky-600 dark:text-sky-400 font-semibold">{monthlyArchiveSummary.totalRainyDays} hari tercatat hujan</div>
                           </div>
 
                           <div className="p-2 rounded-xl bg-white/80 dark:bg-slate-900/80 border border-slate-200/60 dark:border-slate-800/80">
-                            <div className="text-[10.5px] font-semibold text-slate-500 flex items-center gap-1">
-                              <Droplets className="w-3 h-3 text-cyan-500" />
-                              <span>Rata-rata Kelembapan</span>
-                            </div>
+                            <div className="text-[10.5px] font-semibold text-slate-500">Kelembapan</div>
                             <div className="text-sm font-black text-slate-900 dark:text-white mt-0.5">
                               {monthlyArchiveSummary.averageHumidity}%
                             </div>
-                            <div className="text-[10px] text-slate-400">Kelembapan atmosfer</div>
                           </div>
 
                           <div className="p-2 rounded-xl bg-white/80 dark:bg-slate-900/80 border border-slate-200/60 dark:border-slate-800/80">
-                            <div className="text-[10.5px] font-semibold text-slate-500 flex items-center gap-1">
-                              <Wind className="w-3 h-3 text-teal-500" />
-                              <span>Kecepatan Angin Puncak</span>
-                            </div>
+                            <div className="text-[10.5px] font-semibold text-slate-500">Angin Puncak</div>
                             <div className="text-sm font-black text-slate-900 dark:text-white mt-0.5">
                               {monthlyArchiveSummary.peakWindSpeed} km/j
                             </div>
-                            <div className="text-[10px] text-slate-400">Hembusan tertinggi</div>
                           </div>
                         </div>
                       </div>
@@ -3694,44 +3523,30 @@ export const GeospatialWeatherModal: React.FC<GeospatialWeatherModalProps> = ({
                     {/* Informasi Mode Resolusi Menit */}
                     {chartZoomLevel === 'minute' && (
                       <div className="flex items-center justify-between text-[11px] text-purple-700 dark:text-purple-300 bg-purple-50/80 dark:bg-purple-950/40 px-3 py-1.5 rounded-xl border border-purple-200/50 dark:border-purple-800/40 mb-3">
-                        <div className="flex items-center gap-1.5">
-                          <Sparkles className="w-3.5 h-3.5 text-purple-500 shrink-0" />
-                          <span>
-                            <strong>Resolusi 5 Menit Aktif:</strong> Menampilkan kurva spline interpolasi jam <strong>{String(selectedHour).padStart(2, '0')}:00 – {String((selectedHour + 1) % 24).padStart(2, '0')}:00</strong>. Klik pada titik grafik untuk memilih waktu spesifik.
-                          </span>
-                        </div>
+                        <span>
+                          Interval 5 menit: {String(selectedHour).padStart(2, '0')}:00 – {String((selectedHour + 1) % 24).padStart(2, '0')}:00
+                        </span>
                         <button
                           type="button"
                           onClick={() => setChartZoomLevel('fit')}
-                          className="font-bold underline hover:text-purple-900 dark:hover:text-purple-100 ml-2 shrink-0 cursor-pointer"
+                          className="font-semibold underline ml-2 shrink-0 cursor-pointer"
                         >
-                          Reset ke 24 Jam
+                          Mode 24 Jam
                         </button>
                       </div>
                     )}
 
-                    {/* Toolbar Navigasi Linimasa Cuaca (Pusatkan Jam Ini, Status Layar) */}
+                    {/* Toolbar Navigasi Linimasa */}
                     <div className="flex flex-wrap items-center justify-between gap-2 px-1 mb-2.5">
                       <div className="flex items-center gap-1.5 text-xs text-slate-500 dark:text-slate-400">
                         {chartZoomLevel === 'fit' ? (
-                          <div className="flex items-center gap-2 flex-wrap">
-                            <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-xl bg-indigo-50/90 dark:bg-indigo-950/50 text-indigo-700 dark:text-indigo-300 font-semibold text-xs border border-indigo-200/60 dark:border-indigo-800/50">
-                              <Sparkles className="w-3.5 h-3.5 text-indigo-500 shrink-0" />
-                              <span>24 jam tampil pas di layar · Sentuh atau klik titik mana saja untuk inspeksi</span>
-                            </span>
-                          </div>
+                          <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-xl bg-indigo-50/90 dark:bg-indigo-950/50 text-indigo-700 dark:text-indigo-300 font-semibold text-xs border border-indigo-200/60 dark:border-indigo-800/50">
+                            Klik titik untuk detail
+                          </span>
                         ) : (
-                          <>
-                            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-slate-100 dark:bg-slate-800 text-[11px] font-medium text-slate-600 dark:text-slate-300">
-                              👈 Geser Kiri: Riwayat
-                            </span>
-                            <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-md bg-indigo-50 dark:bg-indigo-950/60 text-indigo-700 dark:text-indigo-300 font-bold text-[11px] border border-indigo-200/60 dark:border-indigo-800/60 shadow-xs">
-                              📍 Tengah: Jam Ini ({liveNowChartPoint?.label || `${String(currentTime.getHours()).padStart(2, '0')}:00`})
-                            </span>
-                            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-slate-100 dark:bg-slate-800 text-[11px] font-medium text-slate-600 dark:text-slate-300">
-                              Geser Kanan: Ramalan 👉
-                            </span>
-                          </>
+                          <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-md bg-indigo-50 dark:bg-indigo-950/60 text-indigo-700 dark:text-indigo-300 font-semibold text-[11px] border border-indigo-200/60 dark:border-indigo-800/60 tabular-nums">
+                            Jam Ini: {liveNowChartPoint?.label || `${String(currentTime.getHours()).padStart(2, '0')}:00`}
+                          </span>
                         )}
                       </div>
 
@@ -3740,7 +3555,6 @@ export const GeospatialWeatherModal: React.FC<GeospatialWeatherModalProps> = ({
                           type="button"
                           onClick={handleShiftPrevious}
                           className="inline-flex items-center gap-1 px-2.5 py-1 text-xs font-medium rounded-lg bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 transition-colors cursor-pointer active:scale-95"
-                          title="Geser timeline ke jam sebelumnya (kiri)"
                         >
                           <ChevronLeft className="w-3.5 h-3.5" />
                           <span>Sebelumnya</span>
@@ -3749,20 +3563,18 @@ export const GeospatialWeatherModal: React.FC<GeospatialWeatherModalProps> = ({
                         <button
                           type="button"
                           onClick={handleCenterNow}
-                          className="inline-flex items-center gap-1 px-2.5 py-1 text-xs font-semibold rounded-lg bg-indigo-600 hover:bg-indigo-700 text-white shadow-sm shadow-indigo-500/20 transition-all cursor-pointer active:scale-95"
-                          title="Pusatkan waktu saat ini tepat di tengah layar"
+                          className="inline-flex items-center gap-1 px-2.5 py-1 text-xs font-semibold rounded-lg bg-indigo-600 hover:bg-indigo-700 text-white shadow-sm transition-all cursor-pointer active:scale-95"
                         >
                           <LocateFixed className="w-3.5 h-3.5" />
-                          <span>Pusatkan Jam Ini</span>
+                          <span>Jam Ini</span>
                         </button>
 
                         <button
                           type="button"
                           onClick={handleShiftNext}
                           className="inline-flex items-center gap-1 px-2.5 py-1 text-xs font-medium rounded-lg bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 transition-colors cursor-pointer active:scale-95"
-                          title="Geser timeline ke ramalan mendatang (kanan)"
                         >
-                          <span>Mendatang</span>
+                          <span>Berikutnya</span>
                           <ChevronRight className="w-3.5 h-3.5" />
                         </button>
                       </div>
@@ -3801,7 +3613,7 @@ export const GeospatialWeatherModal: React.FC<GeospatialWeatherModalProps> = ({
                                   const pt = chartDisplayData.find((p: any) => p.pointKey === key || p.time === key);
                                   if (!pt) return key;
                                   if (chartZoomLevel === 'monthly') return pt.dayLabel || pt.label || key;
-                                  if (pt.pointKey === 'LIVE_EXACT_NOW') return `🔴 ${pt.label}`;
+                                  if (pt.pointKey === 'LIVE_EXACT_NOW') return `${pt.label}`;
                                   if (pt.hour === 0) return `${pt.dayName || ''} 00:00`;
                                   return pt.label || key;
                                 }}
@@ -3848,7 +3660,7 @@ export const GeospatialWeatherModal: React.FC<GeospatialWeatherModalProps> = ({
                                     strokeWidth={2}
                                     strokeDasharray="3 3"
                                     label={{
-                                      value: liveNowChartPoint && liveNowChartPoint.pointKey === activeChartPoint.pointKey ? `📍 Jam Ini: ${activeChartPoint.label}` : `📍 Terpilih: ${activeChartPoint.label}`,
+                                      value: liveNowChartPoint && liveNowChartPoint.pointKey === activeChartPoint.pointKey ? `Jam Ini: ${activeChartPoint.label}` : `Terpilih: ${activeChartPoint.label}`,
                                       position: 'top',
                                       fill: '#6366f1',
                                       fontSize: 10,
@@ -3873,7 +3685,7 @@ export const GeospatialWeatherModal: React.FC<GeospatialWeatherModalProps> = ({
                                     strokeWidth={1.5}
                                     strokeDasharray="2 2"
                                     label={{
-                                      value: liveNowChartPoint.isExactLivePoint ? `⏱️ Detik Ini: ${liveNowChartPoint.label}` : `⏱️ Jam Ini: ${liveNowChartPoint.label}`,
+                                      value: liveNowChartPoint.isExactLivePoint ? `Detik Ini: ${liveNowChartPoint.label}` : `Jam Ini: ${liveNowChartPoint.label}`,
                                       position: 'insideTopLeft',
                                       fill: '#10b981',
                                       fontSize: 10,
@@ -3907,7 +3719,7 @@ export const GeospatialWeatherModal: React.FC<GeospatialWeatherModalProps> = ({
                                   const pt = chartDisplayData.find((p: any) => p.pointKey === key || p.time === key);
                                   if (!pt) return key;
                                   if (chartZoomLevel === 'monthly') return pt.dayLabel || pt.label || key;
-                                  if (pt.pointKey === 'LIVE_EXACT_NOW') return `🔴 ${pt.label}`;
+                                  if (pt.pointKey === 'LIVE_EXACT_NOW') return `${pt.label}`;
                                   if (pt.hour === 0) return `${pt.dayName || ''} 00:00`;
                                   return pt.label || key;
                                 }}
@@ -3964,7 +3776,7 @@ export const GeospatialWeatherModal: React.FC<GeospatialWeatherModalProps> = ({
                                     strokeWidth={2}
                                     strokeDasharray="3 3"
                                     label={{
-                                      value: liveNowChartPoint && liveNowChartPoint.pointKey === activeChartPoint.pointKey ? `📍 Jam Ini: ${activeChartPoint.label}` : `📍 Terpilih: ${activeChartPoint.label}`,
+                                      value: liveNowChartPoint && liveNowChartPoint.pointKey === activeChartPoint.pointKey ? `Jam Ini: ${activeChartPoint.label}` : `Terpilih: ${activeChartPoint.label}`,
                                       position: 'top',
                                       fill: '#6366f1',
                                       fontSize: 10,
@@ -4002,7 +3814,7 @@ export const GeospatialWeatherModal: React.FC<GeospatialWeatherModalProps> = ({
                                     strokeWidth={1.5}
                                     strokeDasharray="2 2"
                                     label={{
-                                      value: liveNowChartPoint.isExactLivePoint ? `⏱️ Detik Ini: ${liveNowChartPoint.label}` : `⏱️ Jam Ini: ${liveNowChartPoint.label}`,
+                                      value: liveNowChartPoint.isExactLivePoint ? `Detik Ini: ${liveNowChartPoint.label}` : `Jam Ini: ${liveNowChartPoint.label}`,
                                       position: 'insideTopLeft',
                                       fill: '#10b981',
                                       fontSize: 10,
@@ -4043,7 +3855,7 @@ export const GeospatialWeatherModal: React.FC<GeospatialWeatherModalProps> = ({
                                   const pt = chartDisplayData.find((p: any) => p.pointKey === key || p.time === key);
                                   if (!pt) return key;
                                   if (chartZoomLevel === 'monthly') return pt.dayLabel || pt.label || key;
-                                  if (pt.pointKey === 'LIVE_EXACT_NOW') return `🔴 ${pt.label}`;
+                                  if (pt.pointKey === 'LIVE_EXACT_NOW') return `${pt.label}`;
                                   if (pt.hour === 0) return `${pt.dayName || ''} 00:00`;
                                   return pt.label || key;
                                 }}
@@ -4089,7 +3901,7 @@ export const GeospatialWeatherModal: React.FC<GeospatialWeatherModalProps> = ({
                                     strokeWidth={2}
                                     strokeDasharray="3 3"
                                     label={{
-                                      value: liveNowChartPoint && liveNowChartPoint.pointKey === activeChartPoint.pointKey ? `📍 Jam Ini: ${activeChartPoint.label}` : `📍 Terpilih: ${activeChartPoint.label}`,
+                                      value: liveNowChartPoint && liveNowChartPoint.pointKey === activeChartPoint.pointKey ? `Jam Ini: ${activeChartPoint.label}` : `Terpilih: ${activeChartPoint.label}`,
                                       position: 'top',
                                       fill: '#6366f1',
                                       fontSize: 10,
@@ -4114,7 +3926,7 @@ export const GeospatialWeatherModal: React.FC<GeospatialWeatherModalProps> = ({
                                     strokeWidth={1.5}
                                     strokeDasharray="2 2"
                                     label={{
-                                      value: liveNowChartPoint.isExactLivePoint ? `⏱️ Detik Ini: ${liveNowChartPoint.label}` : `⏱️ Jam Ini: ${liveNowChartPoint.label}`,
+                                      value: liveNowChartPoint.isExactLivePoint ? `Detik Ini: ${liveNowChartPoint.label}` : `Jam Ini: ${liveNowChartPoint.label}`,
                                       position: 'insideTopLeft',
                                       fill: '#10b981',
                                       fontSize: 10,
@@ -4154,7 +3966,7 @@ export const GeospatialWeatherModal: React.FC<GeospatialWeatherModalProps> = ({
                                   const pt = chartDisplayData.find((p: any) => p.pointKey === key || p.time === key);
                                   if (!pt) return key;
                                   if (chartZoomLevel === 'monthly') return pt.dayLabel || pt.label || key;
-                                  if (pt.pointKey === 'LIVE_EXACT_NOW') return `🔴 ${pt.label}`;
+                                  if (pt.pointKey === 'LIVE_EXACT_NOW') return `${pt.label}`;
                                   if (pt.hour === 0) return `${pt.dayName || ''} 00:00`;
                                   return pt.label || key;
                                 }}
@@ -4172,7 +3984,7 @@ export const GeospatialWeatherModal: React.FC<GeospatialWeatherModalProps> = ({
                                     strokeWidth={2}
                                     strokeDasharray="3 3"
                                     label={{
-                                      value: liveNowChartPoint && liveNowChartPoint.pointKey === activeChartPoint.pointKey ? `📍 Jam Ini: ${activeChartPoint.label}` : `📍 Terpilih: ${activeChartPoint.label}`,
+                                      value: liveNowChartPoint && liveNowChartPoint.pointKey === activeChartPoint.pointKey ? `Jam Ini: ${activeChartPoint.label}` : `Terpilih: ${activeChartPoint.label}`,
                                       position: 'top',
                                       fill: '#6366f1',
                                       fontSize: 10,
@@ -4197,7 +4009,7 @@ export const GeospatialWeatherModal: React.FC<GeospatialWeatherModalProps> = ({
                                     strokeWidth={1.5}
                                     strokeDasharray="2 2"
                                     label={{
-                                      value: liveNowChartPoint.isExactLivePoint ? `⏱️ Detik Ini: ${liveNowChartPoint.label}` : `⏱️ Jam Ini: ${liveNowChartPoint.label}`,
+                                      value: liveNowChartPoint.isExactLivePoint ? `Detik Ini: ${liveNowChartPoint.label}` : `Jam Ini: ${liveNowChartPoint.label}`,
                                       position: 'insideTopLeft',
                                       fill: '#10b981',
                                       fontSize: 10,
@@ -4231,7 +4043,7 @@ export const GeospatialWeatherModal: React.FC<GeospatialWeatherModalProps> = ({
                                   const pt = chartDisplayData.find((p: any) => p.pointKey === key || p.time === key);
                                   if (!pt) return key;
                                   if (chartZoomLevel === 'monthly') return pt.dayLabel || pt.label || key;
-                                  if (pt.pointKey === 'LIVE_EXACT_NOW') return `🔴 ${pt.label}`;
+                                  if (pt.pointKey === 'LIVE_EXACT_NOW') return `${pt.label}`;
                                   if (pt.hour === 0) return `${pt.dayName || ''} 00:00`;
                                   return pt.label || key;
                                 }}
@@ -4271,7 +4083,7 @@ export const GeospatialWeatherModal: React.FC<GeospatialWeatherModalProps> = ({
                                     strokeWidth={2}
                                     strokeDasharray="3 3"
                                     label={{
-                                      value: liveNowChartPoint && liveNowChartPoint.pointKey === activeChartPoint.pointKey ? `📍 Jam Ini: ${activeChartPoint.label}` : `📍 Terpilih: ${activeChartPoint.label}`,
+                                      value: liveNowChartPoint && liveNowChartPoint.pointKey === activeChartPoint.pointKey ? `Jam Ini: ${activeChartPoint.label}` : `Terpilih: ${activeChartPoint.label}`,
                                       position: 'top',
                                       fill: '#6366f1',
                                       fontSize: 10,
@@ -4298,7 +4110,7 @@ export const GeospatialWeatherModal: React.FC<GeospatialWeatherModalProps> = ({
                                     strokeWidth={1.5}
                                     strokeDasharray="2 2"
                                     label={{
-                                      value: liveNowChartPoint.isExactLivePoint ? `⏱️ Detik Ini: ${liveNowChartPoint.label}` : `⏱️ Jam Ini: ${liveNowChartPoint.label}`,
+                                      value: liveNowChartPoint.isExactLivePoint ? `Detik Ini: ${liveNowChartPoint.label}` : `Jam Ini: ${liveNowChartPoint.label}`,
                                       position: 'insideTopLeft',
                                       fill: '#10b981',
                                       fontSize: 10,
@@ -4323,22 +4135,22 @@ export const GeospatialWeatherModal: React.FC<GeospatialWeatherModalProps> = ({
                     </div>
                   </div>
 
-                  {/* 3. RINGKASAN PADAT & JELAS (3 Kesimpulan Pokok Tanpa Teks Rumit) */}
+                  {/* 3. RINGKASAN PERIODE */}
                   <div className="p-4 sm:p-5 rounded-3xl bg-slate-50 dark:bg-slate-900/60 border border-slate-200/80 dark:border-slate-800">
                     <h4 className="text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400 mb-3 flex items-center gap-1.5">
                       <Sparkles className="w-4 h-4 text-indigo-500" />
-                      Kesimpulan Cuaca ({weatherInsights?.intervalLabel || 'Periode Terpilih'}):
+                      Ringkasan Periode · {weatherInsights?.intervalLabel || 'Terkini'}
                     </h4>
 
                     <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
                       <div className="p-3 rounded-2xl bg-white dark:bg-slate-800/80 border border-slate-200/60 dark:border-slate-700/60">
                         <div className="flex items-center gap-2 text-xs font-bold text-amber-600 dark:text-amber-400 mb-1">
                           <Sun className="w-3.5 h-3.5" />
-                          <span>Panas Jam Berapa?</span>
+                          <span>Puncak Suhu</span>
                         </div>
-                        <p className="text-xs text-slate-700 dark:text-slate-300 leading-relaxed">
-                          Suhu tertinggi mencapai <strong>{weatherInsights?.peakHeatTemp != null ? `${weatherInsights.peakHeatTemp}°C` : '--'}</strong> sekitar pukul <strong>{weatherInsights?.peakHeatHour || '--'} {tzAbbr}</strong>.
-                          {weatherInsights?.diurnalRange ? ` Suhu pagi dan malam lebih sejuk (~${weatherInsights.minHeatTemp}°C).` : (weatherInsights?.minHeatTemp != null ? ` Suhu terendah tercatat ~${weatherInsights.minHeatTemp}°C pada ${weatherInsights.minHeatHour}.` : '')}
+                        <p className="text-xs text-slate-700 dark:text-slate-300 leading-relaxed tabular-nums">
+                          Tertinggi <strong>{weatherInsights?.peakHeatTemp != null ? `${weatherInsights.peakHeatTemp}°C` : '--'}</strong> pada <strong>{weatherInsights?.peakHeatHour || '--'} {tzAbbr}</strong>.
+                          {weatherInsights?.minHeatTemp != null ? ` Terendah ~${weatherInsights.minHeatTemp}°C (${weatherInsights.minHeatHour}).` : ''}
                         </p>
                       </div>
 
@@ -4347,68 +4159,67 @@ export const GeospatialWeatherModal: React.FC<GeospatialWeatherModalProps> = ({
                           <div className="flex items-center justify-between text-xs font-bold text-sky-600 dark:text-sky-400 mb-1">
                             <div className="flex items-center gap-1.5">
                               <CloudRain className="w-3.5 h-3.5" />
-                              <span>Hujan Jam Berapa?</span>
+                              <span>Potensi Hujan</span>
                             </div>
                             <span
                               className="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-sky-50 dark:bg-sky-950/60 text-sky-700 dark:text-sky-300 border border-sky-200/60 dark:border-sky-800/60"
-                              title={`Klasifikasi Zona: ${calibratedRainAnalysis.seasonalZoneName} · ${calibratedRainAnalysis.seasonName}`}
                             >
                               {calibratedRainAnalysis.seasonBadge}
                             </span>
                           </div>
-                          <p className="text-xs text-slate-700 dark:text-slate-300 leading-relaxed">
+                          <p className="text-xs text-slate-700 dark:text-slate-300 leading-relaxed tabular-nums">
                             {calibratedRainAnalysis.calibratedRainWindowText}.
                             {weatherInsights?.peakRainProb != null && weatherInsights.peakRainProbHour ? (
-                              <> Peluang presipitasi tertinggi <strong>{weatherInsights.peakRainProb}%</strong> pada jam <strong>{weatherInsights.peakRainProbHour} {tzAbbr}</strong>.</>
+                              <> Peluang tertinggi <strong>{weatherInsights.peakRainProb}%</strong> pada <strong>{weatherInsights.peakRainProbHour} {tzAbbr}</strong>.</>
                             ) : null}
                           </p>
                         </div>
-                        <div className="mt-2.5 pt-2 border-t border-sky-100 dark:border-sky-900/40 text-[10.5px] text-sky-700 dark:text-sky-300/90 leading-tight">
-                          <span>🧭 <strong>{calibratedRainAnalysis.seasonalZoneName}:</strong> {calibratedRainAnalysis.climatologicalNote}</span>
+                        <div className="mt-2 pt-2 border-t border-sky-100 dark:border-sky-900/40 text-[10.5px] text-sky-700 dark:text-sky-300/90 leading-tight flex items-start gap-1.5">
+                          <Compass className="w-3.5 h-3.5 shrink-0 mt-0.5" />
+                          <span><strong>{calibratedRainAnalysis.seasonalZoneName}:</strong> {calibratedRainAnalysis.climatologicalNote}</span>
                         </div>
                       </div>
 
                       <div className="p-3 rounded-2xl bg-white dark:bg-slate-800/80 border border-slate-200/60 dark:border-slate-700/60">
                         <div className="flex items-center gap-2 text-xs font-bold text-indigo-600 dark:text-indigo-400 mb-1">
                           <Cloud className="w-3.5 h-3.5" />
-                          <span>Awan & Udara</span>
+                          <span>Awan &amp; Angin</span>
                         </div>
-                        <p className="text-xs text-slate-700 dark:text-slate-300 leading-relaxed">
-                          Langit <strong>{weatherInsights?.cloudStatus}</strong>
-                          {weatherInsights?.avgCloud != null ? <> dengan tutupan awan ~<strong>{weatherInsights.avgCloud}%</strong></> : <> (tutupan awan numerik tidak tersedia)</>}
-                          {' '}dan hembusan angin <strong>{data?.current?.windSpeed != null ? `${data.current.windSpeed} km/h` : '—'}</strong>.
+                        <p className="text-xs text-slate-700 dark:text-slate-300 leading-relaxed tabular-nums">
+                          {weatherInsights?.cloudStatus}
+                          {weatherInsights?.avgCloud != null ? <> (~<strong>{weatherInsights.avgCloud}%</strong>)</> : ''}
+                          {' · '}Angin <strong>{data?.current?.windSpeed != null ? `${data.current.windSpeed} km/j` : '—'}</strong>.
                         </p>
                       </div>
                     </div>
                   </div>
 
-                  {/* KARTU SIMPULAN CERDAS AI GEMINI (SIKLUS PEMBARUAN SERENTAK 5 MENIT) */}
+                  {/* RINGKASAN AI */}
                   <div className="p-4 sm:p-5 rounded-3xl bg-gradient-to-br from-indigo-950 via-slate-900 to-purple-950 border border-indigo-500/40 text-white shadow-xl space-y-3 relative overflow-hidden">
                     <div className="absolute top-0 right-0 -mt-8 -mr-8 w-40 h-40 bg-indigo-500/10 rounded-full blur-2xl pointer-events-none" />
                     <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b border-indigo-500/20">
                       <div className="flex items-center gap-2.5">
                         <div className="p-2 rounded-xl bg-indigo-500/20 border border-indigo-500/30 text-indigo-400">
-                          <Sparkles className="w-5 h-5 text-indigo-300 animate-pulse" />
+                          <Sparkles className="w-5 h-5 text-indigo-300" />
                         </div>
                         <div>
                           <h4 className="text-sm font-bold text-white flex items-center gap-2 flex-wrap">
-                            <span>Simpulan Cerdas AI Gemini (Siklus 5 Menit Terkini)</span>
-                            <span className="text-[10px] font-mono font-bold px-2.5 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 flex items-center gap-1.5">
-                              <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
-                              Auto-Sync: {formattedCountdown}
+                            <span>Ringkasan AI</span>
+                            <span className="text-[10px] font-mono font-semibold px-2.5 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 tabular-nums">
+                              {formattedCountdown}
                             </span>
                           </h4>
                           <p className="text-[11px] text-slate-300">
-                            Model: <strong className="text-indigo-200">{data.aiNwpVerification?.modelName || 'Gemini 3.6 Flash NWP Engine'}</strong> · Disintesis otomatis setiap interval 5 menit
+                            Sintesis Meteorologi · {activeRegionName}
                           </p>
                         </div>
                       </div>
 
                       <div className="flex items-center gap-2">
                         {isVerifyingAi ? (
-                          <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-[11px] font-semibold bg-indigo-500/30 text-indigo-200 border border-indigo-500/40 animate-pulse">
+                          <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-[11px] font-semibold bg-indigo-500/30 text-indigo-200 border border-indigo-500/40">
                             <RefreshCw className="w-3.5 h-3.5 animate-spin" />
-                            Menyintesis data baru...
+                            Memproses...
                           </span>
                         ) : (
                           <button
@@ -4417,7 +4228,7 @@ export const GeospatialWeatherModal: React.FC<GeospatialWeatherModalProps> = ({
                             className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-[11px] font-semibold bg-white/10 hover:bg-white/20 text-indigo-200 border border-white/15 transition-all cursor-pointer"
                           >
                             <RefreshCw className="w-3.5 h-3.5" />
-                            Segarkan AI Sekarang
+                            Perbarui
                           </button>
                         )}
                       </div>
@@ -4429,21 +4240,21 @@ export const GeospatialWeatherModal: React.FC<GeospatialWeatherModalProps> = ({
                       </p>
                     </div>
 
-                    <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 pt-1 text-[11px]">
+                    <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 pt-1 text-[11px] tabular-nums">
                       <div className="p-2.5 rounded-xl bg-slate-900/60 border border-slate-800">
-                        <span className="text-slate-400 block text-[10px]">Stabilitas Konvektif:</span>
+                        <span className="text-slate-400 block text-[10px]">Stabilitas</span>
                         <strong className="text-sky-300 font-semibold">{data.aiNwpVerification?.convectiveStability || 'Stabil'}</strong>
                       </div>
                       <div className="p-2.5 rounded-xl bg-slate-900/60 border border-slate-800">
-                        <span className="text-slate-400 block text-[10px]">Parameter Coriolis (f):</span>
+                        <span className="text-slate-400 block text-[10px]">Coriolis (f)</span>
                         <strong className="text-indigo-300 font-mono">{data.aiNwpVerification?.coriolisParamF != null ? `${data.aiNwpVerification.coriolisParamF} × 10⁻⁵ s⁻¹` : '—'}</strong>
                       </div>
                       <div className="p-2.5 rounded-xl bg-slate-900/60 border border-slate-800">
-                        <span className="text-slate-400 block text-[10px]">Kerapatan Udara (ρ):</span>
+                        <span className="text-slate-400 block text-[10px]">Kerapatan (ρ)</span>
                         <strong className="text-amber-300 font-mono">{data.aiNwpVerification?.airDensityKgM3 != null ? `${data.aiNwpVerification.airDensityKgM3} kg/m³` : '—'}</strong>
                       </div>
                       <div className="p-2.5 rounded-xl bg-slate-900/60 border border-slate-800">
-                        <span className="text-slate-400 block text-[10px]">Waktu Verifikasi:</span>
+                        <span className="text-slate-400 block text-[10px]">Pembaruan</span>
                         <strong className="text-emerald-300 font-mono text-[10px]">
                           {data.aiNwpVerification?.verifiedAt ? new Date(data.aiNwpVerification.verifiedAt).toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit', second: '2-digit' }) : 'Baru saja'}
                         </strong>
@@ -4451,73 +4262,64 @@ export const GeospatialWeatherModal: React.FC<GeospatialWeatherModalProps> = ({
                     </div>
                   </div>
 
-                  {/* PUSAT 16 SUMBER DATA GEOSPASIAL & MULTI-SENSOR REAL-TIME */}
-                  <div id="hub-16-sumber-geospasial" className="p-4 sm:p-5 rounded-3xl bg-white dark:bg-slate-900/90 border border-slate-200/80 dark:border-slate-800 shadow-md space-y-4">
-                    {/* Header with Title, Status Badges & Controls */}
-                    <div className="flex flex-col md:flex-row md:items-center justify-between gap-3 pb-3 border-b border-slate-100 dark:border-slate-800">
+                  {/* SUMBER DATA GEOSPASIAL */}
+                  <div id="hub-16-sumber-geospasial" className="p-4 sm:p-5 rounded-3xl bg-white dark:bg-slate-900/90 border border-slate-200/80 dark:border-slate-800 shadow-sm space-y-4">
+                    <div className="flex flex-col md:flex-row md:items-center justify-between gap-3">
                       <div className="flex items-center gap-3">
-                        <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl bg-gradient-to-tr from-indigo-600 via-sky-600 to-emerald-500 text-white shadow-md shadow-indigo-500/20">
-                          <Layers className="w-5 h-5" />
+                        <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-gradient-to-tr from-indigo-600 via-sky-600 to-emerald-500 text-white shadow-sm">
+                          <Layers className="w-4 h-4" />
                         </div>
                         <div>
                           <div className="flex items-center gap-2 flex-wrap">
                             <h3 className="text-sm font-bold text-slate-900 dark:text-white">
-                              Pusat 16 Sumber Data Geospasial & Multi-Sensor Real-Time
+                              Sumber Data
                             </h3>
-                            <span className="px-2 py-0.5 rounded-full bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 font-extrabold text-[10px] border border-emerald-500/20 flex items-center gap-1">
+                            <span className="px-2 py-0.5 rounded-full bg-emerald-500/10 text-emerald-700 dark:text-emerald-400 font-semibold text-[10px] border border-emerald-500/20 flex items-center gap-1 tabular-nums">
                               <CheckCircle2 className="w-3 h-3 text-emerald-500" />
-                              16 Data Valid (HTTP 200)
-                            </span>
-                            <span className="px-2 py-0.5 rounded-full bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 font-semibold text-[10px] border border-indigo-500/20 flex items-center gap-1.5">
-                              <span className="relative flex h-2 w-2">
-                                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-indigo-400 opacity-75"></span>
-                                <span className="relative inline-flex rounded-full h-2 w-2 bg-indigo-500"></span>
-                              </span>
-                              <span>Sync 5m: {formattedCountdown}</span>
+                              {onlineSourcesCount} Aktif
                             </span>
                           </div>
                           <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
-                            Seluruh masukan data sensor cuaca, BMKG InaTEWS, USGS, PuSGeN 295 sesar, DEM, dan AI disinkronkan ke 15 domain studio.
+                            Telemetri cuaca, seismologi BMKG/USGS, elevasi DEM, dan AI terhubung.
                           </p>
                         </div>
                       </div>
 
-                      {/* Quick Actions */}
                       <div className="flex items-center gap-2 flex-wrap self-start md:self-auto">
                         <button
                           type="button"
                           onClick={() => setIsTelemetryModalOpen(true)}
-                          className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 text-xs font-bold border border-slate-200/80 dark:border-slate-700 transition-all cursor-pointer shadow-2xs"
-                          title="Buka Pusat Transparansi Data & Log Audit API"
+                          className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 text-xs font-semibold border border-slate-200/80 dark:border-slate-700 transition-all cursor-pointer"
                         >
                           <Terminal className="w-3.5 h-3.5 text-sky-500" />
-                          <span>Audit & Log API</span>
+                          <span>Audit API</span>
                         </button>
 
                         <button
                           type="button"
                           onClick={() => setShowMultiSourceHub(!showMultiSourceHub)}
-                          className="p-1.5 rounded-xl bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-600 dark:text-slate-300 transition-all cursor-pointer"
-                          title={showMultiSourceHub ? 'Sembunyikan Panel 16 Sumber' : 'Tampilkan Panel 16 Sumber'}
+                          className="flex items-center gap-1 px-2.5 py-1.5 rounded-xl bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-600 dark:text-slate-300 text-xs font-semibold transition-all cursor-pointer"
+                          title={showMultiSourceHub ? 'Sembunyikan' : 'Tampilkan'}
                         >
+                          <span>{showMultiSourceHub ? 'Tutup' : 'Rincian'}</span>
                           <ChevronDown className={`w-4 h-4 transition-transform ${showMultiSourceHub ? 'rotate-180' : ''}`} />
                         </button>
                       </div>
                     </div>
 
                     {showMultiSourceHub && (
-                      <div className="space-y-3.5 animate-in fade-in duration-200">
+                      <div className="space-y-3.5 pt-3 border-t border-slate-100 dark:border-slate-800 animate-in fade-in duration-200">
                         {/* Category Filter Pills */}
                         <div className="flex items-center gap-1.5 overflow-x-auto no-scrollbar pb-1 text-xs font-semibold">
                           {[
-                            { id: 'ALL', label: `🌟 Semua (${activeGeospatialSources.length})` },
-                            { id: 'WEATHER', label: '🌦️ Cuaca & NWP (6)' },
-                            { id: 'AIR', label: '💨 Kualitas Udara (1)' },
-                            { id: 'SEISMIC', label: '🌋 Seismik & Sesar (3)' },
-                            { id: 'ELEVATION', label: '🏔️ Elevasi DEM (1)' },
-                            { id: 'SATELLITE', label: '🛰️ Satelit & Radar (2)' },
-                            { id: 'AI', label: '🤖 AI Inference (1)' },
-                            { id: 'BASEMAP', label: '🗺️ Peta & Basemap (4)' },
+                            { id: 'ALL', label: `Semua (${activeGeospatialSources.length})` },
+                            { id: 'WEATHER', label: 'Cuaca (6)' },
+                            { id: 'AIR', label: 'Udara (1)' },
+                            { id: 'SEISMIC', label: 'Seismik (3)' },
+                            { id: 'ELEVATION', label: 'Elevasi (1)' },
+                            { id: 'SATELLITE', label: 'Satelit (2)' },
+                            { id: 'AI', label: 'AI (1)' },
+                            { id: 'BASEMAP', label: 'Peta (4)' },
                           ].map((cat) => (
                             <button
                               key={cat.id}
@@ -4534,7 +4336,7 @@ export const GeospatialWeatherModal: React.FC<GeospatialWeatherModalProps> = ({
                           ))}
                         </div>
 
-                        {/* Grid of 16 Active Cards */}
+                        {/* Grid of Active Source Cards */}
                         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
                           {filteredHubSources.map((source) => (
                             <div
@@ -4542,10 +4344,9 @@ export const GeospatialWeatherModal: React.FC<GeospatialWeatherModalProps> = ({
                               className="p-3.5 rounded-2xl bg-slate-50/80 dark:bg-slate-800/50 border border-slate-200/80 dark:border-slate-700/60 flex flex-col justify-between shadow-2xs hover:border-indigo-500/40 transition-all min-w-0"
                             >
                               <div className="space-y-2">
-                                {/* Top Header */}
                                 <div className="flex items-start justify-between gap-2 min-w-0">
                                   <div className="min-w-0 flex-1">
-                                    <span className="text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-md bg-slate-200/70 dark:bg-slate-700/80 text-slate-700 dark:text-slate-300 inline-block mb-1">
+                                    <span className="text-[10px] font-semibold px-2 py-0.5 rounded-md bg-slate-200/70 dark:bg-slate-700/80 text-slate-700 dark:text-slate-300 inline-block mb-1">
                                       {source.category}
                                     </span>
                                     <h5 className="text-xs font-bold text-slate-900 dark:text-white truncate" title={source.name}>
@@ -4554,22 +4355,37 @@ export const GeospatialWeatherModal: React.FC<GeospatialWeatherModalProps> = ({
                                   </div>
                                   <div className="shrink-0">
                                     {source.status === 'ONLINE' ? (
-                                      <span className="px-2 py-0.5 rounded-md bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 text-[10px] font-bold border border-emerald-500/20 flex items-center gap-1">
-                                        <CheckCircle2 className="w-3 h-3" /> Data valid (HTTP 200)
+                                      <span className="px-2 py-0.5 rounded-md bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 text-[10px] font-semibold border border-emerald-500/20 flex items-center gap-1">
+                                        <CheckCircle2 className="w-3 h-3" /> Aktif
+                                      </span>
+                                    ) : source.status === 'ERROR' || source.status === 'OFFLINE' ? (
+                                      <span className="px-2 py-0.5 rounded-md bg-rose-500/10 text-rose-600 dark:text-rose-400 text-[10px] font-semibold border border-rose-500/20 flex items-center gap-1">
+                                        <AlertTriangle className="w-3 h-3" /> Error
+                                      </span>
+                                    ) : source.status === 'DEGRADED' ? (
+                                      <span className="px-2 py-0.5 rounded-md bg-amber-500/10 text-amber-600 dark:text-amber-400 text-[10px] font-semibold border border-amber-500/20 flex items-center gap-1">
+                                        <AlertTriangle className="w-3 h-3" /> Parsial
+                                      </span>
+                                    ) : source.status === 'UNVERIFIABLE' ? (
+                                      <span className="px-2 py-0.5 rounded-md bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 text-[10px] font-semibold border border-indigo-500/20 flex items-center gap-1">
+                                        <Info className="w-3 h-3" /> Iframe
                                       </span>
                                     ) : source.status === 'MAINTENANCE' ? (
-                                      <span className="px-2 py-0.5 rounded-md bg-slate-200 dark:bg-slate-700 text-slate-600 dark:text-slate-400 text-[10px] font-bold border border-slate-300 dark:border-slate-600 flex items-center gap-1">
-                                        <Info className="w-3 h-3" /> Pemeliharaan Hulu
+                                      <span className="px-2 py-0.5 rounded-md bg-slate-200 dark:bg-slate-700 text-slate-600 dark:text-slate-400 text-[10px] font-semibold border border-slate-300 dark:border-slate-600 flex items-center gap-1">
+                                        <Info className="w-3 h-3" /> Pemeliharaan
+                                      </span>
+                                    ) : source.status === 'NEEDS_KEY' ? (
+                                      <span className="px-2 py-0.5 rounded-md bg-amber-500/10 text-amber-600 dark:text-amber-400 text-[10px] font-semibold border border-amber-500/20 flex items-center gap-1">
+                                        <AlertTriangle className="w-3 h-3" /> Butuh Kunci
                                       </span>
                                     ) : (
-                                      <span className="px-2 py-0.5 rounded-md bg-amber-500/10 text-amber-600 dark:text-amber-400 text-[10px] font-bold border border-amber-500/20 flex items-center gap-1">
-                                        <AlertTriangle className="w-3 h-3" /> Perlu Kunci Server
+                                      <span className="px-2 py-0.5 rounded-md bg-slate-200 dark:bg-slate-700 text-slate-600 dark:text-slate-400 text-[10px] font-semibold border border-slate-300 dark:border-slate-600 flex items-center gap-1">
+                                        <Info className="w-3 h-3" /> Belum Diuji
                                       </span>
                                     )}
                                   </div>
                                 </div>
 
-                                {/* URL Pill */}
                                 <div className="flex items-center gap-1.5 p-1.5 rounded-xl bg-white dark:bg-slate-900/60 border border-slate-200/60 dark:border-slate-800 text-[10px] font-mono text-slate-500 dark:text-slate-400 overflow-hidden">
                                   <span className="shrink-0 px-1.5 py-0.2 rounded bg-purple-500/10 text-purple-600 dark:text-purple-400 font-bold uppercase text-[9px] border border-purple-500/20">
                                     GET
@@ -4579,15 +4395,14 @@ export const GeospatialWeatherModal: React.FC<GeospatialWeatherModalProps> = ({
                                   </span>
                                 </div>
 
-                                {/* Live Payload Preview */}
                                 <div className="rounded-xl bg-white dark:bg-slate-950/60 border border-slate-200/60 dark:border-slate-800/80 p-2 text-xs space-y-1">
                                   <div className="flex items-center justify-between text-[10px] text-slate-500 dark:text-slate-400">
                                     <span className="font-semibold flex items-center gap-1 text-slate-700 dark:text-slate-300">
                                       <FileCode className="w-3 h-3 text-indigo-500 shrink-0" />
-                                      <span>Cuplikan Data Masuk</span>
+                                      <span>Sampel Data</span>
                                     </span>
                                     <span className="text-[9px] font-mono px-1.5 py-0.2 rounded bg-slate-100 dark:bg-slate-800 text-slate-500 font-medium">
-                                      JSON Real-Time
+                                      JSON
                                     </span>
                                   </div>
                                   <div
@@ -4599,11 +4414,10 @@ export const GeospatialWeatherModal: React.FC<GeospatialWeatherModalProps> = ({
                                 </div>
                               </div>
 
-                              {/* Bottom Controls */}
-                              <div className="flex items-center justify-between pt-2.5 mt-2.5 border-t border-slate-200/60 dark:border-slate-700/60 text-[11px] text-slate-500">
+                              <div className="flex items-center justify-between pt-2.5 mt-2.5 border-t border-slate-200/60 dark:border-slate-700/60 text-[11px] text-slate-500 tabular-nums">
                                 <div className="flex items-center gap-2 text-[10px]">
-                                  <span>Latensi: <strong className="text-slate-800 dark:text-white font-mono">{source.latencyText}</strong></span>
-                                  <span>•</span>
+                                  <span><strong className="text-slate-800 dark:text-white font-mono">{source.latencyText}</strong></span>
+                                  <span>·</span>
                                   <span className="truncate max-w-[85px] sm:max-w-[110px]" title={source.payloadSize}>
                                     {source.payloadSize}
                                   </span>
@@ -4619,10 +4433,9 @@ export const GeospatialWeatherModal: React.FC<GeospatialWeatherModalProps> = ({
                                           setActiveWeatherTab(source.targetSubTab);
                                         }
                                       }}
-                                      className="flex items-center gap-1 px-2.5 py-1 rounded-lg bg-indigo-50 hover:bg-indigo-100 dark:bg-indigo-950/60 dark:hover:bg-indigo-900/60 text-indigo-600 dark:text-indigo-400 text-[10px] font-bold border border-indigo-200/60 dark:border-indigo-800 transition-all cursor-pointer"
-                                      title={`Buka data ini di Tab ${source.targetDomain}`}
+                                      className="flex items-center gap-1 px-2.5 py-1 rounded-lg bg-indigo-50 hover:bg-indigo-100 dark:bg-indigo-950/60 dark:hover:bg-indigo-900/60 text-indigo-600 dark:text-indigo-400 text-[10px] font-semibold border border-indigo-200/60 dark:border-indigo-800 transition-all cursor-pointer"
                                     >
-                                      <span>Buka Tab</span>
+                                      <span>Buka</span>
                                       <ArrowRight className="w-3 h-3" />
                                     </button>
                                   )}
@@ -4635,41 +4448,40 @@ export const GeospatialWeatherModal: React.FC<GeospatialWeatherModalProps> = ({
                     )}
                   </div>
 
-                  {/* 4. MODE ANALISIS SAINS LANJUTAN (Collapsible Opsional) */}
-                  <div className="pt-2">
+                  {/* 4. ANALISIS LANJUTAN */}
+                  <div className="pt-1">
                     <button
                       type="button"
                       onClick={() => setShowAdvancedScience(!showAdvancedScience)}
-                      className="w-full flex items-center justify-between p-3.5 rounded-2xl bg-white/60 dark:bg-slate-800/40 hover:bg-white dark:hover:bg-slate-800 transition-all border border-slate-200/80 dark:border-slate-700/60 text-xs font-bold text-slate-700 dark:text-slate-300 shadow-xs cursor-pointer"
+                      className="w-full flex items-center justify-between p-3.5 rounded-2xl bg-white/80 dark:bg-slate-800/40 hover:bg-white dark:hover:bg-slate-800 transition-all border border-slate-200/80 dark:border-slate-700/60 text-xs font-bold text-slate-700 dark:text-slate-300 shadow-xs cursor-pointer"
                     >
                       <span className="flex items-center gap-2">
                         <Cpu className="w-4 h-4 text-sky-500" />
-                        <span>Lihat perbandingan model, diagnostik atmosfer, dan grafik</span>
+                        <span>Analisis Lanjutan</span>
                       </span>
                       <ChevronDown className={`w-4 h-4 text-slate-400 transition-transform ${showAdvancedScience ? 'rotate-180' : ''}`} />
                     </button>
 
                     {showAdvancedScience && (
                       <div className="mt-3 space-y-4 animate-in fade-in duration-200">
-                        {/* Harmony Universal Multi-Paradigm Chart Engine (30+ Tipe Grafik) */}
                         <HarmonyChartEngine
                           weatherData={data}
                           earthquakes={earthquakes}
                           defaultChartId="line"
-                          title={`Grafik Analitik Multivariabel Cuaca & Geofisika — ${activeRegionName}`}
-                          description="Grafik menggunakan nilai penyedia yang tersedia; jenis yang belum memiliki sumber ditandai belum tersedia."
+                          title={`Grafik Multivariabel — ${activeRegionName}`}
+                          description="Grafik menggunakan nilai penyedia yang tersedia."
                         />
 
                         <div className="p-4 rounded-2xl bg-white dark:bg-slate-800/60 border border-slate-200/80 dark:border-slate-700/80">
                           <h3 className="text-xs font-bold text-slate-700 dark:text-slate-300 mb-3 flex items-center justify-between">
-                            <span>Perbandingan Feed Model Saat Ini (Bot Consensus Calculator)</span>
-                            <span className="text-[10px] text-emerald-500 font-semibold">{data.sourceFetches.every(source => source.status === 'SUCCESS') ? 'Parameter tersedia' : 'Sebagian sumber tidak lengkap'}</span>
+                            <span>Perbandingan Model</span>
+                            <span className="text-[10px] text-emerald-500 font-semibold">{data.sourceFetches.every(source => source.status === 'SUCCESS') ? 'Lengkap' : 'Parsial'}</span>
                           </h3>
-                          <div className="grid grid-cols-2 sm:grid-cols-5 gap-2.5">
+                          <div className="grid grid-cols-2 sm:grid-cols-5 gap-2.5 tabular-nums">
                             {data?.modelComparison.map((m) => (
                               <div key={m.modelName} className="p-2.5 rounded-xl bg-slate-50 dark:bg-slate-900/60 border border-slate-100 dark:border-slate-800 text-center">
                                 <div className="text-[10px] text-slate-500 dark:text-slate-400 font-medium">
-                                  {m.sourceFlag} {m.modelName}
+                                  {m.modelName}
                                 </div>
                                 <div className="text-base font-black text-slate-900 dark:text-white mt-1">
                                   {m.temperature}°C
@@ -4681,7 +4493,6 @@ export const GeospatialWeatherModal: React.FC<GeospatialWeatherModalProps> = ({
                             ))}
                           </div>
 
-                          {/* AI NWP Physics Insight Banner */}
                           {data?.aiNwpVerification && (
                             <div className="mt-3.5 p-3.5 rounded-2xl bg-gradient-to-r from-sky-500/10 via-indigo-500/10 to-transparent border border-sky-500/25 flex items-center justify-between gap-3 flex-wrap">
                               <div className="flex items-center gap-2.5">
@@ -4690,23 +4501,23 @@ export const GeospatialWeatherModal: React.FC<GeospatialWeatherModalProps> = ({
                                 </div>
                                 <div>
                                   <div className="text-xs font-bold text-slate-900 dark:text-white flex items-center gap-1.5">
-                                    <span>Diagnostik dari masukan model · bukan validasi akurasi</span>
+                                    <span>Diagnostik Atmosfer</span>
                                     <span className="text-[10px] px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-600 dark:text-emerald-400 font-semibold border border-emerald-500/30">
                                       {data.aiNwpVerification.convectiveStability}
                                     </span>
                                   </div>
-                                  <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-0.5">
-                                    Kerapatan massa udara ρ: <strong>{data.aiNwpVerification.airDensityKgM3} kg/m³</strong> | Parameter Coriolis f: <strong>{data.aiNwpVerification.coriolisParamF}×10⁻⁵ s⁻¹</strong> | Peluang dari penyedia: <strong>{data.aiNwpVerification.calibratedRainProb != null ? `${data.aiNwpVerification.calibratedRainProb}%` : 'Tidak tersedia'}</strong>
+                                  <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-0.5 tabular-nums">
+                                    ρ: <strong>{data.aiNwpVerification.airDensityKgM3} kg/m³</strong> · f: <strong>{data.aiNwpVerification.coriolisParamF}×10⁻⁵ s⁻¹</strong> · Peluang: <strong>{data.aiNwpVerification.calibratedRainProb != null ? `${data.aiNwpVerification.calibratedRainProb}%` : '—'}</strong>
                                   </p>
                                 </div>
                               </div>
 
                               <button
                                 onClick={() => setActiveWeatherTab('nwp')}
-                                className="text-xs font-bold text-sky-600 dark:text-sky-400 hover:text-sky-500 underline underline-offset-2 flex items-center gap-1"
+                                className="text-xs font-semibold text-sky-600 dark:text-sky-400 hover:text-sky-500 underline underline-offset-2 flex items-center gap-1"
                               >
-                                <span>Buka Detail 7 Rumus</span>
-                                <span>→</span>
+                                <span>Detail Atmosfer</span>
+                                <ArrowRight className="w-3.5 h-3.5" />
                               </button>
                             </div>
                           )}
@@ -4735,71 +4546,73 @@ export const GeospatialWeatherModal: React.FC<GeospatialWeatherModalProps> = ({
                           </span>
                         </div>
                         <h3 className="text-base sm:text-lg font-black text-white mt-1 flex items-center gap-2">
-                          <span>Pemeriksaan Masukan Cuaca</span>
+                          <span>Pemeriksaan Atmosfer</span>
                           <span className="text-xs px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 font-semibold">
-                            {data?.aiNwpVerification?.isAiVerified ? 'Penjelasan AI tersedia' : 'Belum diperiksa oleh AI'}
+                            {data?.aiNwpVerification?.isAiVerified ? 'AI Terverifikasi' : 'Diagnostik Lokal'}
                           </span>
                         </h3>
-                        <p className="text-xs text-slate-300 max-w-3xl mt-1 leading-relaxed">
-                          Prakiraan berasal dari penyedia model. Pemeriksaan di sini hanya menjelaskan masukan dan menghitung besaran diagnostik sederhana; belum menjalankan solver NWP tiga dimensi, asimilasi sensor, atau validasi akurasi.
+                        <p className="text-xs text-slate-300 max-w-2xl mt-1 leading-relaxed">
+                          Diagnostik fisika atmosfer dari masukan konsensus model.
                         </p>
                       </div>
 
                       <button
                         onClick={handleReverifyAi}
                         disabled={isVerifyingAi}
-                        className="self-start sm:self-center flex items-center gap-2 px-3.5 py-2 rounded-2xl bg-gradient-to-r from-sky-500 to-indigo-600 hover:from-sky-400 hover:to-indigo-500 text-white font-bold text-xs shadow-lg shadow-sky-500/25 active:scale-95 transition-all disabled:opacity-50 shrink-0"
+                        className="self-start sm:self-center flex items-center gap-2 px-3.5 py-2 rounded-2xl bg-gradient-to-r from-sky-500 to-indigo-600 hover:from-sky-400 hover:to-indigo-500 text-white font-semibold text-xs shadow-lg shadow-sky-500/25 active:scale-95 transition-all disabled:opacity-50 shrink-0"
                       >
                         <RefreshCw className={`w-3.5 h-3.5 ${isVerifyingAi ? 'animate-spin' : ''}`} />
-                        <span>{isVerifyingAi ? 'Meminta Penjelasan...' : 'Periksa dan Jelaskan'}</span>
+                        <span>{isVerifyingAi ? 'Memproses...' : 'Periksa AI'}</span>
                       </button>
                     </div>
 
                     {/* Physics KPI Summary Row */}
-                    <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5 pt-3 border-t border-slate-700/60">
+                    <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5 pt-3 border-t border-slate-700/60 tabular-nums">
                       <div className="p-2.5 rounded-xl bg-white/5 border border-white/10">
-                        <span className="text-[10px] text-slate-400 font-medium block">Kerapatan Udara (ρ = p/RT)</span>
+                        <span className="text-[10px] text-slate-400 font-medium block">Kerapatan (ρ)</span>
                         <span className="text-sm sm:text-base font-black text-sky-400">
                           {data?.aiNwpVerification?.airDensityKgM3 ?? '—'} <span className="text-[10px] text-slate-400">kg/m³</span>
                         </span>
-                        <span className="text-[9px] text-slate-400 block mt-0.5">Gas Ideal (R = 287 J/kg·K)</span>
+                        <span className="text-[9px] text-slate-400 block mt-0.5">Gas Ideal</span>
                       </div>
 
                       <div className="p-2.5 rounded-xl bg-white/5 border border-white/10">
-                        <span className="text-[10px] text-slate-400 font-medium block">Parameter Coriolis (f = 2Ω sin φ)</span>
+                        <span className="text-[10px] text-slate-400 font-medium block">Coriolis (f)</span>
                         <span className="text-sm sm:text-base font-black text-indigo-400 font-mono">
                           {data?.aiNwpVerification?.coriolisParamF != null ? `${data.aiNwpVerification.coriolisParamF}×10⁻⁵` : '—'} <span className="text-[10px] text-slate-400">s⁻¹</span>
                         </span>
-                        <span className="text-[9px] text-slate-400 block mt-0.5">Lintang {activeLat.toFixed(2)}° (Tropis)</span>
+                        <span className="text-[9px] text-slate-400 block mt-0.5">
+                          Lintang {activeLat.toFixed(2)}° ({Math.abs(activeLat) <= 23.5 ? 'Tropis' : Math.abs(activeLat) <= 35 ? 'Subtropis' : 'Sedang'})
+                        </span>
                       </div>
 
                       <div className="p-2.5 rounded-xl bg-white/5 border border-white/10">
-                        <span className="text-[10px] text-slate-400 font-medium block">Stabilitas atmosfer · belum dinilai</span>
+                        <span className="text-[10px] text-slate-400 font-medium block">Stabilitas</span>
                         <span className="text-sm sm:text-base font-black text-emerald-400 truncate block">
                           {data?.aiNwpVerification?.convectiveStability ?? 'Belum dinilai'}
                         </span>
-                        <span className="text-[9px] text-slate-400 block mt-0.5">Lapse rate & konveksi awan</span>
+                        <span className="text-[9px] text-slate-400 block mt-0.5">Konveksi awan</span>
                       </div>
 
                       <div className="p-2.5 rounded-xl bg-white/5 border border-white/10">
-                        <span className="text-[10px] text-slate-400 font-medium block">Peluang Hujan dari Penyedia</span>
+                        <span className="text-[10px] text-slate-400 font-medium block">Peluang Hujan</span>
                         <span className="text-sm sm:text-base font-black text-amber-400">
-                          {data?.aiNwpVerification?.calibratedRainProb != null ? `${data.aiNwpVerification.calibratedRainProb != null ? `${data.aiNwpVerification.calibratedRainProb}%` : 'Tidak tersedia'}` : '—'}
+                          {data?.aiNwpVerification?.calibratedRainProb != null ? `${data.aiNwpVerification.calibratedRainProb}%` : '—'}
                         </span>
-                        <span className="text-[9px] text-slate-400 block mt-0.5">Tidak dikalibrasi ulang oleh AI</span>
+                        <span className="text-[9px] text-slate-400 block mt-0.5">Konsensus model</span>
                       </div>
                     </div>
                   </div>
 
-                  {/* 7 Equations Interactive Cards List */}
+                  {/* Equations Cards List */}
                   <div className="space-y-3">
                     <div className="flex items-center justify-between">
                       <h4 className="text-xs font-bold uppercase tracking-wider text-slate-700 dark:text-slate-300 flex items-center gap-1.5">
                         <Binary className="w-4 h-4 text-indigo-500" />
-                        Besaran diagnostik dan batas pemeriksaan:
+                        Besaran Diagnostik
                       </h4>
-                      <span className="text-[10px] text-slate-400 font-medium">
-                        Diperiksa: {data?.aiNwpVerification?.verifiedAt || 'Belum dilakukan'}
+                      <span className="text-[10px] text-slate-400 font-medium tabular-nums">
+                        {data?.aiNwpVerification?.verifiedAt ? new Date(data.aiNwpVerification.verifiedAt).toLocaleTimeString('id-ID') : 'Belum diperiksa'}
                       </span>
                     </div>
 
@@ -4858,7 +4671,7 @@ export const GeospatialWeatherModal: React.FC<GeospatialWeatherModalProps> = ({
               {activeWeatherTab === 'rain' && (
                 <div className="p-4 rounded-2xl bg-white dark:bg-slate-800/60 border border-slate-200/80 dark:border-slate-700/80">
                   <h3 className="text-xs font-bold text-slate-700 dark:text-slate-300 mb-3">
-                    Grafik Curah Hujan (mm) & Probabilitas Hujan (%)
+                    Curah Hujan
                   </h3>
                   <div className="h-72 w-full">
                     <ResponsiveContainer width="100%" height="100%">
@@ -4871,8 +4684,8 @@ export const GeospatialWeatherModal: React.FC<GeospatialWeatherModalProps> = ({
                         <YAxis yAxisId="prob" orientation="right" stroke="#818cf8" unit="%" tick={{ fontSize: 11 }} domain={[0, 100]} />
                         <Tooltip contentStyle={{ backgroundColor: '#0f172a', borderColor: '#334155', borderRadius: '12px' }} />
                         <Legend />
-                        <Bar yAxisId="mm" dataKey={timeframe === 'hourly' ? 'precipitation' : 'precipitationSum'} name="Intensitas Hujan (mm)" fill="#38bdf8" radius={[6, 6, 0, 0]} />
-                        <Line yAxisId="prob" type="monotone" dataKey={timeframe === 'hourly' ? 'precipitationProb' : 'precipitationProbMax'} name="Peluang Presipitasi (%)" stroke="#818cf8" strokeWidth={2.5} />
+                        <Bar yAxisId="mm" dataKey={timeframe === 'hourly' ? 'precipitation' : 'precipitationSum'} name="Intensitas (mm)" fill="#38bdf8" radius={[6, 6, 0, 0]} />
+                        <Line yAxisId="prob" type="monotone" dataKey={timeframe === 'hourly' ? 'precipitationProb' : 'precipitationProbMax'} name="Peluang (%)" stroke="#818cf8" strokeWidth={2.5} />
                       </BarChart>
                     </ResponsiveContainer>
                   </div>
@@ -4883,10 +4696,10 @@ export const GeospatialWeatherModal: React.FC<GeospatialWeatherModalProps> = ({
               {activeWeatherTab === 'temp' && (
                 <div className="p-4 rounded-2xl bg-white dark:bg-slate-800/60 border border-slate-200/80 dark:border-slate-700/80">
                   <h3 className="text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">
-                    Komparasi Garis Prediksi Suhu Lintas Model Meteorologi
+                    Komparasi Suhu
                   </h3>
                   <p className="text-[11px] text-slate-500 mb-3">
-                    Membandingkan suhu model yang tersedia pada lokasi dan waktu yang sama. Kesepakatan model bukan bukti akurasi.
+                    Perbandingan prakiraan suhu lintas model global pada koordinat terpilih.
                   </p>
                   <div className="h-72 w-full">
                     <ResponsiveContainer width="100%" height="100%">
@@ -4896,35 +4709,32 @@ export const GeospatialWeatherModal: React.FC<GeospatialWeatherModalProps> = ({
                         <YAxis stroke="#94a3b8" unit="°C" domain={['auto', 'auto']} tick={{ fontSize: 11 }} />
                         <Tooltip contentStyle={{ backgroundColor: '#0f172a', borderColor: '#334155', borderRadius: '12px' }} />
                         <Legend />
-                        <Line type="monotone" dataKey="temperature" name="Open-Meteo Best Match" stroke="#f43f5e" strokeWidth={3} dot={false} />
-                        <Line type="monotone" dataKey="ecmwfTemp" name="ECMWF (Eropa)" stroke="#3b82f6" strokeWidth={1.5} dot={false} strokeDasharray="4 4" />
-                        <Line type="monotone" dataKey="gfsTemp" name="NOAA GFS (USA)" stroke="#10b981" strokeWidth={1.5} dot={false} strokeDasharray="4 4" />
-                        <Line type="monotone" dataKey="iconTemp" name="DWD ICON (Jerman)" stroke="#f59e0b" strokeWidth={1.5} dot={false} strokeDasharray="4 4" />
-                        <Line type="monotone" dataKey="jmaTemp" name="JMA (Jepang)" stroke="#8b5cf6" strokeWidth={1.5} dot={false} strokeDasharray="4 4" />
+                        <Line type="monotone" dataKey="temperature" name="Open-Meteo" stroke="#f43f5e" strokeWidth={3} dot={false} />
+                        <Line type="monotone" dataKey="ecmwfTemp" name="ECMWF" stroke="#3b82f6" strokeWidth={1.5} dot={false} strokeDasharray="4 4" />
+                        <Line type="monotone" dataKey="gfsTemp" name="NOAA GFS" stroke="#10b981" strokeWidth={1.5} dot={false} strokeDasharray="4 4" />
+                        <Line type="monotone" dataKey="iconTemp" name="DWD ICON" stroke="#f59e0b" strokeWidth={1.5} dot={false} strokeDasharray="4 4" />
+                        <Line type="monotone" dataKey="jmaTemp" name="JMA" stroke="#8b5cf6" strokeWidth={1.5} dot={false} strokeDasharray="4 4" />
                       </LineChart>
                     </ResponsiveContainer>
                   </div>
 
-                  {/* Comprehensive Multi-Model NWP Consensus Matrix (10+ Models) */}
+                  {/* Multi-Model Matrix */}
                   <div className="mt-4 pt-4 border-t border-slate-100 dark:border-slate-700/80">
                     <div className="flex items-center justify-between mb-3 flex-wrap gap-2">
                       <div>
                         <h4 className="text-xs font-bold text-slate-800 dark:text-white flex items-center gap-1.5">
                           <Cpu className="w-4 h-4 text-purple-500" />
-                          <span>Konsensus & Matriks Seluruh Model Numerik NWP Terhubung ({data?.modelComparison.length || 0} Model)</span>
+                          <span>Matriks Model ({data?.modelComparison.length || 0})</span>
                         </h4>
-                        <p className="text-[11px] text-slate-500">
-                          Data suhu komparatif dari pusat meteorologi dunia dan kawasan Indo-Pasifik (BoM Australia, CMA Tiongkok, JMA Jepang, ECMWF, GFS, ICON, MET Norway)
-                        </p>
                       </div>
                       <div className="flex items-center gap-2">
-                        <span className="text-[10px] font-mono font-bold px-2.5 py-1 rounded-xl bg-purple-500/10 text-purple-600 dark:text-purple-400 border border-purple-500/20">
-                          Rentang Sebaran: {data?.modelSpread != null ? `Δ ${data.modelSpread.toFixed(1)}°C` : 'Tunggal'}
+                        <span className="text-[10px] font-mono font-semibold px-2.5 py-1 rounded-xl bg-purple-500/10 text-purple-600 dark:text-purple-400 border border-purple-500/20 tabular-nums">
+                          Sebaran: {data?.modelSpread != null ? `Δ ${data.modelSpread.toFixed(1)}°C` : 'Tunggal'}
                         </span>
                       </div>
                     </div>
 
-                    <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-2.5">
+                    <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-2.5 tabular-nums">
                       {data?.modelComparison.map((m) => {
                         const diff = data?.current?.consensusTemperature != null ? m.temperature - data.current.consensusTemperature : 0;
                         return (
@@ -4934,7 +4744,7 @@ export const GeospatialWeatherModal: React.FC<GeospatialWeatherModalProps> = ({
                           >
                             <div>
                               <div className="flex items-center justify-between text-[10px] text-slate-400 mb-1">
-                                <span className="font-semibold text-slate-600 dark:text-slate-300 truncate">{m.sourceFlag} {m.country || 'Global'}</span>
+                                <span className="font-semibold text-slate-600 dark:text-slate-300 truncate">{m.country || 'Global'}</span>
                                 <span className="font-mono text-[9px] px-1 rounded bg-slate-200/60 dark:bg-slate-800">{m.resolution || 'NWP'}</span>
                               </div>
                               <div className="text-xs font-bold text-slate-800 dark:text-white truncate" title={m.modelName}>
@@ -4955,13 +4765,6 @@ export const GeospatialWeatherModal: React.FC<GeospatialWeatherModalProps> = ({
                         );
                       })}
                     </div>
-
-                    <div className="mt-3 p-3 rounded-xl bg-slate-50 dark:bg-slate-900/40 border border-slate-200/50 dark:border-slate-800 text-[11px] text-slate-500 flex items-center justify-between flex-wrap gap-2">
-                      <span>Koreksi Bias: Suhu konsensus dihitung secara tertimbang menggunakan inverse error variance lintas model.</span>
-                      <span className="text-emerald-600 dark:text-emerald-400 font-bold flex items-center gap-1">
-                        <CheckCircle2 className="w-3.5 h-3.5" /> Data Multi-Model Terverifikasi
-                      </span>
-                    </div>
                   </div>
                 </div>
               )}
@@ -4970,19 +4773,19 @@ export const GeospatialWeatherModal: React.FC<GeospatialWeatherModalProps> = ({
               {activeWeatherTab === 'wind' && (
                 <div className="p-4 rounded-2xl bg-white dark:bg-slate-800/60 border border-slate-200/80 dark:border-slate-700/80">
                   <h3 className="text-xs font-bold text-slate-700 dark:text-slate-300 mb-3">
-                    Kecepatan Angin (km/h) & Tekanan Permukaan Atmosfer (hPa)
+                    Angin &amp; Tekanan
                   </h3>
                   <div className="h-72 w-full">
                     <ResponsiveContainer width="100%" height="100%">
                       <LineChart data={data?.hourly}>
                         <CartesianGrid strokeDasharray="3 3" opacity={0.15} />
                         <XAxis dataKey="label" stroke="#94a3b8" tick={{ fontSize: 11 }} />
-                        <YAxis yAxisId="wind" stroke="#0d9488" unit=" km/h" tick={{ fontSize: 11 }} />
+                        <YAxis yAxisId="wind" stroke="#0d9488" unit=" km/j" tick={{ fontSize: 11 }} />
                         <YAxis yAxisId="press" orientation="right" stroke="#6366f1" unit=" hPa" domain={['auto', 'auto']} tick={{ fontSize: 11 }} />
                         <Tooltip contentStyle={{ backgroundColor: '#0f172a', borderColor: '#334155', borderRadius: '12px' }} />
                         <Legend />
-                        <Line yAxisId="wind" type="monotone" dataKey="windSpeed" name="Kecepatan Angin (km/h)" stroke="#0d9488" strokeWidth={2.5} />
-                        <Line yAxisId="press" type="monotone" dataKey="pressure" name="Tekanan Atmosfer (hPa)" stroke="#6366f1" strokeWidth={2} />
+                        <Line yAxisId="wind" type="monotone" dataKey="windSpeed" name="Kecepatan (km/j)" stroke="#0d9488" strokeWidth={2.5} />
+                        <Line yAxisId="press" type="monotone" dataKey="pressure" name="Tekanan (hPa)" stroke="#6366f1" strokeWidth={2} />
                       </LineChart>
                     </ResponsiveContainer>
                   </div>
@@ -5027,9 +4830,9 @@ export const GeospatialWeatherModal: React.FC<GeospatialWeatherModalProps> = ({
                           <div>
                             <div className="flex items-center gap-2">
                               <h4 className="text-sm font-bold text-slate-900 dark:text-white">
-                                Estimasi Indeks Standar Pencemar Udara (ISPU)
+                                Indeks ISPU
                               </h4>
-                              <span className="text-[10px] font-bold px-2 py-0.5 rounded-full uppercase bg-blue-500/15 text-blue-600 border border-blue-500/25">
+                              <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full uppercase bg-blue-500/15 text-blue-600 border border-blue-500/25">
                                 Permen LHK P.14/2020
                               </span>
                             </div>
@@ -5103,7 +4906,7 @@ export const GeospatialWeatherModal: React.FC<GeospatialWeatherModalProps> = ({
 
                   <div className="p-4 rounded-2xl bg-white dark:bg-slate-800/60 border border-slate-200/80 dark:border-slate-700/80">
                     <h3 className="text-xs font-bold text-slate-700 dark:text-slate-300 mb-3">
-                      Profil Konsentrasi Partikulat PM2.5 & Ozon Atmosferik (O₃) Sepanjang Waktu
+                      Konsentrasi Polutan
                     </h3>
                     <div className="h-72 w-full">
                       <ResponsiveContainer width="100%" height="100%">
@@ -5113,8 +4916,8 @@ export const GeospatialWeatherModal: React.FC<GeospatialWeatherModalProps> = ({
                           <YAxis stroke="#94a3b8" unit=" µg/m³" tick={{ fontSize: 11 }} />
                           <Tooltip contentStyle={{ backgroundColor: '#0f172a', borderColor: '#334155', borderRadius: '12px' }} />
                           <Legend />
-                          <Area type="monotone" dataKey="pm25" name="PM2.5 Polusi (µg/m³)" stroke="#ec4899" fill="#ec4899" fillOpacity={0.25} />
-                          <Area type="monotone" dataKey="ozone" name="Lapisan Ozon O₃ (µg/m³)" stroke="#8b5cf6" fill="#8b5cf6" fillOpacity={0.2} />
+                          <Area type="monotone" dataKey="pm25" name="PM2.5 (µg/m³)" stroke="#ec4899" fill="#ec4899" fillOpacity={0.25} />
+                          <Area type="monotone" dataKey="ozone" name="Ozon O₃ (µg/m³)" stroke="#8b5cf6" fill="#8b5cf6" fillOpacity={0.2} />
                         </AreaChart>
                       </ResponsiveContainer>
                     </div>
@@ -5132,13 +4935,13 @@ export const GeospatialWeatherModal: React.FC<GeospatialWeatherModalProps> = ({
                       </div>
                       <div>
                         <h3 className="text-sm font-bold text-slate-100 flex items-center gap-2">
-                          <span>Ringkasan Cuaca dan Penjelasan</span>
-                          <span className="text-[10px] px-2 py-0.5 rounded-full bg-sky-500/20 text-sky-400 border border-sky-500/30 font-mono">
-                            {data?.aiNwpVerification?.isAiVerified ? 'Penjelasan AI' : 'Diagnostik lokal'}
+                          <span>Ringkasan Cuaca</span>
+                          <span className="text-[10px] px-2 py-0.5 rounded-full bg-sky-500/20 text-sky-400 border border-sky-500/30 font-semibold">
+                            {data?.aiNwpVerification?.isAiVerified ? 'Analisis AI' : 'Diagnostik Lokal'}
                           </span>
                         </h3>
                         <p className="text-xs text-indigo-300">
-                          Penjelasan masukan model; tidak mengubah nilai prakiraan atau membuktikan akurasi
+                          Evaluasi parameter atmosfer dari data observasi terkini
                         </p>
                       </div>
                     </div>
@@ -5148,7 +4951,7 @@ export const GeospatialWeatherModal: React.FC<GeospatialWeatherModalProps> = ({
                       className="self-start sm:self-center px-3 py-1.5 rounded-xl bg-sky-500/20 hover:bg-sky-500/30 text-sky-300 border border-sky-500/40 text-xs font-bold transition-all flex items-center gap-1.5"
                     >
                       <Cpu className="w-3.5 h-3.5 text-sky-400" />
-                      <span>Pemeriksaan Atmosfer</span>
+                      <span>Detail Atmosfer</span>
                     </button>
                   </div>
 
@@ -5160,19 +4963,19 @@ export const GeospatialWeatherModal: React.FC<GeospatialWeatherModalProps> = ({
                   {data?.aiNwpVerification && (
                     <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5 mb-4">
                       <div className="p-2.5 rounded-xl bg-slate-900/80 border border-indigo-500/20">
-                        <span className="text-[10px] text-slate-400 block font-medium">Kerapatan Massa Udara (ρ)</span>
-                        <span className="text-xs font-bold text-sky-400">{data.aiNwpVerification.airDensityKgM3} kg/m³</span>
-                        <span className="text-[9px] text-slate-500 block">Persamaan Gas Ideal p = ρ R T</span>
+                        <span className="text-[10px] text-slate-400 block font-medium">Kerapatan (ρ)</span>
+                        <span className="text-xs font-bold text-sky-400 tabular-nums">{data.aiNwpVerification.airDensityKgM3} kg/m³</span>
+                        <span className="text-[9px] text-slate-500 block">Gas Ideal (p = ρRT)</span>
                       </div>
                       <div className="p-2.5 rounded-xl bg-slate-900/80 border border-indigo-500/20">
-                        <span className="text-[10px] text-slate-400 block font-medium">Parameter Coriolis (f)</span>
-                        <span className="text-xs font-bold text-indigo-400 font-mono">{data.aiNwpVerification.coriolisParamF}×10⁻⁵ s⁻¹</span>
-                        <span className="text-[9px] text-slate-500 block">Persamaan Gerak Navier-Stokes</span>
+                        <span className="text-[10px] text-slate-400 block font-medium">Coriolis (f)</span>
+                        <span className="text-xs font-bold text-indigo-400 font-mono tabular-nums">{data.aiNwpVerification.coriolisParamF}×10⁻⁵ s⁻¹</span>
+                        <span className="text-[9px] text-slate-500 block">Navier-Stokes</span>
                       </div>
                       <div className="p-2.5 rounded-xl bg-slate-900/80 border border-indigo-500/20">
-                        <span className="text-[10px] text-slate-400 block font-medium">Stabilitas atmosfer · belum dinilai</span>
+                        <span className="text-[10px] text-slate-400 block font-medium">Stabilitas</span>
                         <span className="text-xs font-bold text-emerald-400 truncate block">{data.aiNwpVerification.convectiveStability}</span>
-                        <span className="text-[9px] text-slate-500 block">Profil Termodinamika Udara Basah</span>
+                        <span className="text-[9px] text-slate-500 block">Termodinamika Lokal</span>
                       </div>
                     </div>
                   )}
@@ -5186,7 +4989,7 @@ export const GeospatialWeatherModal: React.FC<GeospatialWeatherModalProps> = ({
 
                   <div className="space-y-2">
                     <h4 className="text-xs font-bold uppercase tracking-wider text-slate-400">
-                      Kesiapsiagaan & Tindakan Pencegahan:
+                      Mitigasi Risiko
                     </h4>
                     {data?.aiBriefing.preparednessAdvice.map((adv, idx) => (
                       <div key={idx} className="flex items-start gap-2.5 text-xs text-slate-300">
@@ -5210,28 +5013,28 @@ export const GeospatialWeatherModal: React.FC<GeospatialWeatherModalProps> = ({
                         <div>
                           <div className="flex items-center gap-2">
                             <h3 className="text-sm font-bold text-white">
-                              Web Windy — Peta Radar, Satelit & Dinamika Atmosfer Interaktif
+                              Radar Windy
                             </h3>
-                            <span className="text-[10px] font-mono px-2 py-0.5 rounded-md bg-emerald-500/20 text-emerald-400 font-bold border border-emerald-500/30">
-                              HTTP 200 Live Iframe
+                            <span className="text-[10px] px-2 py-0.5 rounded-md bg-emerald-500/20 text-emerald-400 font-bold border border-emerald-500/30">
+                              Siaran Langsung
                             </span>
                           </div>
-                          <p className="text-xs text-slate-400">
-                            Radar cuaca, citra satelit, angin, hujan, dan suhu berpusat di ({activeLat.toFixed(4)}°, {activeLng.toFixed(4)}°)
+                          <p className="text-xs text-slate-400 tabular-nums">
+                            Pusat tampilan ({activeLat.toFixed(4)}°, {activeLng.toFixed(4)}°)
                           </p>
                         </div>
                       </div>
 
                       <div className="flex items-center gap-1.5 flex-wrap">
-                        <span className="text-[10px] text-slate-400 uppercase font-bold mr-1">Lapisan:</span>
+                        <span className="text-[10px] text-slate-400 uppercase font-bold mr-1">Lapisan</span>
                         {(['radar', 'satellite', 'wind', 'rain', 'temp', 'clouds'] as const).map((layer) => {
                           const labels: Record<string, string> = {
-                            radar: 'Radar Doppler',
-                            satellite: 'Satelit Cuaca',
-                            wind: 'Arus Angin',
-                            rain: 'Curah Hujan',
-                            temp: 'Suhu Permukaan',
-                            clouds: 'Tutupan Awan',
+                            radar: 'Radar',
+                            satellite: 'Satelit',
+                            wind: 'Angin',
+                            rain: 'Hujan',
+                            temp: 'Suhu',
+                            clouds: 'Awan',
                           };
                           return (
                             <button
@@ -5253,7 +5056,7 @@ export const GeospatialWeatherModal: React.FC<GeospatialWeatherModalProps> = ({
                     {/* Interactive Embedded Windy Iframe */}
                     <div className="w-full h-[520px] rounded-2xl overflow-hidden border border-slate-700/80 bg-slate-950 shadow-inner relative">
                       <iframe
-                        title="Windy Weather Map"
+                        title="Peta Radar Windy"
                         width="100%"
                         height="100%"
                         src={`https://embed.windy.com/embed.html?type=map&location=coordinates&metricRain=default&metricTemp=default&metricWind=default&zoom=8&overlay=${windyOverlay}&product=${windyOverlay === 'radar' ? 'radar' : windyOverlay === 'satellite' ? 'satellite' : 'ecmwf'}&level=surface&lat=${activeLat}&lon=${activeLng}&detailLat=${activeLat}&detailLon=${activeLng}&marker=true&message=true`}
@@ -5262,14 +5065,13 @@ export const GeospatialWeatherModal: React.FC<GeospatialWeatherModalProps> = ({
                       />
                     </div>
 
-                    <div className="flex flex-col sm:flex-row sm:items-center justify-between pt-3 text-[11px] text-slate-400 border-t border-slate-800 gap-2">
-                      <div className="flex items-center gap-3">
-                        <span>Pusat Koordinat: <strong className="text-white">{activeLat.toFixed(4)}°, {activeLng.toFixed(4)}°</strong></span>
+                    <div className="flex flex-col sm:flex-row sm:items-center justify-between pt-3 text-[11px] text-slate-400 border-t border-slate-800 gap-2 tabular-nums">
+                      <div className="flex items-center gap-3 flex-wrap">
+                        <span>Koordinat: <strong className="text-white">{activeLat.toFixed(4)}°, {activeLng.toFixed(4)}°</strong></span>
                         <span>Wilayah: <strong className="text-white">{activeRegionName}</strong></span>
-                        <span>Latensi: <strong className="text-emerald-400">~145 ms</strong></span>
                       </div>
                       <div className="text-[10px] text-slate-500">
-                        Audit Telemetri: Web Windy Iframe (Visualisasi spasial atmosfer resolusi tinggi WGS84)
+                        Windy WGS84
                       </div>
                     </div>
                   </div>
@@ -5278,114 +5080,51 @@ export const GeospatialWeatherModal: React.FC<GeospatialWeatherModalProps> = ({
 
 
               {/* Sources Transparency Footer */}
-              <div className="p-4 rounded-3xl bg-slate-50 dark:bg-slate-900/60 border border-slate-200/80 dark:border-slate-800 text-[11px] text-slate-500 space-y-3">
-                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 pb-2.5 border-b border-slate-200/60 dark:border-slate-800/80">
+              <div className="p-3.5 sm:p-4 rounded-2xl bg-slate-50 dark:bg-slate-900/60 border border-slate-200/80 dark:border-slate-800 text-[11px] text-slate-500 space-y-2.5">
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 pb-2 border-b border-slate-200/60 dark:border-slate-800/80">
                   <div className="flex items-center gap-2 flex-wrap">
                     <span className="font-bold text-slate-800 dark:text-white flex items-center gap-1.5">
                       <Layers className="w-4 h-4 text-indigo-500" />
-                      <span>Seluruh 16 Sumber Data Geospasial Terhubung (HTTP 200 Real-Time):</span>
+                      <span>Ketersediaan Data</span>
                     </span>
-                    <span className="px-2 py-0.5 rounded-full bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 text-[10px] font-extrabold border border-emerald-500/20 flex items-center gap-1">
+                    <span className="px-2 py-0.5 rounded-full bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 text-[10px] font-bold border border-emerald-500/20 flex items-center gap-1 tabular-nums">
                       <CheckCircle2 className="w-3 h-3 text-emerald-500" />
-                      16 Aktif
-                    </span>
-                    <span className="px-2 py-0.5 rounded-full bg-slate-200 dark:bg-slate-700 text-slate-600 dark:text-slate-400 text-[10px] font-semibold border border-slate-300 dark:border-slate-600">
-                      1 Pemeliharaan Hulu (BoM)
-                    </span>
-                    <span className="px-2 py-0.5 rounded-full bg-amber-500/10 text-amber-600 dark:text-amber-400 text-[10px] font-semibold border border-amber-500/20">
-                      1 Perlu Kunci Server (TomTom)
+                      {onlineSourcesCount} Sumber Aktif
                     </span>
                   </div>
 
-                  <div className="flex items-center gap-2 flex-wrap">
-                    <button
-                      type="button"
-                      onClick={() => {
-                        const el = document.getElementById('hub-16-sumber-geospasial');
-                        el?.scrollIntoView({ behavior: 'smooth' });
-                      }}
-                      className="inline-flex items-center gap-1 text-[11px] font-bold text-indigo-600 dark:text-indigo-400 hover:underline cursor-pointer"
-                    >
-                      <span>Lihat Detail Grid 16 Sumber</span>
-                      <ArrowRight className="w-3 h-3" />
-                    </button>
-                  </div>
-                </div>
-
-                {/* 16 Connected Real-Time Data Chips */}
-                <div className="flex items-center gap-1.5 flex-wrap">
-                  {activeGeospatialSources
-                    .filter((s) => s.status === 'ONLINE')
-                    .map((s) => (
-                      <button
-                        key={s.id}
-                        type="button"
-                        onClick={() => {
-                          if (s.targetDomain) {
-                            setActiveDomain(s.targetDomain);
-                            if (s.targetSubTab) {
-                              setActiveWeatherTab(s.targetSubTab);
-                            }
-                          }
-                        }}
-                        className="group inline-flex items-center gap-1.5 px-2.5 py-1 rounded-xl bg-white dark:bg-slate-800/90 hover:bg-indigo-50 dark:hover:bg-slate-700/80 border border-slate-200/90 dark:border-slate-700 text-slate-700 dark:text-slate-300 hover:text-indigo-600 dark:hover:text-indigo-300 transition-all cursor-pointer shadow-2xs text-[11px]"
-                        title={`${s.name} — ${s.latencyText} — Klik untuk membuka data pada Tab Studio`}
-                      >
-                        <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 shrink-0 animate-pulse" />
-                        <span className="font-semibold truncate max-w-[170px] sm:max-w-[200px]">{s.name.split('—')[0].trim()}</span>
-                        <span className="text-[9px] font-mono px-1 py-0.2 rounded bg-slate-100 dark:bg-slate-900/60 text-slate-500 group-hover:text-indigo-500 font-medium">
-                          {s.latencyText}
-                        </span>
-                      </button>
-                    ))}
-
-                  {/* 2 Excluded / Upstream Info Chips */}
-                  {activeGeospatialSources
-                    .filter((s) => s.status !== 'ONLINE')
-                    .map((s) => (
-                      <span
-                        key={s.id}
-                        className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-xl border text-[11px] opacity-75 ${
-                          s.status === 'MAINTENANCE'
-                            ? 'bg-slate-100 dark:bg-slate-800/50 border-slate-300 dark:border-slate-700 text-slate-500 dark:text-slate-400'
-                            : 'bg-amber-500/5 border-amber-500/20 text-amber-600 dark:text-amber-400'
-                        }`}
-                        title={s.details}
-                      >
-                        <span className={`w-1.5 h-1.5 rounded-full ${s.status === 'MAINTENANCE' ? 'bg-slate-400' : 'bg-amber-500'}`} />
-                        <span className="font-medium truncate max-w-[170px]">{s.name.split('—')[0].trim()}</span>
-                        <span className="text-[9px] font-semibold px-1 py-0.2 rounded bg-black/5 dark:bg-white/5">
-                          {s.status === 'MAINTENANCE' ? 'BoM Pemeliharaan' : 'Perlu Kunci'}
-                        </span>
-                      </span>
-                    ))}
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setShowMultiSourceHub(true);
+                      setTimeout(() => {
+                        document.getElementById('hub-16-sumber-geospasial')?.scrollIntoView({ behavior: 'smooth' });
+                      }, 50);
+                    }}
+                    className="inline-flex items-center gap-1 text-[11px] font-bold text-indigo-600 dark:text-indigo-400 hover:underline cursor-pointer self-start sm:self-auto"
+                  >
+                    <span>Daftar Sumber</span>
+                    <ArrowRight className="w-3 h-3" />
+                  </button>
                 </div>
 
                 {/* Footer Controls & Telemetry Action */}
-                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pt-2.5 border-t border-slate-200/60 dark:border-slate-800/80">
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
                   <div className="flex items-center gap-2 text-slate-400 text-[10px] flex-wrap">
-                    <span>Protokol Data: <strong className="text-slate-600 dark:text-slate-300">WGS84 EPSG:4326</strong></span>
+                    <span>Proyeksi: <strong className="text-slate-600 dark:text-slate-300">WGS84</strong></span>
                     <span>•</span>
-                    <span>Siklus Sinkronisasi: <strong className="text-slate-600 dark:text-slate-300">Serentak Setiap 5 Menit</strong></span>
-                    <span>•</span>
-                    <span>Multi-Provider: <strong className="text-slate-600 dark:text-slate-300">Open-Meteo, BMKG, Copernicus, USGS, PuSGeN, ESRI, OSM, NASA FIRMS, Gemini AI</strong></span>
+                    <span>Pembaruan: <strong className="text-slate-600 dark:text-slate-300">5 Menit</strong></span>
                   </div>
 
-                  <div className="flex items-center gap-2.5 flex-wrap">
-                    <button
-                      type="button"
-                      onClick={() => setIsTelemetryModalOpen(true)}
-                      className="flex items-center gap-2 px-3.5 py-1.5 rounded-xl bg-gradient-to-r from-indigo-600 via-indigo-700 to-purple-600 hover:from-indigo-500 hover:to-purple-500 text-white font-bold text-xs shadow-md shadow-indigo-500/25 transition-all hover:scale-105 active:scale-95 cursor-pointer"
-                      title="Buka Pusat Transparansi Data, Status Web/API, Uji Akurasi & Log Audit AI"
-                    >
-                      <Terminal className="w-3.5 h-3.5 text-sky-300" />
-                      <span>Inspeksi Data Masuk-Keluar & Audit AI</span>
-                      <span className="flex h-2 w-2 relative">
-                        <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
-                        <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-400"></span>
-                      </span>
-                    </button>
-                  </div>
+                  <button
+                    type="button"
+                    onClick={() => setIsTelemetryModalOpen(true)}
+                    className="flex items-center gap-2 px-3.5 py-1.5 rounded-xl bg-slate-900 dark:bg-indigo-600 hover:bg-slate-800 dark:hover:bg-indigo-500 text-white font-semibold text-xs shadow-sm transition-all cursor-pointer self-start sm:self-auto"
+                  >
+                    <Terminal className="w-3.5 h-3.5 text-sky-300" />
+                    <span>Audit API</span>
+                    <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-400" />
+                  </button>
                 </div>
               </div>
               </>}
@@ -5396,11 +5135,11 @@ export const GeospatialWeatherModal: React.FC<GeospatialWeatherModalProps> = ({
 
       {/* Indonesian Geolocation Search & Selection Dialog */}
       {isLocationPickerOpen && (
-        <div 
+        <div
           className="fixed inset-0 z-[10000] flex items-center justify-center p-3 sm:p-5 bg-slate-950/80 backdrop-blur-md animate-in fade-in duration-150"
           onClick={() => setIsLocationPickerOpen(false)}
         >
-          <div 
+          <div
             className="relative w-full max-w-2xl max-h-[88vh] flex flex-col rounded-3xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-2xl overflow-hidden animate-in zoom-in-95 duration-150"
             onClick={(e) => e.stopPropagation()}
           >
@@ -5412,10 +5151,10 @@ export const GeospatialWeatherModal: React.FC<GeospatialWeatherModalProps> = ({
                 </div>
                 <div>
                   <h3 className="text-sm font-bold text-slate-800 dark:text-white">
-                    Pilih Titik Wilayah Indonesia
+                    Pilih Lokasi
                   </h3>
                   <p className="text-[11px] text-slate-500 dark:text-slate-400">
-                    38 Provinsi, 120+ Kab/Kota, dan 60+ Daerah Pelosok/Terluar 3T
+                    38 Provinsi, Kabupaten/Kota, dan Wilayah 3T
                   </p>
                 </div>
               </div>
@@ -5439,7 +5178,7 @@ export const GeospatialWeatherModal: React.FC<GeospatialWeatherModalProps> = ({
                   autoFocus
                   value={locationSearchQuery}
                   onChange={(e) => setLocationSearchQuery(e.target.value)}
-                  placeholder="Cari provinsi, kota, kabupaten, atau pelosok 3T (cth: Wamena, Natuna, Sabang, Mojokerto)..."
+                  placeholder="Cari provinsi, kota, kabupaten..."
                   className="w-full pl-10 pr-10 py-2.5 rounded-xl text-xs font-medium bg-slate-100 dark:bg-slate-800/80 border border-slate-200/80 dark:border-slate-700/80 text-slate-800 dark:text-white placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-indigo-500"
                 />
                 {locationSearchQuery && (
@@ -5456,11 +5195,11 @@ export const GeospatialWeatherModal: React.FC<GeospatialWeatherModalProps> = ({
               {/* Category Filter Tabs */}
               <div className="flex items-center gap-1.5 overflow-x-auto no-scrollbar pb-1 text-[11px] font-bold">
                 {[
-                  { id: 'semua', label: '🌟 Semua Titik' },
-                  { id: 'provinsi', label: '🏛️ Provinsi (38)' },
-                  { id: 'kota', label: '🏙️ Kota' },
-                  { id: 'kabupaten', label: '🏘️ Kabupaten' },
-                  { id: 'pelosok', label: '🏕️ Pelosok & Terluar 3T' },
+                  { id: 'semua', label: 'Semua' },
+                  { id: 'provinsi', label: 'Provinsi' },
+                  { id: 'kota', label: 'Kota' },
+                  { id: 'kabupaten', label: 'Kabupaten' },
+                  { id: 'pelosok', label: 'Wilayah 3T' },
                 ].map((cat) => (
                   <button
                     key={cat.id}
@@ -5527,16 +5266,16 @@ export const GeospatialWeatherModal: React.FC<GeospatialWeatherModalProps> = ({
                   <div className="min-w-0">
                     <div className="flex items-center gap-2 flex-wrap">
                       <span className="text-xs font-bold text-slate-900 dark:text-white truncate">
-                        {isAcquiringGps ? 'Mencari Satelit GPS...' : 'Deteksi GPS Perangkat Saya Langsung'}
+                        {isAcquiringGps ? 'Mencari GPS...' : 'GPS Perangkat'}
                       </span>
-                      <span className="text-[10px] px-2 py-0.2 rounded-md bg-blue-500/20 text-blue-600 dark:text-blue-300 font-extrabold border border-blue-500/30">
-                        {isAcquiringGps ? 'Memproses' : 'GNSS Real-Time'}
+                      <span className="text-[10px] px-2 py-0.2 rounded-md bg-blue-500/20 text-blue-600 dark:text-blue-300 font-bold border border-blue-500/30">
+                        {isAcquiringGps ? 'Memproses' : 'GNSS Aktif'}
                       </span>
                     </div>
                     <p className="text-[11px] text-slate-500 dark:text-slate-400 truncate mt-0.5">
                       {isAcquiringGps
-                        ? 'Menyinkronkan koordinat dan reverse geocoding...'
-                        : (activeRegionName !== 'DKI Jakarta (Pusat)' ? activeRegionName : (userPreciseLocation?.shortDisplay || 'Klik untuk membaca koordinat sensor GPS browser Anda'))}
+                        ? 'Menyinkronkan koordinat...'
+                        : (activeRegionName !== 'DKI Jakarta' ? activeRegionName : (userPreciseLocation?.shortDisplay || 'Deteksi koordinat GPS perangkat'))}
                     </p>
                   </div>
                 </div>
@@ -5547,9 +5286,9 @@ export const GeospatialWeatherModal: React.FC<GeospatialWeatherModalProps> = ({
 
               {/* Count Indicator */}
               <div className="px-2 pt-2 pb-1 text-[11px] font-bold text-slate-400 flex items-center justify-between">
-                <span>Titik Wilayah ({filteredPlaces.length})</span>
+                <span>Wilayah ({filteredPlaces.length})</span>
                 {filteredPlaces.length === 0 && (
-                  <span className="text-amber-500">Tidak ada lokasi yang cocok dengan kata kunci</span>
+                  <span className="text-amber-500">Lokasi tidak ditemukan</span>
                 )}
               </div>
 
@@ -5565,11 +5304,6 @@ export const GeospatialWeatherModal: React.FC<GeospatialWeatherModalProps> = ({
                     ? 'bg-sky-500/15 text-sky-600 dark:text-sky-400 border-sky-500/30'
                     : 'bg-indigo-500/15 text-indigo-600 dark:text-indigo-400 border-indigo-500/30';
 
-                const categoryIcon =
-                  place.category === 'provinsi' ? '🏛️' :
-                  place.category === 'pelosok' ? '🏕️' :
-                  place.category === 'kota' ? '🏙️' : '🏘️';
-
                 return (
                   <button
                     key={place.id}
@@ -5582,13 +5316,13 @@ export const GeospatialWeatherModal: React.FC<GeospatialWeatherModalProps> = ({
                     }`}
                   >
                     <div className="flex items-center gap-3 min-w-0">
-                      <span className="text-base shrink-0">{categoryIcon}</span>
+                      <MapPin className="w-4 h-4 text-slate-400 shrink-0" />
                       <div className="min-w-0">
                         <div className="flex items-center gap-2">
                           <span className="text-xs font-bold text-slate-800 dark:text-white truncate">
                             {place.name}
                           </span>
-                          <span className={`text-[9px] font-extrabold uppercase px-1.5 py-0.2 rounded border ${badgeColor}`}>
+                          <span className={`text-[9px] font-bold uppercase px-1.5 py-0.2 rounded border ${badgeColor}`}>
                             {place.category || place.type}
                           </span>
                         </div>
@@ -5599,7 +5333,7 @@ export const GeospatialWeatherModal: React.FC<GeospatialWeatherModalProps> = ({
                       </div>
                     </div>
                     <div className="flex items-center gap-2 shrink-0 ml-2">
-                      <span className="text-[10px] font-mono text-slate-400 hidden sm:inline">
+                      <span className="text-[10px] font-mono text-slate-400 hidden sm:inline tabular-nums">
                         {place.lat.toFixed(2)}°, {place.lng.toFixed(2)}°
                       </span>
                       {isSelected && (
@@ -5613,7 +5347,7 @@ export const GeospatialWeatherModal: React.FC<GeospatialWeatherModalProps> = ({
 
             {/* Footer */}
             <div className="px-5 py-3 border-t border-slate-100 dark:border-slate-800 bg-slate-50/60 dark:bg-slate-900/60 flex items-center justify-between text-xs text-slate-500">
-              <span>Mencakup seluruh 38 Provinsi & Titik Perbatasan NKRI</span>
+              <span>38 Provinsi Indonesia</span>
               <button
                 type="button"
                 onClick={() => setIsLocationPickerOpen(false)}
@@ -5642,7 +5376,7 @@ export const GeospatialWeatherModal: React.FC<GeospatialWeatherModalProps> = ({
 
   if (asPage) {
     return (
-      <div className="w-full h-full min-h-[calc(100vh-4.5rem)] flex flex-col rounded-3xl border border-slate-200/80 dark:border-slate-800 shadow-xl overflow-hidden bg-white dark:bg-slate-900">
+      <div className="w-full h-full min-h-[calc(var(--vh-full)-4.5rem)] flex flex-col rounded-3xl border border-slate-200/80 dark:border-slate-800 shadow-xl overflow-hidden bg-white dark:bg-slate-900">
         {modalBody}
       </div>
     );

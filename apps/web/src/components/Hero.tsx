@@ -91,7 +91,7 @@ export function Hero() {
               transition={{ duration: 0.4 }}
               className="inline-flex items-center gap-2 rounded-full border border-brand-200 bg-white/80 px-4 py-1.5 text-xs font-semibold text-brand-700 backdrop-blur-md dark:border-slate-700 dark:bg-slate-800/80 dark:text-brand-400"
             >
-              Sistem Edukasi & Simulasi Kebencanaan SPAB
+              Platform Mitigasi Sekolah
             </motion.div>
 
             <h1 className="mt-6 font-display text-4xl font-extrabold leading-[1.12] tracking-tight text-ink-900 sm:text-5xl lg:text-6xl dark:text-white">
@@ -99,11 +99,11 @@ export function Hero() {
             </h1>
 
             <p className="mt-3 font-display text-lg font-bold text-brand-600 sm:text-xl dark:text-brand-400">
-              Ekosistem Simulasi Bencana & Geospasial Sekolah
+              Ekosistem Geospasial Sekolah
             </p>
 
             <p className="mx-auto mt-5 max-w-xl text-sm leading-relaxed text-ink-600 sm:text-base lg:mx-0 dark:text-slate-300">
-              Memadukan data geospasial, denah digital sekolah, dan latihan evakuasi terukur untuk mendukung program Satuan Pendidikan Aman Bencana.
+              Memadukan data geospasial, denah digital sekolah, dan latihan evakuasi terukur untuk Satuan Pendidikan Aman Bencana.
             </p>
 
             {/* CTAs */}
@@ -121,7 +121,7 @@ export function Hero() {
                 className="inline-flex items-center gap-2 rounded-full border border-brand-200 bg-white/80 px-7 py-3.5 text-sm font-semibold text-brand-700 backdrop-blur-md transition-colors hover:border-brand-300 hover:bg-white dark:border-slate-700 dark:bg-slate-800/80 dark:text-brand-400"
               >
                 <GraduationCap className="h-4 w-4" />
-                Masuk Demo SMAN 1 Ngoro
+                Demo SMAN 1
               </Link>
             </div>
 
@@ -229,7 +229,7 @@ export function Hero() {
               <p className="mt-2 text-sm leading-relaxed text-ink-600 dark:text-slate-300">
                 {c.description}
               </p>
-              <div className="mt-3 flex items-center gap-1.5 text-xs font-semibold text-brand-600 opacity-0 transition-all group-hover:opacity-100 dark:text-brand-400">
+              <div className="mt-3 flex items-center gap-1.5 text-xs font-semibold text-brand-600 opacity-100 sm:opacity-0 transition-all sm:group-hover:opacity-100 dark:text-brand-400">
                 Buka{" "}
                 <ArrowRight className="h-3.5 w-3.5 transition-transform group-hover:translate-x-1" />
               </div>

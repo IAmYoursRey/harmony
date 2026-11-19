@@ -130,7 +130,7 @@ export const GeospatialProductSwotTab: React.FC = () => {
           <div>
             <div className="flex items-center gap-2">
               <h3 className="text-sm font-bold text-slate-800 dark:text-white">
-                Rencana Pengembangan & Analisis SWOT Produk Harmony
+                Analisis SWOT
               </h3>
               <span className="text-[10px] font-extrabold uppercase px-2 py-0.5 rounded-full bg-purple-500/15 text-purple-700 dark:text-purple-300 border border-purple-500/25">
                 Strategic Workspace

@@ -133,7 +133,7 @@ export function SchoolResilienceIndexView() {
             </h2>
             <p className="mt-1.5 max-w-md text-sm text-brand-100">
               Analisis komprehensif berdasarkan performa {metrics?.totalStudents || metrics?.len || 320}{" "}
-              siswa terdaftar di 10 kelas dalam modul kebencanaan dan simulasi digital twin.
+              siswa terdaftar di 9 kelas dalam modul kebencanaan dan simulasi digital twin.
             </p>
           </div>
           {metrics && (() => {
@@ -162,8 +162,8 @@ export function SchoolResilienceIndexView() {
       {/* Quick Summary Pill Bar */}
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 animate-fade-up">
         <div className="glass rounded-2xl p-3.5 flex items-center gap-3 dark:bg-slate-900/60 shadow-2xs">
-          <div className="h-10 w-10 rounded-xl bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 flex items-center justify-center font-bold text-lg shrink-0">
-            👥
+          <div className="h-10 w-10 rounded-xl bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 flex items-center justify-center shrink-0">
+            <Users className="h-5 w-5" />
           </div>
           <div className="min-w-0">
             <span className="block text-[11px] text-slate-500 dark:text-slate-400 truncate">Siswa Terdaftar</span>
@@ -173,19 +173,19 @@ export function SchoolResilienceIndexView() {
           </div>
         </div>
         <div className="glass rounded-2xl p-3.5 flex items-center gap-3 dark:bg-slate-900/60 shadow-2xs">
-          <div className="h-10 w-10 rounded-xl bg-blue-500/10 text-blue-600 dark:text-blue-400 flex items-center justify-center font-bold text-lg shrink-0">
-            🏫
+          <div className="h-10 w-10 rounded-xl bg-blue-500/10 text-blue-600 dark:text-blue-400 flex items-center justify-center shrink-0">
+            <School className="h-5 w-5" />
           </div>
           <div className="min-w-0">
             <span className="block text-[11px] text-slate-500 dark:text-slate-400 truncate">Kelas Aktif</span>
             <span className="font-extrabold text-sm text-slate-900 dark:text-white">
-              {metrics?.totalClasses || 8} Kelas
+              {metrics?.totalClasses || 9} Kelas
             </span>
           </div>
         </div>
         <div className="glass rounded-2xl p-3.5 flex items-center gap-3 dark:bg-slate-900/60 shadow-2xs">
-          <div className="h-10 w-10 rounded-xl bg-purple-500/10 text-purple-600 dark:text-purple-400 flex items-center justify-center font-bold text-lg shrink-0">
-            👨‍🏫
+          <div className="h-10 w-10 rounded-xl bg-purple-500/10 text-purple-600 dark:text-purple-400 flex items-center justify-center shrink-0">
+            <GraduationCap className="h-5 w-5" />
           </div>
           <div className="min-w-0">
             <span className="block text-[11px] text-slate-500 dark:text-slate-400 truncate">Guru Pembimbing</span>
@@ -195,8 +195,8 @@ export function SchoolResilienceIndexView() {
           </div>
         </div>
         <div className="glass rounded-2xl p-3.5 flex items-center gap-3 dark:bg-slate-900/60 shadow-2xs">
-          <div className="h-10 w-10 rounded-xl bg-amber-500/10 text-amber-600 dark:text-amber-400 flex items-center justify-center font-bold text-lg shrink-0">
-            ⚡
+          <div className="h-10 w-10 rounded-xl bg-amber-500/10 text-amber-600 dark:text-amber-400 flex items-center justify-center shrink-0">
+            <Zap className="h-5 w-5" />
           </div>
           <div className="min-w-0">
             <span className="block text-[11px] text-slate-500 dark:text-slate-400 truncate">Latihan Teruji</span>
@@ -216,7 +216,7 @@ export function SchoolResilienceIndexView() {
             />
           </div>
           <h3 className="font-display text-lg font-bold text-ink-900 dark:text-white">
-            Data Resiliensi Belum Tersedia
+            Data Belum Tersedia
           </h3>
           <p className="mt-2 max-w-md text-sm text-ink-500 dark:text-slate-400">
             Statistik resiliensi sekolah akan muncul setelah siswa menyelesaikan
@@ -274,7 +274,6 @@ export function SchoolResilienceIndexView() {
           <Card className="min-h-[350px] flex flex-col">
             <h3 className="font-display text-base font-bold text-ink-900 dark:text-white flex items-center gap-2 mb-4">
               <BarChart3 className="h-5 w-5 text-indigo-500" /> Metrik Kinerja
-              Rata-rata
             </h3>
             <div className="space-y-6 flex-1 pt-4">
               {[
@@ -329,7 +328,7 @@ export function SchoolResilienceIndexView() {
           <div className="mb-4 flex items-center gap-2">
             <Sparkles className="h-5 w-5 text-brand-600" />
             <h3 className="font-display text-base font-bold text-ink-900 dark:text-white">
-              Rekomendasi AI (Harmony)
+              Rekomendasi AI
             </h3>
           </div>
           <div className="grid gap-4 sm:grid-cols-3">
@@ -374,22 +373,22 @@ export function SchoolResilienceIndexView() {
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-slate-100 pb-4 dark:border-slate-800">
             <div>
               <div className="inline-flex items-center gap-1.5 rounded-full bg-emerald-500/10 px-2.5 py-0.5 text-xs font-bold text-emerald-600 dark:text-emerald-400 mb-1.5">
-                <CheckCircle2 className="h-3.5 w-3.5" /> Terverifikasi Pernah Diuji Coba di Sekolah
+                <CheckCircle2 className="h-3.5 w-3.5" /> Terverifikasi SPAB
               </div>
               <h3 className="font-display text-base font-bold text-ink-900 dark:text-white flex items-center gap-2">
                 <School className="h-5 w-5 text-brand-600" />
-                Distribusi Kelas & Guru Pembimbing SMAN 1 Ngoro
+                Distribusi Kelas
               </h3>
               <p className="text-xs text-ink-500 dark:text-slate-400 mt-0.5">
-                Total 320 siswa aktif terdaftar di 9 kelas (XI - 1 s.d. XI - 9) dengan bimbingan dewan guru & tim penanggung jawab SPAB.
+                320 siswa aktif SMAN 1 Ngoro pada 9 kelas (XI - 1 s.d. XI - 9) bersama dewan guru pembimbing SPAB.
               </p>
             </div>
             <div className="flex items-center gap-2">
               <span className="px-3 py-1 rounded-xl bg-brand-50 dark:bg-brand-900/30 text-brand-700 dark:text-brand-300 font-bold text-xs border border-brand-200 dark:border-brand-800">
-                9 Kelas Aktif (XI)
+                9 Kelas XI
               </span>
               <span className="px-3 py-1 rounded-xl bg-purple-50 dark:bg-purple-900/30 text-purple-700 dark:text-purple-300 font-bold text-xs border border-purple-200 dark:border-purple-800">
-                9 Guru Wali Kelas
+                9 Wali Kelas
               </span>
             </div>
           </div>
@@ -435,7 +434,7 @@ export function SchoolResilienceIndexView() {
             <div>
               <h3 className="font-display text-base font-bold text-ink-900 dark:text-white flex items-center gap-2">
                 <Users className="h-5 w-5 text-indigo-500" />
-                Catatan Penggunaan & Uji Coba Terkini Siswa
+                Aktivitas Terkini
               </h3>
               <p className="text-xs text-ink-500 dark:text-slate-400 mt-0.5">
                 Log telemetri aktivitas siswa yang telah menyelesaikan sesi modul teori dan drill digital twin.
@@ -495,7 +494,9 @@ export function SchoolResilienceIndexView() {
                     </td>
                     <td className="py-2.5 text-right">
                       <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[9.5px] font-bold bg-emerald-500/10 text-emerald-600 dark:text-emerald-400">
-                        ✓ Terverifikasi
+                        <span className="inline-flex items-center gap-1">
+                          <CheckCircle2 className="h-3 w-3" /> Terverifikasi
+                        </span>
                       </span>
                     </td>
                   </tr>
@@ -510,7 +511,7 @@ export function SchoolResilienceIndexView() {
             <div>
               <h4 className="font-display text-sm font-bold text-ink-900 dark:text-white flex items-center gap-2">
                 <ShieldCheck className="h-4 w-4 text-brand-600" />
-                Standar Penilaian Level 1–4 &amp; Kategori LIPI–UNESCO/ISDR
+                Standar Penilaian
               </h4>
               <p className="text-xs text-ink-600 dark:text-slate-300 mt-1">
                 Skor dan level ketahanan sekolah diukur memakai ambang standar nasional SPAB (80–100: Level 4 Sangat Siap, 65–79: Level 3 Siap, 40–64: Level 2 Kurang/Hampir Siap, 0–39: Level 1 Belum Siap):

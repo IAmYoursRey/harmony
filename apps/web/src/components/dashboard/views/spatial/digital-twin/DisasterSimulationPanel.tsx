@@ -22,16 +22,15 @@ export function DisasterSimulationPanel({
     <div className="w-full bg-white dark:bg-slate-900 border-t border-brand-100 dark:border-slate-800 p-4 shadow-lg sticky bottom-0 z-10 flex flex-col sm:flex-row items-center gap-4">
       <div className="flex-1">
         <h3 className="font-display text-sm font-bold text-ink-900 dark:text-white">
-          Disaster Simulation & Evacuation
+          Simulasi Evakuasi
         </h3>
         {!hasMap ? (
-          <p className="text-xs text-red-500">Map is not uploaded.</p>
+          <p className="text-xs text-red-500">Peta belum tersedia.</p>
         ) : !hasNodes ? (
-          <p className="text-xs text-amber-500">No nodes/routes created.</p>
+          <p className="text-xs text-amber-500">Titik jalur evakuasi belum dibuat.</p>
         ) : (
           <p className="text-xs text-ink-500 dark:text-slate-400">
-            Select a disaster scenario to activate the evacuation guidance
-            system.
+            Pilih skenario bencana untuk mengaktifkan panduan evakuasi.
           </p>
         )}
       </div>
@@ -43,10 +42,10 @@ export function DisasterSimulationPanel({
           disabled={simRunning || !hasMap || !hasNodes}
           className="px-3 py-2 text-sm rounded-lg border border-brand-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 flex-1 sm:w-48"
         >
-          <option value="">-- Scenario --</option>
-          <option value="earthquake">Earthquake</option>
-          <option value="fire">Fire</option>
-          <option value="flood">Flood</option>
+          <option value="">-- Skenario --</option>
+          <option value="earthquake">Gempa Bumi</option>
+          <option value="fire">Kebakaran</option>
+          <option value="flood">Banjir</option>
         </select>
 
         <button
@@ -60,11 +59,11 @@ export function DisasterSimulationPanel({
         >
           {simRunning ? (
             <>
-              <Square className="h-4 w-4" fill="currentColor" /> STOP
+              <Square className="h-4 w-4" fill="currentColor" /> HENTIKAN
             </>
           ) : (
             <>
-              <Play className="h-4 w-4" fill="currentColor" /> START SIMULATION
+              <Play className="h-4 w-4" fill="currentColor" /> MULAI SIMULASI
             </>
           )}
         </button>

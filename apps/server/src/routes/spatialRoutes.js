@@ -33,6 +33,7 @@ import {
   getVolcanoesList,
   getLiveVolcanoUpdates,
   getLiveEarthquakesList,
+  getFaultsMetadata,
   handleDirectCctvStream,
 } from "../controllers/spatialController.js";
 
@@ -45,10 +46,11 @@ router.post("/stac/search", searchSTACProxy);
 router.get("/health", getSpatialHealth);
 router.get("/weather/current", getCurrentWeatherProxy);
 
-// Volcano & Earthquake Geological Endpoints
+// Volcano, Faults & Earthquake Geological Endpoints
 router.get("/volcanoes", getVolcanoesList);
 router.get("/volcanoes/live", getLiveVolcanoUpdates);
 router.get("/earthquakes/live", getLiveEarthquakesList);
+router.get("/faults", getFaultsMetadata);
 
 // Spatial Risk Synthesis & Reasoning Engine (GMPE, Seismic Lead Time & Terrain Hazard)
 router.get("/school-risk-synthesis", getSchoolRiskSynthesis);

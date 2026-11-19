@@ -27,6 +27,7 @@ import {
   SensorFamily,
 } from "@/services/earthSensorRegistry";
 import { useToast } from "@/hooks/useToast";
+import { safeCopyToClipboard } from "@/utils/browserCompat";
 
 interface SensorInspectorModalProps {
   sensor: EarthSensorNode | null;
@@ -59,9 +60,13 @@ export function SensorInspectorModal({
   const meta = SENSOR_FAMILY_META[sensor.family];
   const IconComponent = FAMILY_ICONS[sensor.family] || Activity;
 
-  const handleCopyCoords = () => {
-    navigator.clipboard.writeText(`${sensor.lat}, ${sensor.lng}`);
-    show(`Koordinat ${sensor.lat.toFixed(4)}, ${sensor.lng.toFixed(4)} disalin ke clipboard!`, "success");
+  const handleCopyCoords = async () => {
+    const ok = await safeCopyToClipboard(`${sensor.lat}, ${sensor.lng}`);
+    if (ok) {
+      show(`Koordinat ${sensor.lat.toFixed(4)}, ${sensor.lng.toFixed(4)} disalin ke clipboard!`, "success");
+    } else {
+      show("Gagal menyalin koordinat ke clipboard.", "error");
+    }
   };
 
   const handleCenter = () => {
@@ -145,14 +150,20 @@ export function SensorInspectorModal({
               <span className={`flex items-center gap-1 font-bold ${
                 sensor.status === 'ALERT'
                   ? 'text-red-600 dark:text-red-400'
-                  : 'text-emerald-600 dark:text-emerald-400'
+                  : sensor.status === 'ONLINE'
+                  ? 'text-emerald-600 dark:text-emerald-400'
+                  : sensor.status === 'MAINTENANCE'
+                  ? 'text-slate-600 dark:text-slate-400'
+                  : 'text-amber-600 dark:text-amber-400'
               }`}>
-                {sensor.status === 'ALERT' ? (
-                  <AlertTriangle className="h-3.5 w-3.5 animate-pulse" />
-                ) : (
+                {sensor.status === 'ONLINE' ? (
                   <CheckCircle2 className="h-3.5 w-3.5" />
+                ) : (
+                  <AlertTriangle className={`h-3.5 w-3.5 ${sensor.status === 'ALERT' ? 'animate-pulse' : ''}`} />
                 )}
-                <span>● {sensor.status === 'UNCHECKED' ? 'Belum terhubung' : sensor.status}</span>
+                <span>
+                  ● {sensor.status === 'UNCHECKED' ? 'KATALOG — BELUM TERHUBUNG' : sensor.status === 'OFFLINE' ? 'OFFLINE' : sensor.status}
+                </span>
               </span>
               <span className="text-slate-300 dark:text-slate-700">•</span>
               <span className="text-ink-600 dark:text-slate-300">
@@ -221,7 +232,7 @@ export function SensorInspectorModal({
           <div className="mt-3.5">
             <h4 className="text-xs font-bold text-ink-800 dark:text-slate-200 flex items-center gap-1.5 mb-1.5">
               <ShieldCheck className="h-3.5 w-3.5 text-brand-600 dark:text-brand-400" />
-              Peran dalam Mitigasi & Inferensi Bencana
+              Peran Mitigasi
             </h4>
             <p className="text-xs text-ink-600 dark:text-slate-400 leading-relaxed">
               {sensor.description}

@@ -37,4 +37,8 @@ export default defineConfig({
   optimizeDeps: {
 
   },
+  build: {
+    target: ['es2020', 'edge90', 'firefox90', 'chrome90', 'safari14'],
+    cssTarget: ['chrome90', 'safari14', 'firefox90'],
+  },
 });

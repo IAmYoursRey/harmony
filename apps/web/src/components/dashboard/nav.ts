@@ -56,7 +56,7 @@ export function resolveNavLabel(
 
 export const navItems: NavItem[] = [
   { id: "maps", label: "Peta Utama", icon: Map },
-  { id: "geospatial", label: "Cuaca & Satelit", icon: Satellite },
+  { id: "geospatial", label: "Studio Geospasial", icon: Satellite },
   {
     id: "dev-dashboard",
     label: "Kelola Akun",
@@ -64,7 +64,7 @@ export const navItems: NavItem[] = [
     roles: ["developer"],
   },
   { id: "dashboard", label: "Beranda", icon: LayoutDashboard },
-  { id: "events", label: "Agenda & Lomba", icon: Trophy },
+  { id: "events", label: "Agenda", icon: Trophy },
   { id: "ai-learning", label: "Tanya GeoBot", icon: Brain },
   {
     id: "digital-twin",
@@ -77,7 +77,7 @@ export const navItems: NavItem[] = [
   },
   {
     id: "student-game",
-    label: "Main Bareng",
+    label: "Ruang Sesi",
     icon: Swords,
     roles: ["student"],
   },
@@ -96,5 +96,5 @@ export const navItems: NavItem[] = [
     icon: GraduationCap,
     roles: ["teacher", "developer"],
   },
-  { id: "profile", label: "Profil Saya", icon: User },
+  { id: "profile", label: "Profil", icon: User },
 ];

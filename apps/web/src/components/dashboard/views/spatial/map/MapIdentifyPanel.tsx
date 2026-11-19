@@ -19,6 +19,7 @@ import { crsEngine } from "@/services/geospatial/crsEngine";
 import { terrainService, TerrainIntelligenceResult } from "@/services/geospatial/terrainService";
 import { apiClient } from "@/services/apiClient";
 import { DataProvenance } from "@/services/geospatial/types";
+import { safeCopyToClipboard } from "@/utils/browserCompat";
 
 export interface IdentifyResult {
   lat: number;
@@ -150,14 +151,16 @@ export const MapIdentifyPanel: React.FC<MapIdentifyPanelProps> = ({
 
   const [lng, lat] = coordinate;
 
-  const handleCopy = (text: string, type: string) => {
-    navigator.clipboard.writeText(text);
-    setCopiedType(type);
-    setTimeout(() => setCopiedType(null), 2500);
+  const handleCopy = async (text: string, type: string) => {
+    const ok = await safeCopyToClipboard(text);
+    if (ok) {
+      setCopiedType(type);
+      setTimeout(() => setCopiedType(null), 2500);
+    }
   };
 
   return (
-    <div className="absolute top-20 right-4 z-30 w-84 sm:w-96 max-w-[calc(100vw-2rem)] rounded-2xl bg-white/95 p-4 shadow-2xl backdrop-blur-xl border border-slate-200/90 dark:bg-slate-900/95 dark:border-slate-800 animate-in fade-in slide-in-from-right-3 duration-200 text-slate-800 dark:text-slate-100 max-h-[calc(100vh-6.5rem)] overflow-y-auto">
+    <div className="absolute top-20 right-3 sm:right-4 z-30 w-84 sm:w-96 max-w-[calc(100vw-1.5rem)] rounded-2xl bg-white/95 p-4 shadow-2xl backdrop-blur-xl border border-slate-200/90 dark:bg-slate-900/95 dark:border-slate-800 animate-in fade-in slide-in-from-right-3 duration-200 text-slate-800 dark:text-slate-100 max-h-[calc(var(--vh-full)-6.5rem)] overflow-y-auto">
       {/* Header */}
       <div className="flex items-center justify-between pb-3 border-b border-slate-100 dark:border-slate-800">
         <div className="flex items-center gap-2">
@@ -271,7 +274,7 @@ export const MapIdentifyPanel: React.FC<MapIdentifyPanelProps> = ({
               <div>
                 <span className="text-[10px] text-slate-500">Klasifikasi Relief:</span>
                 <span className="inline-block rounded-md bg-amber-200/70 px-1.5 py-0.5 text-[10px] font-bold text-amber-900 dark:bg-amber-900/60 dark:text-amber-200">
-                  {data.terrain.morphologyClass || "Dataran"}
+                  {data.terrain.morphologyClass || "Tidak tersedia"}
                 </span>
               </div>
             </div>
@@ -402,7 +405,7 @@ export const MapIdentifyPanel: React.FC<MapIdentifyPanelProps> = ({
           <span className="h-1.5 w-1.5 rounded-full bg-emerald-500" />
           <span>Status: </span>
           <strong className="text-slate-600 dark:text-slate-300">
-            {data?.provenance?.dataStatus || "LIVE"}
+            {data?.provenance?.dataStatus || "UNAVAILABLE"}
           </strong>
         </span>
         <span>PostGIS 3.6 &amp; Open-Meteo DEM</span>

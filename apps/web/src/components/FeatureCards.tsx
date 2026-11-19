@@ -126,7 +126,7 @@ export function FeatureCards() {
                   <p className="mt-2 text-sm leading-relaxed text-ink-600 dark:text-slate-300">
                     {t(c.descKey)}
                   </p>
-                  <div className="mt-4 flex items-center gap-1.5 text-xs font-semibold text-brand-600 opacity-0 transition-all group-hover:opacity-100">
+                  <div className="mt-4 flex items-center gap-1.5 text-xs font-semibold text-brand-600 opacity-100 sm:opacity-0 transition-all sm:group-hover:opacity-100">
                     {t("common.open")}{" "}
                     <ArrowRight className="h-3.5 w-3.5 transition-transform group-hover:translate-x-1" />
                   </div>

@@ -1,8 +1,8 @@
 export interface LiveTrafficNetworkStatus {
   monitoredCorridors: number;
   totalRoadLengthKm: number;
-  nationalFlowIndex: number; // 0 - 100%
-  averageSpeedKmh: number;
+  nationalFlowIndex: number | null; // 0 - 100%
+  averageSpeedKmh: number | null;
   activeSimulatedVehicles: number;
   onlineCctvCount: number;
   onlineSignalsCount: number;
@@ -17,7 +17,9 @@ export interface LiveTrafficNetworkStatus {
     currentSpeedKmh: number;
     status: 'Lancar' | 'Ramai Lancar' | 'Padat Merayap' | 'Macet Total';
   }[];
-  dataStatus: 'LIVE' | 'SIMULATED' | 'OFFLINE';
+  dataStatus: 'LIVE' | 'PARTIAL' | 'UNAVAILABLE' | 'ERROR' | 'SIMULATED' | 'OFFLINE';
+  errorMessage?: string;
+  tomtomConfigured?: boolean;
   refreshedAt: string;
 }
 
@@ -40,24 +42,22 @@ class LiveTrafficFlowService {
   private pollIntervalMs = 15000; // 15s realtime refresh loop
   private timer: any = null;
   private currentStatus: LiveTrafficNetworkStatus = {
-    monitoredCorridors: 35,
-    totalRoadLengthKm: 2840.5,
-    nationalFlowIndex: 78,
-    averageSpeedKmh: 62.4,
-    activeSimulatedVehicles: 220,
-    onlineCctvCount: 16,
-    onlineSignalsCount: 9,
-    severeBottlenecks: [
-      { corridorId: "tol_dalkot_jakarta", segment: "Slipi - Semanggi", name: "Slipi - Semanggi", location: "Tol Dalkot Jakarta", delayMin: 18, delayMinutes: 18, speedKmh: 24, currentSpeedKmh: 24, status: "Padat Merayap" },
-      { corridorId: "arteri_pasteur_bandung", segment: "Gerbang Tol - Pasirkaliki", name: "Gerbang Tol - Pasirkaliki", location: "Arteri Pasteur Bandung", delayMin: 14, delayMinutes: 14, speedKmh: 18, currentSpeedKmh: 18, status: "Padat Merayap" },
-      { corridorId: "arteri_wonokromo_surabaya", segment: "Joyoboyo - Diponegoro", name: "Joyoboyo - Diponegoro", location: "Arteri Wonokromo Surabaya", delayMin: 11, delayMinutes: 11, speedKmh: 22, currentSpeedKmh: 22, status: "Padat Merayap" },
-    ],
-    dataStatus: 'LIVE',
+    monitoredCorridors: 0,
+    totalRoadLengthKm: 0,
+    nationalFlowIndex: null,
+    averageSpeedKmh: null,
+    activeSimulatedVehicles: 0,
+    onlineCctvCount: 0,
+    onlineSignalsCount: 0,
+    severeBottlenecks: [],
+    dataStatus: 'UNAVAILABLE',
     refreshedAt: new Date().toISOString(),
   };
 
   constructor() {
-    this.startPolling();
+    if (typeof window !== 'undefined') {
+      this.startPolling();
+    }
   }
 
   public subscribe(listener: TrafficUpdateListener): () => void {
@@ -110,6 +110,7 @@ class LiveTrafficFlowService {
     this.timer = setInterval(() => {
       void this.fetchLiveNetwork();
     }, this.pollIntervalMs);
+    if (typeof this.timer?.unref === 'function') this.timer.unref();
   }
 
   public stopPolling(): void {
@@ -122,27 +123,67 @@ class LiveTrafficFlowService {
   public async fetchLiveNetwork(): Promise<LiveTrafficNetworkStatus> {
     try {
       const res = await fetch('/api/spatial/traffic/live-network');
-      if (res.ok) {
-        const json = await res.json();
-        if (json.success && json.data) {
-          this.currentStatus = {
-            ...this.currentStatus,
-            ...json.data,
-            refreshedAt: new Date().toISOString(),
-          };
-          this.notify();
-          return this.currentStatus;
-        }
+      if (!res.ok) {
+        this.currentStatus = {
+          monitoredCorridors: 0,
+          totalRoadLengthKm: 0,
+          nationalFlowIndex: null,
+          averageSpeedKmh: null,
+          activeSimulatedVehicles: 0,
+          onlineCctvCount: 0,
+          onlineSignalsCount: 0,
+          severeBottlenecks: [],
+          dataStatus: 'ERROR',
+          errorMessage: `Traffic API HTTP ${res.status}`,
+          refreshedAt: new Date().toISOString(),
+        };
+        this.notify();
+        return this.currentStatus;
       }
-    } catch {
-      // Keep existing data
+
+      const json = await res.json();
+      if (json.success && json.data) {
+        this.currentStatus = {
+          ...json.data,
+          errorMessage: json.data.errorMessage,
+          refreshedAt: new Date().toISOString(),
+        };
+        this.notify();
+        return this.currentStatus;
+      }
+
+      this.currentStatus = {
+        monitoredCorridors: 0,
+        totalRoadLengthKm: 0,
+        nationalFlowIndex: null,
+        averageSpeedKmh: null,
+        activeSimulatedVehicles: 0,
+        onlineCctvCount: 0,
+        onlineSignalsCount: 0,
+        severeBottlenecks: [],
+        dataStatus: 'ERROR',
+        errorMessage: json?.error || json?.message || 'Payload jaringan lalu lintas tidak valid.',
+        refreshedAt: new Date().toISOString(),
+      };
+      this.notify();
+      return this.currentStatus;
+    } catch (err: any) {
+      this.currentStatus = {
+        monitoredCorridors: 0,
+        totalRoadLengthKm: 0,
+        nationalFlowIndex: null,
+        averageSpeedKmh: null,
+        activeSimulatedVehicles: 0,
+        onlineCctvCount: 0,
+        onlineSignalsCount: 0,
+        severeBottlenecks: [],
+        dataStatus: 'ERROR',
+        errorMessage: err instanceof Error ? err.message : 'Gagal menghubungi layanan lalu lintas.',
+        refreshedAt: new Date().toISOString(),
+      };
+      this.notify();
+      return this.currentStatus;
     }
-    this.currentStatus = {
-      ...this.currentStatus,
-      refreshedAt: new Date().toISOString(),
-    };
-    this.notify();
-    return this.currentStatus;
   }
 
   public async fetchSegmentFlow(lat: number, lng: number): Promise<TomTomFlowSegment | null> {

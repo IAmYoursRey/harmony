@@ -48,7 +48,7 @@ export function GameResult({ phase, player, elapsedSeconds, onExit }: Props) {
               : "text-red-600 dark:text-red-400"
           }`}
         >
-          {success ? "🎉 BERHASIL!" : "💀 GAGAL!"}
+          {success ? "EVAKUASI BERHASIL" : "EVAKUASI GAGAL"}
         </h2>
         <p className="text-ink-500 dark:text-slate-400 mt-3 text-sm max-w-xs mx-auto font-medium">
           {success

@@ -44,7 +44,7 @@ function getDashboardData(userId: string, baseScore: number, profile: any) {
     const d = new Date(today);
     d.setDate(d.getDate() - i);
     const dateStr = d.toISOString().split("T")[0];
-    const label = d.toLocaleDateString("en-US", { weekday: "short" });
+    const label = d.toLocaleDateString("id-ID", { weekday: "short" });
     const ph = profile?.pointsHistory?.find((h: any) => h.date === dateStr);
     weeklyLearning.push({ label, value: ph ? ph.points : 0 });
   }
@@ -111,9 +111,9 @@ function getDashboardData(userId: string, baseScore: number, profile: any) {
   const avgProgress = attempted > 0 ? Math.round(totalScore / attempted) : 0;
 
   const donutData = [
-    { label: "Prepared", value: prepared, color: "hsl(var(--brand-600))" },
-    { label: "In Progress", value: inProgress, color: "hsl(var(--brand-400))" },
-    { label: "Needs Work", value: needsWork, color: "hsl(var(--brand-100))" },
+    { label: "Siap", value: prepared, color: "hsl(var(--brand-600))" },
+    { label: "Berjalan", value: inProgress, color: "hsl(var(--brand-400))" },
+    { label: "Perlu Latihan", value: needsWork, color: "hsl(var(--brand-100))" },
   ];
 
   const modulesCompleted = Object.keys(profile?.topicScores || {}).length;
@@ -194,7 +194,7 @@ function Card({
 }) {
   return (
     <div
-      className={`glass rounded-2xl p-5 transition-all hover:shadow-glass ${className}`}
+      className={`glass min-w-0 rounded-2xl p-5 transition-all hover:shadow-glass ${className}`}
     >
       {children}
     </div>
@@ -376,7 +376,7 @@ export function DashboardView() {
                   <Sparkles className="h-3.5 w-3.5 shrink-0" />
                   <span className="truncate">
                     {currentUser?.role === "developer"
-                      ? "Developer"
+                      ? "Pengembang"
                       : currentUser?.role === "teacher"
                         ? "Guru"
                         : t("dashboard.student_researcher")}
@@ -387,10 +387,10 @@ export function DashboardView() {
                 </h2>
                 <p className="mt-1 text-sm text-brand-200 truncate">
                   {currentUser?.role === "developer"
-                    ? t("role.developer", "Developer")
+                    ? t("role.developer", "Pengembang")
                     : currentUser?.role === "teacher"
-                      ? t("role.teacher", "Teacher")
-                      : t("role.student", "Student")}{" "}
+                      ? t("role.teacher", "Guru")
+                      : t("role.student", "Siswa")}{" "}
                   &bull;{" "}
                   {currentProfile?.schoolId &&
                   currentProfile.schoolId !== "unknown"
@@ -535,17 +535,17 @@ export function DashboardView() {
               <span>Evaluasi Empiris SPAB — Uji Efektivitas 320 Siswa</span>
             </div>
             <h3 className="font-display text-lg sm:text-xl font-extrabold text-white">
-              Capaian N-Gain 0,74 (Kategori Tinggi) &amp; Akurasi 85%
+              Capaian N-Gain 0,74
             </h3>
             <p className="max-w-2xl text-xs sm:text-sm text-indigo-100/90 leading-relaxed">
-              Data empiris 320 siswa SMAN 1 Ngoro membuktikan peningkatan pemahaman mitigasi bencana dari Pre-Test 46,5 ke Post-Test 86,1. Tersedia Mode Privasi (inisial a*** b***) demi perlindungan data.
+              Evaluasi 320 siswa SMAN 1 Ngoro mencatat peningkatan dari Pre-Test 46,5 ke Post-Test 86,1 (Kategori Tinggi, akurasi 85%). Mode Privasi tersedia untuk perlindungan data.
             </p>
           </div>
           <Link
             to="/app/learning-gain"
             className="inline-flex items-center justify-center gap-2 rounded-2xl bg-white px-5 py-3 text-xs sm:text-sm font-bold text-brand-900 shadow-md hover:bg-brand-50 active:scale-95 transition-all shrink-0"
           >
-            <span>Buka Laporan Validasi (Mode Demo)</span>
+            <span>Laporan Validasi</span>
             <ArrowRight className="h-4 w-4 text-brand-700" />
           </Link>
         </div>

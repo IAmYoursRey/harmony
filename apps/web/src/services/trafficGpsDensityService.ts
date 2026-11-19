@@ -4,7 +4,7 @@ export interface GpsProbePing {
   id: string;
   lat: number;
   lng: number;
-  speedKmh: number;
+  speedKmh: number | null;
   headingDeg: number;
   timestamp: number;
   deviceType: 'mobile_gps' | 'in_car_telematics' | 'harmony_citizen_contributor';
@@ -12,6 +12,7 @@ export interface GpsProbePing {
   corridorId: string;
   segmentId?: string;
   isRealUser?: boolean;
+  isSimulated?: boolean;
 }
 
 export interface SegmentDensityMetric {
@@ -31,8 +32,10 @@ export interface TrafficCrowdsourceSummary {
   totalActiveProbes: number;
   citizenContributors: number;
   congestedSegmentsCount: number;
-  averageNetworkSpeedKmh: number;
+  averageNetworkSpeedKmh: number | null;
   heaviestBottleneck: string;
+  isSimulated: boolean;
+  dataStatus: 'SIMULATED' | 'PARTIAL_USER_GPS' | 'UNAVAILABLE';
   timestamp: string;
 }
 
@@ -127,6 +130,8 @@ export class TrafficGpsDensityService {
             vehicleType: vType,
             corridorId: corridor.id,
             segmentId: seg.segId,
+            isRealUser: false,
+            isSimulated: true,
           });
         }
       }
@@ -141,7 +146,7 @@ export class TrafficGpsDensityService {
     const speedScale = 0.00028; // km/h to degrees approx
 
     for (const probe of this.probes) {
-      if (probe.isRealUser) continue; // Real user GPS is not simulated
+      if (probe.isRealUser || typeof probe.speedKmh !== 'number') continue;
 
       const rad = (probe.headingDeg * Math.PI) / 180;
       const dist = (probe.speedKmh * dt * speedScale) / 3600;
@@ -187,9 +192,10 @@ export class TrafficGpsDensityService {
         const densityPerKm = Math.round(count / segLenKm);
 
         let avgSpeed = seg.speedKmh;
-        if (count > 0) {
-          const totalSpeed = pings.reduce((sum, p) => sum + p.speedKmh, 0);
-          avgSpeed = Math.round(totalSpeed / count);
+        const speedPings = pings.filter((p) => typeof p.speedKmh === 'number' && Number.isFinite(p.speedKmh));
+        if (speedPings.length > 0) {
+          const totalSpeed = speedPings.reduce((sum, p) => sum + (p.speedKmh as number), 0);
+          avgSpeed = Math.round(totalSpeed / speedPings.length);
         }
 
         const freeFlow = corridor.tier === 'expressway' ? 80 : 50;
@@ -250,7 +256,7 @@ export class TrafficGpsDensityService {
    * Anonymously reports user location to Harmony's congestion calculation engine.
    */
   public async startBroadcastingUserGps(
-    onLocationUpdate?: (pos: { lat: number; lng: number; speedKmh: number }) => void
+    onLocationUpdate?: (pos: { lat: number; lng: number; speedKmh: number | null }) => void
   ): Promise<boolean> {
     if (!('geolocation' in navigator)) {
       return false;
@@ -261,8 +267,8 @@ export class TrafficGpsDensityService {
         async (position) => {
           const lat = position.coords.latitude;
           const lng = position.coords.longitude;
-          const rawSpeed = position.coords.speed; // meters per second
-          const speedKmh = rawSpeed !== null && Number.isFinite(rawSpeed) ? Math.round(rawSpeed * 3.6) : 28;
+          const rawSpeed = position.coords.speed;
+          const speedKmh = rawSpeed !== null && Number.isFinite(rawSpeed) ? Math.round(rawSpeed * 3.6) : null;
           const heading = position.coords.heading !== null && Number.isFinite(position.coords.heading) ? Math.round(position.coords.heading) : 0;
 
           this.userProbe = {
@@ -276,6 +282,7 @@ export class TrafficGpsDensityService {
             vehicleType: 'citizen',
             corridorId: 'user-shared-corridor',
             isRealUser: true,
+            isSimulated: false,
           };
 
           // Find closest corridor segment
@@ -356,11 +363,12 @@ export class TrafficGpsDensityService {
       (m) => m.congestionLevel === 'Padat Merayap' || m.congestionLevel === 'Macet Total'
     ).length;
 
-    const avgSpeed = count > 0
-      ? Math.round(all.reduce((s, p) => s + p.speedKmh, 0) / count)
-      : 55;
+    const speedProbes = all.filter((p) => typeof p.speedKmh === 'number' && Number.isFinite(p.speedKmh));
+    const avgSpeed = speedProbes.length > 0
+      ? Math.round(speedProbes.reduce((s, p) => s + (p.speedKmh as number), 0) / speedProbes.length)
+      : null;
 
-    let heaviest = 'Simpang Susun Semanggi (Jakarta)';
+    let heaviest = 'Belum ada data hambatan';
     let maxDelay = 0;
     for (const m of this.densityMetrics.values()) {
       if (m.delayMinutes > maxDelay) {
@@ -369,12 +377,21 @@ export class TrafficGpsDensityService {
       }
     }
 
+    const hasSimulated = this.probes.some((p) => p.isSimulated !== false);
+    const dataStatus: TrafficCrowdsourceSummary['dataStatus'] = hasSimulated
+      ? 'SIMULATED'
+      : this.userProbe
+        ? 'PARTIAL_USER_GPS'
+        : 'UNAVAILABLE';
+
     return {
       totalActiveProbes: count,
       citizenContributors: this.userProbe ? 1 : 0,
       congestedSegmentsCount: congestedCount,
       averageNetworkSpeedKmh: avgSpeed,
       heaviestBottleneck: heaviest,
+      isSimulated: hasSimulated,
+      dataStatus,
       timestamp: new Date().toLocaleTimeString('id-ID') + ' WIB',
     };
   }

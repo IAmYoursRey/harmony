@@ -19,6 +19,7 @@ import {
   gnssElevationService,
   GnssElevationReport,
 } from '../../../../../services/geospatial/gnssElevationService';
+import { safeCopyToClipboard } from '@/utils/browserCompat';
 
 interface GnssAltimeterToolProps {
   onPositionUpdated?: (report: GnssElevationReport) => void;
@@ -56,12 +57,13 @@ export const GnssAltimeterTool: React.FC<GnssAltimeterToolProps> = ({
     }
   };
 
-  const handleCopyReport = () => {
+  const handleCopyReport = async () => {
     if (!report) return;
-    navigator.clipboard.writeText(report.formattedReportText).then(() => {
+    const ok = await safeCopyToClipboard(report.formattedReportText);
+    if (ok) {
       setCopied(true);
       setTimeout(() => setCopied(false), 2500);
-    });
+    }
   };
 
   const handleDownloadReport = () => {
@@ -80,8 +82,8 @@ export const GnssAltimeterTool: React.FC<GnssAltimeterToolProps> = ({
     URL.revokeObjectURL(url);
   };
 
-  const getElevationPercentage = (altM: number) => {
-    // Normalizes 0 - 3000 mdpl for visually appealing gauge bar
+  const getElevationPercentage = (altM: number | null) => {
+    if (altM == null || !Number.isFinite(altM)) return 0;
     const clamped = Math.max(0, Math.min(3000, altM));
     return Math.max(3, Math.round((clamped / 3000) * 100));
   };
@@ -100,7 +102,7 @@ export const GnssAltimeterTool: React.FC<GnssAltimeterToolProps> = ({
             <div>
               <div className="flex items-center gap-2 flex-wrap">
                 <h3 className="text-base font-bold text-white tracking-tight">
-                  Alat Pengukur Ketinggian & Elevasi Presisi (Altimeter Geodesi GNSS)
+                  Altimeter GNSS
                 </h3>
                 <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-extrabold uppercase bg-sky-500/20 text-sky-300 border border-sky-400/30">
                   <Sparkles className="w-3 h-3 text-sky-400" /> WGS84 + DEM 30m
@@ -178,11 +180,17 @@ export const GnssAltimeterTool: React.FC<GnssAltimeterToolProps> = ({
             <div className="lg:col-span-1 p-5 rounded-3xl bg-slate-800/90 border border-sky-500/30 flex flex-col justify-between shadow-inner">
               <div className="flex items-center justify-between text-sky-300 text-xs font-semibold">
                 <span>Elevasi / Ketinggian Medan</span>
-                <span className="px-2 py-0.5 rounded-full bg-sky-500/20 text-sky-300 border border-sky-500/30 text-[10px] uppercase font-mono">
+                <span className={`px-2 py-0.5 rounded-full border text-[10px] uppercase font-mono ${
+                  report.altitudeSource === 'unavailable'
+                    ? 'bg-rose-500/20 text-rose-300 border-rose-500/40'
+                    : 'bg-sky-500/20 text-sky-300 border-sky-500/30'
+                }`}>
                   {report.altitudeSource === 'device_sensor'
                     ? 'Sensor Internal'
                     : report.altitudeSource === 'sensor_fusion'
                     ? 'Sensor Fusion'
+                    : report.altitudeSource === 'unavailable'
+                    ? 'ERROR / TIDAK TERSEDIA'
                     : 'SRTM DEM 30m'}
                 </span>
               </div>
@@ -190,14 +198,16 @@ export const GnssAltimeterTool: React.FC<GnssAltimeterToolProps> = ({
               <div className="my-4">
                 <div className="flex items-baseline gap-2">
                   <span className="text-4xl sm:text-5xl font-black font-mono tracking-tight text-white drop-shadow-md">
-                    {report.altitudeM >= 0 ? `+${report.altitudeM}` : report.altitudeM}
+                    {report.altitudeM == null ? '—' : report.altitudeM >= 0 ? `+${report.altitudeM}` : report.altitudeM}
                   </span>
                   <span className="text-lg font-bold text-sky-400 font-mono">
-                    mdpl
+                    {report.altitudeM == null ? '' : 'mdpl'}
                   </span>
                 </div>
                 <p className="text-xs text-slate-400 mt-1 font-medium">
-                  Meter Di Atas Permukaan Laut (Mean Sea Level)
+                  {report.altitudeM == null
+                    ? (report.elevationError || 'Data elevasi sensor & DEM tidak tersedia')
+                    : 'Meter Di Atas Permukaan Laut (Mean Sea Level)'}
                 </p>
               </div>
 
@@ -237,13 +247,13 @@ export const GnssAltimeterTool: React.FC<GnssAltimeterToolProps> = ({
                 <div className="p-2.5 rounded-2xl bg-slate-900/60 border border-slate-800">
                   <span className="text-[10px] text-slate-400 block">Tekanan Atmosfer</span>
                   <span className="text-xs sm:text-sm font-mono font-bold text-sky-300">
-                    {report.estimatedBarometricPressureHpa} hPa
+                    {report.estimatedBarometricPressureHpa != null ? `${report.estimatedBarometricPressureHpa} hPa` : '—'}
                   </span>
                 </div>
                 <div className="p-2.5 rounded-2xl bg-slate-900/60 border border-slate-800">
                   <span className="text-[10px] text-slate-400 block">Titik Didih Air</span>
                   <span className="text-xs sm:text-sm font-mono font-bold text-amber-300">
-                    {report.estimatedBoilingPointC} °C
+                    {report.estimatedBoilingPointC != null ? `${report.estimatedBoilingPointC} °C` : '—'}
                   </span>
                 </div>
                 <div className="col-span-2 sm:col-span-1 p-2.5 rounded-2xl bg-slate-900/60 border border-slate-800">
@@ -364,7 +374,7 @@ export const GnssAltimeterTool: React.FC<GnssAltimeterToolProps> = ({
             <Gauge className="w-6 h-6" />
           </div>
           <h4 className="text-sm font-bold text-white">
-            Altimeter Geodesi Belum Diaktifkan
+            Altimeter Nonaktif
           </h4>
           <p className="text-xs text-slate-400 max-w-md mx-auto mt-1 leading-relaxed">
             Klik tombol &quot;Mulai Ukur Ketinggian &amp; Posisi&quot; di atas. Aplikasi akan meminta izin lokasi presisi perangkat Anda untuk menghitung elevasi medan dan menghasilkan laporan geospasial lengkap.

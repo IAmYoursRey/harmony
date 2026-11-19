@@ -57,7 +57,7 @@ export function CelestialInfoPanel({
     <div 
       onPointerDown={(e) => e.stopPropagation()}
       onClick={(e) => e.stopPropagation()}
-      className="fixed top-16 left-3 sm:left-4 z-[9999] w-80 sm:w-96 max-w-[calc(100vw-1.5rem)] max-h-[calc(100vh-8.5rem)] flex flex-col bg-slate-950/90 backdrop-blur-2xl border border-white/15 rounded-2xl shadow-2xl text-slate-100 overflow-hidden animate-in fade-in slide-in-from-left-4 duration-300 pointer-events-auto"
+      className="fixed top-16 left-3 sm:left-4 z-[9999] w-80 sm:w-96 max-w-[calc(100vw-1.5rem)] max-h-[calc(var(--vh-full)-8.5rem)] flex flex-col bg-slate-950/90 backdrop-blur-2xl border border-white/15 rounded-2xl shadow-2xl text-slate-100 overflow-hidden animate-in fade-in slide-in-from-left-4 duration-300 pointer-events-auto"
       style={{
         boxShadow: `0 20px 50px rgba(0, 0, 0, 0.6), 0 0 25px ${body.visual.glowColor || 'rgba(56, 189, 248, 0.2)'}20`
       }}

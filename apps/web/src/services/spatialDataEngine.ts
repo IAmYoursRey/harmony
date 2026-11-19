@@ -66,7 +66,7 @@ export interface TsunamiSensorNode {
   lng: number;
   depthM: number;
   seaArea: string;
-  status: 'ONLINE' | 'MAINTENANCE' | 'ALERT';
+  status: 'UNCHECKED' | 'ONLINE' | 'MAINTENANCE' | 'ALERT' | 'OFFLINE';
   samplingRateHz: number;
   waterPressureMpa: number;
   seaLevelAnomalyM: number;
@@ -84,7 +84,7 @@ export interface OperationalSensorNode {
   lat: number;
   lng: number;
   altitudeM: number;
-  status: 'ONLINE' | 'MAINTENANCE' | 'OFFLINE';
+  status: 'UNCHECKED' | 'ONLINE' | 'MAINTENANCE' | 'OFFLINE';
   samplingIntervalSec: number;
   measurementTypes: string[];
   installationYear: number;
@@ -143,7 +143,7 @@ export const CORE_SENSOR_NETWORK: OperationalSensorNode[] = [
     lat: -7.379,
     lng: 112.787,
     altitudeM: 12,
-    status: 'ONLINE',
+    status: 'UNCHECKED',
     samplingIntervalSec: 300,
     measurementTypes: ['Reflektivitas dBZ', 'Kecepatan Radial Doppler', 'Estimasi Curah Hujan QPE'],
     installationYear: 2018,
@@ -157,7 +157,7 @@ export const CORE_SENSOR_NETWORK: OperationalSensorNode[] = [
     lat: -6.125,
     lng: 106.655,
     altitudeM: 10,
-    status: 'ONLINE',
+    status: 'UNCHECKED',
     samplingIntervalSec: 300,
     measurementTypes: ['Reflektivitas dBZ', 'Hydrometeor Classification', 'Turbulensi Awan'],
     installationYear: 2015,
@@ -171,7 +171,7 @@ export const CORE_SENSOR_NETWORK: OperationalSensorNode[] = [
     lat: -7.202,
     lng: 112.732,
     altitudeM: 4,
-    status: 'ONLINE',
+    status: 'UNCHECKED',
     samplingIntervalSec: 60,
     measurementTypes: ['Suhu Udara', 'Kelembapan Relatif', 'Tekanan Barometrik', 'Arah & Kecepatan Angin'],
     installationYear: 2021,
@@ -185,7 +185,7 @@ export const CORE_SENSOR_NETWORK: OperationalSensorNode[] = [
     lat: -7.282,
     lng: 112.794,
     altitudeM: 28,
-    status: 'ONLINE',
+    status: 'UNCHECKED',
     samplingIntervalSec: 1,
     measurementTypes: ['Koordinat Deformasi Kerak Bumi (X,Y,Z)', 'Kandungan Uap Air Troposfer PWV'],
     installationYear: 2016,
@@ -199,7 +199,7 @@ export const CORE_SENSOR_NETWORK: OperationalSensorNode[] = [
     lat: -7.702,
     lng: 112.628,
     altitudeM: 840,
-    status: 'ONLINE',
+    status: 'UNCHECKED',
     samplingIntervalSec: 0.01, // 100 Hz
     measurementTypes: ['Percepatan Tanah 3-Komponen (PGA)', 'Gelombang P-Wave & S-Wave'],
     installationYear: 2020,
@@ -213,7 +213,7 @@ export const CORE_SENSOR_NETWORK: OperationalSensorNode[] = [
     lat: -7.195,
     lng: 112.738,
     altitudeM: 1,
-    status: 'ONLINE',
+    status: 'UNCHECKED',
     samplingIntervalSec: 60,
     measurementTypes: ['Ketinggian Muka Air Laut Realtime', 'Anomali Gelombang Pasang'],
     installationYear: 2019,
@@ -345,10 +345,33 @@ class SpatialDataEngine {
     };
   }
 
-  public inspectFeatureAt(lat: number, lng: number, placeName: string, elevationM: number): SpatialFeatureAttribute {
+  public inspectFeatureAt(lat: number, lng: number, placeName: string, elevationM: number | null): SpatialFeatureAttribute {
     const dmsLat = this.convertDecimalToDms(lat, true);
     const dmsLng = this.convertDecimalToDms(lng, false);
     const utm = this.getUtmZoneInfo(lat, lng);
+
+    let nearestStationLabel = 'Tidak tersedia dalam katalog lokal';
+    let minKm = Infinity;
+    const toRad = (deg: number) => (deg * Math.PI) / 180;
+    for (const node of CORE_SENSOR_NETWORK) {
+      const dLat = toRad(node.lat - lat);
+      const dLon = toRad(node.lng - lng);
+      const a =
+        Math.sin(dLat / 2) ** 2 +
+        Math.cos(toRad(lat)) * Math.cos(toRad(node.lat)) * Math.sin(dLon / 2) ** 2;
+      const distKm = 6371 * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+      if (distKm < minKm) {
+        minKm = distKm;
+        nearestStationLabel = `${node.name} (~${distKm.toFixed(1)} km — Katalog Referensi)`;
+      }
+    }
+
+    const elevLabel = typeof elevationM === 'number' && Number.isFinite(elevationM)
+      ? `${elevationM} mdpl`
+      : 'Tidak Tersedia';
+    const morphLabel = typeof elevationM === 'number' && Number.isFinite(elevationM)
+      ? (elevationM > 500 ? 'Perbukitan Tinggi' : elevationM > 100 ? 'Dataran Bergelombang' : 'Dataran Rendah / Aluvium Pantai')
+      : 'Tidak Tersedia (Perlu DEM)';
 
     return {
       id: `FEAT-${Math.abs(Math.round(lat * 1000))}-${Math.abs(Math.round(lng * 1000))}`,
@@ -362,17 +385,17 @@ class SpatialDataEngine {
         'Format Derajat Menit Detik (DMS)': `${dmsLat}, ${dmsLng}`,
         'Proyeksi UTM': `${utm.zone} (${utm.epsg})`,
         'Koordinat UTM (X, Y)': `X: ${utm.eastingM.toLocaleString()} m, Y: ${utm.northingM.toLocaleString()} m`,
-        'Elevasi Medan (DEMNAS)': `${elevationM} mdpl`,
-        'Morfologi Medan': elevationM > 500 ? 'Perbukitan Tinggi' : elevationM > 100 ? 'Dataran Bergelombang' : 'Dataran Rendah / Aluvium Pantai',
-        'Jarak ke Garis Pantai Terdekat': lat < -7.0 && lat > -7.4 && lng > 112.6 ? '2.4 km (Selat Madura)' : '18.5 km',
-        'Stasiun Sensor Terdekat': lat < -7.0 && lat > -7.4 ? 'Radar Cuaca SUB Juanda (~12 km)' : 'Stasiun Meteorologi Regional',
+        'Elevasi Medan (DEM)': elevLabel,
+        'Morfologi Medan': morphLabel,
+        'Jarak ke Garis Pantai Terdekat': 'Tidak Tersedia (Perlu Vektor Garis Pantai)',
+        'Stasiun Sensor Terdekat': nearestStationLabel,
       },
       provenance: {
         agency: 'Badan Informasi Geospasial (BIG) & BMKG',
         source: 'Satu Peta Geospasial Terpadu Harmony',
         acquisitionTime: new Date().toISOString(),
         crs: `${utm.epsg} / EPSG:4326`,
-        qualityRating: 'A (Terverifikasi)',
+        qualityRating: 'Katalog Referensi & Proyeksi WGS84/UTM',
       },
     };
   }
@@ -396,7 +419,7 @@ export const TSUNAMI_EARTH_SENSOR_NETWORK: TsunamiSensorNode[] = [
     lng: 143.48,
     depthM: 5200,
     seaArea: 'Palung Jepang Tengah (Episentrum Tohoku 2011)',
-    status: 'ONLINE',
+    status: 'UNCHECKED',
     samplingRateHz: 100,
     waterPressureMpa: 52.4,
     seaLevelAnomalyM: 0.02,
@@ -417,7 +440,7 @@ export const TSUNAMI_EARTH_SENSOR_NETWORK: TsunamiSensorNode[] = [
     lng: 145.32,
     depthM: 2420,
     seaArea: 'Palung Kuril - Samudra Pasifik Hokkaido',
-    status: 'ONLINE',
+    status: 'UNCHECKED',
     samplingRateHz: 100,
     waterPressureMpa: 24.3,
     seaLevelAnomalyM: 0.01,
@@ -438,7 +461,7 @@ export const TSUNAMI_EARTH_SENSOR_NETWORK: TsunamiSensorNode[] = [
     lng: 143.85,
     depthM: 4150,
     seaArea: 'Palung Jepang Utara (Off Sanriku)',
-    status: 'ONLINE',
+    status: 'UNCHECKED',
     samplingRateHz: 100,
     waterPressureMpa: 41.8,
     seaLevelAnomalyM: 0.01,
@@ -459,7 +482,7 @@ export const TSUNAMI_EARTH_SENSOR_NETWORK: TsunamiSensorNode[] = [
     lng: 142.92,
     depthM: 3650,
     seaArea: 'Zona Megathrust Samudra Pasifik Fukushima',
-    status: 'ONLINE',
+    status: 'UNCHECKED',
     samplingRateHz: 100,
     waterPressureMpa: 36.7,
     seaLevelAnomalyM: 0.02,
@@ -480,7 +503,7 @@ export const TSUNAMI_EARTH_SENSOR_NETWORK: TsunamiSensorNode[] = [
     lng: 142.15,
     depthM: 2890,
     seaArea: 'Semenanjung Boso & Celah Teluk Tokyo',
-    status: 'ONLINE',
+    status: 'UNCHECKED',
     samplingRateHz: 100,
     waterPressureMpa: 29.1,
     seaLevelAnomalyM: 0.01,
@@ -503,7 +526,7 @@ export const TSUNAMI_EARTH_SENSOR_NETWORK: TsunamiSensorNode[] = [
     lng: 136.65,
     depthM: 1930,
     seaArea: 'Palung Nankai Timur (Kumano-nada)',
-    status: 'ONLINE',
+    status: 'UNCHECKED',
     samplingRateHz: 100,
     waterPressureMpa: 19.4,
     seaLevelAnomalyM: 0.01,
@@ -524,7 +547,7 @@ export const TSUNAMI_EARTH_SENSOR_NETWORK: TsunamiSensorNode[] = [
     lng: 136.85,
     depthM: 2540,
     seaArea: 'Zona Subduksi Lempeng Laut Filipina',
-    status: 'ONLINE',
+    status: 'UNCHECKED',
     samplingRateHz: 100,
     waterPressureMpa: 25.6,
     seaLevelAnomalyM: 0.01,
@@ -545,7 +568,7 @@ export const TSUNAMI_EARTH_SENSOR_NETWORK: TsunamiSensorNode[] = [
     lng: 134.45,
     depthM: 3250,
     seaArea: 'Palung Nankai Barat (Tanjung Muroto / Shikoku)',
-    status: 'ONLINE',
+    status: 'UNCHECKED',
     samplingRateHz: 100,
     waterPressureMpa: 32.8,
     seaLevelAnomalyM: 0.02,
@@ -566,7 +589,7 @@ export const TSUNAMI_EARTH_SENSOR_NETWORK: TsunamiSensorNode[] = [
     lng: 134.02,
     depthM: 1480,
     seaArea: 'Teluk Tosa / Kochi',
-    status: 'ONLINE',
+    status: 'UNCHECKED',
     samplingRateHz: 100,
     waterPressureMpa: 14.9,
     seaLevelAnomalyM: 0.01,
@@ -589,7 +612,7 @@ export const TSUNAMI_EARTH_SENSOR_NETWORK: TsunamiSensorNode[] = [
     lng: 148.69,
     depthM: 5500,
     seaArea: 'Samudra Pasifik Barat Laut (Lepas Pantai Honshu)',
-    status: 'ONLINE',
+    status: 'UNCHECKED',
     samplingRateHz: 1,
     waterPressureMpa: 55.2,
     seaLevelAnomalyM: 0.01,
@@ -610,7 +633,7 @@ export const TSUNAMI_EARTH_SENSOR_NETWORK: TsunamiSensorNode[] = [
     lng: 162.51,
     depthM: 5120,
     seaArea: 'Palung Kuril-Kamchatka Utara',
-    status: 'ONLINE',
+    status: 'UNCHECKED',
     samplingRateHz: 1,
     waterPressureMpa: 51.5,
     seaLevelAnomalyM: 0.01,
@@ -631,7 +654,7 @@ export const TSUNAMI_EARTH_SENSOR_NETWORK: TsunamiSensorNode[] = [
     lng: 153.98,
     depthM: 4800,
     seaArea: 'Samudra Pasifik Barat Tropis',
-    status: 'ONLINE',
+    status: 'UNCHECKED',
     samplingRateHz: 1,
     waterPressureMpa: 48.2,
     seaLevelAnomalyM: 0.01,
@@ -652,7 +675,7 @@ export const TSUNAMI_EARTH_SENSOR_NETWORK: TsunamiSensorNode[] = [
     lng: -128.77,
     depthM: 2750,
     seaArea: 'Samudra Pasifik Timur (Lepas Pantai Oregon/Washington)',
-    status: 'ONLINE',
+    status: 'UNCHECKED',
     samplingRateHz: 1,
     waterPressureMpa: 27.8,
     seaLevelAnomalyM: 0.02,
@@ -673,7 +696,7 @@ export const TSUNAMI_EARTH_SENSOR_NETWORK: TsunamiSensorNode[] = [
     lng: -165.32,
     depthM: 4200,
     seaArea: 'Palung Aleut - Laut Bering Alaska',
-    status: 'ONLINE',
+    status: 'UNCHECKED',
     samplingRateHz: 1,
     waterPressureMpa: 42.4,
     seaLevelAnomalyM: 0.01,
@@ -694,7 +717,7 @@ export const TSUNAMI_EARTH_SENSOR_NETWORK: TsunamiSensorNode[] = [
     lng: -74.92,
     depthM: 4900,
     seaArea: 'Palung Peru-Chile (Subduksi Lempeng Nazca)',
-    status: 'ONLINE',
+    status: 'UNCHECKED',
     samplingRateHz: 1,
     waterPressureMpa: 49.3,
     seaLevelAnomalyM: 0.02,
@@ -710,12 +733,12 @@ export const TSUNAMI_EARTH_SENSOR_NETWORK: TsunamiSensorNode[] = [
     sensorType: 'DART Tsunami Buoy',
     network: 'NOAA NDBC (Global)',
     country: 'Internasional',
-    flag: '🌐',
+    flag: 'INT',
     lat: -10.50,
     lng: 104.20,
     depthM: 5600,
     seaArea: 'Samudra Hindia Timur (Selatan Selat Sunda & Jawa Barat)',
-    status: 'ONLINE',
+    status: 'UNCHECKED',
     samplingRateHz: 1,
     waterPressureMpa: 56.4,
     seaLevelAnomalyM: 0.02,
@@ -738,7 +761,7 @@ export const TSUNAMI_EARTH_SENSOR_NETWORK: TsunamiSensorNode[] = [
     lng: 98.45,
     depthM: 3200,
     seaArea: 'Samudra Hindia (Lepas Pantai Barat Kep. Mentawai)',
-    status: 'ONLINE',
+    status: 'UNCHECKED',
     samplingRateHz: 1,
     waterPressureMpa: 32.2,
     seaLevelAnomalyM: 0.01,
@@ -759,7 +782,7 @@ export const TSUNAMI_EARTH_SENSOR_NETWORK: TsunamiSensorNode[] = [
     lng: 105.02,
     depthM: 1450,
     seaArea: 'Pintu Masuk Selat Sunda (Dekat Kompleks Gunung Anak Krakatau)',
-    status: 'ONLINE',
+    status: 'UNCHECKED',
     samplingRateHz: 1,
     waterPressureMpa: 14.6,
     seaLevelAnomalyM: 0.02,
@@ -780,7 +803,7 @@ export const TSUNAMI_EARTH_SENSOR_NETWORK: TsunamiSensorNode[] = [
     lng: 112.80,
     depthM: 4100,
     seaArea: 'Samudra Hindia (Selatan Malang & Lumajang)',
-    status: 'ONLINE',
+    status: 'UNCHECKED',
     samplingRateHz: 1,
     waterPressureMpa: 41.3,
     seaLevelAnomalyM: 0.01,
@@ -801,7 +824,7 @@ export const TSUNAMI_EARTH_SENSOR_NETWORK: TsunamiSensorNode[] = [
     lng: 119.85,
     depthM: 1200,
     seaArea: 'Cekungan Laut Flores & Selat Sape',
-    status: 'ONLINE',
+    status: 'UNCHECKED',
     samplingRateHz: 10,
     waterPressureMpa: 12.1,
     seaLevelAnomalyM: 0.01,
@@ -822,7 +845,7 @@ export const TSUNAMI_EARTH_SENSOR_NETWORK: TsunamiSensorNode[] = [
     lng: 119.78,
     depthM: 950,
     seaArea: 'Teluk Palu - Sesar Palu-Koro',
-    status: 'ONLINE',
+    status: 'UNCHECKED',
     samplingRateHz: 10,
     waterPressureMpa: 9.6,
     seaLevelAnomalyM: 0.01,
@@ -843,7 +866,7 @@ export const TSUNAMI_EARTH_SENSOR_NETWORK: TsunamiSensorNode[] = [
     lng: 95.32,
     depthM: 12,
     seaArea: 'Samudra Hindia / Laut Andaman (Ujung Barat RI)',
-    status: 'ONLINE',
+    status: 'UNCHECKED',
     samplingRateHz: 1,
     waterPressureMpa: 0.12,
     seaLevelAnomalyM: 0.02,
@@ -864,7 +887,7 @@ export const TSUNAMI_EARTH_SENSOR_NETWORK: TsunamiSensorNode[] = [
     lng: 100.37,
     depthM: 15,
     seaArea: 'Pesisir Barat Sumatra Barat',
-    status: 'ONLINE',
+    status: 'UNCHECKED',
     samplingRateHz: 1,
     waterPressureMpa: 0.15,
     seaLevelAnomalyM: 0.01,
@@ -885,7 +908,7 @@ export const TSUNAMI_EARTH_SENSOR_NETWORK: TsunamiSensorNode[] = [
     lng: 115.21,
     depthM: 9,
     seaArea: 'Selat Badung / Pesisir Selatan Bali',
-    status: 'ONLINE',
+    status: 'UNCHECKED',
     samplingRateHz: 1,
     waterPressureMpa: 0.09,
     seaLevelAnomalyM: 0.01,
@@ -908,7 +931,7 @@ export const TSUNAMI_EARTH_SENSOR_NETWORK: TsunamiSensorNode[] = [
     lng: 141.97,
     depthM: 7,
     seaArea: 'Pesisir Pantai Sanriku (Prefektur Iwate)',
-    status: 'ONLINE',
+    status: 'UNCHECKED',
     samplingRateHz: 1,
     waterPressureMpa: 0.07,
     seaLevelAnomalyM: 0.02,
@@ -929,7 +952,7 @@ export const TSUNAMI_EARTH_SENSOR_NETWORK: TsunamiSensorNode[] = [
     lng: -157.87,
     depthM: 10,
     seaArea: 'Samudra Pasifik Tengah (Kepulauan Hawaii)',
-    status: 'ONLINE',
+    status: 'UNCHECKED',
     samplingRateHz: 1,
     waterPressureMpa: 0.10,
     seaLevelAnomalyM: 0.01,
@@ -950,7 +973,7 @@ export const TSUNAMI_EARTH_SENSOR_NETWORK: TsunamiSensorNode[] = [
     lng: -71.63,
     depthM: 14,
     seaArea: 'Pesisir Samudra Pasifik Selatan Chile',
-    status: 'ONLINE',
+    status: 'UNCHECKED',
     samplingRateHz: 1,
     waterPressureMpa: 0.14,
     seaLevelAnomalyM: 0.02,
@@ -966,12 +989,12 @@ export const TSUNAMI_EARTH_SENSOR_NETWORK: TsunamiSensorNode[] = [
     sensorType: 'IOC Coastal Tide Gauge',
     network: 'IOC UNESCO (Global)',
     country: 'Internasional',
-    flag: '🌐',
+    flag: 'INT',
     lat: -21.13,
     lng: -175.18,
     depthM: 8,
     seaArea: 'Cekungan Pasifik Barat Daya (Dekat Kaldera Hunga Tonga)',
-    status: 'ONLINE',
+    status: 'UNCHECKED',
     samplingRateHz: 1,
     waterPressureMpa: 0.08,
     seaLevelAnomalyM: 0.02,

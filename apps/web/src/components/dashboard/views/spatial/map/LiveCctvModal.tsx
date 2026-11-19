@@ -6,6 +6,7 @@ import {
 } from 'lucide-react';
 import Hls from 'hls.js';
 import { trafficCctvService, type TrafficCctvCamera } from '@/services/trafficCctvService';
+import { safeToggleFullscreen } from '@/utils/browserCompat';
 
 interface LiveCctvModalProps {
   camera: TrafficCctvCamera | null;
@@ -280,12 +281,7 @@ export const LiveCctvModal: React.FC<LiveCctvModalProps> = ({ camera, onClose, o
   };
 
   const toggleFullscreen = () => {
-    if (!containerRef.current) return;
-    if (!document.fullscreenElement) {
-      containerRef.current.requestFullscreen().catch(() => {});
-    } else {
-      document.exitFullscreen().catch(() => {});
-    }
+    void safeToggleFullscreen(containerRef.current, videoRef.current);
   };
 
   // Safe early exit AFTER all hooks have been declared

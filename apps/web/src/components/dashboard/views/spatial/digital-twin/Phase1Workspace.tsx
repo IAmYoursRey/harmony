@@ -230,8 +230,8 @@ export function Phase1Workspace() {
               className="flex min-h-[42px] items-center justify-center gap-2 bg-indigo-600 hover:bg-indigo-700 text-white px-3.5 sm:px-4 py-2 rounded-xl transition-colors font-bold text-xs sm:text-sm shadow-sm whitespace-nowrap"
             >
               <Users className="h-4 w-4 shrink-0" />
-              <span className="sm:hidden">Mabar Online</span>
-              <span className="hidden sm:inline">Mabar / Gabung Online</span>
+              <span className="sm:hidden">Sesi Bersama</span>
+              <span className="hidden sm:inline">Sesi Bersama</span>
             </button>
             <button
               onClick={() => setShowCreateScenario(true)}
@@ -245,7 +245,7 @@ export function Phase1Workspace() {
         {showCreateScenario && (
           <div className="glass rounded-2xl p-6 mb-6">
             <h3 className="text-lg font-bold mb-4 text-slate-800 dark:text-white">
-              Buat Scenario Baru
+              Buat Skenario
             </h3>
             <form
               onSubmit={handleCreateScenario}
@@ -404,7 +404,7 @@ export function Phase1Workspace() {
                           }}
                           className="px-3 py-1.5 text-xs bg-indigo-600 hover:bg-indigo-500 text-white rounded-lg font-bold transition-all flex items-center gap-1 shadow-sm"
                         >
-                          <Users className="h-3 w-3" /> Mabar
+                          <Users className="h-3 w-3" /> Sesi Bersama
                         </button>
                       </>
                     )}
@@ -445,7 +445,7 @@ export function Phase1Workspace() {
         <div>
           <h2 className="text-2xl font-bold text-slate-800 dark:text-white flex items-center gap-2">
             <Globe className="h-6 w-6 text-brand-600" />
-            Harmony Twin — Denah & Simulasi Sekolah
+            Denah Sekolah
           </h2>
           <p className="text-slate-500 dark:text-slate-400">
             {activeSchool
@@ -459,7 +459,7 @@ export function Phase1Workspace() {
             className="flex items-center gap-2 bg-brand-600 hover:bg-brand-700 text-white px-4 py-2 rounded-xl transition-colors font-medium shadow-sm"
           >
             <Plus className="h-4 w-4" />
-            Buat Peta Baru
+            Buat Peta
           </button>
         )}
       </div>
@@ -467,12 +467,12 @@ export function Phase1Workspace() {
       {showCreate && (
         <div className="glass rounded-2xl p-6 mb-6">
           <h3 className="text-lg font-bold mb-4 text-slate-800 dark:text-white">
-            Buat Map Baru
+            Buat Peta
           </h3>
           <form onSubmit={handleCreate} className="space-y-4 max-w-md">
             <div>
               <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">
-                Nama Map
+                Nama Peta
               </label>
               <input name="newMapName" id="phase1workspace-newmapname"
                 type="text"

@@ -108,9 +108,9 @@ test("LoginPage renders nickname input and randomized demo triggers", () => {
 
   assert.match(loginSrc, /demoNickname/);
   assert.match(loginSrc, /generateRandomDemoPayload/);
-  assert.match(loginSrc, /Masuk Demo Siswa \(Akun Acak SMAN 1 Ngoro\)/);
-  assert.match(loginSrc, /Demo Guru \(Akun Acak\)/);
-  assert.match(loginSrc, /Demo Pengembang \(Akun Acak\)/);
+  assert.match(loginSrc, /Demo Siswa/);
+  assert.match(loginSrc, /Demo Guru/);
+  assert.match(loginSrc, /Demo Pengembang/);
   assert.match(loginSrc, /tidak saling bertabrakan/);
 });
 

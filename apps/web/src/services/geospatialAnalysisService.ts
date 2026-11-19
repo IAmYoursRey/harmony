@@ -33,14 +33,14 @@ export interface SpectralIndexResult {
 }
 
 export interface TerrainIntelligence {
-  elevationM: number;
-  slopeDeg: number;
-  slopePercent: number;
+  elevationM: number | null;
+  slopeDeg: number | null;
+  slopePercent: number | null;
   aspect: string;
-  aspectDeg: number;
-  morphologyClass: 'Datar (0-2°)' | 'Landai (2-7°)' | 'Agak Curam (7-15°)' | 'Curam (15-30°)' | 'Sangat Terjal (>30°)';
-  landslideExposureScore: number; // 0 - 100
-  landslideRiskLevel: 'Rendah' | 'Sedang' | 'Tinggi' | 'Ekstrem';
+  aspectDeg: number | null;
+  morphologyClass: 'Datar (0-2°)' | 'Landai (2-7°)' | 'Agak Curam (7-15°)' | 'Curam (15-30°)' | 'Sangat Terjal (>30°)' | 'Tidak Tersedia';
+  landslideExposureScore: number | null; // 0 - 100
+  landslideRiskLevel: 'Rendah' | 'Sedang' | 'Tinggi' | 'Ekstrem' | 'Tidak Tersedia';
   contributingFactors: { factor: string; impact: string; weight: number }[];
   provenance?: DataProvenance;
 }
@@ -349,31 +349,24 @@ class GeospatialAnalysisService {
   /**
    * Synchronous fallback terrain calculation with clear provenance
    */
-  calculateTerrainIntelligence(lat: number, lng: number): TerrainIntelligence {
-    // Basic approximate elevation from regional topography index until async DEM loads
-    const isHighland = lat < -7.0 && lat > -8.5;
-    const approxElev = isHighland ? 250 : 25;
-
+  calculateTerrainIntelligence(_lat: number, _lng: number): TerrainIntelligence {
     return {
-      elevationM: approxElev,
-      slopeDeg: 3.5,
-      slopePercent: 6,
-      aspect: 'Selatan (S)',
-      aspectDeg: 180,
-      morphologyClass: 'Landai (2-7°)',
-      landslideExposureScore: 25,
-      landslideRiskLevel: 'Rendah',
-      contributingFactors: [
-        { factor: 'Kemiringan Lereng', impact: '3.5° (Landai)', weight: 55 },
-        { factor: 'Elevasi Relief', impact: `${approxElev} mdpl`, weight: 45 },
-      ],
+      elevationM: null,
+      slopeDeg: null,
+      slopePercent: null,
+      aspect: 'Tidak Tersedia',
+      aspectDeg: null,
+      morphologyClass: 'Tidak Tersedia',
+      landslideExposureScore: null,
+      landslideRiskLevel: 'Tidak Tersedia',
+      contributingFactors: [],
       provenance: {
         sourceType: 'DEM_ELEVATION',
         provider: 'Copernicus DEM / Open-Meteo',
         dataset: 'Copernicus DEM (GLO-90)',
-        dataStatus: 'ESTIMATED',
+        dataStatus: 'UNAVAILABLE',
         crs: 'EPSG:4326',
-        attribution: 'Memuat data elevasi aktual dari layanan DEM...',
+        attribution: 'Data elevasi memerlukan respons DEM asinkron terverifikasi (getAuthoritativeTerrain).',
       },
     };
   }
@@ -391,16 +384,16 @@ class GeospatialAnalysisService {
   calculateHydrologyAndLandCover(
     _lat: number,
     _lng: number,
-    elevationM: number,
+    elevationM: number | null,
     loadedRivers: any[] = [],
-    aoi?: AreaOfInterest | null
+    _aoi?: AreaOfInterest | null,
+    landCoverRaster: HydrologyLandCoverData['landCoverClasses'] = []
   ): HydrologyLandCoverData {
     let nearestRiverDistanceM: number | null = null;
     let nearestRiverName = 'Belum Ada Data Vektor Sempadan';
     let relElevation: number | null = null;
     let watershedName = 'Batas DAS belum tersedia';
 
-    // 1. Process custom loaded rivers if user uploaded a river dataset
     if (loadedRivers.length > 0) {
       let minDist = Infinity;
       let nearestRiver: any = null;
@@ -418,12 +411,11 @@ class GeospatialAnalysisService {
       });
       if (minDist !== Infinity) {
         nearestRiverDistanceM = Math.round(minDist);
-        if (nearestRiver && typeof nearestRiver.elevationM === 'number' && elevationM > 0) {
+        if (nearestRiver && typeof nearestRiver.elevationM === 'number' && typeof elevationM === 'number' && Number.isFinite(elevationM)) {
           relElevation = parseFloat((elevationM - nearestRiver.elevationM).toFixed(1));
         }
       }
     } else {
-      // 2. Authoritative Indonesian Major River Networks & Watershed (BBWS Kementerian PUPR)
       const majorRivers = [
         { name: 'Sungai Ciliwung (Pintu Air Manggarai)', watershed: 'DAS Ciliwung (BBWS Ciliwung Cisadane)', lat: -6.2081, lng: 106.8485, waterLevel: 7.5 },
         { name: 'Kali Ciliwung Hilir (Pasar Baru)', watershed: 'DAS Ciliwung (BBWS Ciliwung Cisadane)', lat: -6.1648, lng: 106.8344, waterLevel: 4.2 },
@@ -466,62 +458,30 @@ class GeospatialAnalysisService {
         nearestRiverName = (closest as any).name;
         watershedName = (closest as any).watershed;
         const estLevel = (closest as any).waterLevel;
-        relElevation = elevationM > 0 ? parseFloat(Math.max(0.5, elevationM - estLevel).toFixed(1)) : null;
+        relElevation = typeof elevationM === 'number' && Number.isFinite(elevationM) && elevationM > 0
+          ? parseFloat((elevationM - estLevel).toFixed(1))
+          : null;
       }
     }
 
-    // Flood exposure assessment based on proximity and relative elevation
-    let floodRiskLevel: HydrologyLandCoverData['floodRiskLevel'] = 'Rendah';
-    let floodExposureScore: number | null = 20;
+    let floodRiskLevel: HydrologyLandCoverData['floodRiskLevel'] = 'Tidak Tersedia';
+    let floodExposureScore: number | null = null;
 
-    if (nearestRiverDistanceM !== null) {
-      if (nearestRiverDistanceM < 400 && (relElevation === null || relElevation < 2.5)) {
+    if (nearestRiverDistanceM !== null && relElevation !== null) {
+      if (nearestRiverDistanceM < 400 && relElevation < 2.5) {
         floodRiskLevel = 'Tinggi';
         floodExposureScore = 85;
-      } else if (nearestRiverDistanceM < 1200 && (relElevation === null || relElevation < 5.0)) {
+      } else if (nearestRiverDistanceM < 1200 && relElevation < 5.0) {
         floodRiskLevel = 'Sedang';
         floodExposureScore = 55;
       } else {
         floodRiskLevel = 'Rendah';
         floodExposureScore = 20;
       }
-    } else {
-      floodRiskLevel = 'Rendah';
-      floodExposureScore = 15;
     }
 
-    // Standard Land Cover composition based on SNI 8460 / ESA WorldCover classification
-    const aoiArea = aoi?.areaKm2 || 12.5;
-    const landCoverClasses: HydrologyLandCoverData['landCoverClasses'] = [
-      {
-        name: 'Kawasan Terbangun / Permukiman Kedap Air',
-        areaKm2: parseFloat((aoiArea * 0.58).toFixed(2)),
-        percentage: 58,
-        permeable: false,
-        color: '#f97316',
-      },
-      {
-        name: 'Vegetasi / Ruang Terbuka Hijau & Kebun',
-        areaKm2: parseFloat((aoiArea * 0.32).toFixed(2)),
-        percentage: 32,
-        permeable: true,
-        color: '#10b981',
-      },
-      {
-        name: 'Badan Air / Saluran Drainase & Kolam Retensi',
-        areaKm2: parseFloat((aoiArea * 0.06).toFixed(2)),
-        percentage: 6,
-        permeable: true,
-        color: '#0ea5e9',
-      },
-      {
-        name: 'Lahan Terbuka / Tanah Permeabel',
-        areaKm2: parseFloat((aoiArea * 0.04).toFixed(2)),
-        percentage: 4,
-        permeable: true,
-        color: '#eab308',
-      },
-    ];
+    const landCoverClasses = Array.isArray(landCoverRaster) ? landCoverRaster : [];
+    const dataStatus: DataStatus = nearestRiverDistanceM !== null && relElevation !== null ? 'DERIVED' : 'UNAVAILABLE';
 
     return {
       nearestRiverDistanceM,
@@ -531,20 +491,20 @@ class GeospatialAnalysisService {
       floodExposureScore,
       floodRiskLevel,
       landCoverClasses,
-      dataStatus: nearestRiverDistanceM !== null ? 'DERIVED' : 'UNAVAILABLE',
+      dataStatus,
       provenance: {
-        sourceType: 'SATELLITE_RASTER',
+        sourceType: 'DERIVED_COMPUTATION',
         provider: 'Kementerian PUPR (Ditjen SDA) & BIG',
-        dataset: 'Jaringan Sungai Nasional & Peta Wilayah Sungai (WS) Balai Besar Wilayah Sungai',
-        dataStatus: nearestRiverDistanceM !== null ? 'DERIVED' : 'UNAVAILABLE',
+        dataset: 'Katalog Referensi Pilar Aliran Sungai Nasional (24 Titik Mayor)',
+        dataStatus,
         crs: 'EPSG:4326',
-        spatialResolution: 'Vektor Geometrik PUPR & 10m ESA WorldCover 2021 v200',
-        attribution: 'Badan Informasi Geospasial (BIG) & Kementerian PUPR Republik Indonesia',
-        algorithmVersion: 'SDA-PUPR-Hydrology-v2.1',
+        spatialResolution: 'Vektor Geometrik Referensi & Copernicus DEM 90m',
+        attribution: 'Kementerian PUPR & Badan Informasi Geospasial — tutupan lahan memerlukan raster/AOI terhubung.',
+        algorithmVersion: 'SDA-PUPR-Hydrology-v2.2',
         assumptions: [
-          'Jarak sempadan sungai dihitung geodesik WGS84 terhadap stasiun hidrologi & pilar aliran sungai resmi PUPR terdekat.',
-          'Beda tinggi relatif sungai diestimasikan terhadap datum muka air stasiun pemantau sungai atau model elevasi DEMNAS.',
-          'Komposisi tutupan lahan mengikuti taksonomi 10m ESA WorldCover 2021 v200.',
+          'Jarak sempadan sungai dihitung geodesik WGS84 terhadap 24 titik referensi sungai mayor PUPR atau GeoJSON pengguna.',
+          'Skor eksposur banjir tidak dihitung bila elevasi DEM atau titik referensi tidak tersedia.',
+          'Komposisi tutupan lahan hanya tampil jika raster terklasifikasi disediakan (tanpa estimasi fiktif).',
         ],
       },
     };

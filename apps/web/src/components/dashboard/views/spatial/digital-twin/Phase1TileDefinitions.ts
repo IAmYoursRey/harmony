@@ -34,7 +34,7 @@ export const TILE_DEFINITIONS: Record<string, TileDefinition> = {
     defaultHeight: 1,
     walkable: false,
     color: "#f97316",
-    icon: "🧱",
+    icon: "WL",
   },
   DOOR: {
     id: "DOOR",
@@ -46,7 +46,7 @@ export const TILE_DEFINITIONS: Record<string, TileDefinition> = {
     defaultHeight: 1,
     walkable: true,
     color: "#d97706",
-    icon: "🚪",
+    icon: "DR",
   },
   FLOOR: {
     id: "FLOOR",
@@ -58,7 +58,7 @@ export const TILE_DEFINITIONS: Record<string, TileDefinition> = {
     defaultHeight: 1,
     walkable: true,
     color: "#ffffff",
-    icon: "⬜",
+    icon: "FL",
   },
   PAVING: {
     id: "PAVING",
@@ -70,7 +70,7 @@ export const TILE_DEFINITIONS: Record<string, TileDefinition> = {
     defaultHeight: 1,
     walkable: true,
     color: "#4b5563",
-    icon: "⬛",
+    icon: "PV",
   },
   STAIR_UP: {
     id: "STAIR_UP",
@@ -82,7 +82,7 @@ export const TILE_DEFINITIONS: Record<string, TileDefinition> = {
     defaultHeight: 1,
     walkable: true,
     color: "#3b82f6",
-    icon: "↗️",
+    icon: "UP",
   },
   STAIR_DOWN: {
     id: "STAIR_DOWN",
@@ -94,7 +94,7 @@ export const TILE_DEFINITIONS: Record<string, TileDefinition> = {
     defaultHeight: 1,
     walkable: true,
     color: "#3b82f6",
-    icon: "↘️",
+    icon: "DN",
   },
   BORDER: {
     id: "BORDER",
@@ -106,7 +106,7 @@ export const TILE_DEFINITIONS: Record<string, TileDefinition> = {
     defaultHeight: 1,
     walkable: false,
     color: "#ef4444",
-    icon: "🚧",
+    icon: "BD",
   },
   DOOR_LOCKED: {
     id: "DOOR_LOCKED",
@@ -118,7 +118,7 @@ export const TILE_DEFINITIONS: Record<string, TileDefinition> = {
     defaultHeight: 1,
     walkable: false,
     color: "#5c3a21",
-    icon: "🔒",
+    icon: "LK",
   },
   ROAD: {
     id: "ROAD",
@@ -130,7 +130,7 @@ export const TILE_DEFINITIONS: Record<string, TileDefinition> = {
     defaultHeight: 1,
     walkable: true,
     color: "#334155",
-    icon: "🛣️",
+    icon: "RD",
   },
   GRASS: {
     id: "GRASS",
@@ -142,7 +142,7 @@ export const TILE_DEFINITIONS: Record<string, TileDefinition> = {
     defaultHeight: 1,
     walkable: true,
     color: "#16a34a",
-    icon: "🌿",
+    icon: "GR",
   },
   COURT_VOLI: {
     id: "COURT_VOLI",
@@ -154,7 +154,7 @@ export const TILE_DEFINITIONS: Record<string, TileDefinition> = {
     defaultHeight: 1,
     walkable: true,
     color: "#ea580c",
-    icon: "🏐",
+    icon: "VL",
   },
   COURT_BASKET: {
     id: "COURT_BASKET",
@@ -166,7 +166,7 @@ export const TILE_DEFINITIONS: Record<string, TileDefinition> = {
     defaultHeight: 1,
     walkable: true,
     color: "#475569",
-    icon: "🏀",
+    icon: "BK",
   },
   PARKING: {
     id: "PARKING",
@@ -178,7 +178,7 @@ export const TILE_DEFINITIONS: Record<string, TileDefinition> = {
     defaultHeight: 1,
     walkable: true,
     color: "#374151",
-    icon: "🅿️",
+    icon: "PK",
   },
   MOSQUE: {
     id: "MOSQUE",
@@ -190,7 +190,7 @@ export const TILE_DEFINITIONS: Record<string, TileDefinition> = {
     defaultHeight: 1,
     walkable: true,
     color: "#059669",
-    icon: "🕌",
+    icon: "MS",
   },
 };
 

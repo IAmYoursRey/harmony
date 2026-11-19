@@ -1,18 +1,19 @@
 import { DataProvenance } from './types';
 
 export interface TerrainIntelligenceResult {
-  elevationM: number;
-  slopeDeg: number;
-  slopePercent: number;
+  elevationM: number | null;
+  slopeDeg: number | null;
+  slopePercent: number | null;
   aspect: string;
-  aspectDeg: number;
-  hillshade: number; // 0 - 255
-  morphologyClass: 'Datar (0-2°)' | 'Landai (2-7°)' | 'Agak Curam (7-15°)' | 'Curam (15-30°)' | 'Sangat Terjal (>30°)';
-  landslideExposureScore: number;
-  landslideRiskLevel: 'Rendah' | 'Sedang' | 'Tinggi' | 'Ekstrem';
+  aspectDeg: number | null;
+  hillshade: number | null; // 0 - 255
+  morphologyClass: 'Datar (0-2°)' | 'Landai (2-7°)' | 'Agak Curam (7-15°)' | 'Curam (15-30°)' | 'Sangat Terjal (>30°)' | 'Tidak Tersedia';
+  landslideExposureScore: number | null;
+  landslideRiskLevel: 'Rendah' | 'Sedang' | 'Tinggi' | 'Ekstrem' | 'Tidak Tersedia';
   contributingFactors: { factor: string; impact: string; weight: number }[];
   provenance: DataProvenance;
-  status: 'LIVE' | 'AVAILABLE' | 'UNAVAILABLE';
+  status: 'LIVE' | 'AVAILABLE' | 'UNAVAILABLE' | 'ERROR';
+  errorMessage?: string;
 }
 
 export interface ElevationProfilePoint {
@@ -24,14 +25,15 @@ export interface ElevationProfilePoint {
 
 export interface ElevationProfileResult {
   points: ElevationProfilePoint[];
-  minElevationM: number;
-  maxElevationM: number;
-  meanElevationM: number;
-  totalDistanceKm: number;
-  totalAscentM: number;
-  totalDescentM: number;
+  minElevationM: number | null;
+  maxElevationM: number | null;
+  meanElevationM: number | null;
+  totalDistanceKm: number | null;
+  totalAscentM: number | null;
+  totalDescentM: number | null;
   provenance: DataProvenance;
-  status: 'LIVE' | 'AVAILABLE' | 'UNAVAILABLE';
+  status: 'LIVE' | 'AVAILABLE' | 'UNAVAILABLE' | 'ERROR';
+  errorMessage?: string;
 }
 
 class TerrainService {
@@ -205,29 +207,30 @@ class TerrainService {
       this.cache.set(cacheKey, { data: result, expiresAt: Date.now() + 10 * 60 * 1000 });
       return result;
     } catch (err: any) {
-      // Return truthful UNAVAILABLE state rather than generating artificial data
+      const errMsg = err instanceof Error ? err.message : 'Layanan Open-Meteo DEM API gagal dijangkau saat ini.';
       const unavailableProvenance: DataProvenance = {
         sourceType: 'DEM_ELEVATION',
         provider: 'Open-Meteo Elevation API',
         dataset: 'Copernicus DEM 2021 (GLO-90)',
         dataStatus: 'UNAVAILABLE',
         crs: 'EPSG:4326',
-        attribution: 'Layanan Open-Meteo DEM API tidak dapat dijangkau saat ini.',
+        attribution: `ERROR DEM: ${errMsg}`,
       };
 
       return {
-        elevationM: 0,
-        slopeDeg: 0,
-        slopePercent: 0,
-        aspect: 'Tidak Diketahui',
-        aspectDeg: 0,
-        hillshade: 128,
-        morphologyClass: 'Datar (0-2°)',
-        landslideExposureScore: 0,
-        landslideRiskLevel: 'Rendah',
+        elevationM: null,
+        slopeDeg: null,
+        slopePercent: null,
+        aspect: 'Tidak Tersedia',
+        aspectDeg: null,
+        hillshade: null,
+        morphologyClass: 'Tidak Tersedia',
+        landslideExposureScore: null,
+        landslideRiskLevel: 'Tidak Tersedia',
         contributingFactors: [],
         provenance: unavailableProvenance,
-        status: 'UNAVAILABLE',
+        status: 'ERROR',
+        errorMessage: errMsg,
       };
     } finally {
       if (timeoutId) clearTimeout(timeoutId);
@@ -243,12 +246,12 @@ class TerrainService {
     if (!coordinates || coordinates.length === 0) {
       return {
         points: [],
-        minElevationM: 0,
-        maxElevationM: 0,
-        meanElevationM: 0,
-        totalDistanceKm: 0,
-        totalAscentM: 0,
-        totalDescentM: 0,
+        minElevationM: null,
+        maxElevationM: null,
+        meanElevationM: null,
+        totalDistanceKm: null,
+        totalAscentM: null,
+        totalDescentM: null,
         provenance: {
           sourceType: 'DEM_ELEVATION',
           provider: 'Open-Meteo Elevation API',
@@ -258,6 +261,7 @@ class TerrainService {
           attribution: 'Tidak ada koordinat profil yang diberikan.',
         },
         status: 'UNAVAILABLE',
+        errorMessage: 'Koordinat profil kosong.',
       };
     }
 
@@ -340,24 +344,26 @@ class TerrainService {
         },
         status: 'AVAILABLE',
       };
-    } catch {
+    } catch (err: any) {
+      const errMsg = err instanceof Error ? err.message : 'Layanan profil DEM Open-Meteo tidak dapat dijangkau.';
       return {
         points: [],
-        minElevationM: 0,
-        maxElevationM: 0,
-        meanElevationM: 0,
-        totalDistanceKm: 0,
-        totalAscentM: 0,
-        totalDescentM: 0,
+        minElevationM: null,
+        maxElevationM: null,
+        meanElevationM: null,
+        totalDistanceKm: null,
+        totalAscentM: null,
+        totalDescentM: null,
         provenance: {
           sourceType: 'DEM_ELEVATION',
           provider: 'Open-Meteo Elevation API',
           dataset: 'Copernicus DEM 2021 (GLO-90)',
           dataStatus: 'UNAVAILABLE',
           crs: 'EPSG:4326',
-          attribution: 'Layanan profil DEM Open-Meteo tidak tersedia saat ini.',
+          attribution: `ERROR Profil DEM: ${errMsg}`,
         },
-        status: 'UNAVAILABLE',
+        status: 'ERROR',
+        errorMessage: errMsg,
       };
     } finally {
       if (profileTimeoutId) clearTimeout(profileTimeoutId);

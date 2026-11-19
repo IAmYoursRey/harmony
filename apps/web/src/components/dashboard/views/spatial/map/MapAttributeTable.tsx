@@ -309,7 +309,7 @@ export const MapAttributeTable: React.FC<MapAttributeTableProps> = ({
           </div>
           <div>
             <h3 className="text-sm font-bold text-slate-900 dark:text-white flex items-center gap-2">
-              <span>Tabel Atribut Spasial</span>
+              <span>Tabel Atribut</span>
               <span className="rounded-full bg-slate-100 px-2 py-0.5 text-[10px] font-semibold text-slate-600 dark:bg-slate-800 dark:text-slate-300">
                 {searchQuery.trim()
                   ? `${filteredData.length} dari ${tableData.length} objek`

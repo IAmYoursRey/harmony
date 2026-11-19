@@ -128,7 +128,7 @@ export function MasterSensorTaxonomyModal({
               <div>
                 <div className="flex items-center gap-2 flex-wrap">
                   <h2 className="font-display text-base sm:text-lg font-extrabold tracking-tight text-white">
-                    Master Taksonomi Sensor Bumi
+                    Taksonomi Sensor
                   </h2>
                   <span className="inline-flex items-center gap-1 rounded-full bg-emerald-950/60 px-2.5 py-0.5 text-[10px] font-bold text-emerald-300 border border-emerald-500/20">
                     <ShieldCheck className="w-3 h-3 text-emerald-400" /> WMO &amp; ESA Standards
@@ -341,7 +341,7 @@ export function MasterSensorTaxonomyModal({
                                 key={i}
                                 className="inline-flex items-center gap-1 rounded-lg bg-purple-950/40 px-2 py-0.5 text-[10.5px] font-semibold text-purple-300 border border-purple-800/40"
                               >
-                                <span className="text-[9px] opacity-70">⚡</span>
+                                <span className="w-1 h-1 rounded-full bg-purple-400 shrink-0" />
                                 {inst}
                               </span>
                             ))}

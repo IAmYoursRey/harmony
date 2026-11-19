@@ -100,10 +100,10 @@ export function ScenarioToolbar({ activeTool, onSelect, disasterType }: Props) {
     <div className="flex flex-col gap-2 rounded-2xl border border-slate-200 dark:border-slate-700 bg-white/70 dark:bg-slate-800/80 backdrop-blur-md p-3.5 shadow-glass-sm">
       <div className="flex items-center justify-between">
         <h4 className="text-xs font-extrabold tracking-wider text-slate-500 uppercase">
-          Scenario Tools
+          Alat Skenario
         </h4>
         <span className="text-[11px] font-medium text-brand-600 dark:text-brand-400 bg-brand-50 dark:bg-brand-900/30 px-2 py-0.5 rounded-full">
-          {TOOLS.find((t) => t.id === activeTool)?.label} Mode
+          Mode {TOOLS.find((t) => t.id === activeTool)?.label}
         </span>
       </div>
 

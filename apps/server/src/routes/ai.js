@@ -355,15 +355,50 @@ router.post("/grounded-scenario", verifyOptionalToken, async (req, res) => {
       };
     }
 
-    const earthquakes = (db.spatialCache?.["bmkg_earthquakes"] || [
-      { lat: -6.85, lng: 107.12, magnitude: 5.6, depthKm: 10, place: "Sesar Darat Aktif" },
-    ]);
+    let earthquakes = Array.isArray(db.spatialCache?.["bmkg_earthquakes"]) && db.spatialCache["bmkg_earthquakes"].length > 0
+      ? db.spatialCache["bmkg_earthquakes"]
+      : null;
+    let isSimulationDrill = false;
+
+    if (!earthquakes) {
+      try {
+        const bmkgRes = await fetch("https://data.bmkg.go.id/DataMKG/TEWS/autogempa.json", {
+          headers: { "User-Agent": "Harmony-Earth-Intelligence/2.0", "Referer": "https://www.bmkg.go.id/" },
+          signal: AbortSignal.timeout(3000),
+        });
+        if (bmkgRes.ok) {
+          const raw = await bmkgRes.json();
+          const g = raw?.Infogempa?.gempa;
+          const coords = typeof g?.Coordinates === "string" ? g.Coordinates.split(",").map((s) => parseFloat(s.trim())) : [];
+          const mag = parseFloat(g?.Magnitude);
+          const depth = parseFloat(String(g?.Kedalaman || "").replace(/km/i, "").trim());
+          if (coords.length === 2 && Number.isFinite(coords[0]) && Number.isFinite(coords[1]) && Number.isFinite(mag)) {
+            earthquakes = [{
+              lat: coords[0],
+              lng: coords[1],
+              magnitude: mag,
+              depthKm: Number.isFinite(depth) ? depth : 10,
+              place: g.Wilayah || "Gempa Terkini BMKG",
+            }];
+          }
+        }
+      } catch {
+        // Fallback explicitly to labeled simulation drill below
+      }
+    }
+
+    if (!earthquakes) {
+      isSimulationDrill = true;
+      earthquakes = [
+        { lat: -6.85, lng: 107.12, magnitude: 5.6, depthKm: 10, place: "Skenario Latihan Sesar Darat" },
+      ];
+    }
 
     const synthesis = synthesizeSchoolRisk({
       school: targetSchool,
       earthquakes,
       volcanoes: [],
-      weather: { precipitation: 15.0 },
+      weather: { precipitation: 0 },
     });
 
     const gm = synthesis.seismicSynthesis;
@@ -371,20 +406,26 @@ router.post("/grounded-scenario", verifyOptionalToken, async (req, res) => {
     const mmi = gm ? gm.mmiEstimate : 6.0;
     const leadTime = gm ? gm.leadTimeSec : 12;
     const intensity = gm ? gm.humanDescription.intensity : "Guncangan Kuat";
+    const dataStatus = isSimulationDrill ? "SIMULATED_DRILL" : "LIVE_GROUNDED";
+    const titlePrefix = isSimulationDrill
+      ? "Skenario Latihan Simulasi Gempa (Mode Edukasi — Bukan Kejadian Live)"
+      : "Skenario Guncangan Berbasis Gempa BMKG Terkini";
 
     const ai = getAiInstance("quiz");
     if (!ai || Date.now() < geminiQuotaCooldownUntil) {
-      // Deterministic scientific fallback (No hallucination!)
       return res.json({
         success: true,
+        isSimulationDrill,
+        dataStatus,
         source: "deterministic-spatial-engine",
         scenario: {
-          title: `Skenario Guncangan Nyata: ${targetSchool.name}`,
+          title: `${titlePrefix}: ${targetSchool.name}`,
           schoolName: targetSchool.name,
+          isSimulationDrill,
           pgaG,
           mmi,
           leadTimeSeconds: leadTime,
-          hazardSummary: `${intensity} akibat sesar terdekat. Waktu jeda gelombang sekunder: ${leadTime} detik.`,
+          hazardSummary: `${intensity} (${isSimulationDrill ? "Parameter Latihan Edukasi" : "Data Gempa Live"}). Waktu jeda gelombang sekunder: ${leadTime} detik.`,
           situation: `Anda dan 32 siswa sedang berada di ruang kelas Lantai ${floorLevel}. Sensor peringatan dini berbunyi: guncangan gelombang S diprediksi tiba dalam ${leadTime} detik dengan PGA ${pgaG}g. Tangga keluar utama memiliki lebar 1.2 meter dan padat.`,
           question: "Apa instruksi terbaik yang harus diberikan guru dalam 10 detik pertama?",
           options: [
@@ -431,6 +472,8 @@ Gunakan Bahasa Indonesia ilmiah yang mendidik dan mudah dipahami siswa.`;
       scenarioData = JSON.parse((response.text || "").trim().replace(/^```(?:json)?\s*/, "").replace(/\s*```$/, ""));
       return res.json({
         success: true,
+        isSimulationDrill,
+        dataStatus,
         source: "gemini-grounded-spatial",
         scenario: scenarioData,
       });
@@ -438,14 +481,17 @@ Gunakan Bahasa Indonesia ilmiah yang mendidik dan mudah dipahami siswa.`;
       console.warn("[AI] Gemini key unavailable/invalid, using deterministic spatial fallback:", aiErr.message);
       return res.json({
         success: true,
+        isSimulationDrill,
+        dataStatus,
         source: "deterministic-spatial-engine",
         scenario: {
-          title: `Skenario Guncangan Nyata: ${targetSchool.name}`,
+          title: `${titlePrefix}: ${targetSchool.name}`,
           schoolName: targetSchool.name,
+          isSimulationDrill,
           pgaG,
           mmi,
           leadTimeSeconds: leadTime,
-          hazardSummary: `${intensity} akibat sesar terdekat. Waktu jeda gelombang sekunder: ${leadTime} detik.`,
+          hazardSummary: `${intensity} (${isSimulationDrill ? "Parameter Latihan Edukasi" : "Data Gempa Live"}). Waktu jeda gelombang sekunder: ${leadTime} detik.`,
           situation: `Anda dan 32 siswa sedang berada di ruang kelas Lantai ${floorLevel}. Sensor peringatan dini berbunyi: guncangan gelombang S diprediksi tiba dalam ${leadTime} detik dengan PGA ${pgaG}g. Tangga keluar utama memiliki lebar 1.2 meter dan padat.`,
           question: "Apa instruksi terbaik yang harus diberikan guru dalam 10 detik pertama?",
           options: [

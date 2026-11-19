@@ -166,6 +166,10 @@ export default function App() {
             }
           />
           <Route
+            path="geo-risk-map"
+            element={<Navigate to="/app/maps" replace />}
+          />
+          <Route
             path="geospatial"
             element={
               <Suspense fallback={<PageSkeleton />}>
@@ -321,7 +325,7 @@ export default function App() {
         <Route
           path="/*"
           element={
-            <div className="min-h-screen bg-white dark:bg-slate-950">
+            <div className="min-h-viewport bg-white dark:bg-slate-950">
               <Navbar />
               <main>
                 <Suspense fallback={<PageSkeleton />}>

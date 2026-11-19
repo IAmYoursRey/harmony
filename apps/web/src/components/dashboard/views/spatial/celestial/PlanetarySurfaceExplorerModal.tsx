@@ -1049,7 +1049,7 @@ export function PlanetarySurfaceExplorerModal({
           <div className="p-3.5 rounded-2xl bg-white/5 border border-white/10 space-y-2.5">
             <h4 className="font-bold text-xs uppercase tracking-wider text-slate-300 flex items-center gap-1.5">
               <Sparkles className="w-3.5 h-3.5 text-amber-400" />
-              <span>Kondisi Fisik Permukaan ({bodyData.name})</span>
+              <span>Kondisi Permukaan ({bodyData.name})</span>
             </h4>
 
             <div className="grid grid-cols-2 gap-2 text-[11px]">

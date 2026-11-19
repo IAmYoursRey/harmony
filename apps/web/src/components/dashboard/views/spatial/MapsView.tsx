@@ -60,6 +60,7 @@ import { geospatialAnalysisService } from "@/services/geospatialAnalysisService"
 import { weatherAggregatorService } from "@/services/weatherAggregatorService";
 import { bmkgService } from "@/services/bmkgService";
 import { hotspotFireService, ActiveFireHotspot, HotspotSnapshot } from "@/services/hotspotFireService";
+import { safeCopyToClipboard } from "@/utils/browserCompat";
 import {
   type TrafficCorridor,
   type TrafficSegment,
@@ -213,70 +214,70 @@ export const WINDY_PARAM_CONFIG: WindyParamMeta[] = [
     id: 'rain',
     name: 'Radar Hujan',
     badge: 'mm / Doppler',
-    icon: '🌧️',
+    icon: 'RAIN',
     desc: 'Intensitas presipitasi hujan & sel petir',
   },
   {
     id: 'radar',
     name: 'Doppler Radar',
     badge: 'Mosaik Radar',
-    icon: '📡',
+    icon: 'RAD',
     desc: 'Reflektivitas radar cuaca mosaik (RainViewer Doppler / BMKG)',
   },
   {
     id: 'clouds',
     name: 'Satelit & Awan',
     badge: 'Model Awan',
-    icon: '☁️',
+    icon: 'CLD',
     desc: 'Model tutupan awan & kelembaban atmosfer (ECMWF)',
   },
   {
     id: 'satellite',
     name: 'Citra Satelit',
     badge: 'Satelit Windy',
-    icon: '🛰️',
+    icon: 'SAT',
     desc: 'Citra satelit inframerah interaktif via Penampil Windy',
   },
   {
     id: 'temp',
     name: 'Suhu Permukaan',
     badge: '°C Celcius',
-    icon: '🌡️',
+    icon: 'TMP',
     desc: 'Distribusi suhu 2m di atas permukaan',
   },
   {
     id: 'wind',
     name: 'Aliran Angin',
     badge: 'km/j & Barbs',
-    icon: '💨',
+    icon: 'WND',
     desc: 'Vektor kecepatan dan arah hembusan angin',
   },
   {
     id: 'waves',
     name: 'Gelombang Laut',
     badge: 'Tinggi Signifikan',
-    icon: '🌊',
+    icon: 'WAV',
     desc: 'Swell oseanografi dan arus perairan',
   },
   {
     id: 'pressure',
     name: 'Tekanan Udara',
     badge: 'hPa Isobar',
-    icon: '⏱️',
+    icon: 'PRS',
     desc: 'Garis kontur isobar & gradien tekanan',
   },
   {
     id: 'pm2p5',
     name: 'Kualitas Udara',
     badge: 'PM2.5 µg/m³',
-    icon: '🍃',
+    icon: 'AQI',
     desc: 'Konsentrasi partikulat aerosol & polutan',
   },
   {
     id: 'ozone',
     name: 'Lapisan Ozon',
     badge: 'Dobson DU',
-    icon: '🌌',
+    icon: 'OZN',
     desc: 'Densitas kolom ozon stratosferik',
   },
 ];
@@ -874,14 +875,14 @@ export function MapsView() {
       popupRef.current.style.display = 'block';
       popupRef.current.innerHTML = `
         <div style="min-width: 250px; max-width: 320px; font-family: Inter, sans-serif;" class="p-1 relative">
-            <button id="close-popup-btn" style="position: absolute; top: -2px; right: -2px; background: #f1f5f9; border-radius: 50%; padding: 2px 6px; border: none; cursor: pointer; color: #94a3b8; font-size: 12px; font-weight: bold;">✖</button>
+            <button id="close-popup-btn" style="position: absolute; top: -2px; right: -2px; background: #f1f5f9; border-radius: 50%; padding: 2px 6px; border: none; cursor: pointer; color: #94a3b8; font-size: 12px; font-weight: bold;">×</button>
             <div style="display: flex; align-items: center; gap: 6px; margin-bottom: 5px;">
-              <span style="font-size: 15px;">📡</span>
+              
               <span style="font-size: 9px; font-weight: 800; text-transform: uppercase; color: #047857; background: #d1fae5; padding: 1.5px 6px; border-radius: 4px;">RADAR CUACA DOPPLER BMKG</span>
               <span style="font-size: 9px; font-weight: 700; color: #059669; background: #ecfdf5; padding: 1px 5px; border-radius: 4px; margin-left: auto;">${radar.status}</span>
             </div>
             <strong style="font-size: 13px; color: #0f172a; display: block; margin-bottom: 2px; padding-right: 18px; line-height: 1.3;">${radar.name} (${radar.code})</strong>
-            <div style="font-size: 10px; color: #64748b; margin-bottom: 6px;">📍 ${radar.city}, ${radar.province} • Alt: ${radar.elevationM}m</div>
+            <div style="font-size: 10px; color: #64748b; margin-bottom: 6px;"> ${radar.city}, ${radar.province} • Alt: ${radar.elevationM}m</div>
 
             <div style="background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 8px; padding: 6px 8px; margin-bottom: 8px; font-size: 10px; line-height: 1.5;">
               <div style="display: flex; justify-content: space-between; margin-bottom: 2px;">
@@ -926,14 +927,14 @@ export function MapsView() {
       popupRef.current.style.display = 'block';
       popupRef.current.innerHTML = `
         <div style="min-width: 250px; max-width: 320px; font-family: Inter, sans-serif;" class="p-1 relative">
-            <button id="close-popup-btn" style="position: absolute; top: -2px; right: -2px; background: #f1f5f9; border-radius: 50%; padding: 2px 6px; border: none; cursor: pointer; color: #94a3b8; font-size: 12px; font-weight: bold;">✖</button>
+            <button id="close-popup-btn" style="position: absolute; top: -2px; right: -2px; background: #f1f5f9; border-radius: 50%; padding: 2px 6px; border: none; cursor: pointer; color: #94a3b8; font-size: 12px; font-weight: bold;">×</button>
             <div style="display: flex; align-items: center; gap: 6px; margin-bottom: 5px;">
-              <span style="font-size: 15px;">⚠️</span>
+              
               <span style="font-size: 9px; font-weight: 800; text-transform: uppercase; color: #be123c; background: #ffe4e6; padding: 1.5px 6px; border-radius: 4px;">ZONA KESENJANGAN (BLANK SPOT)</span>
               <span style="font-size: 9px; font-weight: 700; color: #e11d48; background: #fff1f2; padding: 1px 5px; border-radius: 4px; margin-left: auto;">${spot.severity}</span>
             </div>
             <strong style="font-size: 12.5px; color: #0f172a; display: block; margin-bottom: 2px; padding-right: 18px; line-height: 1.3;">${spot.name}</strong>
-            <div style="font-size: 10px; color: #64748b; margin-bottom: 6px;">📍 ${spot.region} (Pulau ${spot.island})</div>
+            <div style="font-size: 10px; color: #64748b; margin-bottom: 6px;"> ${spot.region} (Pulau ${spot.island})</div>
 
             <div style="background: #fff5f5; border: 1px solid #fed7d7; border-radius: 8px; padding: 6px 8px; margin-bottom: 8px; font-size: 10px; line-height: 1.5;">
               <div style="display: flex; justify-content: space-between; margin-bottom: 2px;">
@@ -1959,49 +1960,14 @@ export function MapsView() {
       // Refresh elevation report if missing
       if (!userElevationReport) {
         gnssElevationService.fetchGroundElevation(userCoords.lat, userCoords.lng).then((demAlt) => {
-          const alt = demAlt ?? 25.0;
-          const topo = gnssElevationService.getTopographyZone(alt);
-          const dmsLat = gnssElevationService.toDMS(userCoords.lat, true);
-          const dmsLng = gnssElevationService.toDMS(userCoords.lng, false);
-          const dmsDisplay = `${dmsLat}, ${dmsLng}`;
-          const pressure = gnssElevationService.calculateBarometricPressure(alt);
-          const boilingPoint = gnssElevationService.calculateBoilingPoint(alt);
-          const rep: GnssElevationReport = {
+          const rep = gnssElevationService.buildElevationReport({
             lat: userCoords.lat,
             lng: userCoords.lng,
             accuracyM: userAccuracy ? Math.round(userAccuracy) : 10,
-            altitudeM: alt,
-            altitudeSource: 'dem_srtm_model',
-            dmsLat,
-            dmsLng,
-            dmsDisplay,
-            epsg3857: geospatialAnalysisService.toEPSG3857(userCoords.lat, userCoords.lng),
-            topographyZone: topo.zone,
-            topographyDescription: topo.description,
-            estimatedBarometricPressureHpa: pressure,
-            estimatedBoilingPointC: boilingPoint,
+            deviceAlt: null,
+            demAlt,
             locationInfo: userPreciseLocation || undefined,
-            timestamp: new Date().toLocaleTimeString('id-ID'),
-            formattedReportText: [
-              '========================================',
-              '📌 LAPORAN KETINGGIAN & KOORDINAT PENGGUNA',
-              '========================================',
-              `🕒 Waktu Pengukuran : ${new Date().toLocaleTimeString('id-ID')} WIB`,
-              `📍 Wilayah / Lokasi : ${userPreciseLocation?.shortDisplay || 'Koordinat Geospasial'}`,
-              `🏠 Alamat Lengkap   : ${userPreciseLocation?.fullAddress || `${userCoords.lat.toFixed(5)}°, ${userCoords.lng.toFixed(5)}°`}`,
-              '----------------------------------------',
-              `🏔️ Ketinggian Medan  : ${alt >= 0 ? `+${alt}` : alt} mdpl`,
-              `⛰️ Zona Topografi    : ${topo.zone}`,
-              `📝 Deskripsi Morfo   : ${topo.description}`,
-              `🌡️ Tekanan Atmosfer : ${pressure} hPa`,
-              `☕ Titik Didih Air   : ${boilingPoint} °C`,
-              '----------------------------------------',
-              `🌐 Koordinat Desimal : ${userCoords.lat.toFixed(6)}°, ${userCoords.lng.toFixed(6)}°`,
-              `🧭 Format DMS (Geod) : ${dmsDisplay}`,
-              `🎯 Akurasi Sensor GPS: ±${userAccuracy ? Math.round(userAccuracy) : 10} meter`,
-              '========================================',
-            ].join('\n'),
-          };
+          });
           setUserElevationReport(rep);
           setLocationStatusToast({
             type: 'success',
@@ -2094,60 +2060,21 @@ export function MapsView() {
             setUserPreciseLocation(locInfo);
           }
 
-          const finalAlt = deviceAlt ?? demAlt ?? 25.0;
-          const topo = gnssElevationService.getTopographyZone(finalAlt);
-          const dmsLat = gnssElevationService.toDMS(latitude, true);
-          const dmsLng = gnssElevationService.toDMS(longitude, false);
-          const dmsDisplay = `${dmsLat}, ${dmsLng}`;
-          const pressure = gnssElevationService.calculateBarometricPressure(finalAlt);
-          const boilingPoint = gnssElevationService.calculateBoilingPoint(finalAlt);
-          const epsg3857 = geospatialAnalysisService.toEPSG3857(latitude, longitude);
-
-          const reportText = [
-            '========================================',
-            '📌 LAPORAN KETINGGIAN & KOORDINAT PENGGUNA',
-            '========================================',
-            `🕒 Waktu Pengukuran : ${new Date().toLocaleTimeString('id-ID')} WIB`,
-            `📍 Wilayah / Lokasi : ${locInfo?.shortDisplay || 'Koordinat Geospasial'}`,
-            `🏠 Alamat Lengkap   : ${locInfo?.fullAddress || `${latitude.toFixed(5)}°, ${longitude.toFixed(5)}°`}`,
-            '----------------------------------------',
-            `🏔️ Ketinggian Medan  : ${finalAlt >= 0 ? `+${finalAlt}` : finalAlt} mdpl`,
-            `⛰️ Zona Topografi    : ${topo.zone}`,
-            `📝 Deskripsi Morfo   : ${topo.description}`,
-            `🌡️ Tekanan Atmosfer : ${pressure} hPa`,
-            `☕ Titik Didih Air   : ${boilingPoint} °C`,
-            '----------------------------------------',
-            `🌐 Koordinat Desimal : ${latitude.toFixed(6)}°, ${longitude.toFixed(6)}°`,
-            `🧭 Format DMS (Geod) : ${dmsDisplay}`,
-            `🎯 Akurasi Sensor GPS: ±${accRounded} meter`,
-            '========================================',
-          ].join('\n');
-
-          const rep: GnssElevationReport = {
+          const rep = gnssElevationService.buildElevationReport({
             lat: latitude,
             lng: longitude,
             accuracyM: accRounded,
-            altitudeM: finalAlt,
-            altitudeSource: deviceAlt != null ? 'device_sensor' : 'dem_srtm_model',
-            dmsLat,
-            dmsLng,
-            dmsDisplay,
-            epsg3857,
-            topographyZone: topo.zone,
-            topographyDescription: topo.description,
-            estimatedBarometricPressureHpa: pressure,
-            estimatedBoilingPointC: boilingPoint,
+            deviceAlt,
+            demAlt,
             locationInfo: locInfo || undefined,
-            timestamp: new Date().toLocaleTimeString('id-ID'),
-            formattedReportText: reportText,
-          };
+          });
 
           setUserElevationReport(rep);
 
           setLocationStatusToast({
             type: 'success',
             title: locInfo?.village ? `${locInfo.village}, ${locInfo.subDistrict || ''}` : 'Lokasi GPS & Elevasi Terverifikasi',
-            message: locInfo?.shortDisplay || `Ketinggian ${finalAlt} mdpl • ${topo.zone}`,
+            message: locInfo?.shortDisplay || (rep.altitudeM != null ? `Ketinggian ${rep.altitudeM} mdpl • ${rep.topographyZone}` : rep.topographyZone),
             accuracy: accRounded,
             village: locInfo?.village,
             subDistrict: locInfo?.subDistrict,
@@ -2987,7 +2914,7 @@ export function MapsView() {
       if (popupOverlayRef.current && popupRef.current) {
         popupRef.current.innerHTML = `
           <div style="min-width: 160px; font-family: Inter, sans-serif;" class="p-1 relative">
-              <button id="close-popup-btn" style="position: absolute; top: -2px; right: -2px; background: #f1f5f9; border-radius: 50%; padding: 2px; border: none; cursor: pointer; color: #94a3b8;">✖</button>
+              <button id="close-popup-btn" style="position: absolute; top: -2px; right: -2px; background: #f1f5f9; border-radius: 50%; padding: 2px; border: none; cursor: pointer; color: #94a3b8;">×</button>
               <strong style="font-size: 13px; color: #1e293b; display: block; margin-bottom: 4px; padding-right: 16px;">${name}</strong>
               <span style="font-size: 11px; color: #64748b; display: block;">Searched Location</span>
           </div>
@@ -3271,7 +3198,7 @@ export function MapsView() {
             return [];
           }
 
-          const vehicleIcon = isLocal ? '🛵' : '🚗';
+          const vehicleIcon = '';
 
           return [
             // Anchor pin dot
@@ -3334,7 +3261,7 @@ export function MapsView() {
           }),
           text: isClose
             ? new Text({
-                text: '📹 CCTV LIVE',
+                text: 'CCTV LIVE',
                 font: 'bold 9px Inter, system-ui, sans-serif',
                 fill: new Fill({ color: '#ffffff' }),
                 stroke: new Stroke({ color: '#083344', width: 2 }),
@@ -3385,7 +3312,7 @@ export function MapsView() {
         const phaseText =
           phase === 'GREEN' ? 'HIJAU' : phase === 'YELLOW' ? 'KUNING' : 'MERAH';
         const phaseIcon =
-          phase === 'GREEN' ? '🟢' : phase === 'YELLOW' ? '🟡' : '🔴';
+          phase === 'GREEN'? '': phase === 'YELLOW'? '': '';
 
         const styles: Style[] = [];
 
@@ -3408,7 +3335,7 @@ export function MapsView() {
         // 2. Solid inner core with high-contrast text badge
         const labelText = isNearest
           ? (isVeryClose ? `⭐ ${name}\n[${phaseIcon} ${phaseText} ${remaining}s]` : `⭐ ${name} (${remaining}s)`)
-          : (isClose ? `${name}\n${phaseIcon} ${phaseText} ${remaining}s` : `🚦 ${remaining}s`);
+          : (isClose ? `${name}\n${phaseIcon} ${phaseText} ${remaining}s`: `${remaining}s`);
 
         styles.push(
           new Style({
@@ -3805,7 +3732,7 @@ export function MapsView() {
             }),
             new Style({
               text: new Text({
-                text: resolution < 1500 ? `📡 ${radar.code} (${radar.city})` : '📡',
+                text: resolution < 1500 ? `${radar.code} (${radar.city})` : radar.code,
                 font: 'bold 10px Inter, system-ui, sans-serif',
                 fill: new Fill({ color: '#ffffff' }),
                 stroke: new Stroke({ color: '#064e3b', width: 2.5 }),
@@ -3836,7 +3763,7 @@ export function MapsView() {
             }),
             new Style({
               text: new Text({
-                text: `⚠️ Blank Spot: ${spot.name.replace('Zona Kesenjangan ', '').replace('Kawasan Blank Spot ', '')}`,
+                text: `Blank Spot: ${spot.name.replace('Zona Kesenjangan ', '').replace('Kawasan Blank Spot ', '')}`,
                 font: 'bold 10px Inter, system-ui, sans-serif',
                 fill: new Fill({ color: '#ffffff' }),
                 stroke: new Stroke({ color: '#881337', width: 2.5 }),
@@ -3870,7 +3797,7 @@ export function MapsView() {
               stroke: new Stroke({ color: '#ffffff', width: 2.5 }),
             }),
             text: new Text({
-              text: isEnd ? '🏁 Tujuan' : '🟢 Asal',
+              text: isEnd ? 'Tujuan': 'Asal',
               offsetY: -16,
               font: 'bold 11px Inter, sans-serif',
               fill: new Fill({ color: '#0f172a' }),
@@ -4123,7 +4050,7 @@ export function MapsView() {
           fill: new Fill({ color }),
           stroke: new Stroke({ color: strokeColor, width: 2, lineDash: [5, 4] }),
           text: new Text({
-            text: `⚠️ ${feature.get('name')}`,
+            text: `${feature.get('name')}`,
             font: 'bold 10px system-ui, sans-serif',
             fill: new Fill({ color: strokeColor }),
             stroke: new Stroke({ color: '#ffffff', width: 2.5 }),
@@ -4165,7 +4092,7 @@ export function MapsView() {
           fill: new Fill({ color: 'rgba(2, 132, 199, 0.28)' }),
           stroke: new Stroke({ color: '#0284c7', width: 2.2, lineDash: [6, 3] }),
           text: new Text({
-            text: `🌊 ${feature.get('name')} (Golden: ${feature.get('estimatedArrivalTimeMin')}m)`,
+            text: `${feature.get('name')} (Golden: ${feature.get('estimatedArrivalTimeMin')}m)`,
             font: 'bold 10px system-ui, sans-serif',
             fill: new Fill({ color: '#0369a1' }),
             stroke: new Stroke({ color: '#ffffff', width: 2.5 }),
@@ -4666,9 +4593,9 @@ export function MapsView() {
           if (feature.get('isSchool')) {
             popupRef.current.innerHTML = `
               <div style="min-width: 160px; font-family: Inter, sans-serif;" class="p-1 relative">
-                  <button id="close-popup-btn" style="position: absolute; top: -2px; right: -2px; background: #f1f5f9; border-radius: 50%; padding: 2px; border: none; cursor: pointer; color: #94a3b8;">✖</button>
+                  <button id="close-popup-btn" style="position: absolute; top: -2px; right: -2px; background: #f1f5f9; border-radius: 50%; padding: 2px; border: none; cursor: pointer; color: #94a3b8;">×</button>
                   <strong style="font-size: 13px; color: #1e293b; display: block; margin-bottom: 4px; padding-right: 16px;">${feature.get('name')}</strong>
-                  <span style="font-size: 11px; color: #64748b; display: block;">${feature.get('isActiveSchool') ? '🌟 Your School' : 'School'}</span>
+                  <span style="font-size: 11px; color: #64748b; display: block;">${feature.get('isActiveSchool') ? 'Sekolah Aktif' : 'Sekolah'}</span>
               </div>
             `;
             // Add a button dynamically
@@ -4697,7 +4624,7 @@ export function MapsView() {
             const code = feature.get('code') || 'SEN-01';
             const family = (feature.get('family') as SensorFamily) || 'OCEAN_HYDROLOGY';
             const meta = SENSOR_FAMILY_META[family];
-            const flag = feature.get('flag') || '📡';
+            const flag = feature.get('flag') || 'GPS';
             const platform = feature.get('platform') || 'GROUND_STATION';
             const status = 'KATALOG · BELUM TERHUBUNG';
             const currentValue = 'Data pengukuran belum tersedia';
@@ -4709,9 +4636,9 @@ export function MapsView() {
 
             popupRef.current.innerHTML = `
                 <div style="min-width: 250px; max-width: 300px; font-family: Inter, sans-serif;" class="p-1 relative">
-                    <button id="close-popup-btn" style="position: absolute; top: -2px; right: -2px; background: #f1f5f9; border-radius: 50%; padding: 2px 6px; border: none; cursor: pointer; color: #94a3b8; font-size: 12px; font-weight: bold;">✖</button>
+                    <button id="close-popup-btn" style="position: absolute; top: -2px; right: -2px; background: #f1f5f9; border-radius: 50%; padding: 2px 6px; border: none; cursor: pointer; color: #94a3b8; font-size: 12px; font-weight: bold;">×</button>
                     <div style="display: flex; align-items: center; gap: 6px; margin-bottom: 5px;">
-                      <span style="font-size: 15px;">${flag}</span>
+                      
                       <span style="font-size: 9px; font-weight: 800; text-transform: uppercase; color: ${textColor}; background: ${badgeBg}; padding: 1.5px 6px; border-radius: 4px; letter-spacing: 0.3px;">${meta?.name || 'Sensor Bumi'}</span>
                       <span style="font-size: 9px; font-weight: 700; color: #10b981; background: #ecfdf5; padding: 1px 5px; border-radius: 4px; margin-left: auto;">● ${status}</span>
                     </div>
@@ -4739,10 +4666,10 @@ export function MapsView() {
 
                     <div style="display: flex; gap: 4px; margin-top: 6px;">
                       <button id="inspect-sensor-btn" style="flex: 1; background: #0284c7; color: white; border: none; border-radius: 6px; padding: 6px 8px; font-size: 10px; font-weight: bold; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 4px;">
-                        🔍 Inspeksi Detail
+                         Inspeksi Detail
                       </button>
                       <button id="center-sensor-btn" style="background: #f1f5f9; color: #475569; border: 1px solid #cbd5e1; border-radius: 6px; padding: 6px 8px; font-size: 10px; font-weight: 600; cursor: pointer;">
-                        🎯 Pusatkan
+                         Pusatkan
                       </button>
                     </div>
                 </div>
@@ -4763,7 +4690,7 @@ export function MapsView() {
                     platform: feature.get('platform') || 'SEAFLOOR_CABLE',
                     provider: feature.get('provider') || feature.get('network') || 'National Observatory',
                     country: feature.get('country') || 'Indonesia',
-                    flag: feature.get('flag') || '📡',
+                    flag: feature.get('flag') || 'GPS',
                     lat: toLonLat(coords)[1],
                     lng: toLonLat(coords)[0],
                     status: feature.get('status') || 'UNCHECKED',
@@ -4824,10 +4751,10 @@ export function MapsView() {
               elevation: Number(feature.get('elevation')) || 2000,
               level: (feature.get('status') === 'Active' ? 'Level II (Waspada)' : 'Tidak Aktif (Padam/Purba)') as any,
               levelCode: (feature.get('status') === 'Active' ? 2 : 0) as any,
-              lastUpdate: new Date().toISOString(),
+              lastUpdate: 'Katalog Peta Statis (Belum Tersinkron Live)',
               dangerRadiusKm: feature.get('status') === 'Active' ? 3.0 : 0,
-              source: 'PVMBG / Badan Geologi',
-              operationalStatus: 'VERIFIED_LIVE_FEED' as any,
+              source: 'Katalog Referensi Gunung Api (Bukan Live Feed)',
+              operationalStatus: 'UNVERIFIED_CATALOG_BASELINE' as const,
               isGeologicallyActive: feature.get('status') === 'Active',
               volcanoClassification: (feature.get('status') === 'Active' ? 'Tipe A (Sangat Aktif)' : 'Gunung Api Purba (Padam / Extinct)') as any,
               formationEra: 'Zaman Kuarter / Pleistosen',
@@ -4844,7 +4771,7 @@ export function MapsView() {
             const acc = feature.get('accuracy');
             popupRef.current.innerHTML = `
                 <div style="min-width: 155px; font-family: Inter, sans-serif;" class="p-1 relative">
-                    <button id="close-popup-btn" style="position: absolute; top: -2px; right: -2px; background: #f1f5f9; border-radius: 50%; padding: 2px; border: none; cursor: pointer; color: #94a3b8;">✖</button>
+                    <button id="close-popup-btn" style="position: absolute; top: -2px; right: -2px; background: #f1f5f9; border-radius: 50%; padding: 2px; border: none; cursor: pointer; color: #94a3b8;">×</button>
                     <div style="display: flex; align-items: center; gap: 6px; margin-bottom: 2px;">
                       <span style="width: 8px; height: 8px; border-radius: 50%; background: #2563eb; display: inline-block;"></span>
                       <strong style="font-size: 13px; color: #1e293b;">Posisi GPS Anda</strong>
@@ -4915,21 +4842,21 @@ export function MapsView() {
                 : '#fdf2f8';
 
             const isLocalRoad = tier === 'local' || routeType.toLowerCase().includes('tikus') || routeType.toLowerCase().includes('lingkungan') || routeType.toLowerCase().includes('alternatif');
-            const iconEmoji = isLocalRoad ? '🛵' : '🛣️';
+            const iconEmoji = isLocalRoad ? 'LOKAL' : 'UTAMA';
             const badgeBg = isLocalRoad ? '#ecfdf5' : '#f3e8ff';
             const badgeColor = isLocalRoad ? '#059669' : '#7c3aed';
 
             popupRef.current.innerHTML = `
                 <div style="min-width: 240px; max-width: 300px; font-family: Inter, sans-serif;" class="p-1 relative">
-                    <button id="close-popup-btn" style="position: absolute; top: -2px; right: -2px; background: #f1f5f9; border-radius: 50%; padding: 2px 6px; border: none; cursor: pointer; color: #94a3b8; font-size: 12px; font-weight: bold;">✖</button>
+                    <button id="close-popup-btn" style="position: absolute; top: -2px; right: -2px; background: #f1f5f9; border-radius: 50%; padding: 2px 6px; border: none; cursor: pointer; color: #94a3b8; font-size: 12px; font-weight: bold;">×</button>
                     <div style="display: flex; align-items: center; gap: 6px; margin-bottom: 5px;">
                       <span style="font-size: 14px;">${iconEmoji}</span>
                       <span style="font-size: 9px; font-weight: 800; text-transform: uppercase; color: ${badgeColor}; background: ${badgeBg}; padding: 1.5px 6px; border-radius: 4px;">${routeType}</span>
-                      <span style="font-size: 9px; font-weight: 700; color: ${statusColor}; background: ${statusBg}; padding: 1.5px 6px; border-radius: 4px; margin-left: auto;">${status === 'Lancar' ? '🟢 Jalan Cepat' : status === 'Ramai Lancar' ? '🟡 Menguning' : status === 'Padat Merayap' ? '🔴 Merah' : '🔴⬛ Macet Total'}</span>
+                      <span style="font-size: 9px; font-weight: 700; color: ${statusColor}; background: ${statusBg}; padding: 1.5px 6px; border-radius: 4px; margin-left: auto;">${status === 'Lancar'? 'Jalan Cepat': status === 'Ramai Lancar'? 'Menguning': status === 'Padat Merayap'? 'Merah': '⬛ Macet Total'}</span>
                     </div>
                     <strong style="font-size: 12px; color: #0f172a; display: block; margin-bottom: 2px; padding-right: 18px; line-height: 1.25;">${corridorName}</strong>
-                    ${segmentName ? `<div style="font-size: 10px; font-weight: 600; color: #6d28d9; margin-bottom: 4px;">📍 Segmen: ${segmentName}</div>` : ''}
-                    ${isLocalRoad ? `<div style="font-size: 9.5px; color: #059669; font-weight: 700; margin-bottom: 4px;">🛵 Akses Jalan Kecil / Jalur Tikus Alternatif</div>` : ''}
+                    ${segmentName ? `<div style="font-size: 10px; font-weight: 600; color: #6d28d9; margin-bottom: 4px;">Segmen: ${segmentName}</div>`: ''}
+                    ${isLocalRoad ? `<div style="font-size: 9.5px; color: #059669; font-weight: 700; margin-bottom: 4px;">Akses Jalan Kecil / Jalur Tikus Alternatif</div>`: ''}
                     
                     <div style="background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 8px; padding: 6px 8px; margin-bottom: 6px; font-size: 10px; line-height: 1.45;">
                       <div style="display: flex; justify-content: space-between; margin-bottom: 2px;">
@@ -4938,7 +4865,7 @@ export function MapsView() {
                       </div>
                       ${probeCount !== undefined ? `
                       <div style="display: flex; justify-content: space-between; margin-bottom: 2px;">
-                        <span style="color: #64748b;">📡 Titik GPS Terdeteksi:</span>
+                        <span style="color: #64748b;">Titik GPS Terdeteksi:</span>
                         <strong style="color: #4f46e5;">${probeCount} sinyal (${densityPerKm ?? 0}/km)</strong>
                       </div>` : ''}
                       ${delayMinutes && delayMinutes > 0 ? `
@@ -4977,13 +4904,13 @@ export function MapsView() {
 
             popupRef.current.innerHTML = `
                 <div style="min-width: 220px; max-width: 280px; font-family: Inter, sans-serif;" class="p-1 relative">
-                    <button id="close-popup-btn" style="position: absolute; top: -2px; right: -2px; background: #f1f5f9; border-radius: 50%; padding: 2px 6px; border: none; cursor: pointer; color: #94a3b8; font-size: 12px; font-weight: bold;">✖</button>
+                    <button id="close-popup-btn" style="position: absolute; top: -2px; right: -2px; background: #f1f5f9; border-radius: 50%; padding: 2px 6px; border: none; cursor: pointer; color: #94a3b8; font-size: 12px; font-weight: bold;">×</button>
                     <div style="display: flex; align-items: center; gap: 6px; margin-bottom: 4px;">
-                      <span style="font-size: 15px;">🌐</span>
+                      
                       <span style="font-size: 9px; font-weight: 800; text-transform: uppercase; color: #f59e0b; background: #fef3c7; padding: 1.5px 6px; border-radius: 4px;">0°00'00" EQUATOR</span>
                     </div>
                     <strong style="font-size: 12.5px; color: #0f172a; display: block; margin-bottom: 2px; padding-right: 18px;">${name}</strong>
-                    <span style="font-size: 10px; color: #64748b; display: block; margin-bottom: 6px;">📍 ${location} (${country})</span>
+                    <span style="font-size: 10px; color: #64748b; display: block; margin-bottom: 6px;"> ${location} (${country})</span>
                     <p style="font-size: 10px; color: #334155; line-height: 1.4; background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 8px; padding: 6px 8px;">
                       ${description}
                     </p>
@@ -5001,14 +4928,14 @@ export function MapsView() {
             if (radar) {
               popupRef.current.innerHTML = `
                 <div style="min-width: 250px; max-width: 320px; font-family: Inter, sans-serif;" class="p-1 relative">
-                    <button id="close-popup-btn" style="position: absolute; top: -2px; right: -2px; background: #f1f5f9; border-radius: 50%; padding: 2px 6px; border: none; cursor: pointer; color: #94a3b8; font-size: 12px; font-weight: bold;">✖</button>
+                    <button id="close-popup-btn" style="position: absolute; top: -2px; right: -2px; background: #f1f5f9; border-radius: 50%; padding: 2px 6px; border: none; cursor: pointer; color: #94a3b8; font-size: 12px; font-weight: bold;">×</button>
                     <div style="display: flex; align-items: center; gap: 6px; margin-bottom: 5px;">
-                      <span style="font-size: 15px;">📡</span>
+                      
                       <span style="font-size: 9px; font-weight: 800; text-transform: uppercase; color: #047857; background: #d1fae5; padding: 1.5px 6px; border-radius: 4px;">RADAR DOPPLER BMKG</span>
-                      <span style="font-size: 9px; font-weight: 700; color: #475569; background: #f1f5f9; padding: 1px 5px; border-radius: 4px; margin-left: auto;">📋 ${radar.operationalStatus === 'ONLINE' ? 'Live Online' : 'Katalog Terdaftar (Live Belum Terverifikasi)'}</span>
+                      <span style="font-size: 9px; font-weight: 700; color: #475569; background: #f1f5f9; padding: 1px 5px; border-radius: 4px; margin-left: auto;"> ${radar.operationalStatus === 'ONLINE'? 'Live Online': 'Katalog Terdaftar (Live Belum Terverifikasi)'}</span>
                     </div>
                     <strong style="font-size: 12.5px; color: #0f172a; display: block; margin-bottom: 2px; padding-right: 18px; line-height: 1.3;">${radar.name}</strong>
-                    <div style="font-size: 10px; color: #64748b; margin-bottom: 6px;">📍 ${radar.city}, ${radar.province} (Elevasi: ${radar.elevationM}m)</div>
+                    <div style="font-size: 10px; color: #64748b; margin-bottom: 6px;"> ${radar.city}, ${radar.province} (Elevasi: ${radar.elevationM}m)</div>
 
                     <div style="background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 8px; padding: 6px 8px; margin-bottom: 8px; font-size: 10px; line-height: 1.5;">
                       <div style="display: flex; justify-content: space-between; margin-bottom: 2px;">
@@ -5021,7 +4948,7 @@ export function MapsView() {
                       </div>
                       <div style="display: flex; justify-content: space-between; margin-bottom: 2px;">
                         <span style="color: #64748b;">Zona Terpilih:</span>
-                        <span style="color: #6d28d9; font-weight: 700;">${zoneType === 'high' ? '🟢 Cakupan Tinggi (< 20 km)' : zoneType === 'moderate' ? '🟡 Cakupan Sedang (20-60 km)' : '🔵 Sapuan Radar Maksimal'}</span>
+                        <span style="color: #6d28d9; font-weight: 700;">${zoneType === 'high'? 'Cakupan Tinggi (< 20 km)': zoneType === 'moderate'? 'Cakupan Sedang (20-60 km)': 'Sapuan Radar Maksimal'}</span>
                       </div>
                       <div style="margin-top: 4px; border-top: 1px dashed #e2e8f0; padding-top: 3px; color: #64748b; font-size: 9px;">
                         Pengelola: ${radar.operator}
@@ -5053,14 +4980,14 @@ export function MapsView() {
             if (spot) {
               popupRef.current.innerHTML = `
                 <div style="min-width: 250px; max-width: 320px; font-family: Inter, sans-serif;" class="p-1 relative">
-                    <button id="close-popup-btn" style="position: absolute; top: -2px; right: -2px; background: #f1f5f9; border-radius: 50%; padding: 2px 6px; border: none; cursor: pointer; color: #94a3b8; font-size: 12px; font-weight: bold;">✖</button>
+                    <button id="close-popup-btn" style="position: absolute; top: -2px; right: -2px; background: #f1f5f9; border-radius: 50%; padding: 2px 6px; border: none; cursor: pointer; color: #94a3b8; font-size: 12px; font-weight: bold;">×</button>
                     <div style="display: flex; align-items: center; gap: 6px; margin-bottom: 5px;">
-                      <span style="font-size: 15px;">⚠️</span>
+                      
                       <span style="font-size: 9px; font-weight: 800; text-transform: uppercase; color: #be123c; background: #ffe4e6; padding: 1.5px 6px; border-radius: 4px;">ZONA KESENJANGAN (BLANK SPOT)</span>
                       <span style="font-size: 9px; font-weight: 700; color: #e11d48; background: #fff1f2; padding: 1px 5px; border-radius: 4px; margin-left: auto;">${spot.severity}</span>
                     </div>
                     <strong style="font-size: 12.5px; color: #0f172a; display: block; margin-bottom: 2px; padding-right: 18px; line-height: 1.3;">${spot.name}</strong>
-                    <div style="font-size: 10px; color: #64748b; margin-bottom: 6px;">📍 ${spot.region} (Pulau ${spot.island})</div>
+                    <div style="font-size: 10px; color: #64748b; margin-bottom: 6px;"> ${spot.region} (Pulau ${spot.island})</div>
 
                     <div style="background: #fff5f5; border: 1px solid #fed7d7; border-radius: 8px; padding: 6px 8px; margin-bottom: 8px; font-size: 10px; line-height: 1.5;">
                       <div style="display: flex; justify-content: space-between; margin-bottom: 2px;">
@@ -5103,9 +5030,9 @@ export function MapsView() {
             const pvmbg = feature.get('pvmbgCriteria');
             popupRef.current.innerHTML = `
               <div style="min-width: 250px; max-width: 320px; font-family: Inter, sans-serif;" class="p-1 relative">
-                <button id="close-popup-btn" style="position: absolute; top: -2px; right: -2px; background: #f1f5f9; border-radius: 50%; padding: 2px 6px; border: none; cursor: pointer; color: #94a3b8; font-size: 12px; font-weight: bold;">✖</button>
+                <button id="close-popup-btn" style="position: absolute; top: -2px; right: -2px; background: #f1f5f9; border-radius: 50%; padding: 2px 6px; border: none; cursor: pointer; color: #94a3b8; font-size: 12px; font-weight: bold;">×</button>
                 <div style="display: flex; align-items: center; gap: 6px; margin-bottom: 5px;">
-                  <span style="font-size: 15px;">⛰️</span>
+                  
                   <span style="font-size: 9px; font-weight: 800; text-transform: uppercase; color: #be123c; background: #ffe4e6; padding: 1.5px 6px; border-radius: 4px;">ZONA KERENTANAN GERAKAN TANAH</span>
                   <span style="font-size: 9px; font-weight: 700; color: #e11d48; background: #fff1f2; padding: 1px 5px; border-radius: 4px; margin-left: auto;">${risk}</span>
                 </div>
@@ -5137,9 +5064,9 @@ export function MapsView() {
             const evac = feature.get('evacuationOrder');
             popupRef.current.innerHTML = `
               <div style="min-width: 250px; max-width: 320px; font-family: Inter, sans-serif;" class="p-1 relative">
-                <button id="close-popup-btn" style="position: absolute; top: -2px; right: -2px; background: #f1f5f9; border-radius: 50%; padding: 2px 6px; border: none; cursor: pointer; color: #94a3b8; font-size: 12px; font-weight: bold;">✖</button>
+                <button id="close-popup-btn" style="position: absolute; top: -2px; right: -2px; background: #f1f5f9; border-radius: 50%; padding: 2px 6px; border: none; cursor: pointer; color: #94a3b8; font-size: 12px; font-weight: bold;">×</button>
                 <div style="display: flex; align-items: center; gap: 6px; margin-bottom: 5px;">
-                  <span style="font-size: 15px;">🌊</span>
+                  
                   <span style="font-size: 9px; font-weight: 800; text-transform: uppercase; color: #0284c7; background: #e0f2fe; padding: 1.5px 6px; border-radius: 4px;">ZONA INUNDASI TSUNAMI</span>
                   <span style="font-size: 9px; font-weight: 700; color: #0369a1; background: #f0f9ff; padding: 1px 5px; border-radius: 4px; margin-left: auto;">Golden: ${arrival}m</span>
                 </div>
@@ -5849,7 +5776,7 @@ export function MapsView() {
           <div className="flex items-center justify-between pb-2 border-b border-slate-100 dark:border-slate-800/80 gap-2">
             <div className="flex items-center gap-1.5 min-w-0">
               <span className="flex h-6 w-6 items-center justify-center rounded-lg bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 text-xs shrink-0 font-bold">
-                🚦
+                
               </span>
               <div className="min-w-0">
                 <div className="flex items-center gap-1">
@@ -5861,7 +5788,7 @@ export function MapsView() {
                   </span>
                 </div>
                 <span className="text-[9.5px] text-slate-500 dark:text-slate-400 block truncate font-medium">
-                  📍 {nearestSignal.distanceFormatted} dari lokasi Anda
+                   {nearestSignal.distanceFormatted} dari lokasi Anda
                 </span>
               </div>
             </div>
@@ -5937,7 +5864,7 @@ export function MapsView() {
                   onClick={() => setSelectedTrafficSignalId(nearestSignal.signal.id)}
                   className="px-2 py-1 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-[9.5px] flex items-center gap-1 shadow-xs cursor-pointer transition-all"
                 >
-                  <span>🚦</span>
+                  <span></span>
                   <span>Pantau</span>
                 </button>
               </div>
@@ -6473,7 +6400,7 @@ export function MapsView() {
           className="flex items-center gap-2 px-3.5 py-2.5 rounded-full bg-gradient-to-r from-rose-500/15 to-amber-500/15 hover:from-rose-500/25 hover:to-amber-500/25 border border-rose-400/40 text-rose-700 dark:text-rose-300 text-xs font-bold shadow-glass backdrop-blur-md transition-all active:scale-95 cursor-pointer"
           title="Buka Pusat Edukasi Daerah Rawan Bencana & Profil Risiko Sekolah"
         >
-          <span className="text-sm">⚠️</span>
+          <span className="text-sm"></span>
           <span>Zona Rawan Bencana</span>
           <span className="text-[10px] font-black uppercase px-1.5 py-0.2 rounded-full bg-rose-500 text-white">
             Edukasi
@@ -6486,7 +6413,7 @@ export function MapsView() {
           className="flex items-center gap-1.5 px-3.5 py-2.5 rounded-full bg-white/90 hover:bg-white dark:bg-slate-900/90 dark:hover:bg-slate-800 border border-slate-200/80 dark:border-slate-700 text-sky-700 dark:text-sky-300 text-xs font-bold shadow-glass backdrop-blur-md transition-all active:scale-95 cursor-pointer"
           title="Buka Panduan Tutorial Interaktif Penggunaan WebGIS"
         >
-          <span className="text-sm">❓</span>
+          <span className="text-sm"></span>
           <span>Panduan WebGIS</span>
         </button>
 
@@ -6638,7 +6565,7 @@ export function MapsView() {
                   </div>
                   {locationStatusToast.road && (
                     <div className="text-slate-500 text-[10px] truncate pt-0.5 border-t border-slate-200/50 dark:border-slate-700/50">
-                      📍 {locationStatusToast.road}
+                       {locationStatusToast.road}
                     </div>
                   )}
                 </div>
@@ -6655,16 +6582,21 @@ export function MapsView() {
                     <div className="flex items-center gap-1.5">
                       <Mountain className="w-3.5 h-3.5 text-sky-500" />
                       <span className="font-extrabold text-slate-900 dark:text-white font-mono text-xs">
-                        {locationStatusToast.elevationReport.altitudeM >= 0
-                          ? `+${locationStatusToast.elevationReport.altitudeM}`
-                          : locationStatusToast.elevationReport.altitudeM}{' '}
-                        mdpl
+                        {locationStatusToast.elevationReport.altitudeM == null
+                          ? '—'
+                          : locationStatusToast.elevationReport.altitudeM >= 0
+                          ? `+${locationStatusToast.elevationReport.altitudeM} mdpl`
+                          : `${locationStatusToast.elevationReport.altitudeM} mdpl`}
                       </span>
                       <span className="text-[10px] text-slate-500 dark:text-slate-400">
-                        (Elevasi Medan)
+                        {locationStatusToast.elevationReport.altitudeM == null ? '(Elevasi Tidak Tersedia)' : '(Elevasi Medan)'}
                       </span>
                     </div>
-                    <span className="text-[9px] font-mono px-2 py-0.5 rounded-full bg-sky-500/15 text-sky-600 dark:text-sky-400 font-bold border border-sky-500/20">
+                    <span className={`text-[9px] font-mono px-2 py-0.5 rounded-full font-bold border ${
+                      locationStatusToast.elevationReport.altitudeM == null
+                        ? 'bg-rose-500/15 text-rose-600 dark:text-rose-400 border-rose-500/30'
+                        : 'bg-sky-500/15 text-sky-600 dark:text-sky-400 border-sky-500/20'
+                    }`}>
                       {locationStatusToast.elevationReport.topographyZone}
                     </span>
                   </div>
@@ -6681,15 +6613,19 @@ export function MapsView() {
 
                   <div className="flex items-center justify-between text-[9px] text-slate-500 dark:text-slate-400 pt-0.5">
                     <span>
-                      Tekanan: {locationStatusToast.elevationReport.estimatedBarometricPressureHpa} hPa
+                      Tekanan: {locationStatusToast.elevationReport.estimatedBarometricPressureHpa != null ? `${locationStatusToast.elevationReport.estimatedBarometricPressureHpa} hPa` : '—'}
                     </span>
                     <button
                       type="button"
-                      onClick={() => {
-                        navigator.clipboard.writeText(
+                      onClick={async () => {
+                        const ok = await safeCopyToClipboard(
                           locationStatusToast.elevationReport!.formattedReportText
                         );
-                        alert('Laporan Ketinggian & Koordinat GNSS berhasil disalin ke clipboard!');
+                        alert(
+                          ok
+                            ? 'Laporan Ketinggian & Koordinat GNSS berhasil disalin ke clipboard!'
+                            : 'Gagal menyalin laporan secara otomatis. Silakan salin secara manual.'
+                        );
                       }}
                       className="text-sky-600 dark:text-sky-400 hover:underline font-bold cursor-pointer"
                     >
@@ -6816,7 +6752,7 @@ export function MapsView() {
             animate={{ opacity: 1, x: 0, scale: 1 }}
             exit={{ opacity: 0, x: 28, scale: 0.98 }}
             transition={{ type: "spring", stiffness: 350, damping: 30 }}
-            className="fixed sm:absolute top-auto bottom-0 sm:top-4 sm:bottom-4 right-0 sm:right-4 left-0 sm:left-auto z-50 w-full sm:w-[415px] max-h-[88vh] sm:max-h-[calc(100vh-2rem)] rounded-t-3xl sm:rounded-3xl bg-white/95 dark:bg-slate-900/95 shadow-2xl backdrop-blur-2xl border-t sm:border border-slate-200/80 dark:border-slate-800 flex flex-col overflow-hidden"
+            className="fixed sm:absolute top-auto bottom-0 sm:top-4 sm:bottom-4 right-0 sm:right-4 left-0 sm:left-auto z-50 w-full sm:w-[415px] max-h-[calc(var(--vh-full)*0.88)] sm:max-h-[calc(var(--vh-full)-2rem)] rounded-t-3xl sm:rounded-3xl bg-white/95 dark:bg-slate-900/95 shadow-2xl backdrop-blur-2xl border-t sm:border border-slate-200/80 dark:border-slate-800 flex flex-col overflow-hidden"
           >
               {/* Mobile Drag Handle Bar */}
               <div className="w-12 h-1.5 rounded-full bg-slate-300 dark:bg-slate-700 mx-auto mt-2.5 mb-1 sm:hidden shrink-0" />
@@ -6854,7 +6790,7 @@ export function MapsView() {
                       {trafficDrawerTab === 'cctv' ? (
                         <Camera className="h-4.5 w-4.5 sm:h-5 sm:w-5" />
                       ) : trafficDrawerTab === 'signals' ? (
-                        <span className="text-base sm:text-lg leading-none">🚦</span>
+                        <span className="text-base sm:text-lg leading-none"></span>
                       ) : trafficDrawerTab === 'probes' ? (
                         <Flame className="h-4.5 w-4.5 sm:h-5 sm:w-5" />
                       ) : trafficDrawerTab === 'byok' ? (
@@ -7008,7 +6944,6 @@ export function MapsView() {
                   }`}
                   title="Tampilkan lapisan lalu lintas Google Maps langsung (seluruh jalan terhubung via satelit)"
                 >
-                  <span>🚦</span>
                   <span className="truncate">Trafik {activeMapBasemap === 'traffic' || showTrafficCorridors ? 'ON' : 'OFF'}</span>
                 </button>
 
@@ -7030,7 +6965,7 @@ export function MapsView() {
                   }`}
                   title="Tampilkan panel kontrol lalu lintas Google Maps di layar bawah"
                 >
-                  <span>🎛️</span>
+                  <Sliders className="w-3 h-3 shrink-0" />
                   <span className="truncate">Bar {showTrafficControlBar ? 'ON' : 'OFF'}</span>
                 </button>
 
@@ -7047,7 +6982,7 @@ export function MapsView() {
                   }`}
                   title="Tampilkan titik kamera CCTV jalan raya & pantau live"
                 >
-                  <span>📹</span>
+                  <Video className="w-3 h-3 shrink-0" />
                   <span className="truncate">CCTV {showTrafficCctv ? 'ON' : 'OFF'}</span>
                 </button>
 
@@ -7064,26 +6999,26 @@ export function MapsView() {
                   }`}
                   title="Tampilkan lampu merah & siklus hitung mundur ATCS"
                 >
-                  <span>🚦</span>
+                  <Activity className="w-3 h-3 shrink-0" />
                   <span className="truncate">ATCS {showTrafficSignals ? 'ON' : 'OFF'}</span>
                 </button>
               </div>
 
               {/* Navigation Tabs */}
-              <div className="grid grid-cols-5 p-1.5 bg-slate-50 dark:bg-slate-900 border-b border-slate-200/80 dark:border-slate-800 text-[10px] font-bold shrink-0 gap-1">
+              <div className="flex items-center overflow-x-auto no-scrollbar sm:grid sm:grid-cols-5 p-1.5 bg-slate-50 dark:bg-slate-900 border-b border-slate-200/80 dark:border-slate-800 text-[10px] font-bold shrink-0 gap-1">
                 <button
                   type="button"
                   onClick={() => {
                     setTrafficDrawerTab('corridors');
                     if (!userCoords && !isLocatingUser) handleFindUserLocation();
                   }}
-                  className={`py-1.5 px-0.5 rounded-xl transition-all cursor-pointer flex flex-col items-center gap-0.5 ${
+                  className={`flex-1 min-w-[4rem] sm:min-w-0 min-h-[36px] py-1.5 px-1.5 rounded-xl transition-all cursor-pointer flex items-center justify-center ${
                     trafficDrawerTab === 'corridors'
                       ? 'bg-purple-600 text-white shadow-xs'
                       : 'text-slate-600 dark:text-slate-400 hover:bg-slate-200/60 dark:hover:bg-slate-800'
                   }`}
                 >
-                  <span>🛣️ Koridor</span>
+                  <span className="truncate">Koridor</span>
                 </button>
 
                 <button
@@ -7092,13 +7027,13 @@ export function MapsView() {
                     setTrafficDrawerTab('probes');
                     if (!userCoords && !isLocatingUser) handleFindUserLocation();
                   }}
-                  className={`py-1.5 px-0.5 rounded-xl transition-all cursor-pointer flex flex-col items-center gap-0.5 ${
+                  className={`flex-1 min-w-[4rem] sm:min-w-0 min-h-[36px] py-1.5 px-1.5 rounded-xl transition-all cursor-pointer flex items-center justify-center ${
                     trafficDrawerTab === 'probes'
                       ? 'bg-rose-600 text-white shadow-xs'
                       : 'text-slate-600 dark:text-slate-400 hover:bg-slate-200/60 dark:hover:bg-slate-800'
                   }`}
                 >
-                  <span>🔥 Densitas</span>
+                  <span className="truncate">Densitas</span>
                 </button>
 
                 <button
@@ -7108,13 +7043,13 @@ export function MapsView() {
                     setShowTrafficCctv(true);
                     if (!userCoords && !isLocatingUser) handleFindUserLocation();
                   }}
-                  className={`py-1.5 px-0.5 rounded-xl transition-all cursor-pointer flex flex-col items-center gap-0.5 ${
+                  className={`flex-1 min-w-[4.5rem] sm:min-w-0 min-h-[36px] py-1.5 px-1.5 rounded-xl transition-all cursor-pointer flex items-center justify-center ${
                     trafficDrawerTab === 'cctv'
                       ? 'bg-cyan-600 text-white shadow-xs'
                       : 'text-slate-600 dark:text-slate-400 hover:bg-slate-200/60 dark:hover:bg-slate-800'
                   }`}
                 >
-                  <span>📹 CCTV ({trafficCctvService.getAllCameras().length})</span>
+                  <span className="truncate">CCTV ({trafficCctvService.getAllCameras().length})</span>
                 </button>
 
                 <button
@@ -7124,25 +7059,25 @@ export function MapsView() {
                     setShowTrafficSignals(true);
                     if (!userCoords && !isLocatingUser) handleFindUserLocation();
                   }}
-                  className={`py-1.5 px-0.5 rounded-xl transition-all cursor-pointer flex flex-col items-center gap-0.5 ${
+                  className={`flex-1 min-w-[4.5rem] sm:min-w-0 min-h-[36px] py-1.5 px-1.5 rounded-xl transition-all cursor-pointer flex items-center justify-center ${
                     trafficDrawerTab === 'signals'
                       ? 'bg-emerald-600 text-white shadow-xs'
                       : 'text-slate-600 dark:text-slate-400 hover:bg-slate-200/60 dark:hover:bg-slate-800'
                   }`}
                 >
-                  <span>🚦 ATCS ({liveSignals.length})</span>
+                  <span className="truncate">ATCS ({liveSignals.length})</span>
                 </button>
 
                 <button
                   type="button"
                   onClick={() => setTrafficDrawerTab('byok')}
-                  className={`py-1.5 px-0.5 rounded-xl transition-all cursor-pointer flex flex-col items-center gap-0.5 ${
+                  className={`flex-1 min-w-[4.25rem] sm:min-w-0 min-h-[36px] py-1.5 px-1.5 rounded-xl transition-all cursor-pointer flex items-center justify-center ${
                     trafficDrawerTab === 'byok'
                       ? 'bg-indigo-600 text-white shadow-xs'
                       : 'text-slate-600 dark:text-slate-400 hover:bg-slate-200/60 dark:hover:bg-slate-800'
                   }`}
                 >
-                  <span>🔑 API</span>
+                  <span className="truncate">Kunci API</span>
                 </button>
               </div>
 
@@ -7154,27 +7089,26 @@ export function MapsView() {
                     <div className="flex items-center justify-between">
                       <div className="flex items-center gap-1.5 text-purple-700 dark:text-purple-300 font-bold text-[11px]">
                         <span className="flex h-2 w-2 rounded-full bg-emerald-500 animate-pulse"></span>
-                        <span>🛰️ Jaringan Lalu Lintas Satelit Google Maps</span>
+                        <span>Jaringan Lalu Lintas Google Maps</span>
                       </div>
                       <span className="text-[9.5px] px-2 py-0.5 rounded-full font-bold bg-purple-100 dark:bg-purple-900/60 text-purple-700 dark:text-purple-300 border border-purple-200 dark:border-purple-800">
-                        100% Jalan Terhubung
+                        Terhubung
                       </span>
                     </div>
 
                     <p className="text-[10px] text-slate-600 dark:text-slate-300 leading-relaxed">
-                      Seluruh ruas jalan tol, arteri nasional, hingga jalan lokal terhubung langsung tanpa garis buatan manual. Kepadatan dibaca real-time dari sinyal satelit GPS:
-                      <span className="font-bold text-emerald-600 dark:text-emerald-400"> 🟢 Hijau (Cepat)</span>,
-                      <span className="font-bold text-amber-600 dark:text-amber-400"> 🟡 Menguning (Ramai)</span>,
-                      <span className="font-bold text-rose-600 dark:text-rose-400"> 🔴 Merah (Macet)</span>,
-                      <span className="font-bold text-red-900 dark:text-red-400"> 🔴⬛ Merah Tua (Macet Total)</span>, dan
-                      <span className="font-bold text-slate-500"> Polos/Netral (Sepi/Kosong)</span>.
+                      Kepadatan ruas jalan diperbarui dari telemetri lalu lintas:
+                      <span className="font-bold text-emerald-600 dark:text-emerald-400"> Hijau (Lancar)</span>,
+                      <span className="font-bold text-amber-600 dark:text-amber-400"> Kuning (Ramai)</span>,
+                      <span className="font-bold text-rose-600 dark:text-rose-400"> Merah (Padat)</span>,
+                      <span className="font-bold text-red-900 dark:text-red-400"> Merah Tua (Macet)</span>.
                     </p>
 
                     {/* User Satellite Location Traffic Status Card */}
                     {nearestTrafficStatus ? (
                       <div className="p-2 rounded-xl bg-white/90 dark:bg-slate-900/80 border border-teal-200/80 dark:border-teal-800/60 text-[10.5px] flex items-center justify-between gap-1.5 shadow-2xs">
                         <div className="min-w-0">
-                          <span className="text-[9.5px] text-slate-400 block">Satelit Lokasi Anda ({nearestTrafficStatus.distanceFormatted}):</span>
+                          <span className="text-[9.5px] text-slate-400 block">Lokasi Terdekat ({nearestTrafficStatus.distanceFormatted}):</span>
                           <strong className="text-slate-800 dark:text-slate-200 truncate block text-[11px]">{nearestTrafficStatus.corridor.name}</strong>
                         </div>
                         <span className={`px-2 py-0.5 rounded-full font-bold text-[9.5px] border shrink-0 flex items-center gap-1 ${
@@ -7186,7 +7120,7 @@ export function MapsView() {
                             ? 'bg-rose-100 text-rose-800 dark:bg-rose-950/60 dark:text-rose-300 border-rose-300'
                             : 'bg-red-950 text-red-100 border-red-800'
                         }`}>
-                          {nearestTrafficStatus.status === 'Lancar' ? '🟢 Jalan Cepat' : nearestTrafficStatus.status === 'Ramai Lancar' ? '🟡 Menguning' : nearestTrafficStatus.status === 'Padat Merayap' ? '🔴 Macet' : '🔴⬛ Macet Total'} ({nearestTrafficStatus.speedKmh} km/j)
+                          {nearestTrafficStatus.status === 'Lancar' ? 'Lancar' : nearestTrafficStatus.status === 'Ramai Lancar' ? 'Ramai' : nearestTrafficStatus.status === 'Padat Merayap' ? 'Padat' : 'Macet'} ({nearestTrafficStatus.speedKmh} km/j)
                         </span>
                       </div>
                     ) : (
@@ -7221,6 +7155,17 @@ export function MapsView() {
                         </strong>
                       </div>
                     </div>
+
+                    {(liveTrafficSummary?.dataStatus === 'ERROR' || liveTrafficSummary?.dataStatus === 'UNAVAILABLE') && (
+                      <div role="status" className="p-2 rounded-xl bg-amber-50/90 dark:bg-amber-950/40 border border-amber-200/80 dark:border-amber-900/60 text-[10px] text-amber-800 dark:text-amber-300 flex items-center justify-between gap-2">
+                        <span className="font-bold">
+                          {liveTrafficSummary.dataStatus === 'ERROR' ? 'ERROR TRAFFIC API' : 'FEED TRAFIK EKSTERNAL BELUM TERHUBUNG'}
+                        </span>
+                        <span className="truncate opacity-80">
+                          {liveTrafficSummary.errorMessage || 'Menampilkan katalog koridor referensi'}
+                        </span>
+                      </div>
+                    )}
 
                     {/* Severe Bottlenecks Alert Widget */}
                     {liveTrafficSummary?.severeBottlenecks && liveTrafficSummary.severeBottlenecks.length > 0 && (
@@ -7279,7 +7224,7 @@ export function MapsView() {
                       <div className="flex flex-wrap gap-1">
                         {[
                           { key: 'all', label: 'Semua Ruas' },
-                          { key: 'local', label: '🛵 Jalan Kecil & Tikus' },
+                          { key: 'local', label: 'Jalan Kecil & Tikus'},
                           { key: 'collector', label: 'Kolektor' },
                           { key: 'arterial', label: 'Arteri Kota' },
                           { key: 'expressway', label: 'Tol Trans-Pulau' },
@@ -7343,7 +7288,7 @@ export function MapsView() {
                           </span>
                           {filteredCorridors[0].distanceFormatted && (
                             <span className="px-2 py-0.5 rounded-full text-[9.5px] font-extrabold bg-purple-600 text-white shadow-xs">
-                              📍 {filteredCorridors[0].distanceFormatted}
+                               {filteredCorridors[0].distanceFormatted}
                             </span>
                           )}
                         </div>
@@ -7422,7 +7367,7 @@ export function MapsView() {
                                     </span>
                                     {corridorDistFormatted && (
                                       <span className="text-[9px] font-mono font-bold text-purple-700 dark:text-purple-300 px-1.5 py-0.2 rounded bg-purple-100/80 dark:bg-purple-950/60 border border-purple-200 dark:border-purple-800">
-                                        📍 {corridorDistFormatted}
+                                         {corridorDistFormatted}
                                       </span>
                                     )}
                                   </div>
@@ -7432,7 +7377,7 @@ export function MapsView() {
                                 </div>
                                 <span className={`text-[9px] font-black uppercase px-2 py-0.5 rounded-full border shrink-0 flex items-center gap-1 ${statusColor}`}>
                                   <span className={`w-1.5 h-1.5 rounded-full ${statusDot}`} />
-                                  {corridor.status === 'Lancar' ? '🟢 Jalan Cepat' : corridor.status === 'Ramai Lancar' ? '🟡 Menguning' : corridor.status === 'Padat Merayap' ? '🔴 Merah' : '🔴⬛ Macet Total'}
+                                  {corridor.status === 'Lancar'? 'Jalan Cepat': corridor.status === 'Ramai Lancar'? 'Menguning': corridor.status === 'Padat Merayap'? 'Merah': '⬛ Macet Total'}
                                 </span>
                               </div>
 
@@ -7568,10 +7513,10 @@ export function MapsView() {
                     <div className="flex items-center justify-between font-bold text-rose-800 dark:text-rose-200 text-[11px]">
                       <span className="flex items-center gap-1.5">
                         <Radio className="w-3.5 h-3.5 text-rose-600 animate-pulse" />
-                        Prediksi Kemacetan Crowdsourced GPS
+                        {crowdsourceSummary.isSimulated ? 'Simulasi Densitas GPS' : 'GPS Crowdsourced'}
                       </span>
                       <span className="px-2 py-0.5 rounded-full bg-rose-100 dark:bg-rose-900 text-rose-700 dark:text-rose-300 text-[9.5px]">
-                        {crowdsourceSummary.totalActiveProbes} Sinyal Terkoneksi
+                        {crowdsourceSummary.isSimulated ? 'SIMULASI · ' : ''}{crowdsourceSummary.totalActiveProbes} Sinyal
                       </span>
                     </div>
                     <p className="text-[10px] text-rose-700/80 dark:text-rose-300/80 leading-relaxed">
@@ -7582,11 +7527,13 @@ export function MapsView() {
                     <div className="grid grid-cols-2 gap-2 pt-1 text-[10px]">
                       <div className="p-2 rounded-xl bg-white/80 dark:bg-slate-900/60 border border-rose-100 dark:border-rose-900/50">
                         <span className="text-slate-500 dark:text-slate-400 block text-[9px]">Titik Sinyal GPS Aktif:</span>
-                        <strong className="text-slate-800 dark:text-white font-mono text-xs">{crowdsourceSummary.totalActiveProbes} pengendara</strong>
+                        <strong className="text-slate-800 dark:text-white font-mono text-xs">{crowdsourceSummary.totalActiveProbes} sinyal</strong>
                       </div>
                       <div className="p-2 rounded-xl bg-white/80 dark:bg-slate-900/60 border border-rose-100 dark:border-rose-900/50">
                         <span className="text-slate-500 dark:text-slate-400 block text-[9px]">Kecepatan Rata-rata:</span>
-                        <strong className="text-emerald-600 dark:text-emerald-400 font-mono text-xs">{crowdsourceSummary.averageNetworkSpeedKmh} km/jam</strong>
+                        <strong className="text-emerald-600 dark:text-emerald-400 font-mono text-xs">
+                          {crowdsourceSummary.averageNetworkSpeedKmh != null ? `${crowdsourceSummary.averageNetworkSpeedKmh} km/jam` : '—'}
+                        </strong>
                       </div>
                       <div className="p-2 rounded-xl bg-white/80 dark:bg-slate-900/60 border border-rose-100 dark:border-rose-900/50">
                         <span className="text-slate-500 dark:text-slate-400 block text-[9px]">Segmen Padat/Macet:</span>
@@ -7595,7 +7542,7 @@ export function MapsView() {
                       <div className="p-2 rounded-xl bg-white/80 dark:bg-slate-900/60 border border-rose-100 dark:border-rose-900/50">
                         <span className="text-slate-500 dark:text-slate-400 block text-[9px]">Kontributor Warga:</span>
                         <strong className="text-indigo-600 dark:text-indigo-400 font-mono text-xs">
-                          {isBroadcastingUserGps ? '🟢 Aktif Membagikan' : '⚪ Mode Anonim'}
+                          {isBroadcastingUserGps ? 'Aktif Membagikan': 'Mode Anonim'}
                         </strong>
                       </div>
                     </div>
@@ -7605,13 +7552,13 @@ export function MapsView() {
                   <div className="p-3 rounded-2xl border border-indigo-200/80 dark:border-indigo-900/60 bg-gradient-to-r from-indigo-50/70 to-purple-50/70 dark:from-indigo-950/30 dark:to-purple-950/30 text-xs space-y-2">
                     <div className="flex items-center justify-between">
                       <div className="flex items-center gap-1.5">
-                        <span className="text-base">📡</span>
+                        <Radio className="w-4 h-4 text-indigo-500 shrink-0" />
                         <div>
                           <h4 className="font-bold text-slate-800 dark:text-white text-xs">
-                            Kontributor GPS Realtime (HTML5 Geolocation)
+                            GPS Langsung
                           </h4>
                           <p className="text-[10px] text-slate-500 dark:text-slate-400">
-                            Bagikan sinyal GPS perangkat Anda secara anonim ke backend Harmony
+                            Bagikan koordinat perangkat secara anonim
                           </p>
                         </div>
                       </div>
@@ -7620,7 +7567,7 @@ export function MapsView() {
                     <div className="flex items-center justify-between pt-1">
                       <span className="text-[10px] text-slate-600 dark:text-slate-300">
                         Status: <strong className={isBroadcastingUserGps ? 'text-emerald-600' : 'text-slate-500'}>
-                          {isBroadcastingUserGps ? '📡 Memancarkan Koordinat Realtime' : 'Mati (Hanya Menonton)'}
+                          {isBroadcastingUserGps ? 'Aktif Memancar' : 'Nonaktif'}
                         </strong>
                       </span>
 
@@ -7634,7 +7581,7 @@ export function MapsView() {
                         }`}
                       >
                         <Radio className="w-3 h-3" />
-                        <span>{isBroadcastingUserGps ? 'Hentikan Berbagi GPS' : 'Mulai Jadi Kontributor'}</span>
+                        <span>{isBroadcastingUserGps ? 'Hentikan GPS' : 'Aktifkan GPS'}</span>
                       </button>
                     </div>
                   </div>
@@ -7643,8 +7590,8 @@ export function MapsView() {
                   <div className="space-y-2">
                     <div className="flex items-center justify-between px-1">
                       <h4 className="text-xs font-bold text-slate-800 dark:text-white flex items-center gap-1.5">
-                        <span>🔥</span>
-                        <span>Titik Kepadatan GPS Tertinggi (Bottlenecks)</span>
+                        <Flame className="w-3.5 h-3.5 text-rose-500 shrink-0" />
+                        <span>Kepadatan GPS</span>
                       </h4>
                       <span className="text-[9.5px] text-slate-500 dark:text-slate-400">
                         Top Cluster Hotspots
@@ -7732,7 +7679,7 @@ export function MapsView() {
                                   </h5>
                                   {hDistFormatted && (
                                     <span className="text-[9px] font-mono font-bold text-rose-700 dark:text-rose-300 px-1.5 py-0.2 rounded bg-rose-100/80 dark:bg-rose-950/60 border border-rose-200 dark:border-rose-800">
-                                      📍 {hDistFormatted}
+                                       {hDistFormatted}
                                     </span>
                                   )}
                                 </div>
@@ -7753,7 +7700,7 @@ export function MapsView() {
 
                             <div className="flex items-center justify-between pt-1 border-t border-slate-100 dark:border-slate-700/50 text-[10px]">
                               <div className="flex items-center gap-2 text-slate-600 dark:text-slate-300">
-                                <span>📡 <strong>{hotspot.pings}</strong> pings</span>
+                                <span> <strong>{hotspot.pings}</strong>pings</span>
                                 <span>•</span>
                                 <span>Kecepatan: <strong>{hotspot.speed}</strong></span>
                                 <span>•</span>
@@ -7864,15 +7811,15 @@ export function MapsView() {
                           className="px-2 py-1 text-[10px] font-semibold rounded-xl bg-white/90 dark:bg-slate-900/90 border border-cyan-200 dark:border-cyan-800 text-slate-700 dark:text-slate-200 focus:outline-hidden"
                         >
                           <option value="Semua">Semua Kategori</option>
-                          <option value="binamarga">🤖 Bina Marga AI Non-Tol</option>
-                          <option value="jembatan">🌉 Jembatan Nasional (CH)</option>
-                          <option value="its">🚦 ITS Pantura Non-Tol</option>
-                          <option value="kemenhub">⚓ Simpul Transportasi (Kemenhub)</option>
-                          <option value="jalan">🛣️ Jalan Raya / Protokol</option>
-                          <option value="tol">🚗 Jalan Tol Trans-Jawa / Tol</option>
-                          <option value="publik">🏛️ Kawasan Publik</option>
-                          <option value="wisata">🏖️ Destinasi Wisata</option>
-                          <option value="pengadilan">⚖️ Layanan Peradilan</option>
+                          <option value="binamarga">Bina Marga AI Non-Tol</option>
+                          <option value="jembatan">Jembatan Nasional (CH)</option>
+                          <option value="its">ITS Pantura Non-Tol</option>
+                          <option value="kemenhub">Simpul Transportasi (Kemenhub)</option>
+                          <option value="jalan">Jalan Raya / Protokol</option>
+                          <option value="tol">Jalan Tol Trans-Jawa / Tol</option>
+                          <option value="publik">Kawasan Publik</option>
+                          <option value="wisata">Destinasi Wisata</option>
+                          <option value="pengadilan">Layanan Peradilan</option>
                         </select>
                       </div>
 
@@ -7880,12 +7827,12 @@ export function MapsView() {
                       <div className="flex items-center gap-1 overflow-x-auto pb-0.5 pt-0.5 no-scrollbar">
                         {[
                           { label: 'Semua', value: 'Semua' },
-                          { label: '🤖 Bina Marga AI', value: 'binamarga' },
-                          { label: '🌉 Jembatan CH', value: 'jembatan' },
-                          { label: '🚦 ITS Pantura', value: 'its' },
-                          { label: '⚓ Kemenhub', value: 'kemenhub' },
-                          { label: '🚗 Jalan Tol', value: 'tol' },
-                          { label: '🛣️ Jalan Raya', value: 'jalan' },
+                          { label: 'Bina Marga AI', value: 'binamarga' },
+                          { label: 'Jembatan CH', value: 'jembatan' },
+                          { label: 'ITS Pantura', value: 'its' },
+                          { label: 'Kemenhub', value: 'kemenhub' },
+                          { label: 'Jalan Tol', value: 'tol' },
+                          { label: 'Jalan Raya', value: 'jalan' },
                         ].map((cat) => (
                           <button
                             key={cat.value}
@@ -7942,7 +7889,7 @@ export function MapsView() {
                           const formatted = dKm < 1 ? `${Math.round(dKm * 1000)} m` : `${dKm.toFixed(1)} km`;
                           return (
                             <span className="px-2 py-0.5 rounded-full text-[9.5px] font-extrabold bg-cyan-600 text-white shadow-xs">
-                              📍 {formatted}
+                               {formatted}
                             </span>
                           );
                         })()}
@@ -8009,15 +7956,15 @@ export function MapsView() {
                               <div className="flex items-center gap-1.5 flex-wrap">
                                 {cam.category === 'binamarga' ? (
                                   <span className="text-[9px] font-bold px-1.5 py-0.5 rounded bg-purple-100 dark:bg-purple-950 text-purple-700 dark:text-purple-300 border border-purple-200 dark:border-purple-800">
-                                    🤖 Bina Marga AI
+                                     Bina Marga AI
                                   </span>
                                 ) : cam.category === 'jembatan' ? (
                                   <span className="text-[9px] font-bold px-1.5 py-0.5 rounded bg-amber-100 dark:bg-amber-950 text-amber-700 dark:text-amber-300 border border-amber-200 dark:border-amber-800">
-                                    🌉 Jembatan CH
+                                     Jembatan CH
                                   </span>
                                 ) : cam.category === 'its' ? (
                                   <span className="text-[9px] font-bold px-1.5 py-0.5 rounded bg-teal-100 dark:bg-teal-950 text-teal-700 dark:text-teal-300 border border-teal-200 dark:border-teal-800">
-                                    🚦 ITS Pantura
+                                     ITS Pantura
                                   </span>
                                 ) : (
                                   <span className="text-[9px] font-bold px-1.5 py-0.5 rounded bg-cyan-100 dark:bg-cyan-950 text-cyan-700 dark:text-cyan-300 border border-cyan-200 dark:border-cyan-800">
@@ -8046,7 +7993,7 @@ export function MapsView() {
                                 </span>
                                 {camDistFormatted && (
                                   <span className="text-[9px] font-mono font-bold text-cyan-700 dark:text-cyan-300 px-1.5 py-0.2 rounded bg-cyan-100/80 dark:bg-cyan-950/60 border border-cyan-200 dark:border-cyan-800">
-                                    📍 {camDistFormatted}
+                                     {camDistFormatted}
                                   </span>
                                 )}
                               </div>
@@ -8057,7 +8004,7 @@ export function MapsView() {
                                 {cam.road}
                               </p>
                               <p className="text-[9px] font-mono text-slate-400 dark:text-slate-500 mt-0.5">
-                                📍 {cam.lat.toFixed(4)}°, {cam.lng.toFixed(4)}°
+                                 {cam.lat.toFixed(4)}°, {cam.lng.toFixed(4)}°
                               </p>
                             </div>
 
@@ -8133,7 +8080,7 @@ export function MapsView() {
                   <div className="p-3 bg-emerald-50/90 dark:bg-emerald-950/40 rounded-2xl border border-emerald-200/90 dark:border-emerald-900/70 text-xs space-y-2.5 shadow-2xs">
                     <div className="flex items-center justify-between font-bold text-emerald-800 dark:text-emerald-200 text-[11px]">
                       <span className="flex items-center gap-1.5">
-                        <span>🚦</span>
+                        <span></span>
                         Sistem Kendali Lalu Lintas Cerdas (ATCS)
                       </span>
                       <div className="flex items-center gap-1.5">
@@ -8165,7 +8112,7 @@ export function MapsView() {
                     <div className="p-2.5 rounded-xl bg-white/80 dark:bg-slate-900/80 border border-emerald-200/70 dark:border-emerald-800/60 text-[9.5px] space-y-1.5 shadow-2xs">
                       <div className="flex items-center justify-between text-slate-600 dark:text-slate-300">
                         <span className="font-bold flex items-center gap-1 text-emerald-700 dark:text-emerald-300">
-                          <span>🌐 Sumber Resmi Data:</span>
+                          <span>Sumber Resmi Data:</span>
                         </span>
                         <span className="font-mono text-[9px] text-emerald-700 dark:text-emerald-300 px-1.5 py-0.5 rounded bg-emerald-100/70 dark:bg-emerald-950/60 font-bold border border-emerald-300/40 dark:border-emerald-700/50">
                           API: /api/spatial/traffic/signals
@@ -8193,7 +8140,7 @@ export function MapsView() {
                           Lampu Merah / Simpang ATCS Terdekat Anda
                         </span>
                         <span className="px-2 py-0.5 rounded-full text-[9.5px] font-extrabold bg-emerald-600 text-white shadow-xs">
-                          📍 {nearestSignal.distanceFormatted}
+                           {nearestSignal.distanceFormatted}
                         </span>
                       </div>
                       <div className="flex items-start justify-between gap-2">
@@ -8254,11 +8201,11 @@ export function MapsView() {
                               </span>
                               {sig.isUnderRepair ? (
                                 <span className="text-[9px] font-bold px-1.5 py-0.5 rounded bg-amber-500/10 text-amber-600 dark:text-amber-400 border border-amber-500/30">
-                                  🔧 Pemeliharaan
+                                   Pemeliharaan
                                 </span>
                               ) : (
                                 <span className="text-[9px] font-bold px-1.5 py-0.5 rounded bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/30">
-                                  ✓ SCATS/SITS Normal
+                                   SCATS/SITS Normal
                                 </span>
                               )}
                               <span className="text-[8.5px] font-mono text-sky-600 dark:text-sky-400 px-1 py-0.5 rounded bg-sky-50 dark:bg-sky-950/60 border border-sky-200 dark:border-sky-800">
@@ -8266,7 +8213,7 @@ export function MapsView() {
                               </span>
                               {sigDistFormatted && (
                                 <span className="text-[9px] font-mono font-bold text-emerald-700 dark:text-emerald-300 px-1.5 py-0.2 rounded bg-emerald-100/80 dark:bg-emerald-950/60 border border-emerald-200 dark:border-emerald-800">
-                                  📍 {sigDistFormatted}
+                                   {sigDistFormatted}
                                 </span>
                               )}
                             </div>
@@ -8325,7 +8272,7 @@ export function MapsView() {
                               className="px-2.5 py-1 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-[10px] flex items-center gap-1 shadow-2xs cursor-pointer"
                               title="Buka panel ATCS simpang ini"
                             >
-                              <span>🚦</span>
+                              <span></span>
                               <span>Pantau Simpang</span>
                             </button>
                           </div>
@@ -8467,7 +8414,7 @@ export function MapsView() {
             animate={{ opacity: 1, x: 0, scale: 1 }}
             exit={{ opacity: 0, x: 28, scale: 0.98 }}
             transition={{ type: "spring", stiffness: 350, damping: 30 }}
-            className="fixed sm:absolute top-auto bottom-0 sm:top-4 sm:bottom-4 right-0 sm:right-4 left-0 sm:left-auto z-50 w-full sm:w-[420px] max-h-[88vh] sm:max-h-[calc(100vh-2rem)] rounded-t-3xl sm:rounded-3xl bg-white/95 dark:bg-slate-900/95 shadow-2xl backdrop-blur-2xl border-t sm:border border-slate-200/80 dark:border-slate-800 flex flex-col overflow-hidden"
+            className="fixed sm:absolute top-auto bottom-0 sm:top-4 sm:bottom-4 right-0 sm:right-4 left-0 sm:left-auto z-50 w-full sm:w-[420px] max-h-[calc(var(--vh-full)*0.88)] sm:max-h-[calc(var(--vh-full)-2rem)] rounded-t-3xl sm:rounded-3xl bg-white/95 dark:bg-slate-900/95 shadow-2xl backdrop-blur-2xl border-t sm:border border-slate-200/80 dark:border-slate-800 flex flex-col overflow-hidden"
           >
               {/* Mobile Drag Handle Bar */}
               <div className="w-12 h-1.5 rounded-full bg-slate-300 dark:bg-slate-700 mx-auto mt-2.5 mb-1 sm:hidden shrink-0" />
@@ -8570,7 +8517,7 @@ export function MapsView() {
 
                     {/* Skala Jangkauan & Legenda */}
                     <div className="space-y-2">
-                      <h4 className="text-[11px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider">Klasifikasi Jangkauan Sensor</h4>
+                      <h4 className="text-[11px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider">Jangkauan Sensor</h4>
                       <div className="space-y-2">
                         <div className="p-2.5 rounded-xl bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-200/60 dark:border-emerald-800/60">
                           <div className="flex items-center justify-between">
@@ -8615,7 +8562,7 @@ export function MapsView() {
 
                     {/* Quick Focus Actions */}
                     <div className="space-y-2 pt-1">
-                      <h4 className="text-[11px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider">Arahkan Kamera Langsung (Fly-To)</h4>
+                      <h4 className="text-[11px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider">Arahkan Kamera</h4>
                       <div className="grid grid-cols-2 gap-2">
                         <button
                           type="button"
@@ -8625,7 +8572,7 @@ export function MapsView() {
                           }}
                           className="p-2 rounded-xl bg-slate-100 hover:bg-emerald-50 dark:bg-slate-800 dark:hover:bg-emerald-950/40 text-slate-700 dark:text-slate-300 hover:text-emerald-600 dark:hover:text-emerald-400 text-[11px] font-bold border border-slate-200/70 dark:border-slate-700/70 hover:border-emerald-500/40 transition-all text-left cursor-pointer flex items-center gap-1.5"
                         >
-                          <span>📡</span>
+                          <span></span>
                           <span className="truncate">Radar Cengkareng (CGK)</span>
                         </button>
                         <button
@@ -8636,7 +8583,7 @@ export function MapsView() {
                           }}
                           className="p-2 rounded-xl bg-slate-100 hover:bg-emerald-50 dark:bg-slate-800 dark:hover:bg-emerald-950/40 text-slate-700 dark:text-slate-300 hover:text-emerald-600 dark:hover:text-emerald-400 text-[11px] font-bold border border-slate-200/70 dark:border-slate-700/70 hover:border-emerald-500/40 transition-all text-left cursor-pointer flex items-center gap-1.5"
                         >
-                          <span>📡</span>
+                          <span></span>
                           <span className="truncate">Radar Juanda (SUB)</span>
                         </button>
                         <button
@@ -8647,7 +8594,7 @@ export function MapsView() {
                           }}
                           className="p-2 rounded-xl bg-slate-100 hover:bg-rose-50 dark:bg-slate-800 dark:hover:bg-rose-950/40 text-slate-700 dark:text-slate-300 hover:text-rose-600 dark:hover:text-rose-400 text-[11px] font-bold border border-slate-200/70 dark:border-slate-700/70 hover:border-rose-500/40 transition-all text-left cursor-pointer flex items-center gap-1.5"
                         >
-                          <span>⚠️</span>
+                          <span></span>
                           <span className="truncate">Blank Spot Papua</span>
                         </button>
                         <button
@@ -8658,7 +8605,7 @@ export function MapsView() {
                           }}
                           className="p-2 rounded-xl bg-slate-100 hover:bg-rose-50 dark:bg-slate-800 dark:hover:bg-rose-950/40 text-slate-700 dark:text-slate-300 hover:text-rose-600 dark:hover:text-rose-400 text-[11px] font-bold border border-slate-200/70 dark:border-slate-700/70 hover:border-rose-500/40 transition-all text-left cursor-pointer flex items-center gap-1.5"
                         >
-                          <span>⚠️</span>
+                          <span></span>
                           <span className="truncate">Blank Spot Natuna</span>
                         </button>
                       </div>
@@ -8735,7 +8682,7 @@ export function MapsView() {
                             </span>
                           </div>
                           <div className="flex items-center justify-between text-[10.5px] text-slate-500 dark:text-slate-400 mt-1.5">
-                            <span>📍 {radar.city}, {radar.province}</span>
+                            <span>{radar.city}, {radar.province}</span>
                             <span className="font-mono">Alt: {radar.elevationM}m</span>
                           </div>
                           <div className="flex items-center justify-between text-[10px] text-slate-400 dark:text-slate-500 mt-1 pt-1.5 border-t border-slate-100 dark:border-slate-800">
@@ -8763,7 +8710,7 @@ export function MapsView() {
                         >
                           <div className="flex items-center justify-between">
                             <h5 className="font-bold text-rose-950 dark:text-rose-200 text-xs group-hover:text-rose-600 transition-colors">
-                              ⚠️ {spot.name}
+                               {spot.name}
                             </h5>
                             <span className={`text-[9px] font-black px-2 py-0.5 rounded-full ${
                               spot.severity === 'Kritis'
@@ -8775,7 +8722,7 @@ export function MapsView() {
                           </div>
 
                           <div className="text-[10.5px] text-slate-500 dark:text-slate-400 mt-1">
-                            📍 {spot.region} (Pulau {spot.island})
+                             {spot.region} (Pulau {spot.island})
                           </div>
 
                           <div className="mt-2 p-2 rounded-xl bg-rose-50/70 dark:bg-rose-950/40 border border-rose-200/60 dark:border-rose-900/60 text-[10px] space-y-1">
@@ -8901,7 +8848,7 @@ export function MapsView() {
                     className="flex items-center gap-2 px-3 py-1.5 rounded-xl bg-slate-900/85 hover:bg-slate-900 backdrop-blur-md border border-amber-500/30 text-white text-[11px] font-medium shadow-lg transition-all hover:scale-105 cursor-pointer group"
                     title="Klik untuk melihat Detail Konsensus Musim & Iklim Global"
                   >
-                    <span className="text-sm leading-none">{seasonalInfo.seasonIcon}</span>
+                    <CloudSun className="w-3.5 h-3.5 text-amber-300 shrink-0" />
                     <div className="flex items-center gap-1.5 text-left">
                       <span className="font-bold text-amber-300">
                         {seasonalInfo.seasonName}
@@ -9072,17 +9019,17 @@ export function MapsView() {
 
                 {/* Color Scheme Interpretation (Satelit & Lokasi) */}
                 <div className="py-1 px-1 flex items-center justify-between text-[9px] text-slate-400 dark:text-slate-500 border-b border-slate-100 dark:border-slate-800/60 font-medium">
-                  <span className="text-emerald-600 dark:text-emerald-400 font-bold">🟢 Hijau (Cepat)</span>
-                  <span className="text-amber-500 font-bold">🟡 Kuning (Ramai)</span>
-                  <span className="text-rose-500 font-bold">🔴 Merah (Macet)</span>
-                  <span className="text-red-900 dark:text-red-400 font-bold">🔴⬛ Merah Tua (Macet Total)</span>
+                  <span className="text-emerald-600 dark:text-emerald-400 font-bold">Hijau (Cepat)</span>
+                  <span className="text-amber-500 font-bold">Kuning (Ramai)</span>
+                  <span className="text-rose-500 font-bold">Merah (Macet)</span>
+                  <span className="text-red-900 dark:text-red-400 font-bold">⬛ Merah Tua (Macet Total)</span>
                   <span className="text-slate-400 italic">Polos (Sepi)</span>
                 </div>
 
                 {/* Real-time Satellite GPS Traffic Status for User */}
                 <div className="my-2 py-1.5 px-2.5 rounded-xl bg-slate-50 dark:bg-slate-800/60 border border-slate-200/70 dark:border-slate-700/60 flex items-center justify-between text-[11px] gap-2">
                   <div className="flex items-center gap-1.5 min-w-0">
-                    <span className="text-xs">🛰️</span>
+                    <span className="text-xs"></span>
                     <span className="text-slate-600 dark:text-slate-300 font-medium truncate">
                       {userCoords ? (
                         <>Satelit GPS: <strong className="font-mono text-slate-800 dark:text-slate-100">{userCoords.lat.toFixed(3)}, {userCoords.lng.toFixed(3)}</strong></>
@@ -9103,12 +9050,12 @@ export function MapsView() {
                     }`}>
                       <span>
                         {nearestTrafficStatus.status === 'Lancar'
-                          ? '🟢 Jalan Cepat'
+                          ? 'Jalan Cepat'
                           : nearestTrafficStatus.status === 'Ramai Lancar'
-                          ? '🟡 Menguning'
+                          ? 'Menguning'
                           : nearestTrafficStatus.status === 'Padat Merayap'
-                          ? '🔴 Macet'
-                          : '🔴⬛ Macet Total'}
+                          ? 'Macet'
+                          : '⬛ Macet Total'}
                       </span>
                       <span className="font-mono text-[9px] opacity-80">({nearestTrafficStatus.speedKmh} km/j)</span>
                     </span>
@@ -9188,8 +9135,8 @@ export function MapsView() {
                   <div className="pt-2 space-y-2">
                     <div className="flex items-center justify-between text-xs">
                       <div className="flex items-center gap-1.5 text-slate-800 dark:text-slate-200 font-medium">
-                        <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
-                        <span>Real-time GPS Crowdsource</span>
+                        <span className={`w-2 h-2 rounded-full ${crowdsourceSummary.isSimulated ? 'bg-amber-500' : 'bg-emerald-500 animate-pulse'}`} />
+                        <span>{crowdsourceSummary.isSimulated ? 'Simulasi Overlay GPS' : 'GPS Crowdsource'}</span>
                         <span className="text-slate-300 dark:text-slate-600">•</span>
                         <span className="font-mono text-emerald-600 dark:text-emerald-400 font-bold">
                           {crowdsourceSummary.totalActiveProbes} Sinyal
@@ -9215,7 +9162,7 @@ export function MapsView() {
                           }`}
                           title="Siarkan koordinat GPS perangkat secara anonim untuk kontribusi kepadatan"
                         >
-                          <span>📡</span>
+                          <span></span>
                           <span>{isBroadcastingUserGps ? 'Berhenti GPS' : 'Siarkan GPS'}</span>
                         </button>
                         <button
@@ -9224,7 +9171,7 @@ export function MapsView() {
                           className="px-2 py-1 rounded-lg text-[9.5px] font-bold bg-teal-600 hover:bg-teal-700 text-white transition-colors cursor-pointer flex items-center gap-1"
                           title="Buka panel daftar koridor, kamera CCTV, dan sinyal ATCS"
                         >
-                          <span>🚗</span>
+                          <span></span>
                           <span>Koridor &amp; CCTV</span>
                         </button>
                       </div>
@@ -9354,10 +9301,10 @@ export function MapsView() {
           >
             <div className="flex items-center justify-between pb-2 border-b border-slate-800">
               <div className="flex items-center gap-2">
-                <span className="text-base">🌐</span>
+                <Globe className="w-4 h-4 text-sky-400 shrink-0" />
                 <div>
-                  <h4 className="text-xs font-bold text-slate-200">Petunjuk Garis Khatulistiwa &amp; Iklim</h4>
-                  <p className="text-[10px] text-slate-400">Garis batas lintang astronomis bumi</p>
+                  <h4 className="text-xs font-bold text-slate-200">Garis Khatulistiwa</h4>
+                  <p className="text-[10px] text-slate-400">Batas lintang astronomis bumi</p>
                 </div>
               </div>
               <button
@@ -9437,7 +9384,7 @@ export function MapsView() {
                     : 'bg-slate-800 text-slate-400 hover:text-white'
                 }`}
               >
-                {showEquatorZones ? '✓ Garis Aktif' : 'Tampilkan Garis'}
+                {showEquatorZones ? 'Garis Aktif': 'Tampilkan Garis'}
               </button>
 
               <button
@@ -9455,7 +9402,7 @@ export function MapsView() {
                 className="py-1.5 px-2.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 text-[10px] font-semibold transition-colors"
                 title="Pusatkan ke Tugu Khatulistiwa Pontianak"
               >
-                📍 Pontianak
+                 Pontianak
               </button>
 
               <button
@@ -9473,7 +9420,7 @@ export function MapsView() {
                 className="py-1.5 px-2.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 text-[10px] font-semibold transition-colors"
                 title="Pusatkan ke Tugu Equator Bonjol"
               >
-                📍 Bonjol
+                 Bonjol
               </button>
             </div>
           </motion.div>
@@ -9506,7 +9453,7 @@ export function MapsView() {
                   </div>
                   <div>
                     <h3 className="text-sm font-bold text-slate-800 dark:text-white">
-                      Validitas & Metadata Spasial
+                      Validitas Spasial
                     </h3>
                     <p className="text-[11px] text-slate-500 dark:text-slate-400">
                       Standar SNI ISO 19115 &amp; Kebijakan Satu Peta (One Map Policy)
@@ -9593,12 +9540,12 @@ export function MapsView() {
             >
               <div className="flex items-center justify-between pb-3 border-b border-slate-100 dark:border-slate-800 shrink-0">
                 <div className="flex items-center gap-2.5">
-                  <div className="flex h-10 w-10 items-center justify-center rounded-2xl bg-gradient-to-tr from-amber-500 to-orange-600 text-white shadow-md shadow-orange-500/20 text-lg">
-                    {seasonalInfo.seasonIcon}
+                  <div className="flex h-10 w-10 items-center justify-center rounded-2xl bg-gradient-to-tr from-amber-500 to-orange-600 text-white shadow-md shadow-orange-500/20">
+                    <Sun className="w-5 h-5" />
                   </div>
                   <div>
                     <h3 className="text-sm font-bold text-slate-800 dark:text-white flex items-center gap-2">
-                      <span>Konsensus Musim &amp; Iklim Global</span>
+                      <span>Iklim Global</span>
                       <span className="text-[10px] px-2 py-0.5 rounded-full bg-amber-500/10 text-amber-600 dark:text-amber-400 font-extrabold border border-amber-500/20">
                         {seasonalInfo.zoneCategory}
                       </span>
@@ -9625,7 +9572,6 @@ export function MapsView() {
                       Status Musim Saat Ini ({new Date().toLocaleDateString('id-ID', { month: 'long', year: 'numeric' })})
                     </span>
                     <h4 className="text-xl font-black text-slate-900 dark:text-white flex items-center gap-2">
-                      <span>{seasonalInfo.seasonIcon}</span>
                       <span>{seasonalInfo.seasonName}</span>
                     </h4>
                     <p className="text-xs text-slate-600 dark:text-slate-300 mt-1">
@@ -9709,7 +9655,7 @@ export function MapsView() {
                   <div className="flex flex-wrap gap-1.5">
                     {['Tugu Khatulistiwa Pontianak (0.000°)', 'Bonjol Pasaman Sumbar', 'Santan Ulu Kaltim', 'Mitad del Mundo (Ecuador)', 'Nanyuki (Kenya)'].map((loc) => (
                       <span key={loc} className="px-2 py-0.5 rounded-lg bg-white dark:bg-slate-800 border border-amber-200 dark:border-amber-800 text-[10px] font-bold text-amber-800 dark:text-amber-300">
-                        📍 {loc}
+                         {loc}
                       </span>
                     ))}
                   </div>
@@ -9850,7 +9796,7 @@ export function MapsView() {
               animate={{ opacity: 1, x: 0, scale: 1 }}
               exit={{ opacity: 0, x: 28, scale: 0.98, pointerEvents: 'none' }}
               transition={{ type: "spring", stiffness: 350, damping: 30 }}
-              className="fixed sm:absolute top-auto bottom-0 sm:top-4 sm:bottom-4 right-0 sm:right-4 left-0 sm:left-auto z-50 w-full sm:w-96 max-h-[88vh] sm:max-h-[calc(100vh-2rem)] rounded-t-3xl sm:rounded-3xl bg-white/95 dark:bg-slate-900/95 shadow-2xl backdrop-blur-2xl border-t sm:border border-slate-200/80 dark:border-slate-800 flex flex-col overflow-hidden"
+              className="fixed sm:absolute top-auto bottom-0 sm:top-4 sm:bottom-4 right-0 sm:right-4 left-0 sm:left-auto z-50 w-full sm:w-96 max-h-[calc(var(--vh-full)*0.88)] sm:max-h-[calc(var(--vh-full)-2rem)] rounded-t-3xl sm:rounded-3xl bg-white/95 dark:bg-slate-900/95 shadow-2xl backdrop-blur-2xl border-t sm:border border-slate-200/80 dark:border-slate-800 flex flex-col overflow-hidden"
               role="dialog"
               aria-label="Pengaturan Harmony Maps"
             >
@@ -9982,7 +9928,7 @@ export function MapsView() {
                         ? 'bg-emerald-100 dark:bg-emerald-950/60 text-emerald-700 dark:text-emerald-300'
                         : 'bg-indigo-100 dark:bg-indigo-950/60 text-indigo-700 dark:text-indigo-300'
                     }`}>
-                      {effectivePerfMode === 'lite' ? '🚀 60fps Ringan' : '✨ Grafis Penuh'}
+                      {effectivePerfMode === 'lite' ? '60fps Ringan' : 'Grafis Penuh'}
                     </span>
                   </div>
 
@@ -10042,12 +9988,12 @@ export function MapsView() {
                 <div className="relative mt-3">
                   <div className="flex items-center gap-1.5 overflow-x-auto pb-1.5 scrollbar-thin scrollbar-thumb-slate-300 dark:scrollbar-thumb-slate-700 touch-pan-x scroll-smooth snap-x pr-6">
                     {[
-                      { id: 'all', label: '🌟 Semua' },
+                      { id: 'all', label: 'Semua' },
                       { id: 'tools', label: 'Alat & Analisis' },
-                      { id: 'basemap', label: '🗺️ Mode Peta' },
-                      { id: 'disaster', label: '🌋 Bencana' },
-                      { id: 'weather', label: '🌤️ Cuaca' },
-                      { id: 'places', label: '🏫 Wilayah' },
+                      { id: 'basemap', label: 'Mode Peta' },
+                      { id: 'disaster', label: 'Bencana' },
+                      { id: 'weather', label: 'Cuaca' },
+                      { id: 'places', label: 'Wilayah' },
                     ].map((tab) => (
                       <button
                         key={tab.id}
@@ -10114,7 +10060,7 @@ export function MapsView() {
                   <div>
                     <div className="flex items-center justify-between mb-2">
                       <h3 className="text-xs font-bold uppercase tracking-wider text-slate-400">
-                        Mode &amp; Lapisan Peta
+                        Mode Lapisan
                       </h3>
                       <button
                         type="button"
@@ -10141,13 +10087,13 @@ export function MapsView() {
                             }`}
                           >
                             <div className="flex items-center gap-1.5 w-full">
-                              <span>
-                                {type === 'osm' && '🗺️'}
-                                {type === 'satellite' && '🛰️'}
-                                {type === 'elevation' && '⛰️'}
-                                {type === 'thermal' && '🌡️'}
-                                {type === 'traffic' && '🛣️'}
-                                {type === 'dark' && '🌌'}
+                              <span className="shrink-0">
+                                {type === 'osm' && <MapIcon2 className="w-3.5 h-3.5 text-emerald-500" />}
+                                {type === 'satellite' && <Satellite className="w-3.5 h-3.5 text-sky-500" />}
+                                {type === 'elevation' && <Mountain className="w-3.5 h-3.5 text-amber-500" />}
+                                {type === 'thermal' && <Thermometer className="w-3.5 h-3.5 text-rose-500" />}
+                                {type === 'traffic' && <Route className="w-3.5 h-3.5 text-purple-500" />}
+                                {type === 'dark' && <Globe className="w-3.5 h-3.5 text-indigo-400" />}
                               </span>
                               <span className="text-xs font-semibold truncate">{meta.name}</span>
                             </div>
@@ -10290,7 +10236,7 @@ export function MapsView() {
 
                     <div>
                       <h3 className="text-xs font-bold uppercase tracking-wider text-slate-400 mb-2 flex items-center justify-between">
-                        <span>Profil Gunung Api & Bencana</span>
+                        <span>Gunung Api</span>
                         <span className="text-[10px] text-red-500 font-semibold flex items-center gap-1">
                           <Flame className="w-3 h-3" /> PVMBG Magma
                         </span>
@@ -10340,7 +10286,7 @@ export function MapsView() {
                     </div>
                     <div className="flex items-center justify-between mb-2">
                       <h3 className="text-xs font-bold uppercase tracking-wider text-slate-400">
-                        Lapisan Cuaca Realtime
+                        Lapisan Cuaca
                       </h3>
                       {weatherMapOverlay !== 'none' && (
                         <button
@@ -10507,7 +10453,7 @@ export function MapsView() {
                 {(panelTab === 'all' || panelTab === 'places') && (
                   <>
                     <div>
-                      <h3 className="text-xs font-bold uppercase tracking-wider text-slate-400 mb-2">Batas Wilayah & Tata Ruang</h3>
+                      <h3 className="text-xs font-bold uppercase tracking-wider text-slate-400 mb-2">Batas Wilayah</h3>
                       <div className="space-y-3">
                         <div className="flex items-center justify-between">
                           <label className="flex items-center gap-1.5 select-none text-sm text-ink-700 dark:text-slate-300" title="Garis Lintang 0° Khatulistiwa & Batas Garis Balik Tropis (±23.44°)">
@@ -10553,7 +10499,7 @@ export function MapsView() {
                     </div>
 
                     <div>
-                      <h3 className="text-xs font-bold uppercase tracking-wider text-slate-400 mb-2">Data Pendidikan & Sekolah</h3>
+                      <h3 className="text-xs font-bold uppercase tracking-wider text-slate-400 mb-2">Data Sekolah</h3>
                       <div className="space-y-3">
                         <div className="flex items-center justify-between">
                           <label className="flex items-center gap-1.5 select-none text-sm text-ink-700 dark:text-slate-300">
@@ -10621,7 +10567,7 @@ export function MapsView() {
               animate={{ opacity: 1, x: 0, scale: 1 }}
               exit={{ opacity: 0, x: 28, scale: 0.98 }}
               transition={{ type: "spring", stiffness: 350, damping: 30 }}
-              className="fixed sm:absolute top-auto bottom-0 sm:top-4 sm:bottom-4 right-0 sm:right-4 left-0 sm:left-auto z-50 w-full sm:w-96 max-h-[88vh] sm:max-h-[calc(100vh-2rem)] rounded-t-3xl sm:rounded-3xl bg-white/95 dark:bg-slate-900/95 shadow-2xl backdrop-blur-2xl border-t sm:border border-slate-200/80 dark:border-slate-800 flex flex-col overflow-hidden"
+              className="fixed sm:absolute top-auto bottom-0 sm:top-4 sm:bottom-4 right-0 sm:right-4 left-0 sm:left-auto z-50 w-full sm:w-96 max-h-[calc(var(--vh-full)*0.88)] sm:max-h-[calc(var(--vh-full)-2rem)] rounded-t-3xl sm:rounded-3xl bg-white/95 dark:bg-slate-900/95 shadow-2xl backdrop-blur-2xl border-t sm:border border-slate-200/80 dark:border-slate-800 flex flex-col overflow-hidden"
             >
               {/* Mobile Drag Handle Bar */}
               <div className="w-12 h-1.5 rounded-full bg-slate-300 dark:bg-slate-700 mx-auto mt-2.5 mb-1 sm:hidden shrink-0" />
@@ -10636,7 +10582,7 @@ export function MapsView() {
                     <div>
                       <div className="flex items-center gap-2">
                         <h2 className="font-display text-base font-bold text-ink-900 dark:text-white leading-tight">
-                          Mode Peta &amp; Lapisan Spasial
+                          Mode &amp; Lapisan
                         </h2>
                       </div>
                       <p className="text-[11px] font-medium text-slate-500 dark:text-slate-400">
@@ -10735,7 +10681,7 @@ export function MapsView() {
                         ? 'bg-emerald-100 dark:bg-emerald-950/60 text-emerald-700 dark:text-emerald-300'
                         : 'bg-indigo-100 dark:bg-indigo-950/60 text-indigo-700 dark:text-indigo-300'
                     }`}>
-                      {effectivePerfMode === 'lite' ? '🚀 60fps Ringan' : '✨ Grafis Penuh'}
+                      {effectivePerfMode === 'lite' ? '60fps Ringan' : 'Grafis Penuh'}
                     </span>
                   </div>
 
@@ -10788,7 +10734,7 @@ export function MapsView() {
                 <div>
                   <div className="flex items-center justify-between mb-2">
                     <h3 className="text-xs font-bold uppercase tracking-wider text-slate-400">
-                      Pilihan Basemap Resmi
+                      Pilihan Basemap
                     </h3>
                     <span className="text-[10px] text-emerald-600 dark:text-emerald-400 font-bold bg-emerald-500/10 px-1.5 py-0.5 rounded">
                       6 Mode Tersedia
@@ -10815,12 +10761,12 @@ export function MapsView() {
                             className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl text-white font-bold text-base shadow-sm mt-0.5"
                             style={{ backgroundColor: meta.color }}
                           >
-                            {type === 'osm' && '🗺️'}
-                            {type === 'satellite' && '🛰️'}
-                            {type === 'elevation' && '⛰️'}
-                            {type === 'thermal' && '🌡️'}
-                            {type === 'traffic' && '🛣️'}
-                            {type === 'dark' && '🌌'}
+                            {type === 'osm' && <MapIcon2 className="w-4 h-4" />}
+                            {type === 'satellite' && <Satellite className="w-4 h-4" />}
+                            {type === 'elevation' && <Mountain className="w-4 h-4" />}
+                            {type === 'thermal' && <Thermometer className="w-4 h-4" />}
+                            {type === 'traffic' && <Route className="w-4 h-4" />}
+                            {type === 'dark' && <Globe className="w-4 h-4" />}
                           </div>
 
                           <div className="min-w-0 flex-1">
@@ -10838,7 +10784,7 @@ export function MapsView() {
                                     : 'bg-slate-100 dark:bg-slate-800 text-slate-500 dark:text-slate-400'
                                 }`}
                               >
-                                {isSelected ? '✓ Aktif' : meta.badge}
+                                {isSelected ? 'Aktif' : meta.badge}
                               </span>
                             </div>
                             <p className="text-[10px] text-slate-500 dark:text-slate-400 line-clamp-2 mt-0.5">
@@ -10932,7 +10878,7 @@ export function MapsView() {
               animate={{ opacity: 1, x: 0, scale: 1 }}
               exit={{ opacity: 0, x: 28, scale: 0.98, pointerEvents: 'none' }}
               transition={{ type: "spring", stiffness: 350, damping: 30 }}
-              className="fixed sm:absolute top-auto bottom-0 sm:top-4 sm:bottom-4 right-0 sm:right-4 left-0 sm:left-auto z-50 w-full sm:w-96 max-h-[88vh] sm:max-h-[calc(100vh-2rem)] rounded-t-3xl sm:rounded-3xl bg-white/95 dark:bg-slate-900/95 shadow-2xl backdrop-blur-2xl border-t sm:border border-slate-200/80 dark:border-slate-800 flex flex-col overflow-hidden"
+              className="fixed sm:absolute top-auto bottom-0 sm:top-4 sm:bottom-4 right-0 sm:right-4 left-0 sm:left-auto z-50 w-full sm:w-96 max-h-[calc(var(--vh-full)*0.88)] sm:max-h-[calc(var(--vh-full)-2rem)] rounded-t-3xl sm:rounded-3xl bg-white/95 dark:bg-slate-900/95 shadow-2xl backdrop-blur-2xl border-t sm:border border-slate-200/80 dark:border-slate-800 flex flex-col overflow-hidden"
             >
               {/* Mobile Drag Handle Bar */}
               <div className="w-12 h-1.5 rounded-full bg-slate-300 dark:bg-slate-700 mx-auto mt-2.5 mb-1 sm:hidden shrink-0" />
@@ -10985,8 +10931,8 @@ export function MapsView() {
                 {/* Quick Parameter Info Pill */}
                 <div className="mt-3 flex items-center justify-between p-2 rounded-xl bg-slate-100 dark:bg-slate-800/80 border border-slate-200/60 dark:border-slate-700/60 text-xs">
                   <div className="flex items-center gap-1.5 font-semibold text-slate-700 dark:text-slate-300">
-                    <span className="text-sm">
-                      {WINDY_PARAM_CONFIG.find(p => p.id === windyOverlay)?.icon || '🌤️'}
+                    <span className="text-[10px] font-mono font-bold px-1.5 py-0.5 rounded bg-sky-500/15 text-sky-600 dark:text-sky-400">
+                      {WINDY_PARAM_CONFIG.find(p => p.id === windyOverlay)?.icon || 'WND'}
                     </span>
                     <span className="truncate">
                       Aktif: <strong className="text-sky-600 dark:text-sky-400">{WINDY_PARAM_CONFIG.find(p => p.id === windyOverlay)?.name || windyOverlay.toUpperCase()}</strong>
@@ -11003,7 +10949,7 @@ export function MapsView() {
                 <div>
                   <div className="flex items-center justify-between mb-2">
                     <h3 className="text-xs font-bold uppercase tracking-wider text-slate-400">
-                      Pilih Parameter Observasi
+                      Parameter Cuaca
                     </h3>
                     <span className="text-[10px] font-semibold text-slate-400">
                       {WINDY_PARAM_CONFIG.length} Lapisan
@@ -11029,7 +10975,7 @@ export function MapsView() {
                           }`}
                         >
                           <div className="flex items-center gap-1.5 w-full">
-                            <span className="text-base">{param.icon}</span>
+                            <span className="text-[9px] font-mono font-bold px-1 py-0.2 rounded bg-slate-200/80 dark:bg-slate-700 text-slate-600 dark:text-slate-300 shrink-0">{param.icon}</span>
                             <span className="text-xs font-bold truncate">{param.name}</span>
                           </div>
                           <p className="text-[9px] text-slate-400 dark:text-slate-500 leading-tight mt-1 line-clamp-1">

@@ -15,6 +15,7 @@ import {
 import { apiClient } from "@/services/apiClient";
 import { useToast } from "@/hooks/useToast";
 import { useAuth } from "@/hooks/useAuth";
+import { safeCopyToClipboard } from "@/utils/browserCompat";
 import { Phase3Runtime } from "../spatial/digital-twin/Phase3Runtime";
 import type {
   AvatarStyle,
@@ -254,20 +255,28 @@ export function StudentSessionLobby() {
     navigate("/app/digital-twin");
   };
 
-  const copyCode = () => {
+  const copyCode = async () => {
     if (!session?.code) return;
-    navigator.clipboard.writeText(session.code);
-    setCopiedCode(true);
-    setTimeout(() => setCopiedCode(false), 1800);
-    show(`Kode room ${session.code} disalin!`, "success");
+    const ok = await safeCopyToClipboard(session.code);
+    if (ok) {
+      setCopiedCode(true);
+      setTimeout(() => setCopiedCode(false), 1800);
+      show(`Kode room ${session.code} disalin!`, "success");
+    } else {
+      show("Gagal menyalin kode room.", "error");
+    }
   };
 
-  const copyInviteLink = () => {
+  const copyInviteLink = async () => {
     const url = `${window.location.origin}/app/simulation/lobby/${id}`;
-    navigator.clipboard.writeText(url);
-    setCopiedLink(true);
-    setTimeout(() => setCopiedLink(false), 1800);
-    show("Tautan undangan disalin!", "success");
+    const ok = await safeCopyToClipboard(url);
+    if (ok) {
+      setCopiedLink(true);
+      setTimeout(() => setCopiedLink(false), 1800);
+      show("Tautan undangan disalin!", "success");
+    } else {
+      show("Gagal menyalin tautan undangan.", "error");
+    }
   };
 
   const isHost =
@@ -333,7 +342,7 @@ export function StudentSessionLobby() {
                   </>
                 ) : (
                   <>
-                    <Users className="h-3 w-3" /> MABAR ONLINE
+                    <Users className="h-3 w-3" /> SESI BERSAMA
                   </>
                 )}
               </span>
@@ -342,18 +351,18 @@ export function StudentSessionLobby() {
               </span>
             </div>
             <h2 className="text-2xl sm:text-3xl font-display font-black text-ink-900 dark:text-white">
-              {session?.settings?.roomName || "Lobi Mabar Online"}
+              {session?.settings?.roomName || "Ruang Sesi Bersama"}
             </h2>
             <p className="text-xs sm:text-sm text-slate-500 dark:text-slate-400 mt-1">
               {isHost
-                ? "Bagikan kode ke teman lalu klik Mulai Game saat siap."
-                : "Pilih karakter chibi kamu dan tekan Siap sambil menunggu host memulai."}
+                ? "Bagikan kode ke peserta lalu klik Mulai Simulasi saat siap."
+                : "Pilih karakter lalu tekan Siap sambil menunggu pemandu memulai."}
             </p>
           </div>
 
           <div className="flex flex-col items-start sm:items-end gap-2 bg-slate-50 dark:bg-slate-900/80 border border-slate-200 dark:border-slate-700 rounded-2xl px-4 py-3 shrink-0">
             <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400">
-              Kode Room Online
+              Kode Ruang Sesi
             </span>
             <div className="text-3xl font-mono font-black tracking-[0.2em] text-indigo-600 dark:text-indigo-400">
               {session?.code}
@@ -482,13 +491,13 @@ export function StudentSessionLobby() {
             <div className="flex items-center justify-between">
               <h3 className="text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400 flex items-center gap-1.5">
                 <Users className="h-3.5 w-3.5 text-indigo-500" />
-                Pemain di Room ({participants.length})
+                Daftar Peserta ({participants.length})
               </h3>
             </div>
 
             {participants.length === 0 ? (
               <div className="py-10 text-center text-xs text-slate-500">
-                Memuat daftar pemain...
+                Memuat daftar peserta...
               </div>
             ) : (
               <div className="grid sm:grid-cols-2 gap-2.5 max-h-64 overflow-y-auto pr-1">

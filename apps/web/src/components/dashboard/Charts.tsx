@@ -628,8 +628,8 @@ export function DonutChart({ data, size = 200, stroke = 28 }: DonutChartProps) {
   let accumulated = 0;
 
   return (
-    <div className="flex flex-col items-center gap-4 sm:flex-row sm:items-center sm:gap-6">
-      <div className="relative" style={{ width: safeSize, height: safeSize }}>
+    <div className="flex flex-wrap items-center justify-center gap-4">
+      <div className="relative shrink-0 max-w-full" style={{ width: safeSize, height: safeSize }}>
         <svg
           role="img"
           aria-label="Chart visualization"
@@ -667,7 +667,7 @@ export function DonutChart({ data, size = 200, stroke = 28 }: DonutChartProps) {
           <span className="text-[10px] text-ink-500">Preparedness</span>
         </div>
       </div>
-      <div className="space-y-2">
+      <div className="space-y-2 min-w-0">
         {data.map((d) => (
           <div key={d.label} className="flex items-center gap-2 text-xs">
             <span

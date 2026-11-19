@@ -337,7 +337,7 @@ export const MapWeatherObservationCard: React.FC<MapWeatherObservationCardProps>
 
           {/* Floating Card Modal */}
           <div
-            className="fixed top-20 left-4 right-4 z-50 max-w-sm mx-auto rounded-2xl bg-slate-900/95 border border-slate-700/80 shadow-2xl backdrop-blur-xl overflow-hidden animate-in fade-in zoom-in-95 duration-200 select-none text-white max-h-[calc(100dvh-6.5rem)] flex flex-col"
+            className="fixed top-20 left-4 right-4 z-50 max-w-sm mx-auto rounded-2xl bg-slate-900/95 border border-slate-700/80 shadow-2xl backdrop-blur-xl overflow-hidden animate-in fade-in zoom-in-95 duration-200 select-none text-white max-h-[calc(var(--vh-full)-6.5rem)] flex flex-col"
             style={{ fontFamily: 'Inter, sans-serif' }}
           >
             {/* Header with Close Button */}

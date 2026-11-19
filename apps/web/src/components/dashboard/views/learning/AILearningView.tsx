@@ -207,7 +207,7 @@ export function AILearningView() {
     : 0;
 
   return (
-    <div className="flex h-[calc(100dvh-9rem)] sm:h-[calc(100dvh-8rem)] min-h-[440px] flex-col overflow-hidden rounded-2xl border border-slate-200/80 dark:border-slate-800 bg-white dark:bg-slate-900 shadow-sm">
+    <div className="flex h-[calc(var(--vh-full)-9rem)] sm:h-[calc(var(--vh-full)-8rem)] min-h-[440px] flex-col overflow-hidden rounded-2xl border border-slate-200/80 dark:border-slate-800 bg-white dark:bg-slate-900 shadow-sm">
       <div className="bg-gradient-to-br from-brand-600 via-brand-700 to-brand-900 px-4 py-3.5 text-white sm:px-6 shrink-0">
         <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
           <div>
@@ -217,7 +217,7 @@ export function AILearningView() {
             <h2 className="mt-2 font-display text-xl font-extrabold">
               {currentUser
                 ? `Halo, ${currentUser.name}`
-                : "GeoBot — Asisten Mitigasi"}
+                : "GeoBot Mitigasi"}
             </h2>
             {currentProfile && (
               <p className="text-xs text-brand-100 mt-0.5">

@@ -1,7 +1,7 @@
 import { WeatherConsensusData } from './weatherAggregatorService';
 import { ALL_INDONESIA_PLACES, GeoPlace } from './indonesiaGeoData';
 
-export type QualityControlStatus = 'VALID' | 'SUSPECT_ANOMALY' | 'OUTLIER_REJECTED' | 'INFILLED_ESTIMATE';
+export type QualityControlStatus = 'VALID' | 'SUSPECT_ANOMALY' | 'OUTLIER_REJECTED' | 'INFILLED_ESTIMATE' | 'UNAVAILABLE';
 
 export interface QualityControlCheckResult {
   checkId: string;
@@ -87,44 +87,45 @@ export interface FusionPipelineStep {
 }
 
 export interface HarmonizedFusedState {
-  dataStatus: 'AVAILABLE' | 'DEMONSTRATION' | 'PARTIAL';
+  dataStatus: 'AVAILABLE' | 'PARTIAL' | 'UNAVAILABLE' | 'ERROR' | 'DEMONSTRATION';
   isLiveConnected: boolean;
   accuracyValidated: false;
   locationName: string;
   lat: number;
   lng: number;
-  elevationM: number;
+  elevationM: number | null;
   timestamp: string;
   dataAgeFormatted?: string;
   assimilatedModelsCount?: number;
+  errorMessage?: string;
 
   // Best Estimates with Uncertainty Margins
   bestEstimate: {
-    temperatureC: number;
-    uncertaintyTempC: number;
-    precipitationMm: number;
-    uncertaintyPrecipMm: number;
-    windSpeedKmh: number;
-    uncertaintyWindKmh: number;
-    surfacePressureHpa: number;
-    humidityPercent: number;
+    temperatureC: number | null;
+    uncertaintyTempC: number | null;
+    precipitationMm: number | null;
+    uncertaintyPrecipMm: number | null;
+    windSpeedKmh: number | null;
+    uncertaintyWindKmh: number | null;
+    surfacePressureHpa: number | null;
+    humidityPercent: number | null;
   };
 
   // Confidence & Provenance Composition
-  confidenceLevel: 'HIGH' | 'MODERATE' | 'LOW';
-  overallConfidenceScore: number;
+  confidenceLevel: 'HIGH' | 'MODERATE' | 'LOW' | 'UNAVAILABLE';
+  overallConfidenceScore: number | null;
   composition: ObservationBreakdown;
   uncertaintyBounds: UncertaintyBounds;
 
   // QC/QA Diagnostics
-  qualityControlStatus: 'PASSED_CLEAN' | 'ANOMALIES_HANDLED' | 'ESTIMATED_DUE_TO_GAP';
+  qualityControlStatus: 'PASSED_CLEAN' | 'ANOMALIES_HANDLED' | 'ESTIMATED_DUE_TO_GAP' | 'UNAVAILABLE';
   qcChecks: QualityControlCheckResult[];
 
   // Observation Network Coverage & Blank Spot Analysis
   coverage: ObservationCoverageInfo;
 
   // Terrain-Aware Impact Advisory
-  impacts: ImpactBasedExposure;
+  impacts: ImpactBasedExposure | null;
 
   // Multi-Stage Processing Pipeline
   pipelineSteps: FusionPipelineStep[];
@@ -225,86 +226,159 @@ class DataFusionAndUncertaintyEngine {
   }
 
   public runQualityControl(
-    currentTemp: number,
-    currentRain: number,
-    currentPressure: number,
-    currentWind: number,
-    humidity: number,
-    coverage: ObservationCoverageInfo
-  ): { status: 'PASSED_CLEAN' | 'ANOMALIES_HANDLED' | 'ESTIMATED_DUE_TO_GAP'; checks: QualityControlCheckResult[] } {
+    currentTemp: number | null,
+    currentRain: number | null,
+    currentPressure: number | null,
+    currentWind: number | null,
+    humidity: number | null,
+    coverage: ObservationCoverageInfo,
+    hourlyDeltaTempC: number | null = null,
+    modelSpreadC: number | null = null
+  ): { status: 'PASSED_CLEAN' | 'ANOMALIES_HANDLED' | 'ESTIMATED_DUE_TO_GAP' | 'UNAVAILABLE'; checks: QualityControlCheckResult[] } {
     const checks: QualityControlCheckResult[] = [];
 
     // 1. Gross Error / Realistic Physical Range Check for Tropical Indonesia
-    const tempInRange = currentTemp >= 12 && currentTemp <= 45;
-    checks.push({
-      checkId: 'qc_temp_range',
-      name: 'Pemeriksaan Batas Fisis Suhu (Range Check)',
-      parameter: 'Suhu Permukaan',
-      observedValue: `${currentTemp.toFixed(1)}°C`,
-      benchmark: 'Rentang Wajar Tropis: 12.0°C s.d. 45.0°C',
-      status: tempInRange ? 'VALID' : 'OUTLIER_REJECTED',
-      notes: tempInRange
-        ? 'Nilai berada dalam rentang termodinamika atmosfer tropis Indonesia.'
-        : 'Nilai di luar rentang fisis wajar; diisolasi untuk kalibrasi ulang.',
-    });
+    if (typeof currentTemp === 'number' && Number.isFinite(currentTemp)) {
+      const tempInRange = currentTemp >= 12 && currentTemp <= 45;
+      checks.push({
+        checkId: 'qc_temp_range',
+        name: 'Pemeriksaan Batas Fisis Suhu (Range Check)',
+        parameter: 'Suhu Permukaan',
+        observedValue: `${currentTemp.toFixed(1)}°C`,
+        benchmark: 'Rentang Wajar Tropis: 12.0°C s.d. 45.0°C',
+        status: tempInRange ? 'VALID' : 'OUTLIER_REJECTED',
+        notes: tempInRange
+          ? 'Nilai berada dalam rentang termodinamika atmosfer tropis Indonesia.'
+          : 'Nilai di luar rentang fisis wajar; diisolasi untuk kalibrasi ulang.',
+      });
+    } else {
+      checks.push({
+        checkId: 'qc_temp_range',
+        name: 'Pemeriksaan Batas Fisis Suhu (Range Check)',
+        parameter: 'Suhu Permukaan',
+        observedValue: 'Tidak tersedia',
+        benchmark: 'Rentang Wajar Tropis: 12.0°C s.d. 45.0°C',
+        status: 'UNAVAILABLE',
+        notes: 'Sensor suhu permukaan belum mengirim pembacaan numerik valid.',
+      });
+    }
 
     // 2. Pressure Range Check
-    const pressInRange = currentPressure >= 970 && currentPressure <= 1030;
-    checks.push({
-      checkId: 'qc_pressure_range',
-      name: 'Pemeriksaan Tekanan Barometrik (Isobar Check)',
-      parameter: 'Tekanan Permukaan',
-      observedValue: `${currentPressure.toFixed(1)} hPa`,
-      benchmark: 'Rentang Standar Permukaan: 970 - 1030 hPa',
-      status: pressInRange ? 'VALID' : 'OUTLIER_REJECTED',
-      notes: pressInRange
-        ? 'Tekanan barometrik konsisten dengan gradien regional khatulistiwa.'
-        : 'Penyimpangan tekanan ekstrem terdeteksi.',
-    });
+    if (typeof currentPressure === 'number' && Number.isFinite(currentPressure)) {
+      const pressInRange = currentPressure >= 970 && currentPressure <= 1030;
+      checks.push({
+        checkId: 'qc_pressure_range',
+        name: 'Pemeriksaan Tekanan Barometrik (Isobar Check)',
+        parameter: 'Tekanan Permukaan',
+        observedValue: `${currentPressure.toFixed(1)} hPa`,
+        benchmark: 'Rentang Standar Permukaan: 970 - 1030 hPa',
+        status: pressInRange ? 'VALID' : 'OUTLIER_REJECTED',
+        notes: pressInRange
+          ? 'Tekanan barometrik konsisten dengan gradien regional khatulistiwa.'
+          : 'Penyimpangan tekanan ekstrem terdeteksi.',
+      });
+    } else {
+      checks.push({
+        checkId: 'qc_pressure_range',
+        name: 'Pemeriksaan Tekanan Barometrik (Isobar Check)',
+        parameter: 'Tekanan Permukaan',
+        observedValue: 'Tidak tersedia',
+        benchmark: 'Rentang Standar Permukaan: 970 - 1030 hPa',
+        status: 'UNAVAILABLE',
+        notes: 'Pembacaan tekanan barometrik permukaan tidak tersedia dari upstream.',
+      });
+    }
 
-    // 3. Temporal Rate-of-Change / Spike Filter
-    const isSpikeTemp = false;
-    checks.push({
-      checkId: 'qc_temporal_spike',
-      name: 'Uji Laju Perubahan Waktu (Temporal Rate-of-Change)',
-      parameter: 'Delta Laju Waktu (dT/dt)',
-      observedValue: 'ΔT = 0.4°C / 1 jam',
-      benchmark: 'Ambang Batas Maksimum: ≤ 5.0°C / jam',
-      status: isSpikeTemp ? 'SUSPECT_ANOMALY' : 'VALID',
-      notes: 'Kontinuitas temporal stabil tanpa lonjakan artifisial sensor.',
-    });
+    // 3. Temporal Rate-of-Change / Spike Filter from real hourly data
+    if (typeof hourlyDeltaTempC === 'number' && Number.isFinite(hourlyDeltaTempC)) {
+      const isSpikeTemp = Math.abs(hourlyDeltaTempC) > 5.0;
+      checks.push({
+        checkId: 'qc_temporal_spike',
+        name: 'Uji Laju Perubahan Waktu (Temporal Rate-of-Change)',
+        parameter: 'Delta Laju Waktu (dT/dt)',
+        observedValue: `ΔT = ${hourlyDeltaTempC >= 0 ? '+' : ''}${hourlyDeltaTempC.toFixed(1)}°C / 1 jam`,
+        benchmark: 'Ambang Batas Maksimum: ≤ 5.0°C / jam',
+        status: isSpikeTemp ? 'SUSPECT_ANOMALY' : 'VALID',
+        notes: isSpikeTemp
+          ? 'Lonjakan suhu per jam melebihi batas fisik 5.0°C/jam.'
+          : 'Kontinuitas temporal terukur stabil antar jam berturutan.',
+      });
+    } else {
+      checks.push({
+        checkId: 'qc_temporal_spike',
+        name: 'Uji Laju Perubahan Waktu (Temporal Rate-of-Change)',
+        parameter: 'Delta Laju Waktu (dT/dt)',
+        observedValue: 'Deret waktu per jam tidak cukup',
+        benchmark: 'Ambang Batas Maksimum: ≤ 5.0°C / jam',
+        status: 'UNAVAILABLE',
+        notes: 'Memerlukan minimal 2 jam data suhu berurutan yang valid.',
+      });
+    }
 
     // 4. Physical Consistency Check: Humidity vs Precipitation
-    const isConsistentMoisture = !(currentRain > 25 && humidity < 40);
-    checks.push({
-      checkId: 'qc_consistency',
-      name: 'Uji Konsistensi Lintas Parameter (Physics Consistency)',
-      parameter: 'Kelembapan vs Presipitasi',
-      observedValue: `RH ${humidity}% • Hujan ${currentRain} mm`,
-      benchmark: 'Clausius-Clapeyron: Hujan lebat memerlukan RH jenuh',
-      status: isConsistentMoisture ? 'VALID' : 'SUSPECT_ANOMALY',
-      notes: isConsistentMoisture
-        ? 'Konsisten secara termodinamika antara kadar uap air dan curah hujan.'
-        : 'Inkonsistensi terdeteksi antara kelembapan rendah dan curah hujan tinggi.',
-    });
+    if (
+      typeof humidity === 'number' && Number.isFinite(humidity) &&
+      typeof currentRain === 'number' && Number.isFinite(currentRain)
+    ) {
+      const isConsistentMoisture = !(currentRain > 25 && humidity < 40);
+      checks.push({
+        checkId: 'qc_consistency',
+        name: 'Uji Konsistensi Lintas Parameter (Physics Consistency)',
+        parameter: 'Kelembapan vs Presipitasi',
+        observedValue: `RH ${humidity}% • Hujan ${currentRain} mm`,
+        benchmark: 'Clausius-Clapeyron: Hujan lebat memerlukan RH jenuh',
+        status: isConsistentMoisture ? 'VALID' : 'SUSPECT_ANOMALY',
+        notes: isConsistentMoisture
+          ? 'Konsisten secara termodinamika antara kadar uap air dan curah hujan.'
+          : 'Inkonsistensi terdeteksi antara kelembapan rendah dan curah hujan tinggi.',
+      });
+    } else {
+      checks.push({
+        checkId: 'qc_consistency',
+        name: 'Uji Konsistensi Lintas Parameter (Physics Consistency)',
+        parameter: 'Kelembapan vs Presipitasi',
+        observedValue: 'Tidak lengkap',
+        benchmark: 'Clausius-Clapeyron: Hujan lebat memerlukan RH jenuh',
+        status: 'UNAVAILABLE',
+        notes: 'Kelembapan atau curah hujan tidak tersedia untuk uji silang.',
+      });
+    }
 
-    // 5. Cross-Source Corroboration (Ground vs Global Model vs Satellite)
+    // 5. Cross-Source Corroboration (Multi-Model Ensemble Spread)
     const isCorroborated = coverage.tier !== 'LOW_DATA_GAP';
-    checks.push({
-      checkId: 'qc_cross_source',
-      name: 'Uji Koroborasi Multi-Sumber (Cross-Source Corroboration)',
-      parameter: 'Deviasi Model vs Sensor Sekitar',
-      observedValue: isCorroborated ? 'Deviasi Rendah (±0.6°C)' : 'Observasi Permukaan Terbatas',
-      benchmark: 'Toleransi Konsensus Ensemble: ≤ 2.0°C',
-      status: isCorroborated ? 'VALID' : 'INFILLED_ESTIMATE',
-      notes: isCorroborated
-        ? 'Hasil observasi terkonfirmasi oleh model global ECMWF, GFS, dan citra satelit.'
-        : 'Wilayah minim sensor; estimasi diisi menggunakan asimilasi satelit dan topografi.',
-    });
+    if (typeof modelSpreadC === 'number' && Number.isFinite(modelSpreadC)) {
+      const spreadExceeded = modelSpreadC > 2.0;
+      checks.push({
+        checkId: 'qc_cross_source',
+        name: 'Uji Koroborasi Multi-Sumber (Cross-Source Corroboration)',
+        parameter: 'Sebaran Ensemble NWP',
+        observedValue: `Spread = ±${modelSpreadC.toFixed(1)}°C`,
+        benchmark: 'Toleransi Konsensus Ensemble: ≤ 2.0°C',
+        status: spreadExceeded ? 'SUSPECT_ANOMALY' : isCorroborated ? 'VALID' : 'INFILLED_ESTIMATE',
+        notes: spreadExceeded
+          ? 'Divergensi antar-model NWP melebihi batas toleransi ±2.0°C.'
+          : isCorroborated
+            ? 'Sebaran antar-model NWP konsisten dalam batas toleransi konsensus.'
+            : 'Wilayah minim sensor; mengandalkan model global terkoroborasi.',
+      });
+    } else {
+      checks.push({
+        checkId: 'qc_cross_source',
+        name: 'Uji Koroborasi Multi-Sumber (Cross-Source Corroboration)',
+        parameter: 'Sebaran Ensemble NWP',
+        observedValue: 'Spread model belum tersedia',
+        benchmark: 'Toleransi Konsensus Ensemble: ≤ 2.0°C',
+        status: 'UNAVAILABLE',
+        notes: 'Belum ada perbandingan multi-model NWP aktif untuk validasi silang.',
+      });
+    }
 
     const anyAnomaly = checks.some((c) => c.status === 'SUSPECT_ANOMALY' || c.status === 'OUTLIER_REJECTED');
-    let overallStatus: 'PASSED_CLEAN' | 'ANOMALIES_HANDLED' | 'ESTIMATED_DUE_TO_GAP' = 'PASSED_CLEAN';
-    if (anyAnomaly) {
+    const anyValid = checks.some((c) => c.status === 'VALID');
+    let overallStatus: 'PASSED_CLEAN' | 'ANOMALIES_HANDLED' | 'ESTIMATED_DUE_TO_GAP' | 'UNAVAILABLE' = 'PASSED_CLEAN';
+    if (!anyValid && !anyAnomaly) {
+      overallStatus = 'UNAVAILABLE';
+    } else if (anyAnomaly) {
       overallStatus = 'ANOMALIES_HANDLED';
     } else if (coverage.tier === 'LOW_DATA_GAP') {
       overallStatus = 'ESTIMATED_DUE_TO_GAP';
@@ -424,7 +498,7 @@ class DataFusionAndUncertaintyEngine {
     targetLat: number,
     targetLng: number,
     targetLocationName: string,
-    targetElevationM: number = 18,
+    targetElevationM: number | null = null,
     isCurrentSelection: boolean = false
   ): HarmonizedFusedState {
     const coverage = this.assessObservationCoverage(targetLat, targetLng);
@@ -435,29 +509,19 @@ class DataFusionAndUncertaintyEngine {
         (Math.abs(weatherData.lat - targetLat) < 0.08 && Math.abs(weatherData.lng - targetLng) < 0.08))
     );
     const matchingWeather = isMatchCoord ? weatherData : null;
+    const rawTemp = matchingWeather?.current?.consensusTemperature;
     const isLiveConnected = Boolean(
       matchingWeather &&
-      (matchingWeather.current !== null || matchingWeather.dataStatus === 'AVAILABLE' || matchingWeather.dataStatus === 'PARTIAL')
+      matchingWeather.current &&
+      typeof rawTemp === 'number' &&
+      Number.isFinite(rawTemp) &&
+      matchingWeather.dataStatus !== 'UNAVAILABLE'
     );
-
-    const baseTemp = matchingWeather?.current?.consensusTemperature ?? 29.5;
-    const baseRain = matchingWeather?.current?.precipitation ?? 4.2;
-    const basePressure = matchingWeather?.current?.pressure ?? 1011;
-    const baseWind = matchingWeather?.current?.windSpeed ?? 14;
-    const baseHumidity = matchingWeather?.current?.humidity ?? 78;
-
-    // Environmental Lapse Rate Downscaling: T_elevated = T_sea_level - (0.0065 * delta_elevation)
-    const lapseRateCorrection = (targetElevationM / 1000) * 6.5 * -1;
-    const downscaledTemp = parseFloat((baseTemp + lapseRateCorrection * 0.4).toFixed(1));
-
-    // Downscaled Orographic Precipitation multiplier
-    const orographicMultiplier = targetElevationM > 500 ? 1.25 : targetElevationM > 150 ? 1.1 : 1.0;
-    const downscaledRain = parseFloat((baseRain * orographicMultiplier).toFixed(1));
 
     let composition: ObservationBreakdown;
     let uncertaintyBounds: UncertaintyBounds;
-    let overallConfidenceScore: number;
-    let confidenceLevel: 'HIGH' | 'MODERATE' | 'LOW';
+    let baseConfidenceScore: number;
+    let baseConfidenceLevel: 'HIGH' | 'MODERATE' | 'LOW';
 
     if (coverage.tier === 'HIGH_COVERAGE') {
       composition = {
@@ -472,8 +536,8 @@ class DataFusionAndUncertaintyEngine {
         windSpeedPlusMinusKmh: 3.2,
         pressurePlusMinusHpa: 1.1,
       };
-      overallConfidenceScore = 88;
-      confidenceLevel = 'HIGH';
+      baseConfidenceScore = 88;
+      baseConfidenceLevel = 'HIGH';
     } else if (coverage.tier === 'MODERATE_COVERAGE') {
       composition = {
         observedPercentage: 38,
@@ -487,8 +551,8 @@ class DataFusionAndUncertaintyEngine {
         windSpeedPlusMinusKmh: 5.5,
         pressurePlusMinusHpa: 2.2,
       };
-      overallConfidenceScore = 67;
-      confidenceLevel = 'MODERATE';
+      baseConfidenceScore = 67;
+      baseConfidenceLevel = 'MODERATE';
     } else {
       composition = {
         observedPercentage: 8,
@@ -502,14 +566,127 @@ class DataFusionAndUncertaintyEngine {
         windSpeedPlusMinusKmh: 8.8,
         pressurePlusMinusHpa: 3.8,
       };
-      overallConfidenceScore = 44;
-      confidenceLevel = 'LOW';
+      baseConfidenceScore = 44;
+      baseConfidenceLevel = 'LOW';
     }
 
-    // Dynamic uncertainty adjustments based on live model spread if available
-    if (matchingWeather?.modelSpread && matchingWeather.modelSpread > 2.5) {
+    if (!isLiveConnected || !matchingWeather?.current) {
+      const errMsg = isCurrentSelection
+        ? (matchingWeather?.errorMessage || 'Telemetri cuaca live tidak tersedia atau mengalami error pada koordinat saat ini.')
+        : `Belum ada pengambilan data telemetri langsung untuk lokasi preset "${targetLocationName}".`;
+
+      return {
+        dataStatus: isCurrentSelection ? 'UNAVAILABLE' : 'DEMONSTRATION',
+        isLiveConnected: false,
+        accuracyValidated: false,
+        locationName: targetLocationName,
+        lat: targetLat,
+        lng: targetLng,
+        elevationM: targetElevationM,
+        timestamp: new Date().toISOString(),
+        dataAgeFormatted: 'Tidak tersedia',
+        assimilatedModelsCount: 0,
+        errorMessage: errMsg,
+        bestEstimate: {
+          temperatureC: null,
+          uncertaintyTempC: null,
+          precipitationMm: null,
+          uncertaintyPrecipMm: null,
+          windSpeedKmh: null,
+          uncertaintyWindKmh: null,
+          surfacePressureHpa: null,
+          humidityPercent: null,
+        },
+        confidenceLevel: 'UNAVAILABLE',
+        overallConfidenceScore: null,
+        composition,
+        uncertaintyBounds,
+        qualityControlStatus: 'UNAVAILABLE',
+        qcChecks: [],
+        coverage,
+        impacts: null,
+        pipelineSteps: [
+          {
+            stepIndex: 1,
+            title: 'Global Earth Observation Ingestion',
+            inputDescription: 'Ensemble NWP global (ECMWF, GFS, ICON, JMA) & satelit.',
+            outputDescription: 'Gagal / belum ada data cuaca masuk yang terverifikasi untuk lokasi ini.',
+            methodology: 'REST Proxy & Open-Meteo Multi-Model Ensemble API',
+            status: 'NOT_IMPLEMENTED',
+          },
+          {
+            stepIndex: 2,
+            title: 'Data Quality & Anomaly Filtering (QC/QA)',
+            inputDescription: 'Uji batas fisis, laju perubahan waktu, dan konsistensi lintas parameter.',
+            outputDescription: 'Tidak dijalankan tanpa telemetri masukan yang valid.',
+            methodology: 'Physics Range & Temporal Spike Validation',
+            status: 'NOT_IMPLEMENTED',
+          },
+          {
+            stepIndex: 3,
+            title: 'National & Local In-Situ Assimilation',
+            inputDescription: `Radar Doppler terdekat (~${coverage.nearestRadarDistanceKm} km) dan cakupan permukaan.`,
+            outputDescription: `Estimasi kerapatan cakupan jaringan ${coverage.tier}; asimilasi ditunda tanpa data.`,
+            methodology: 'Distance-Weighted Coverage Check',
+            status: 'NOT_IMPLEMENTED',
+          },
+          {
+            stepIndex: 4,
+            title: 'Topographic & DEM Downscaling',
+            inputDescription: targetElevationM != null ? `DEM (${targetElevationM} mdpl).` : 'DEM belum tersedia.',
+            outputDescription: 'Menunggu suhu dan presipitasi permukaan terukur.',
+            methodology: 'Digital Elevation Model Lapse Rate Scaling',
+            status: 'NOT_IMPLEMENTED',
+          },
+          {
+            stepIndex: 5,
+            title: 'AI Bias Correction & Uncertainty Scoring',
+            inputDescription: 'Verifikasi persamaan atmosfer dan sebaran multi-model.',
+            outputDescription: 'Tidak tersedia tanpa data konsensus cuaca aktif.',
+            methodology: 'Ensemble Residual & Physics Verification',
+            status: 'NOT_IMPLEMENTED',
+          },
+        ],
+      };
+    }
+
+    const baseTemp = rawTemp as number;
+    const baseRain = typeof matchingWeather.current.precipitation === 'number' && Number.isFinite(matchingWeather.current.precipitation)
+      ? matchingWeather.current.precipitation
+      : null;
+    const basePressure = typeof matchingWeather.current.pressure === 'number' && Number.isFinite(matchingWeather.current.pressure)
+      ? matchingWeather.current.pressure
+      : null;
+    const baseWind = typeof matchingWeather.current.windSpeed === 'number' && Number.isFinite(matchingWeather.current.windSpeed)
+      ? matchingWeather.current.windSpeed
+      : null;
+    const baseHumidity = typeof matchingWeather.current.humidity === 'number' && Number.isFinite(matchingWeather.current.humidity)
+      ? matchingWeather.current.humidity
+      : null;
+
+    const effectiveElevM = typeof targetElevationM === 'number' && Number.isFinite(targetElevationM)
+      ? targetElevationM
+      : (typeof matchingWeather.elevation === 'number' && Number.isFinite(matchingWeather.elevation) ? matchingWeather.elevation : null);
+
+    const lapseRateCorrection = effectiveElevM !== null ? (effectiveElevM / 1000) * 6.5 * -1 : 0;
+    const downscaledTemp = parseFloat((baseTemp + lapseRateCorrection * 0.4).toFixed(1));
+    const orographicMultiplier = effectiveElevM !== null ? (effectiveElevM > 500 ? 1.25 : effectiveElevM > 150 ? 1.1 : 1.0) : 1.0;
+    const downscaledRain = baseRain !== null ? parseFloat((baseRain * orographicMultiplier).toFixed(1)) : null;
+
+    const modelSpreadC = typeof matchingWeather.modelSpread === 'number' && Number.isFinite(matchingWeather.modelSpread)
+      ? matchingWeather.modelSpread
+      : null;
+    if (modelSpreadC !== null && modelSpreadC > 2.5) {
       uncertaintyBounds.temperaturePlusMinusC = parseFloat((uncertaintyBounds.temperaturePlusMinusC + 0.3).toFixed(1));
     }
+
+    const hourlyTemps = Array.isArray(matchingWeather.hourly)
+      ? matchingWeather.hourly
+          .slice(0, 4)
+          .map((h) => h.temperature)
+          .filter((v) => typeof v === 'number' && Number.isFinite(v))
+      : [];
+    const hourlyDeltaTempC = hourlyTemps.length >= 2 ? parseFloat((hourlyTemps[1] - hourlyTemps[0]).toFixed(2)) : null;
 
     const qcResult = this.runQualityControl(
       downscaledTemp,
@@ -517,19 +694,18 @@ class DataFusionAndUncertaintyEngine {
       basePressure,
       baseWind,
       baseHumidity,
-      coverage
+      coverage,
+      hourlyDeltaTempC,
+      modelSpreadC
     );
 
-    const impacts = this.calculateTerrainImpacts(
-      downscaledRain,
-      targetElevationM,
-      baseWind,
-      downscaledTemp,
-      baseHumidity
-    );
+    const canComputeImpacts = downscaledRain !== null && effectiveElevM !== null && baseWind !== null && baseHumidity !== null;
+    const impacts = canComputeImpacts
+      ? this.calculateTerrainImpacts(downscaledRain, effectiveElevM, baseWind, downscaledTemp, baseHumidity)
+      : null;
 
-    let dataAgeFormatted = 'Umur data tidak diketahui';
-    if (matchingWeather?.fetchedAt) {
+    let dataAgeFormatted = 'Telemetri Real-Time Terkini';
+    if (matchingWeather.fetchedAt) {
       const diffMs = Date.now() - new Date(matchingWeather.fetchedAt).getTime();
       const diffMin = Math.max(0, Math.floor(diffMs / 60000));
       if (diffMin < 1) {
@@ -540,84 +716,72 @@ class DataFusionAndUncertaintyEngine {
         const hours = Math.floor(diffMin / 60);
         dataAgeFormatted = `${hours} jam lalu • Siklus Asimilasi`;
       }
-    } else if (isLiveConnected) {
-      dataAgeFormatted = 'Telemetri Real-Time Terkini';
     }
 
-    const modelCount = matchingWeather?.modelComparison?.length || 4;
-    const modelNames = matchingWeather?.modelComparison?.map(m => m.modelName).slice(0, 3).join(', ') || 'ECMWF, GFS, ICON';
+    const modelCount = matchingWeather.modelComparison?.length || 0;
+    const modelNames = modelCount > 0
+      ? matchingWeather.modelComparison.map((m) => m.modelName).slice(0, 3).join(', ')
+      : 'Open-Meteo Primary';
 
     const pipelineSteps: FusionPipelineStep[] = [
       {
         stepIndex: 1,
         title: 'Global Earth Observation Ingestion',
         inputDescription: `Ensemble NWP global (${modelNames}${modelCount > 3 ? ` +${modelCount - 3} model` : ''}), satelit Himawari-9 & Sentinel.`,
-        outputDescription: isLiveConnected
-          ? `${modelCount} model NWP global & telemetri satelit berhasil diambil dan terasimilasi secara simultan.`
-          : 'Kompilasi keadaan atmosfer regional khatulistiwa dan kondisi batas dinamis.',
+        outputDescription: `${modelCount} model NWP global terambil dan diasimilasi secara simultan.`,
         methodology: 'REST Proxy & Open-Meteo Multi-Model Ensemble API',
-        status: isLiveConnected ? 'COMPLETED' : 'NOT_IMPLEMENTED',
+        status: modelCount > 0 ? 'COMPLETED' : 'ACTIVE',
       },
       {
         stepIndex: 2,
         title: 'Data Quality & Anomaly Filtering (QC/QA)',
-        inputDescription: 'Uji batas fisis range check, uji lonjakan temporal, dan konsistensi lintas parameter.',
-        outputDescription: isLiveConnected
-          ? `${qcResult.checks.length} aturan verifikasi fisis terpenuhi (${qcResult.status === 'PASSED_CLEAN' ? 'Lolos Bersih' : 'Anomali Tertangani'}).`
-          : `${qcResult.checks.length} aturan verifikasi terpenuhi (${qcResult.status}).`,
-        methodology: 'Bayesian Spike Filter & Clausius-Clapeyron Boundary Rule',
-        status: isLiveConnected ? 'COMPLETED' : 'NOT_IMPLEMENTED',
+        inputDescription: 'Uji batas fisis range check, laju perubahan per jam terukur, dan spread antar-model.',
+        outputDescription: `${qcResult.checks.length} aturan QC dievaluasi (Status: ${qcResult.status}).`,
+        methodology: 'Physical Range, Hourly dT/dt & Clausius-Clapeyron Check',
+        status: qcResult.status === 'UNAVAILABLE' ? 'NOT_IMPLEMENTED' : 'COMPLETED',
       },
       {
         stepIndex: 3,
         title: 'National & Local In-Situ Assimilation',
-        inputDescription: `Jaringan observasi permukaan BMKG, radar Doppler terdekat (~${coverage.nearestRadarDistanceKm} km), dan AWS.`,
-        outputDescription: isLiveConnected
-          ? (coverage.tier === 'HIGH_COVERAGE'
-            ? `Terasimilasi dalam radius jangkauan radar Doppler (${coverage.nearestRadarDistanceKm} km) & AWS. Kontribusi observasi ${composition.observedPercentage}%.`
-            : `Estimasi fusi berbasis jarak observasi (${coverage.nearestRadarDistanceKm} km). Kontribusi observasi ${composition.observedPercentage}%.`)
-          : `Koreksi bobot observasi permukaan: kontribusi terukur ${composition.observedPercentage}%.`,
+        inputDescription: `Jaringan radar Doppler terdekat (~${coverage.nearestRadarDistanceKm} km) dan kerapatan pengamatan.`,
+        outputDescription: coverage.tier === 'HIGH_COVERAGE'
+          ? `Dalam jangkauan radius radar (${coverage.nearestRadarDistanceKm} km).`
+          : `Di luar jangkauan radar optimal (${coverage.nearestRadarDistanceKm} km).`,
         methodology: 'Optimal Interpolation (OI) & Distance-Weighted Kernel',
-        status: isLiveConnected ? 'COMPLETED' : 'NOT_IMPLEMENTED',
+        status: 'COMPLETED',
       },
       {
         stepIndex: 4,
         title: 'Topographic & DEM Downscaling',
-        inputDescription: `Profil ketinggian medan DEM (${targetElevationM} mdpl) dan tutupan lahan.`,
-        outputDescription: isLiveConnected
-          ? `Terkoreksi Environmental Lapse Rate DEM ${targetElevationM} mdpl (ΔT ${lapseRateCorrection >= 0 ? '+' : ''}${lapseRateCorrection.toFixed(1)}°C) dan faktor orografis.`
-          : `Penyesuaian environmental lapse rate (ΔT ${lapseRateCorrection.toFixed(1)}°C) dan orographic rain multiplier.`,
+        inputDescription: effectiveElevM !== null ? `Profil ketinggian medan DEM (${effectiveElevM} mdpl).` : 'Elevasi DEM tidak tersedia.',
+        outputDescription: effectiveElevM !== null
+          ? `Terkoreksi Environmental Lapse Rate DEM ${effectiveElevM} mdpl (ΔT ${lapseRateCorrection >= 0 ? '+' : ''}${lapseRateCorrection.toFixed(1)}°C).`
+          : 'Koreksi topografi dilewati karena elevasi DEM tidak tersedia.',
         methodology: 'Digital Elevation Model Lapse Rate Scaling & Slope Aspect Vector',
-        status: isLiveConnected ? 'COMPLETED' : 'NOT_IMPLEMENTED',
+        status: effectiveElevM !== null ? 'COMPLETED' : 'ACTIVE',
       },
       {
         stepIndex: 5,
         title: 'AI Bias Correction & Uncertainty Scoring',
-        inputDescription: 'Kalibrasi residual error historis dan pergeseran mikroklimat pulau maritim.',
-        outputDescription: isLiveConnected
-          ? (matchingWeather?.aiNwpVerification?.isAiVerified
-            ? `Terverifikasi AI NWP (${matchingWeather.aiNwpVerification.modelName}): ${downscaledTemp}°C (±${uncertaintyBounds.temperaturePlusMinusC}°C), Skor Asimilasi ${overallConfidenceScore}%.`
-            : `Keadaan terbaik terpadu: ${downscaledTemp}°C (±${uncertaintyBounds.temperaturePlusMinusC}°C), Skor Asimilasi ${overallConfidenceScore}%.`)
-          : `Keadaan terbaik terpadu: ${downscaledTemp}°C (±${uncertaintyBounds.temperaturePlusMinusC}°C), Confidence ${overallConfidenceScore}%.`,
-        methodology: matchingWeather?.aiNwpVerification?.isAiVerified
-          ? 'Physics-Informed Neural Network NWP & Residual Learning'
-          : 'Ensemble Residual Learning & Probability Density Uncertainty',
-        status: isLiveConnected
-          ? (matchingWeather?.aiNwpVerification?.isAiVerified ? 'COMPLETED' : 'ACTIVE')
-          : 'NOT_IMPLEMENTED',
+        inputDescription: 'Pemeriksaan 7 persamaan atmosfer dan estimasi batas ketidakpastian.',
+        outputDescription: matchingWeather.aiNwpVerification?.isAiVerified
+          ? `Terverifikasi AI NWP (${matchingWeather.aiNwpVerification.modelName}): ${downscaledTemp}°C (±${uncertaintyBounds.temperaturePlusMinusC}°C), Skor ${baseConfidenceScore}%.`
+          : `Estimasi konsensus: ${downscaledTemp}°C (±${uncertaintyBounds.temperaturePlusMinusC}°C), Skor ${baseConfidenceScore}%.`,
+        methodology: matchingWeather.aiNwpVerification?.isAiVerified
+          ? 'Physics-Informed Atmospheric Equations & Gemini Verification'
+          : 'Ensemble Spread & Uncertainty Bounds',
+        status: matchingWeather.aiNwpVerification?.isAiVerified ? 'COMPLETED' : 'ACTIVE',
       },
     ];
 
     return {
-      dataStatus: isLiveConnected
-        ? (matchingWeather?.dataStatus === 'AVAILABLE' ? 'AVAILABLE' : 'PARTIAL')
-        : 'DEMONSTRATION',
-      isLiveConnected,
+      dataStatus: matchingWeather.dataStatus === 'AVAILABLE' ? 'AVAILABLE' : 'PARTIAL',
+      isLiveConnected: true,
       accuracyValidated: false,
       locationName: targetLocationName,
       lat: targetLat,
       lng: targetLng,
-      elevationM: targetElevationM,
+      elevationM: effectiveElevM,
       timestamp: new Date().toISOString(),
       dataAgeFormatted,
       assimilatedModelsCount: modelCount,
@@ -631,8 +795,8 @@ class DataFusionAndUncertaintyEngine {
         surfacePressureHpa: basePressure,
         humidityPercent: baseHumidity,
       },
-      confidenceLevel,
-      overallConfidenceScore,
+      confidenceLevel: baseConfidenceLevel,
+      overallConfidenceScore: baseConfidenceScore,
       composition,
       uncertaintyBounds,
       qualityControlStatus: qcResult.status,

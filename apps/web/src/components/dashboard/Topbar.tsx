@@ -9,7 +9,7 @@ import {
   LogIn,
 } from "lucide-react";
 import { useNavigate } from "react-router-dom";
-import { useState } from "react";
+import { useState, useRef, useEffect } from "react";
 import { filterVisibleNavItems, navItems, resolveNavLabel } from "@/components/dashboard/nav";
 import { useTheme } from "@/hooks/useTheme";
 import { ThemePicker } from "@/components/ThemePicker";
@@ -28,6 +28,27 @@ export function Topbar({ onOpenMobile, title }: TopbarProps) {
   const navigate = useNavigate();
   const [search, setSearch] = useState("");
   const [notificationsOpen, setNotificationsOpen] = useState(false);
+  const notifRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (!notificationsOpen) return;
+    const handlePointerDown = (event: PointerEvent) => {
+      if (notifRef.current && !notifRef.current.contains(event.target as Node)) {
+        setNotificationsOpen(false);
+      }
+    };
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === "Escape") {
+        setNotificationsOpen(false);
+      }
+    };
+    document.addEventListener("pointerdown", handlePointerDown);
+    document.addEventListener("keydown", handleKeyDown);
+    return () => {
+      document.removeEventListener("pointerdown", handlePointerDown);
+      document.removeEventListener("keydown", handleKeyDown);
+    };
+  }, [notificationsOpen]);
 
   const searchableNavItems = filterVisibleNavItems(navItems, currentUser?.role);
   const normalizedQuery = search.trim().toLowerCase();
@@ -142,7 +163,7 @@ export function Topbar({ onOpenMobile, title }: TopbarProps) {
       </button>
 
       {/* Notifications */}
-      <div className="relative">
+      <div className="relative" ref={notifRef}>
         <button
           type="button"
           onClick={() => setNotificationsOpen((v) => !v)}
@@ -153,7 +174,7 @@ export function Topbar({ onOpenMobile, title }: TopbarProps) {
           <Bell className="h-5 w-5" />
         </button>
         {notificationsOpen && (
-          <div className="absolute right-0 top-full z-50 mt-2 w-72 rounded-2xl border border-brand-100 bg-white p-4 shadow-glass-lg dark:border-slate-700 dark:bg-slate-900">
+          <div className="fixed sm:absolute right-3 sm:right-0 top-[calc(4.25rem+env(safe-area-inset-top))] sm:top-full z-50 sm:mt-2 w-[min(18rem,calc(100vw-1.5rem))] rounded-2xl border border-brand-100 bg-white p-4 shadow-glass-lg dark:border-slate-700 dark:bg-slate-900">
             <div className="flex items-center justify-between">
               <h2 className="text-sm font-bold text-ink-900 dark:text-white">
                 Notifikasi

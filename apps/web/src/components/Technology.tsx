@@ -70,7 +70,7 @@ export function Technology() {
             Alur Sistem
           </span>
           <h2 className="mt-3 font-display text-3xl font-extrabold tracking-tight text-white sm:text-4xl">
-            Dari data wilayah ke skor kesiapsiagaan
+            Alur Sistem
           </h2>
           <p className="mt-4 text-brand-200">
             Lima tahapan terhubung untuk melatih kesiapan evakuasi sekolah secara sistematis.

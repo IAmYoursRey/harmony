@@ -76,7 +76,7 @@ export const GeospatialAnalyticsTab: React.FC<GeospatialAnalyticsTabProps> = ({
           <div>
             <div className="flex items-center gap-2">
               <h3 className="text-sm font-bold text-slate-800 dark:text-white">
-                Analisis Spasial, Buffer Geodesik & Proksimitas
+                Analisis Spasial
               </h3>
               <span className="text-[10px] font-extrabold uppercase px-2 py-0.5 rounded-full bg-purple-500/15 text-purple-700 dark:text-purple-300 border border-purple-500/25">
                 Geoprocessing Engine
@@ -99,7 +99,7 @@ export const GeospatialAnalyticsTab: React.FC<GeospatialAnalyticsTabProps> = ({
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b border-slate-100 dark:border-slate-700/60">
           <div>
             <h4 className="text-sm font-bold text-slate-900 dark:text-white flex items-center gap-2">
-              <CircleDot className="w-4 h-4 text-purple-500" /> Pengaturan Jangkauan Buffer (Radius Geodesi)
+              <CircleDot className="w-4 h-4 text-purple-500" /> Jangkauan Buffer
             </h4>
             <p className="text-xs text-slate-500 dark:text-slate-400">
               Pilih radius standar mitigasi darurat atau geser untuk kustomisasi jarak
@@ -221,7 +221,7 @@ export const GeospatialAnalyticsTab: React.FC<GeospatialAnalyticsTabProps> = ({
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b border-slate-100 dark:border-slate-700/60">
           <div>
             <h4 className="text-sm font-bold text-slate-900 dark:text-white flex items-center gap-2">
-              <ShieldAlert className="w-4 h-4 text-red-500" /> Identifikasi Bahaya Terdekat (Proximity Index)
+              <ShieldAlert className="w-4 h-4 text-red-500" /> Bahaya Terdekat
             </h4>
             <p className="text-xs text-slate-500 dark:text-slate-400">
               Menghitung jarak Haversine bola bumi ke sumber ancaman vulkanik dan tektonik

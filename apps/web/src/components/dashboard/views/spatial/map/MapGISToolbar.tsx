@@ -1287,7 +1287,7 @@ export const MapGISToolbar: React.FC<MapGISToolbarProps> = ({
         </button>
 
         {isOpen && (
-          <div className="absolute top-full left-0 mt-2 z-40 flex flex-col gap-1.5 rounded-2xl bg-white/95 p-2.5 shadow-2xl backdrop-blur-xl border border-slate-200/90 dark:bg-slate-900/95 dark:border-slate-800 w-[min(18rem,calc(100vw-2rem))] max-h-[calc(100dvh-6.5rem)] overflow-y-auto overscroll-contain custom-scrollbar animate-in fade-in slide-in-from-top-2 duration-150">
+          <div className="absolute top-full left-0 mt-2 z-40 flex flex-col gap-1.5 rounded-2xl bg-white/95 p-2.5 shadow-2xl backdrop-blur-xl border border-slate-200/90 dark:bg-slate-900/95 dark:border-slate-800 w-[min(18rem,calc(100vw-2rem))] max-h-[calc(var(--vh-full)-6.5rem)] overflow-y-auto overscroll-contain custom-scrollbar animate-in fade-in slide-in-from-top-2 duration-150">
             {/* Active Tool Status Banner with Guide (shown only for active drawing/measuring tools) */}
             {activeTool && activeTool !== "SELECT" && TOOL_GUIDES[activeTool] && (
               <div className="flex items-center justify-between gap-1.5 rounded-xl bg-indigo-50/90 px-2.5 py-1.5 text-xs border border-indigo-200/80 dark:bg-indigo-950/50 dark:border-indigo-800/70 dark:text-indigo-200 animate-in fade-in duration-150">

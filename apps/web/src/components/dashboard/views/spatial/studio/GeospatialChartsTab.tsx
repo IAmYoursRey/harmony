@@ -49,20 +49,20 @@ export const GeospatialChartsTab: React.FC<GeospatialChartsTabProps> = ({
             </span>
           </div>
           <h2 className="text-base sm:text-lg font-black text-white flex items-center gap-2">
-            <span>Mesin Visualisasi Data Spasial, Atmosfer & Ilmiah</span>
+            <span>Visualisasi Spasial</span>
           </h2>
           <p className="text-xs text-slate-300 max-w-2xl leading-relaxed">
-            Pilih jenis grafik yang paling sesuai dengan tujuan pertanyaan data: perbandingan kategori, linimasa tren waktu, komposisi bagian, sebaran statistik, korelasi variabel, mawar angin (wind rose), hingga seismogram getaran bumi.
+            Pilih grafik sesuai kebutuhan analisis: perbandingan, tren waktu, sebaran statistik, mawar angin, dan seismogram.
           </p>
         </div>
 
         {/* Domain Presets */}
         <div className="flex items-center gap-1.5 p-1 bg-white/10 dark:bg-slate-800/80 rounded-2xl border border-white/10 self-start sm:self-center shrink-0 overflow-x-auto no-scrollbar touch-pan-x max-w-full">
           {[
-            { id: 'weather', label: '🌤️ Cuaca & Angin' },
-            { id: 'seismic', label: '🌋 Seismik & Gempa' },
-            { id: 'climate', label: '🌍 Iklim & Ensemble' },
-            { id: 'hydrology', label: '💧 Neraca Hidrologi' },
+            { id: 'weather', label: 'Cuaca & Angin' },
+            { id: 'seismic', label: 'Seismik' },
+            { id: 'climate', label: 'Iklim' },
+            { id: 'hydrology', label: 'Hidrologi' },
           ].map((preset) => (
             <button
               key={preset.id}
@@ -92,7 +92,7 @@ export const GeospatialChartsTab: React.FC<GeospatialChartsTabProps> = ({
       <div className="p-4 rounded-2xl bg-white dark:bg-slate-800/60 border border-slate-200/80 dark:border-slate-700/80 space-y-2">
         <h4 className="text-xs font-bold text-slate-800 dark:text-slate-200 flex items-center gap-2">
           <Sparkles className="w-4 h-4 text-indigo-500" />
-          <span>Pedoman Pemilihan Visualisasi Data Harmony:</span>
+          <span>Panduan Grafik</span>
         </h4>
         <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-2.5 text-xs text-slate-600 dark:text-slate-400">
           <div className="p-2.5 rounded-xl bg-slate-50 dark:bg-slate-900/60 border border-slate-100 dark:border-slate-800">

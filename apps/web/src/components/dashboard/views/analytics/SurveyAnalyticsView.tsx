@@ -361,10 +361,10 @@ export function SurveyAnalyticsView() {
               <span>Evaluasi Empiris SPAB — Normalized Learning Gain</span>
             </div>
             <h3 className="font-display text-base font-extrabold text-ink-900 dark:text-white">
-              Uji Coba Efektivitas 320 Siswa SMAN 1 Ngoro: N-Gain = 0,74 (Kategori Tinggi)
+              Efektivitas SPAB
             </h3>
             <p className="text-xs text-ink-500 dark:text-slate-400 max-w-2xl">
-              Rata-rata skor meningkat dari Pre-Test <strong>46,5</strong> ke Post-Test <strong>86,1</strong> (Hake 1998, p &lt; 0,0001).
+              N-Gain = 0,74 (Kategori Tinggi) pada 320 siswa SMAN 1 Ngoro — rata-rata meningkat dari Pre-Test <strong>46,5</strong> ke Post-Test <strong>86,1</strong> (Hake 1998, p &lt; 0,0001).
             </p>
           </div>
           <Link

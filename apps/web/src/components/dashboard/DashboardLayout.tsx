@@ -87,8 +87,8 @@ export function DashboardLayout() {
 
   if (isLoading && activeId !== "maps") {
     return (
-      <div className="h-[100dvh] overflow-hidden bg-gradient-to-b from-brand-50/40 via-white to-white dark:from-slate-900 dark:via-slate-950 dark:to-slate-950">
-        <div className="flex h-[100dvh]">
+      <div className="h-viewport overflow-hidden bg-gradient-to-b from-brand-50/40 via-white to-white dark:from-slate-900 dark:via-slate-950 dark:to-slate-950">
+        <div className="flex h-viewport">
           <Sidebar
             active={activeId}
             onSelect={() => setMobileOpen(false)}
@@ -106,7 +106,7 @@ export function DashboardLayout() {
                 <LogoSpinner size="lg" />
                 <div className="space-y-1.5">
                   <h3 className="font-display text-base font-bold text-ink-900 dark:text-white animate-pulse">
-                    Memuat Dasbor & Profil...
+                    Memuat Dasbor...
                   </h3>
                   <p className="text-xs text-ink-500 dark:text-slate-400">
                     Menghubungkan sesi Anda dengan aman
@@ -127,15 +127,15 @@ export function DashboardLayout() {
 
   if (isEditorMode) {
     return (
-      <div className="h-[100dvh] w-full overflow-hidden bg-white dark:bg-slate-950 text-slate-900 dark:text-slate-50 flex flex-col">
+      <div className="h-viewport w-full overflow-hidden bg-white dark:bg-slate-950 text-slate-900 dark:text-slate-50 flex flex-col">
         <Outlet />
       </div>
     );
   }
 
   return (
-    <div className="h-[100dvh] overflow-hidden bg-gradient-to-b from-brand-50/40 via-white to-white dark:from-slate-900 dark:via-slate-950 dark:to-slate-950">
-      <div className="flex h-[100dvh]">
+    <div className="h-viewport overflow-hidden bg-gradient-to-b from-brand-50/40 via-white to-white dark:from-slate-900 dark:via-slate-950 dark:to-slate-950">
+      <div className="flex h-viewport">
         <Sidebar
           active={activeId}
           onSelect={() => setMobileOpen(false)}

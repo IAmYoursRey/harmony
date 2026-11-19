@@ -73,16 +73,16 @@ export function TeacherDTView() {
     Icon: React.ElementType;
     count: number;
   }[] = [
-    { id: "maps", label: "My School Maps", Icon: Map, count: maps.length },
+    { id: "maps", label: "Peta Sekolah", Icon: Map, count: maps.length },
     {
       id: "simulations",
-      label: "Simulations",
+      label: "Simulasi",
       Icon: Swords,
       count: simulations.length,
     },
     {
       id: "rooms",
-      label: "Active Sessions",
+      label: "Sesi Aktif",
       Icon: Users,
       count: rooms.filter(
         (r) => r.status !== "FINISHED" && r.status !== "CANCELLED",
@@ -90,7 +90,7 @@ export function TeacherDTView() {
     },
     {
       id: "public_maps",
-      label: "Public Community Maps",
+      label: "Peta Publik",
       Icon: Globe,
       count: publicMaps.length,
     },
@@ -103,13 +103,13 @@ export function TeacherDTView() {
         <div className="absolute inset-0 bg-grid-pattern bg-[size:36px_36px] opacity-10" />
         <div className="relative">
           <div className="inline-flex items-center gap-1.5 rounded-full bg-white/15 px-3 py-1 text-xs font-semibold backdrop-blur-sm mb-3">
-            <Swords className="h-3.5 w-3.5" /> Harmony Twin — Teacher Studio
+            <Swords className="h-3.5 w-3.5" /> Studio Guru
           </div>
           <h2 className="font-display text-2xl font-extrabold">
-            Evacuation Simulation & Map Manager
+            Manajemen Simulasi
           </h2>
           <p className="mt-1 text-sm text-brand-100">
-            Build digital twin maps, configure disaster hazard scenarios, and share public maps with schools nationwide.
+            Kelola denah sekolah, atur skenario bahaya, dan bagikan peta latihan antarsekolah.
           </p>
         </div>
       </div>
@@ -176,10 +176,10 @@ export function TeacherDTView() {
                 <div>
                   <h3 className="font-display text-base font-bold text-ink-900 dark:text-white flex items-center gap-2">
                     <Globe className="h-4 w-4 text-brand-600" />
-                    Public Community Maps ({publicMaps.length})
+                    Peta Publik ({publicMaps.length})
                   </h3>
                   <p className="text-xs text-ink-500 dark:text-slate-400 mt-0.5">
-                    Maps published by teachers from various schools for inter-school training and practice.
+                    Peta yang dipublikasikan guru untuk latihan evakuasi antarsekolah.
                   </p>
                 </div>
               </div>
@@ -187,8 +187,8 @@ export function TeacherDTView() {
               {publicMaps.length === 0 ? (
                 <div className="flex flex-col items-center justify-center h-48 rounded-2xl border-2 border-dashed border-brand-200 dark:border-slate-700 text-ink-500">
                   <Globe className="h-10 w-10 mb-2 opacity-40 text-brand-600" />
-                  <p className="text-sm font-semibold">No public maps available yet.</p>
-                  <p className="text-xs mt-1">Publish a map from "My School Maps" to share with other schools!</p>
+                  <p className="text-sm font-semibold">Belum ada peta publik.</p>
+                  <p className="text-xs mt-1">Publikasikan peta dari tab Peta Sekolah untuk dibagikan.</p>
                 </div>
               ) : (
                 <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
@@ -204,14 +204,14 @@ export function TeacherDTView() {
                               {pubMap.name}
                             </h4>
                             <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-100 text-emerald-800 dark:bg-emerald-900/40 dark:text-emerald-300">
-                              <Globe className="h-3 w-3" /> Shared
+                              <Globe className="h-3 w-3" /> Publik
                             </span>
                           </div>
                           <p className="text-xs text-ink-500 mt-1">
-                            By: {pubMap.authorName || "Teacher"} &bull; {pubMap.schoolName || "School"}
+                            Oleh: {pubMap.authorName || "Guru"} &bull; {pubMap.schoolName || "Sekolah"}
                           </p>
                           <p className="text-xs text-brand-600 font-semibold mt-0.5">
-                            Size: {pubMap.gridWidth} × {pubMap.gridHeight} cells &bull; 1 cell = {pubMap.cellScale} {pubMap.cellScaleUnit}
+                            Ukuran: {pubMap.gridWidth} × {pubMap.gridHeight} sel &bull; 1 sel = {pubMap.cellScale} {pubMap.cellScaleUnit}
                           </p>
                         </div>
                       </div>

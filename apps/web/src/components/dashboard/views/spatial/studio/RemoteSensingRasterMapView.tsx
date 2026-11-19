@@ -388,7 +388,7 @@ export const RemoteSensingRasterMapView: React.FC<RemoteSensingRasterMapViewProp
           </div>
           <div>
             <h4 className="text-xs font-bold font-mono tracking-wide flex items-center gap-2 text-slate-100">
-              PETA RASTER PENGINDERAAN JAUH
+              Peta Raster Satelit
               <span className="px-2 py-0.5 rounded text-[10px] font-extrabold bg-sky-500/20 text-sky-300 border border-sky-500/30">
                 {scene?.satellite || 'Sentinel-2 L2A'}
               </span>

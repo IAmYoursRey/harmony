@@ -148,12 +148,19 @@ html {
   --brand-950: 0, 0%, 5%;
 }
 
-/* Safe-area tokens for notched iOS / Android edge-to-edge displays */
+/* Safe-area & progressive viewport tokens */
 :root {
   --safe-top: env(safe-area-inset-top, 0px);
   --safe-right: env(safe-area-inset-right, 0px);
   --safe-bottom: env(safe-area-inset-bottom, 0px);
   --safe-left: env(safe-area-inset-left, 0px);
+  --vh-full: 100vh;
+}
+
+@supports (height: 100dvh) {
+  :root {
+    --vh-full: 100dvh;
+  }
 }
 
 @layer base {
@@ -164,8 +171,21 @@ html {
   }
   body {
     @apply bg-white font-sans text-ink-800 antialiased;
+    font-feature-settings: "cv02", "cv03", "cv04", "cv11";
+    text-rendering: optimizeLegibility;
     overscroll-behavior-y: contain;
     -webkit-overflow-scrolling: touch;
+  }
+  @supports (overflow-x: clip) {
+    html, body {
+      overflow-x: clip;
+    }
+  }
+  h1, h2, h3, h4 {
+    @apply font-display tracking-tight;
+  }
+  table, td, th, .kpi-value {
+    font-variant-numeric: tabular-nums;
   }
   .dark body {
     @apply bg-slate-950 text-slate-200;
@@ -194,11 +214,23 @@ html {
   }
 }
 
-.no-scrollbar {
+.h-viewport {
+  height: 100vh;
+  height: 100dvh;
+}
+
+.min-h-viewport {
+  min-height: 100vh;
+  min-height: 100dvh;
+}
+
+.no-scrollbar,
+.scrollbar-none {
   -ms-overflow-style: none;
   scrollbar-width: none;
 }
-.no-scrollbar::-webkit-scrollbar {
+.no-scrollbar::-webkit-scrollbar,
+.scrollbar-none::-webkit-scrollbar {
   display: none;
 }
 
@@ -218,6 +250,17 @@ html {
   }
   .glass-dark {
     @apply bg-brand-950/40 backdrop-blur-xl border border-white/10;
+  }
+  @supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
+    .glass {
+      background-color: rgba(255, 255, 255, 0.94);
+    }
+    .dark .glass {
+      background-color: rgba(15, 23, 42, 0.94);
+    }
+    .glass-dark {
+      background-color: rgba(15, 23, 42, 0.9);
+    }
   }
   .section-container {
     @apply mx-auto w-full max-w-7xl px-5 sm:px-8 lg:px-10;
@@ -393,8 +436,8 @@ html.harmony-perf-lite * {
   button, a, input, select, textarea {
     touch-action: manipulation;
   }
-  /* Prevent iOS Safari auto-zoom when focusing compact inputs */
-  input, select, textarea {
+  /* Prevent iOS Safari auto-zoom when focusing compact text inputs */
+  input:not([type="checkbox"]):not([type="radio"]):not([type="range"]), select, textarea {
     font-size: 16px;
   }
 }

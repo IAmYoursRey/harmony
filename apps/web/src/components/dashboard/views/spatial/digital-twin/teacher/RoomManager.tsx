@@ -184,7 +184,7 @@ export function RoomManager({
       {creating && (
         <div className="rounded-xl border border-brand-200 dark:border-slate-700 bg-brand-50 dark:bg-slate-900 p-5 space-y-4">
           <h4 className="font-bold text-sm text-ink-900 dark:text-white">
-            Buat Ruang Sesi Baru
+            Buat Ruang
           </h4>
           <div className="grid grid-cols-2 gap-3">
             <div className="col-span-2">
@@ -494,9 +494,9 @@ export function RoomManager({
 
       <ConfirmDialog
         isOpen={endConfirm.isOpen}
-        title="End Session"
+        title="Akhiri Sesi"
         message="Akhiri sesi ini? Siswa tidak dapat melanjutkan."
-        confirmLabel="End Session"
+        confirmLabel="Akhiri Sesi"
         loading={isEnding}
         onConfirm={handleEnd}
         onCancel={() => setEndConfirm({ isOpen: false, room: null })}

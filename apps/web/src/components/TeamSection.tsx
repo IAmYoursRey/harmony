@@ -19,22 +19,22 @@ const members: TeamMember[] = [
   {
     initials: "MD",
     name: "M. David Silva W.",
-    roleKey: "Data & Research Analyst",
-    subtitleKey: "Geospatial Data Collection",
+    roleKey: "Analis Data & Riset",
+    subtitleKey: "Data Geospasial",
     icon: BarChart3,
   },
   {
     initials: "AF",
     name: "Alvira Fitriatun Nizha",
-    roleKey: "Project Leader & Ideator",
-    subtitleKey: "Principal Coordinator",
+    roleKey: "Ketua Proyek",
+    subtitleKey: "Koordinator Utama",
     icon: Sparkles,
   },
   {
     initials: "RA",
     name: "Raihan Ansari",
-    roleKey: "Lead Software Engineer",
-    subtitleKey: "Full Stack & UI/UX Developer",
+    roleKey: "Insinyur Perangkat Lunak",
+    subtitleKey: "Arsitektur & UI/UX",
     icon: Code2,
   },
 ];
@@ -46,7 +46,7 @@ interface TeamSectionProps {
 
 export function TeamSection({ heading, variant = "card" }: TeamSectionProps) {
   const { t } = useI18n();
-  const title = heading ?? t("about.team.title", "Tim Pengembang & Riset");
+  const title = heading ?? "Tim Pengembang";
 
   if (variant === "section") {
     return (

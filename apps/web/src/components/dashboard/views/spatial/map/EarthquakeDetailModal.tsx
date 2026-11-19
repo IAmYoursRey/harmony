@@ -186,7 +186,7 @@ export const EarthquakeDetailModal: React.FC<EarthquakeDetailModalProps> = ({
           {/* Geological summary */}
           <div className="p-3.5 rounded-2xl bg-slate-50 dark:bg-slate-800/50 border border-slate-200/80 dark:border-slate-800 space-y-1.5">
             <h4 className="font-bold text-xs text-slate-800 dark:text-slate-200">
-              Analisis Tektonik & Deskripsi Visual:
+              Analisis Tektonik
             </h4>
             <p className="text-xs text-slate-600 dark:text-slate-300 leading-relaxed">
               {earthquake.visualSummary}

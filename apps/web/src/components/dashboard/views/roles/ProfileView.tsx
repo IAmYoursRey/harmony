@@ -185,7 +185,7 @@ function Card({
 }) {
   return (
     <div
-      className={`glass rounded-2xl p-5 transition-all hover:shadow-glass dark:bg-slate-900/60 ${className}`}
+      className={`glass min-w-0 rounded-2xl p-5 transition-all hover:shadow-glass dark:bg-slate-900/60 ${className}`}
     >
       {children}
     </div>
@@ -450,21 +450,21 @@ export function ProfileView() {
               <Camera className="h-4 w-4" />
             </button>
           </div>
-          <div>
-            <h2 className="font-display text-2xl font-extrabold tracking-tight text-ink-900 dark:text-white">
+          <div className="min-w-0 text-center sm:text-left">
+            <h2 className="font-display text-2xl font-extrabold tracking-tight text-ink-900 dark:text-white break-words">
               {currentUser?.name || "Pengguna"}
             </h2>
-            <div className="mt-1.5 flex flex-wrap gap-2">
+            <div className="mt-1.5 flex flex-wrap justify-center sm:justify-start gap-2">
               <span className="inline-flex items-center gap-1 rounded-full bg-brand-50 px-2.5 py-1 text-xs font-semibold text-brand-700 dark:bg-brand-500/20 dark:text-brand-300">
                 {currentUser?.role === "developer"
-                  ? t("role.developer", "Developer")
+                  ? t("role.developer", "Pengembang")
                   : currentUser?.role === "teacher"
-                    ? t("role.teacher", "Teacher")
-                    : t("role.student", "Student")}
+                    ? t("role.teacher", "Guru")
+                    : t("role.student", "Siswa")}
               </span>
-              <span className="inline-flex items-center gap-1 rounded-full bg-slate-100 px-2.5 py-1 text-xs font-medium text-slate-600 dark:bg-slate-800 dark:text-slate-300">
-                <MapPin className="h-3 w-3" />{" "}
-                {getSchoolName(currentProfile?.schoolId || "ffdcdf34-fc99-4209-913e-5a6042e957ad")}
+              <span className="inline-flex max-w-full items-center gap-1 rounded-full bg-slate-100 px-2.5 py-1 text-xs font-medium text-slate-600 dark:bg-slate-800 dark:text-slate-300 truncate">
+                <MapPin className="h-3 w-3 shrink-0" />{" "}
+                <span className="truncate">{getSchoolName(currentProfile?.schoolId || "ffdcdf34-fc99-4209-913e-5a6042e957ad")}</span>
               </span>
             </div>
           </div>
@@ -472,9 +472,9 @@ export function ProfileView() {
           {!editing && (
             <button
               onClick={startEdit}
-              className="ml-auto inline-flex items-center gap-1.5 rounded-full bg-white px-4 py-2 text-xs font-semibold text-brand-700 shadow-glass transition-all hover:-translate-y-0.5"
+              className="sm:ml-auto inline-flex items-center gap-1.5 rounded-full bg-white px-4 py-2 text-xs font-semibold text-brand-700 shadow-glass transition-all hover:-translate-y-0.5 shrink-0"
             >
-              <Pencil className="h-3.5 w-3.5" /> Edit Profile
+              <Pencil className="h-3.5 w-3.5" /> Ubah Profil
             </button>
           )}
         </div>
@@ -563,14 +563,14 @@ export function ProfileView() {
         <Card className="lg:col-span-2">
           <div className="mb-4 flex items-center justify-between">
             <h3 className="font-display text-base font-bold text-ink-900 dark:text-white">
-              {editing ? "Edit Profile" : "Research Profile"}
+              {editing ? "Ubah Profil" : "Profil Riset"}
             </h3>
             {!editing && (
               <button
                 onClick={startEdit}
                 className="inline-flex items-center gap-1.5 rounded-full border border-brand-100 px-4 py-2 text-xs font-semibold text-brand-700 transition-colors hover:bg-brand-50 dark:border-slate-700 dark:text-brand-400 dark:hover:bg-slate-800"
               >
-                <Pencil className="h-3.5 w-3.5" /> Edit
+                <Pencil className="h-3.5 w-3.5" /> Ubah
               </button>
             )}
           </div>
@@ -580,7 +580,7 @@ export function ProfileView() {
               <>
                 <EditableField
                   icon={Target}
-                  label="Full Name"
+                  label="Nama Lengkap"
                   value={draft.fullName}
                   onChange={(v) => setDraft({ ...draft, fullName: v })}
                 />
@@ -588,7 +588,7 @@ export function ProfileView() {
                 {currentUser?.role === "developer" && !isDemoNgoroUser(currentUser) ? (
                   <EditableField
                     icon={School}
-                    label="School"
+                    label="Sekolah"
                     value={draft.school}
                     onChange={(v) => setDraft({ ...draft, school: v })}
                   />
@@ -601,7 +601,7 @@ export function ProfileView() {
                         </span>
                         <div>
                           <p className="text-xs text-ink-500 dark:text-slate-400">
-                            School
+                            Sekolah
                           </p>
                           <p className="truncate text-sm font-semibold text-amber-600 dark:text-amber-500">
                             {t("school.unknown", "Belum Memilih Sekolah")}
@@ -624,7 +624,7 @@ export function ProfileView() {
                       </span>
                       <div>
                         <p className="text-xs text-ink-500 dark:text-slate-400">
-                          School
+                          Sekolah
                         </p>
                         <p className="truncate text-sm font-semibold text-ink-900 dark:text-white">
                           {getSchoolName(draft.school)}
@@ -635,14 +635,14 @@ export function ProfileView() {
                     <div className="pointer-events-none absolute left-1/2 -top-10 -translate-x-1/2 whitespace-nowrap rounded-lg bg-ink-900 px-3 py-1.5 text-[11px] font-medium text-white opacity-0 transition-opacity group-hover:opacity-100 dark:bg-slate-700">
                       {isDemoNgoroUser(currentUser)
                         ? "Akun demo terkunci pada SMAN 1 Ngoro"
-                        : "Hanya Developer yang dapat mengubah sekolah"}
+                        : "Hanya Pengembang yang dapat mengubah sekolah"}
                     </div>
                   </div>
                 )}
 
                 <EditableSelect
                   icon={BookOpen}
-                  label="Class"
+                  label="Kelas"
                   value={draft.className}
                   options={[
                     { label: "Kelas X", value: "X" },
@@ -659,7 +659,7 @@ export function ProfileView() {
                 />
                 <EditableField
                   icon={Phone}
-                  label="Phone Number"
+                  label="Nomor Telepon"
                   value={draft.phone}
                   onChange={(v) => setDraft({ ...draft, phone: v })}
                 />
@@ -667,8 +667,8 @@ export function ProfileView() {
                   icon={Lock}
                   label={
                     locale === "en"
-                      ? "Password (New)"
-                      : "Password (Ganti Sandi)"
+                      ? "New Password"
+                      : "Kata Sandi Baru"
                   }
                   value={draft.password || ""}
                   onChange={(v) => setDraft({ ...draft, password: v })}
@@ -683,8 +683,8 @@ export function ProfileView() {
                       type="button"
                       onClick={() => setShowPassword((prev) => !prev)}
                       className="p-1 text-ink-400 transition-colors hover:text-ink-700 dark:text-slate-400 dark:hover:text-slate-200"
-                      aria-label={showPassword ? "Hide password" : "Show password"}
-                      title={showPassword ? "Hide password" : "Show password"}
+                      aria-label={showPassword ? "Sembunyikan sandi" : "Tampilkan sandi"}
+                      title={showPassword ? "Sembunyikan sandi" : "Tampilkan sandi"}
                     >
                       {showPassword ? (
                         <EyeOff className="h-4 w-4" />
@@ -697,7 +697,7 @@ export function ProfileView() {
               </>
             ) : (
               <>
-                <div className="flex items-center gap-3 rounded-xl border border-brand-50 p-3 dark:border-slate-800">
+                <div className="flex min-w-0 items-center gap-3 rounded-xl border border-brand-50 p-3 dark:border-slate-800">
                   <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-brand-100 text-brand-600 dark:bg-slate-800 dark:text-brand-400">
                     <Target className="h-4 w-4" />
                   </span>
@@ -710,7 +710,7 @@ export function ProfileView() {
                     </p>
                   </div>
                 </div>
-                <div className="flex items-center gap-3 rounded-xl border border-brand-50 p-3 dark:border-slate-800 justify-between">
+                <div className="flex min-w-0 items-center gap-3 rounded-xl border border-brand-50 p-3 dark:border-slate-800 justify-between">
                   <div className="flex items-center gap-3 min-w-0 flex-1">
                     <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-brand-100 text-brand-600 dark:bg-slate-800 dark:text-brand-400">
                       <School className="h-4 w-4" />
@@ -735,7 +735,7 @@ export function ProfileView() {
                     </button>
                   )}
                 </div>
-                <div className="flex items-center gap-3 rounded-xl border border-brand-50 p-3 dark:border-slate-800">
+                <div className="flex min-w-0 items-center gap-3 rounded-xl border border-brand-50 p-3 dark:border-slate-800">
                   <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-brand-100 text-brand-600 dark:bg-slate-800 dark:text-brand-400">
                     <BookOpen className="h-4 w-4" />
                   </span>
@@ -748,7 +748,7 @@ export function ProfileView() {
                     </p>
                   </div>
                 </div>
-                <div className="flex items-center gap-3 rounded-xl border border-brand-50 p-3 dark:border-slate-800">
+                <div className="flex min-w-0 items-center gap-3 rounded-xl border border-brand-50 p-3 dark:border-slate-800">
                   <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-brand-100 text-brand-600 dark:bg-slate-800 dark:text-brand-400">
                     <Mail className="h-4 w-4" />
                   </span>
@@ -761,7 +761,7 @@ export function ProfileView() {
                     </p>
                   </div>
                 </div>
-                <div className="flex items-center gap-3 rounded-xl border border-brand-50 p-3 dark:border-slate-800">
+                <div className="flex min-w-0 items-center gap-3 rounded-xl border border-brand-50 p-3 dark:border-slate-800">
                   <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-brand-100 text-brand-600 dark:bg-slate-800 dark:text-brand-400">
                     <Phone className="h-4 w-4" />
                   </span>
@@ -774,7 +774,7 @@ export function ProfileView() {
                     </p>
                   </div>
                 </div>
-                <div className="flex items-center gap-3 rounded-xl border border-brand-50 p-3 dark:border-slate-800">
+                <div className="flex min-w-0 items-center gap-3 rounded-xl border border-brand-50 p-3 dark:border-slate-800">
                   <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-brand-100 text-brand-600 dark:bg-slate-800 dark:text-brand-400">
                     <Lock className="h-4 w-4" />
                   </span>
@@ -782,7 +782,7 @@ export function ProfileView() {
                     <p className="text-xs text-ink-500 dark:text-slate-400">
                       Password
                     </p>
-                    <div className="flex items-center gap-2">
+                    <div className="flex flex-wrap items-center gap-1.5">
                       <p className="truncate text-sm font-semibold text-ink-900 dark:text-white">
                         {locale === "en" ? "Protected" : "Tersimpan aman"}
                       </p>
@@ -854,7 +854,7 @@ export function ProfileView() {
       <div className="grid gap-6 lg:grid-cols-2">
         <Card>
           <h3 className="mb-4 font-display text-base font-bold text-ink-900 dark:text-white">
-            Learning History
+            Riwayat Belajar
           </h3>
           {currentProfile?.totalPoints === 0 ? (
             <div className="flex h-32 items-center justify-center text-sm font-medium text-ink-500 dark:text-slate-400">
@@ -893,7 +893,7 @@ export function ProfileView() {
 
         <Card>
           <h3 className="mb-4 font-display text-base font-bold text-ink-900 dark:text-white">
-            Achievements
+            Pencapaian
           </h3>
           {currentProfile?.totalPoints === 0 ? (
             <div className="flex h-32 items-center justify-center text-sm font-medium text-ink-500 dark:text-slate-400">
@@ -925,33 +925,33 @@ export function ProfileView() {
       <div className="grid gap-6 lg:grid-cols-2">
         <Card>
           <h3 className="mb-4 font-display text-base font-bold text-ink-900 dark:text-white">
-            Privacy Settings
+            Pengaturan Privasi
           </h3>
           <div className="space-y-3">
             {[
               {
                 key: "alerts" as const,
                 icon: Bell,
-                label: "Disaster alerts",
-                desc: "Notifications for your area",
+                label: "Peringatan Bencana",
+                desc: "Notifikasi untuk wilayah Anda",
               },
               {
                 key: "digest" as const,
                 icon: Mail,
-                label: "Email digest",
-                desc: "Weekly research summary",
+                label: "Ringkasan Email",
+                desc: "Laporan riset mingguan",
               },
               {
                 key: "contacts" as const,
                 icon: Shield,
-                label: "Emergency contacts",
-                desc: "2 contacts configured",
+                label: "Kontak Darurat",
+                desc: "2 kontak terkonfigurasi",
               },
               {
                 key: "location" as const,
                 icon: Globe,
-                label: "Location sharing",
-                desc: "For risk-based recommendations",
+                label: "Berbagi Lokasi",
+                desc: "Untuk rekomendasi berbasis risiko",
               },
               {
                 key: "isPublic" as const,
@@ -999,13 +999,13 @@ export function ProfileView() {
 
         <Card className="flex flex-col">
           <h3 className="mb-4 font-display text-base font-bold text-ink-900 dark:text-white">
-            Account
+            Akun
           </h3>
           <div className="space-y-3">
             <button
               onClick={() =>
                 show(
-                  "Privacy & Security settings are managed by your school administrator.",
+                  "Pengaturan privasi dan keamanan dikelola oleh administrator sekolah.",
                   "info",
                 )
               }
@@ -1016,10 +1016,10 @@ export function ProfileView() {
               </span>
               <div>
                 <p className="text-sm font-semibold text-ink-900 dark:text-white">
-                  Privacy & Security
+                  Privasi &amp; Keamanan
                 </p>
                 <p className="text-xs text-ink-500 dark:text-slate-400">
-                  Password and data settings
+                  Pengaturan sandi dan data
                 </p>
               </div>
             </button>
@@ -1033,10 +1033,10 @@ export function ProfileView() {
               </span>
               <div>
                 <p className="text-sm font-semibold text-brand-600 dark:text-brand-400">
-                  Logout
+                  Keluar
                 </p>
                 <p className="text-xs text-ink-500 dark:text-slate-400">
-                  Return to landing page
+                  Kembali ke beranda
                 </p>
               </div>
             </button>
@@ -1048,7 +1048,7 @@ export function ProfileView() {
       <Card className="mt-6">
         <div className="mb-4 flex items-center justify-between border-b border-brand-100 pb-4 dark:border-slate-800">
           <h3 className="font-display text-base font-bold text-ink-900 dark:text-white flex items-center gap-2">
-            <Brain className="h-5 w-5 text-brand-600" /> Riwayat Kuis & Subtes
+            <Brain className="h-5 w-5 text-brand-600" /> Riwayat Kuis
           </h3>
         </div>
         {quizHistories.length === 0 ? (

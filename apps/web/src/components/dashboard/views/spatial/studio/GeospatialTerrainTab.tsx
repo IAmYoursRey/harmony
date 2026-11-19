@@ -41,6 +41,9 @@ export const GeospatialTerrainTab: React.FC<GeospatialTerrainTabProps> = ({
     try {
       const res = await terrainService.getTerrainIntelligence(lat, lng);
       setTerrain(res);
+      if (res.status === 'ERROR' || res.status === 'UNAVAILABLE') {
+        setError(res.errorMessage || res.provenance?.attribution || 'Layanan Open-Meteo DEM tidak tersedia.');
+      }
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Gagal mengambil data elevasi DEM');
     } finally {
@@ -58,16 +61,22 @@ export const GeospatialTerrainTab: React.FC<GeospatialTerrainTabProps> = ({
 
   const getRiskColor = (level?: TerrainIntelligenceResult['landslideRiskLevel']) => {
     switch (level) {
+      case 'Tidak Tersedia':
+        return 'text-rose-600 bg-rose-500/15 border-rose-500/30 dark:text-rose-300';
       case 'Ekstrem':
         return 'text-red-500 bg-red-500/15 border-red-500/30';
       case 'Tinggi':
         return 'text-orange-500 bg-orange-500/15 border-orange-500/30';
       case 'Sedang':
         return 'text-amber-500 bg-amber-500/15 border-amber-500/30';
-      default:
+      case 'Rendah':
         return 'text-emerald-500 bg-emerald-500/15 border-emerald-500/30';
+      default:
+        return 'text-slate-500 bg-slate-500/15 border-slate-500/30';
     }
   };
+
+  const isDemAvailable = terrain?.status === 'AVAILABLE' || terrain?.status === 'LIVE';
 
   return (
     <div className="space-y-6">
@@ -80,15 +89,22 @@ export const GeospatialTerrainTab: React.FC<GeospatialTerrainTabProps> = ({
           <div>
             <div className="flex items-center gap-2">
               <h3 className="text-sm font-bold text-slate-800 dark:text-white">
-                Terrain Intelligence & Model DEM Aktual (Copernicus GLO-90)
+                Topografi DEM
               </h3>
               <span className="text-[10px] font-extrabold uppercase px-2 py-0.5 rounded-full bg-amber-500/15 text-amber-700 dark:text-amber-300 border border-amber-500/25">
                 Metode Horn 3x3
               </span>
-              <span className="text-[10px] font-extrabold uppercase px-2 py-0.5 rounded-full bg-emerald-500/15 text-emerald-700 dark:text-emerald-300 border border-emerald-500/25 flex items-center gap-1">
-                <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
-                Auto-Sync 5m
-              </span>
+              {error ? (
+                <span className="text-[10px] font-extrabold uppercase px-2 py-0.5 rounded-full bg-rose-500/15 text-rose-700 dark:text-rose-300 border border-rose-500/25 flex items-center gap-1">
+                  <AlertTriangle className="w-3 h-3" />
+                  ERROR DEM
+                </span>
+              ) : (
+                <span className="text-[10px] font-extrabold uppercase px-2 py-0.5 rounded-full bg-emerald-500/15 text-emerald-700 dark:text-emerald-300 border border-emerald-500/25 flex items-center gap-1">
+                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
+                  Auto-Sync 5m
+                </span>
+              )}
             </div>
             <p className="text-xs text-slate-600 dark:text-slate-400">
               Karakterisasi geomorfologi: elevasi aktual, kemiringan lereng (slope), orientasi aspek, hillshade 3D, dan estimasi risiko gerakan tanah
@@ -133,7 +149,7 @@ export const GeospatialTerrainTab: React.FC<GeospatialTerrainTabProps> = ({
             <span className="text-2xl font-black text-slate-900 dark:text-white">
               {loading && !terrain ? '...' : (terrain?.elevationM ?? '—')}
             </span>
-            <span className="text-xs text-slate-500 font-bold">mdpl</span>
+            <span className="text-xs text-slate-500 font-bold">{terrain?.elevationM != null ? 'mdpl' : ''}</span>
           </div>
           <p className="text-[11px] text-slate-500 mt-1">Copernicus DEM 90m</p>
         </div>
@@ -146,14 +162,14 @@ export const GeospatialTerrainTab: React.FC<GeospatialTerrainTabProps> = ({
           </div>
           <div className="flex items-baseline gap-1">
             <span className="text-2xl font-black text-slate-900 dark:text-white">
-              {loading && !terrain ? '...' : `${terrain?.slopeDeg ?? 0}°`}
+              {loading && !terrain ? '...' : (terrain?.slopeDeg != null ? `${terrain.slopeDeg}°` : '—')}
             </span>
             <span className="text-xs text-slate-500 font-bold">
-              ({terrain?.slopePercent ?? 0}%)
+              {terrain?.slopePercent != null ? `(${terrain.slopePercent}%)` : ''}
             </span>
           </div>
           <p className="text-[11px] text-slate-500 mt-1 truncate">
-            {terrain?.morphologyClass ?? 'Memproses...'}
+            {terrain?.morphologyClass ?? (loading ? 'Memproses...' : 'Tidak Tersedia')}
           </p>
         </div>
 
@@ -165,11 +181,11 @@ export const GeospatialTerrainTab: React.FC<GeospatialTerrainTabProps> = ({
           </div>
           <div className="flex items-baseline gap-1">
             <span className="text-2xl font-black text-slate-900 dark:text-white">
-              {loading && !terrain ? '...' : `${terrain?.aspectDeg ?? 0}°`}
+              {loading && !terrain ? '...' : (terrain?.aspectDeg != null ? `${terrain.aspectDeg}°` : '—')}
             </span>
           </div>
           <p className="text-[11px] text-slate-500 mt-1 font-semibold truncate">
-            {terrain?.aspect ?? 'Memproses...'}
+            {terrain?.aspect ?? (loading ? 'Memproses...' : 'Tidak Tersedia')}
           </p>
         </div>
 
@@ -181,10 +197,10 @@ export const GeospatialTerrainTab: React.FC<GeospatialTerrainTabProps> = ({
           </div>
           <div className="flex items-center gap-2">
             <span className={`text-xs font-bold px-2.5 py-0.5 rounded-full border ${getRiskColor(terrain?.landslideRiskLevel)}`}>
-              {terrain?.landslideRiskLevel ?? 'Rendah'}
+              {terrain?.landslideRiskLevel ?? 'Tidak Tersedia'}
             </span>
             <span className="text-xs font-mono font-bold text-slate-700 dark:text-slate-300">
-              {terrain?.landslideExposureScore ?? 0}/100
+              {terrain?.landslideExposureScore != null ? `${terrain.landslideExposureScore}/100` : '—'}
             </span>
           </div>
           <p className="text-[11px] text-slate-500 mt-1">Multi-kriteria SNI 8460</p>
@@ -196,20 +212,25 @@ export const GeospatialTerrainTab: React.FC<GeospatialTerrainTabProps> = ({
         <div className="flex items-center justify-between pb-3 border-b border-slate-100 dark:border-slate-700/60">
           <div>
             <h4 className="text-sm font-bold text-slate-900 dark:text-white flex items-center gap-2">
-              <BarChart3 className="w-4 h-4 text-indigo-500" /> Model Keputusan Kerentanan Gerakan Tanah
+              <BarChart3 className="w-4 h-4 text-indigo-500" /> Kerentanan Longsor
             </h4>
             <p className="text-xs text-slate-500 dark:text-slate-400">
-              Dihitung dari matriks 3x3 elevasi titik sekitar (metode Horn): lereng kritis, relief topografi aktual & intensitas hillshade ({terrain?.hillshade ?? 0}/255)
+              Dihitung dari matriks 3x3 elevasi titik sekitar (metode Horn): lereng kritis, relief topografi aktual & intensitas hillshade ({terrain?.hillshade != null ? `${terrain.hillshade}/255` : '—'})
             </p>
           </div>
 
           <span className="text-xs font-mono px-3 py-1 rounded-xl bg-slate-100 dark:bg-slate-700 text-slate-700 dark:text-slate-300 font-bold">
-            Indeks Skor: {terrain?.landslideExposureScore ?? 0}%
+            Indeks Skor: {terrain?.landslideExposureScore != null ? `${terrain.landslideExposureScore}%` : '—'}
           </span>
         </div>
 
         {/* Factor Bars */}
         <div className="space-y-3">
+          {!isDemAvailable && !loading && (
+            <p className="text-xs text-rose-600 dark:text-rose-400 font-medium">
+              Faktor kemiringan dan relief belum tersedia karena layanan Open-Meteo DEM mengalami gangguan.
+            </p>
+          )}
           {terrain?.contributingFactors.map((item, idx) => (
             <div key={idx} className="p-3 rounded-2xl bg-slate-50 dark:bg-slate-900/60 border border-slate-100 dark:border-slate-700/50 flex flex-col sm:flex-row sm:items-center justify-between gap-2">
               <div className="space-y-0.5">
@@ -235,9 +256,11 @@ export const GeospatialTerrainTab: React.FC<GeospatialTerrainTabProps> = ({
         </div>
 
         <div className="p-3.5 rounded-2xl bg-slate-50 dark:bg-slate-900/60 border border-slate-200/60 dark:border-slate-700/60 text-xs text-slate-600 dark:text-slate-400 leading-relaxed">
-          <strong>Rekomendasi Spasial:</strong> {terrain?.landslideRiskLevel === 'Ekstrem' || terrain?.landslideRiskLevel === 'Tinggi'
-            ? 'Area lereng terjal (>15°) dengan relief tinggi memerlukan vegetasi berakar tunjang (vetiver) dan pembatasan pembangunan perumahan di bibir gawir tebing.'
-            : 'Morfologi landai-datar memiliki stabilitas lereng relatif aman, pertahankan drainase permukiman agar tidak terjadi penjenuhan tanah lokal.'}
+          <strong>Rekomendasi Spasial:</strong> {!isDemAvailable
+            ? 'Rekomendasi tidak dapat dihitung karena data elevasi DEM aktual belum tersedia / mengalami error.'
+            : terrain?.landslideRiskLevel === 'Ekstrem' || terrain?.landslideRiskLevel === 'Tinggi'
+              ? 'Area lereng terjal (>15°) dengan relief tinggi memerlukan vegetasi berakar tunjang (vetiver) dan pembatasan pembangunan perumahan di bibir gawir tebing.'
+              : 'Morfologi landai-datar memiliki stabilitas lereng relatif aman, pertahankan drainase permukiman agar tidak terjadi penjenuhan tanah lokal.'}
         </div>
       </div>
     </div>

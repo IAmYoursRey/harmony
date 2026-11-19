@@ -722,7 +722,7 @@ export class Phase3Engine {
       if (this.activeDisasterPhase.phaseId === "EARTHQUAKE_P_WAVE") {
         simulationAudio.playSiren();
         this.callbacks.onMessage(
-          "🚨 Peringatan Dini Gempa (P-Wave) terdeteksi! Bersiap Drop, Cover & Hold On!",
+          "PERINGATAN DINI GEMPA (P-Wave): Bersiap Drop, Cover & Hold On!",
         );
       } else if (
         this.activeDisasterPhase.phaseId === "EARTHQUAKE_SEVERE_SHAKING"
@@ -730,19 +730,19 @@ export class Phase3Engine {
         simulationAudio.playHit(true);
         this.cameraShakeTime = Math.max(this.cameraShakeTime, 2.2);
         this.callbacks.onMessage(
-          "⚠️ GUNCANGAN HEBAT UTAMA! Tunduk & lindungi kepala di bawah meja (Tekan C / tombol LINDUNGI)!",
+          "GUNCANGAN UTAMA! Tunduk & lindungi kepala di bawah meja (Tekan C / LINDUNGI)!",
         );
       } else if (
         this.activeDisasterPhase.phaseId === "EARTHQUAKE_GOLDEN_WINDOW"
       ) {
         simulationAudio.playRescue();
         this.callbacks.onMessage(
-          "⚡ Guncangan utama reda! WAKTU EMAS EVAKUASI: Segera lari menuju tengah Lapangan Upacara!",
+          "Guncangan reda! WAKTU EMAS EVAKUASI: Segera menuju tengah Lapangan Upacara!",
         );
       } else if (this.activeDisasterPhase.phaseId === "TSUNAMI_EARLY_WARNING") {
         simulationAudio.playSiren();
         this.callbacks.onMessage(
-          "🌊 PERINGATAN TSUNAMI! Air laut surut cepat — Lakukan Evakuasi Vertikal ke Tangga Lantai 2 sekarang!",
+          "PERINGATAN TSUNAMI: Air laut surut cepat — lakukan Evakuasi Vertikal ke Lantai 2!",
         );
       } else if (
         this.activeDisasterPhase.phaseId === "TSUNAMI_WAVE_INUNDATION"
@@ -750,7 +750,7 @@ export class Phase3Engine {
         simulationAudio.playWaterSurge();
         this.cameraShakeTime = Math.max(this.cameraShakeTime, 1.8);
         this.callbacks.onMessage(
-          "🌊 GELOMBANG TSUNAMI MENERJANG LANTAI DASAR! Naik ke Lantai 2 / Titik Tinggi sekarang!",
+          "GELOMBANG TSUNAMI TIBA! Segera naik ke Lantai 2 / Titik Aman!",
         );
       } else if (this.activeDisasterPhase.warningText) {
         this.callbacks.onMessage(this.activeDisasterPhase.warningText);
@@ -2293,7 +2293,7 @@ export class Phase3Engine {
         ctx.font = "bold 8px Inter, sans-serif";
         ctx.textAlign = "center";
         ctx.textBaseline = "middle";
-        ctx.fillText("🛡️ BERLINDUNG", 0, -TILE_SIZE * 0.78 - 27);
+        ctx.fillText("BERLINDUNG", 0, -TILE_SIZE * 0.78 - 27);
         ctx.restore();
       }
 

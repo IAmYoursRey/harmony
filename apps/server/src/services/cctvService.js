@@ -26,7 +26,9 @@ class CctvService {
     this.refreshTimer = null;
 
     this.loadInitialData();
-    this.startAutoRefreshLoop();
+    if (!process.env.NODE_TEST_CONTEXT) {
+      this.startAutoRefreshLoop();
+    }
   }
 
   loadInitialData() {
@@ -44,8 +46,9 @@ class CctvService {
       console.warn('[CctvService] Error loading local cameras:', err.message);
     }
 
-    // Attempt non-blocking initial refresh from remote public API
-    this.refreshFromRemote().catch(() => {});
+    if (!process.env.NODE_TEST_CONTEXT) {
+      this.refreshFromRemote().catch(() => {});
+    }
   }
 
   startAutoRefreshLoop() {
@@ -66,10 +69,12 @@ class CctvService {
       this.refreshTimer.unref();
     }
 
-    // Run first proactive stream health check after 10 seconds of startup
-    setTimeout(() => {
+    const initTimer = setTimeout(() => {
       this.probeTopFeedsHealth().catch(() => {});
     }, 10000);
+    if (initTimer.unref) {
+      initTimer.unref();
+    }
   }
 
   async periodicUpdateTask() {
@@ -196,8 +201,8 @@ class CctvService {
         fps: tipe === 'youtube' ? 30 : 25,
         resolution: '1080p FHD',
         status,
-        statusText: this.buildStatusText(category, c.nama),
-        trafficDensity: this.calculateDensity(c.id),
+        statusText: this.buildStatusText(category, c.nama, status),
+        trafficDensity: null,
         category,
       };
     });
@@ -315,30 +320,21 @@ class CctvService {
     );
   }
 
-  buildStatusText(category, name) {
-    const lower = (name || '').toLowerCase();
-    if (lower.includes('tol') || category === 'tol') {
-      return 'Arus Bebas Hambatan 80-100 km/jam';
+  buildStatusText(category, name, status) {
+    if (status === 'OFFLINE') {
+      return 'Feed CCTV Offline';
     }
-    if (lower.includes('simpang') || lower.includes('lampu merah')) {
-      return 'Siklus Lampu Pengatur Lalu Lintas Lancar';
-    }
-    if (lower.includes('wisata') || category === 'wisata') {
-      return 'Kawasan Wisata Ramai Terkendali';
+    if (status === 'DEGRADED') {
+      return 'Stream Terdeteksi Gangguan';
     }
     if (category === 'pengadilan') {
-      return 'Layanan Publik Terbuka & Aktif';
+      return 'Stream Publik Terdaftar';
     }
-    return 'Lalu Lintas Ramai Mengalir Normal';
+    return 'Stream CCTV Terdaftar (Tanpa Sensor Kecepatan)';
   }
 
-  calculateDensity(id) {
-    let hash = 0;
-    for (let i = 0; i < id.length; i++) {
-      hash = (hash << 5) - hash + id.charCodeAt(i);
-      hash |= 0;
-    }
-    return 30 + Math.abs(hash % 50);
+  calculateDensity() {
+    return null;
   }
 
   getCameras({ city, category, search, limit = 100, page = 1 } = {}) {

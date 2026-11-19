@@ -112,7 +112,7 @@ export const ThermalAnomalyDetailModal: React.FC<ThermalAnomalyDetailModalProps>
                   </span>
                 </div>
                 <h3 id="thermal-modal-title" className="text-lg font-bold text-slate-100 mt-1 flex items-center gap-2">
-                  Titik Anomali Panas #{hotspot.id.slice(-8) || 'SATELIT'}
+                  Anomali Panas #{hotspot.id.slice(-8) || 'SATELIT'}
                 </h3>
                 <p className="text-xs text-slate-400 font-mono flex items-center gap-1.5 mt-0.5">
                   <Satellite className="w-3.5 h-3.5 text-sky-400" />
@@ -183,7 +183,7 @@ export const ThermalAnomalyDetailModal: React.FC<ThermalAnomalyDetailModalProps>
           <div className="p-4 rounded-2xl bg-slate-950/80 border border-slate-800 space-y-3">
             <h4 className="text-xs font-bold text-slate-300 uppercase tracking-wider flex items-center gap-1.5 border-b border-slate-800 pb-2">
               <Compass className="w-4 h-4 text-sky-400" />
-              Koordinat & Data Lintasan Satelit
+              Koordinat Satelit
             </h4>
 
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-[11px]">
@@ -206,7 +206,7 @@ export const ThermalAnomalyDetailModal: React.FC<ThermalAnomalyDetailModalProps>
               <div>
                 <span className="text-slate-500 block">Siklus Lintasan Orbit:</span>
                 <span className="font-bold text-slate-200 mt-0.5 block">
-                  {hotspot.dayNight === 'D' ? '☀️ Siang Hari (Daytime Overpass)' : hotspot.dayNight === 'N' ? '🌙 Malam Hari (Nighttime Overpass)' : 'Siklus Reguler Satelit'}
+                  {hotspot.dayNight === 'D' ? 'Siang Hari (Daytime)' : hotspot.dayNight === 'N' ? 'Malam Hari (Nighttime)' : 'Siklus Reguler Satelit'}
                 </span>
               </div>
 

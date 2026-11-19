@@ -31,6 +31,9 @@ import {
   BookOpen,
   ShieldCheck,
   Shield,
+  AlertTriangle,
+  Zap,
+  Waves,
 } from "lucide-react";
 import {
   evaluateSimulationRubric,
@@ -564,30 +567,30 @@ export function Phase3Runtime({
 
   if (loading) {
     return (
-      <div className="h-[100dvh] w-full bg-slate-900 flex items-center justify-center flex-col gap-4 text-white">
+      <div className="h-viewport w-full bg-slate-900 flex items-center justify-center flex-col gap-4 text-white">
         <div className="w-8 h-8 border-4 border-brand-500 border-t-transparent rounded-full animate-spin"></div>
-        <p className="font-bold animate-pulse">Loading Simulation Engine...</p>
+        <p className="font-bold animate-pulse">Memuat Simulasi...</p>
       </div>
     );
   }
 
   if (errorMsg) {
     return (
-      <div className="h-[100dvh] w-full bg-slate-900 flex items-center justify-center flex-col gap-4 text-white">
-        <p className="font-bold text-red-400 text-xl">Simulation Error</p>
+      <div className="h-viewport w-full bg-slate-900 flex items-center justify-center flex-col gap-4 text-white">
+        <p className="font-bold text-red-400 text-xl">Kendala Simulasi</p>
         <p className="text-slate-400">{errorMsg}</p>
         <div className="flex gap-4 mt-4">
           <button
             onClick={loadData}
             className="px-6 py-2 bg-brand-600 hover:bg-brand-700 rounded-lg font-bold transition-colors"
           >
-            Retry
+            Muat Ulang
           </button>
           <button
             onClick={onClose}
             className="px-6 py-2 bg-slate-800 hover:bg-slate-700 rounded-lg font-bold transition-colors"
           >
-            Go Back
+            Kembali
           </button>
         </div>
       </div>
@@ -604,7 +607,7 @@ export function Phase3Runtime({
   };
 
   return (
-    <div className="h-[100dvh] w-full bg-black flex flex-col font-sans overflow-hidden select-none touch-none">
+    <div className="h-viewport w-full bg-black flex flex-col font-sans overflow-hidden select-none touch-none">
       {/* HUD TOP & PERIMETER GUIDANCE LAYER */}
       {(simState === "RUNNING" || simState === "PAUSED") && playerState && (
         <div className="absolute top-0 left-0 right-0 pt-[max(0.5rem,env(safe-area-inset-top))] px-[max(0.5rem,env(safe-area-inset-left))] sm:px-4 flex flex-col gap-1.5 z-20 pointer-events-none">
@@ -664,7 +667,7 @@ export function Phase3Runtime({
                   >
                     <Users className="h-3.5 w-3.5 text-indigo-400" />
                     <span>
-                      {roomCode ? `#${roomCode}` : "Mabar"} ({leaderboard.length || 1})
+                      {roomCode ? `#${roomCode}` : "Sesi Bersama"} ({leaderboard.length || 1})
                     </span>
                   </button>
                 )}
@@ -778,14 +781,14 @@ export function Phase3Runtime({
                 <button
                   onClick={handleRestart}
                   className="w-8 h-8 sm:w-9 sm:h-9 bg-slate-800 hover:bg-slate-700 text-white rounded-full flex items-center justify-center transition-colors shadow-lg"
-                  title="Restart Simulation"
+                  title="Mulai Ulang"
                 >
                   <RotateCcw className="h-3 w-3 sm:h-4 sm:w-4" />
                 </button>
                 <button
                   onClick={onClose}
                   className="w-8 h-8 sm:w-9 sm:h-9 bg-rose-600 hover:bg-rose-700 text-white rounded-full flex items-center justify-center transition-colors shadow-lg"
-                  title="Exit Simulation"
+                  title="Keluar Simulasi"
                 >
                   <ArrowLeft className="h-3 w-3 sm:h-4 sm:w-4" />
                 </button>
@@ -799,15 +802,15 @@ export function Phase3Runtime({
               {playerState.activeDisasterPhase.isSevereShaking ? (
                 <div className="w-full bg-rose-600/95 text-white border-2 border-amber-300 rounded-2xl px-3.5 py-1.5 sm:py-2 shadow-2xl animate-pulse flex items-center justify-between gap-2">
                   <div className="flex items-center gap-2 min-w-0">
-                    <span className="text-lg sm:text-xl shrink-0">🚨</span>
+                    <AlertTriangle className="h-4 w-4 sm:h-5 sm:w-5 shrink-0 text-amber-200" />
                     <div className="min-w-0">
                       <div className="font-black text-xs sm:text-sm tracking-wide text-amber-200 uppercase truncate">
                         Guncangan Utama · Sisa: {Math.ceil(playerState.activeDisasterPhase.remainingInPhaseSec)}s
                       </div>
                       <div className="text-[10px] sm:text-xs font-semibold text-rose-100 truncate">
                         {playerState.isCovering
-                          ? "🛡️ Posisi Aman: Drop, Cover & Hold On aktif!"
-                          : "⚠️ BERLINDUNG DI BAWAH MEJA! Tekan tombol COVER / C!"}
+                          ? "Posisi Aman: Drop, Cover & Hold On aktif!"
+                          : "BERLINDUNG DI BAWAH MEJA! Tekan tombol COVER / C!"}
                       </div>
                     </div>
                   </div>
@@ -818,7 +821,7 @@ export function Phase3Runtime({
               ) : playerState.activeDisasterPhase.phaseId.includes("GOLDEN_WINDOW") ? (
                 <div className="w-full bg-emerald-600/90 text-white border border-emerald-300/80 rounded-2xl px-3.5 py-1.5 shadow-xl flex items-center justify-between gap-2">
                   <div className="flex items-center gap-2 min-w-0">
-                    <span className="text-base sm:text-lg shrink-0">⚡</span>
+                    <Zap className="h-4 w-4 sm:h-5 sm:w-5 shrink-0 text-emerald-100" />
                     <div className="min-w-0">
                       <div className="font-black text-xs sm:text-sm text-emerald-100 uppercase truncate">
                         Waktu Emas Evakuasi · Sisa: {Math.ceil(playerState.activeDisasterPhase.remainingInPhaseSec)}s
@@ -835,7 +838,7 @@ export function Phase3Runtime({
               ) : playerState.activeDisasterPhase.waveEtaSec > 0 ? (
                 <div className="w-full bg-cyan-700/92 text-white border-2 border-cyan-300/90 rounded-2xl px-3.5 py-1.5 sm:py-2 shadow-2xl flex items-center justify-between gap-2">
                   <div className="flex items-center gap-2 min-w-0">
-                    <span className="text-lg sm:text-xl shrink-0">🌊</span>
+                    <Waves className="h-4 w-4 sm:h-5 sm:w-5 shrink-0 text-cyan-200" />
                     <div className="min-w-0">
                       <div className="font-black text-xs sm:text-sm text-cyan-200 uppercase truncate">
                         Peringatan Tsunami · Gelombang Tiba (ETA): {playerState.activeDisasterPhase.waveEtaSec}s
@@ -852,7 +855,7 @@ export function Phase3Runtime({
               ) : playerState.activeDisasterPhase.isTsunamiWaveArrival ? (
                 <div className="w-full bg-blue-900/95 text-white border-2 border-rose-400 rounded-2xl px-3.5 py-1.5 sm:py-2 shadow-2xl flex items-center justify-between gap-2">
                   <div className="flex items-center gap-2 min-w-0">
-                    <span className="text-lg sm:text-xl shrink-0">🌊</span>
+                    <Waves className="h-4 w-4 sm:h-5 sm:w-5 shrink-0 text-rose-300" />
                     <div className="min-w-0">
                       <div className="font-black text-xs sm:text-sm text-rose-300 uppercase truncate">
                         Air Bah Tsunami Menerjang Lantai Dasar!
@@ -1090,7 +1093,7 @@ export function Phase3Runtime({
               <div className="flex items-center justify-between border-b border-slate-800 pb-2">
                 <span className="text-xs font-bold uppercase tracking-wider text-indigo-300 flex items-center gap-1.5">
                   <Trophy className="h-4 w-4 text-amber-400" />
-                  Klasemen Mabar Online {roomCode ? `(#${roomCode})` : ""}
+                  Klasemen Sesi Bersama {roomCode ? `(#${roomCode})` : ""}
                 </span>
                 <span className="text-[11px] text-slate-400">
                   {leaderboard.length} Pemain
@@ -1165,7 +1168,7 @@ export function Phase3Runtime({
                 onClick={onReturnToLobby}
                 className="px-6 py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl font-bold shadow-lg transition-colors flex items-center gap-2 text-base"
               >
-                <Users className="h-4 w-4" /> Kembali ke Lobi Mabar
+                <Users className="h-4 w-4" /> Kembali ke Lobi
               </button>
             ) : (
               <button

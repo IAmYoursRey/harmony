@@ -53,52 +53,52 @@ const PRESET_TEST_LOCATIONS = [
     lng: 112.752,
     elevationM: 8,
     type: 'HIGH_COVERAGE',
-    tag: '🟢 Densitas Radar & AWS Sangat Tinggi',
+    tag: 'Padat: Densitas Radar & AWS Tinggi',
   },
   {
     id: 'jkt',
-    name: 'DKI Jakarta (Pusat Pemerintahan)',
+    name: 'DKI Jakarta',
     lat: -6.208,
     lng: 106.845,
     elevationM: 12,
     type: 'HIGH_COVERAGE',
-    tag: '🟢 Jaringan Sensor Lengkap & Doppler CGK',
+    tag: 'Padat: Jaringan Sensor & Doppler',
   },
   {
     id: 'mataram',
-    name: 'Mataram, Lombok (NTB)',
+    name: 'Mataram, Lombok',
     lat: -8.583,
     lng: 116.116,
     elevationM: 35,
     type: 'MODERATE_COVERAGE',
-    tag: '🟡 Liputan Menengah (AWS & Radar Bali)',
+    tag: 'Sedang: AWS & Radar Bali',
   },
   {
     id: 'mentawai',
-    name: 'Kepulauan Mentawai (Siberut)',
+    name: 'Kepulauan Mentawai',
     lat: -1.332,
     lng: 98.924,
     elevationM: 25,
     type: 'LOW_DATA_GAP',
-    tag: '🔴 Blank Spot Observasi Permukaan (>140 km)',
+    tag: 'Kosong: Observasi Terbatas (>140 km)',
   },
   {
     id: 'pegunungan_bintang',
-    name: 'Pegunungan Bintang (Papua)',
+    name: 'Pegunungan Bintang',
     lat: -4.850,
     lng: 140.550,
     elevationM: 1850,
     type: 'LOW_DATA_GAP',
-    tag: '🔴 Morfologi Terjal Ekstrem (>1800 mdpl)',
+    tag: 'Kosong: Morfologi Terjal (>1800 mdpl)',
   },
   {
     id: 'natuna',
-    name: 'Kepulauan Natuna (Ranai)',
+    name: 'Kepulauan Natuna',
     lat: 3.950,
     lng: 108.380,
     elevationM: 15,
     type: 'LOW_DATA_GAP',
-    tag: '🔴 Koridor Laut Terpencil (Laut Natuna Utara)',
+    tag: 'Kosong: Koridor Laut Terpencil',
   },
 ];
 
@@ -113,7 +113,7 @@ export const GeospatialFusionIntelligenceTab: React.FC<GeospatialFusionIntellige
   const [activeSubView, setActiveSubView] = useState<'fusion' | 'quality' | 'impact' | 'sensor_priority' | 'metadata'>('fusion');
 
   const activeTarget = useMemo(() => {
-    const liveElevation = (typeof weatherData?.elevation === 'number' && Number.isFinite(weatherData.elevation)) ? weatherData.elevation : 16;
+    const liveElevation = (typeof weatherData?.elevation === 'number' && Number.isFinite(weatherData.elevation)) ? weatherData.elevation : null;
     if (selectedLocationId === 'current') {
       return {
         id: 'current',
@@ -171,18 +171,33 @@ export const GeospatialFusionIntelligenceTab: React.FC<GeospatialFusionIntellige
             </span>
           </div>
           <p className="leading-relaxed">
-            Data observasi multisumber (Ensemble NWP ECMWF IFS, NOAA GFS, DWD ICON, JMA; koreksi topografi DEM {fusedState.elevationM} mdpl; dan jaringan radar in-situ) telah berhasil diambil dan diasimilasi untuk <strong>{fusedState.locationName}</strong>. Seluruh 5 tahapan pipeline kendali mutu (QC/QA) dan estimasi ketidakpastian telah terhubung dan aktif.
+            Data observasi multisumber (Ensemble NWP ECMWF IFS, NOAA GFS, DWD ICON, JMA; koreksi topografi {fusedState.elevationM != null ? `DEM ${fusedState.elevationM} mdpl` : 'DEM belum tersedia'}; dan jaringan radar in-situ) telah berhasil diambil dan diasimilasi untuk <strong>{fusedState.locationName}</strong>.
+          </p>
+        </div>
+      ) : selectedLocationId === 'current' ? (
+        <div role="alert" className="p-4 rounded-2xl bg-rose-50 dark:bg-rose-950/30 border border-rose-300 dark:border-rose-800 text-rose-800 dark:text-rose-200 text-xs space-y-1">
+          <div className="flex items-center justify-between flex-wrap gap-2">
+            <p className="font-bold flex items-center gap-1.5">
+              <AlertTriangle className="w-4 h-4 text-rose-600 dark:text-rose-400" />
+              <span>ERROR / TELEMETRI ASIMILASI TIDAK TERSEDIA</span>
+            </p>
+            <span className="px-2 py-0.5 rounded-full text-[10px] font-mono font-bold bg-rose-100 dark:bg-rose-900/60 text-rose-700 dark:text-rose-300 border border-rose-300/60">
+              {fusedState.dataStatus}
+            </span>
+          </div>
+          <p className="leading-relaxed">
+            {fusedState.errorMessage || 'Data cuaca live untuk lokasi aktif gagal dimuat atau belum tersedia. Sistem tidak menampilkan estimasi palsu.'}
           </p>
         </div>
       ) : (
         <div role="status" className="p-4 rounded-2xl bg-amber-50 dark:bg-amber-950/30 border border-amber-300 text-amber-800 dark:text-amber-200 text-xs space-y-1">
           <div className="flex items-center justify-between flex-wrap gap-2">
-            <p className="font-bold">MODE SIMULASI KESENJANGAN DATA (BLANK SPOT TEST)</p>
+            <p className="font-bold">PRATINJAU LOKASI UJI — BELUM TERHUBUNG TELEMETRI LOKASI</p>
             <span className="px-2 py-0.5 rounded-full text-[10px] font-mono font-bold bg-amber-100 dark:bg-amber-900/60 text-amber-700 dark:text-amber-300 border border-amber-300/60">
-              Preset Simulasi
+              Preset Uji
             </span>
           </div>
-          <p>Persentase kontribusi sensor, umur data, batas ketidakpastian, dan skor dampak di bagian ini adalah simulasi pengujian area kesenjangan data (*blank spot*). Untuk lokasi koordinat peta utama Anda, data telah terhubung secara operasional.</p>
+          <p>{fusedState.errorMessage || 'Pilih lokasi ini di peta utama untuk mengambil telemetri cuaca live sebenarnya; nilai cuaca tidak disintesis.'}</p>
         </div>
       )}
       {/* Studio Header Banner */}
@@ -197,29 +212,29 @@ export const GeospatialFusionIntelligenceTab: React.FC<GeospatialFusionIntellige
             </span>
           </div>
           <h2 className="text-base sm:text-lg font-black text-white flex items-center gap-2">
-            <span>Asimilasi Multi-Sumber, Kendali Mutu &amp; Analisis Ketidakpastian</span>
+            <span>Fusi Data Spasial</span>
           </h2>
           <p className="text-xs text-slate-300 max-w-3xl leading-relaxed">
             {fusedState.isLiveConnected
-              ? `Pipeline fusi spasial aktif mengasimilasi data NWP global multi-model (ECMWF, GFS, ICON, JMA), koreksi topografi DEM (${fusedState.elevationM} mdpl), dan pengujian mutu Bayesian secara terpadu untuk ${fusedState.locationName}.`
-              : 'Model simulasi kerangka fusi spasial dan estimasi ketidakpastian multi-sumber (NWP global, katalog radar, dan DEM). Kedekatan geografis dengan lokasi radar inventaris tidak membuktikan telemetri observasi langsung telah diterima.'}
+              ? `Asimilasi NWP multi-model (ECMWF, GFS, ICON, JMA), koreksi topografi ${fusedState.elevationM != null ? `DEM (${fusedState.elevationM} mdpl)` : 'DEM tidak tersedia'}, dan uji kendali mutu untuk ${fusedState.locationName}.`
+              : 'Model fusi spasial multi-sumber (NWP global, radar, dan DEM) beserta estimasi ketidakpastian lokasi.'}
           </p>
         </div>
 
         {/* Location Switcher */}
         <div className="flex flex-col gap-1.5 self-start md:self-center shrink-0 w-full md:w-auto">
-          <span className="text-[10px] uppercase font-bold text-slate-400">Uji Titik Lokasi &amp; Kerapatan Data:</span>
+          <span className="text-[10px] uppercase font-bold text-slate-400">Titik Uji</span>
           <select name="selectedLocationId" id="geospatialfusionintelligencetab-selectedlocationid"
             value={selectedLocationId}
             onChange={(e) => setSelectedLocationId(e.target.value)}
             className="px-3 py-2 rounded-xl bg-white/10 dark:bg-slate-800 border border-white/20 text-xs font-semibold text-white focus:outline-none focus:ring-2 focus:ring-indigo-500 cursor-pointer"
           >
             <option value="current" className="bg-slate-900 text-white">
-              📍 {activeTarget.name} (Koordinat Peta)
+              {activeTarget.name} (Lokasi Aktif)
             </option>
             {PRESET_TEST_LOCATIONS.map((preset) => (
               <option key={preset.id} value={preset.id} className="bg-slate-900 text-white">
-                {preset.name} — {preset.type === 'HIGH_COVERAGE' ? '🟢 Padat' : preset.type === 'MODERATE_COVERAGE' ? '🟡 Sedang' : '🔴 Blank Spot'}
+                {preset.name} — {preset.type === 'HIGH_COVERAGE' ? 'Padat' : preset.type === 'MODERATE_COVERAGE' ? 'Sedang' : 'Terbatas'}
               </option>
             ))}
           </select>
@@ -229,11 +244,11 @@ export const GeospatialFusionIntelligenceTab: React.FC<GeospatialFusionIntellige
       {/* Navigation Sub-Tabs */}
       <div className="flex items-center gap-1.5 p-1 bg-slate-100 dark:bg-slate-900/80 rounded-2xl border border-slate-200 dark:border-slate-800 overflow-x-auto no-scrollbar touch-pan-x text-xs font-bold">
         {[
-          { id: 'fusion', label: '🌐 Fusi & Ketidakpastian (Uncertainty)', icon: Globe },
-          { id: 'quality', label: '🛡️ Kendali Mutu & Anomali (QC/QA)', icon: ShieldCheck },
-          { id: 'impact', label: '🌊 Dampak Wilayah (Impact-Based)', icon: Mountain },
-          { id: 'sensor_priority', label: '🎯 Prioritas Penambahan Sensor', icon: Radio },
-          { id: 'metadata', label: '📋 Registri Metadata & CRS', icon: Database },
+          { id: 'fusion', label: 'Fusi Data', icon: Globe },
+          { id: 'quality', label: 'Kendali Mutu', icon: ShieldCheck },
+          { id: 'impact', label: 'Dampak Wilayah', icon: Mountain },
+          { id: 'sensor_priority', label: 'Prioritas Sensor', icon: Radio },
+          { id: 'metadata', label: 'Metadata CRS', icon: Database },
         ].map((tab) => {
           const Icon = tab.icon;
           const isActive = activeSubView === tab.id;
@@ -270,14 +285,14 @@ export const GeospatialFusionIntelligenceTab: React.FC<GeospatialFusionIntellige
               </div>
               <div className="flex items-baseline gap-2">
                 <span className="text-2xl font-black text-slate-900 dark:text-white">
-                  {fusedState.bestEstimate.temperatureC}°C
+                  {fusedState.bestEstimate.temperatureC != null ? `${fusedState.bestEstimate.temperatureC}°C` : '—'}
                 </span>
                 <span className="text-xs font-mono font-bold text-amber-600 dark:text-amber-400">
-                  ± {fusedState.bestEstimate.uncertaintyTempC}°C
+                  {fusedState.bestEstimate.uncertaintyTempC != null ? `± ${fusedState.bestEstimate.uncertaintyTempC}°C` : ''}
                 </span>
               </div>
               <p className="text-[10px] text-slate-400">
-                Environmental Lapse Rate terkoreksi ketinggian {fusedState.elevationM} mdpl
+                {fusedState.elevationM != null ? `Environmental Lapse Rate terkoreksi ketinggian ${fusedState.elevationM} mdpl` : 'Elevasi DEM belum tersedia'}
               </p>
             </div>
 
@@ -291,10 +306,10 @@ export const GeospatialFusionIntelligenceTab: React.FC<GeospatialFusionIntellige
               </div>
               <div className="flex items-baseline gap-2">
                 <span className="text-2xl font-black text-slate-900 dark:text-white">
-                  {fusedState.bestEstimate.precipitationMm} mm
+                  {fusedState.bestEstimate.precipitationMm != null ? `${fusedState.bestEstimate.precipitationMm} mm` : '—'}
                 </span>
                 <span className="text-xs font-mono font-bold text-amber-600 dark:text-amber-400">
-                  ± {fusedState.bestEstimate.uncertaintyPrecipMm} mm
+                  {fusedState.bestEstimate.uncertaintyPrecipMm != null ? `± ${fusedState.bestEstimate.uncertaintyPrecipMm} mm` : ''}
                 </span>
               </div>
               <p className="text-[10px] text-slate-400">
@@ -312,14 +327,14 @@ export const GeospatialFusionIntelligenceTab: React.FC<GeospatialFusionIntellige
               </div>
               <div className="flex items-baseline gap-2">
                 <span className="text-2xl font-black text-slate-900 dark:text-white">
-                  {fusedState.bestEstimate.windSpeedKmh} km/h
+                  {fusedState.bestEstimate.windSpeedKmh != null ? `${fusedState.bestEstimate.windSpeedKmh} km/h` : '—'}
                 </span>
                 <span className="text-xs font-mono font-bold text-amber-600 dark:text-amber-400">
-                  ± {fusedState.bestEstimate.uncertaintyWindKmh} km/h
+                  {fusedState.bestEstimate.uncertaintyWindKmh != null ? `± ${fusedState.bestEstimate.uncertaintyWindKmh} km/h` : ''}
                 </span>
               </div>
               <p className="text-[10px] text-slate-400">
-                Gradien barometrik {fusedState.bestEstimate.surfacePressureHpa} hPa
+                {fusedState.bestEstimate.surfacePressureHpa != null ? `Gradien barometrik ${fusedState.bestEstimate.surfacePressureHpa} hPa` : 'Tekanan permukaan belum tersedia'}
               </p>
             </div>
 
@@ -327,7 +342,7 @@ export const GeospatialFusionIntelligenceTab: React.FC<GeospatialFusionIntellige
             <div className="p-4 rounded-2xl bg-white dark:bg-slate-800/80 border border-slate-200/80 dark:border-slate-700/80 shadow-xs space-y-1">
               <div className="flex items-center justify-between text-xs text-slate-500 dark:text-slate-400">
                 <span className="font-bold">
-                  {fusedState.isLiveConnected ? 'Skor Keyakinan Asimilasi' : 'Skor Asimilasi Simulasi'}
+                  {fusedState.isLiveConnected ? 'Skor Keyakinan Asimilasi' : 'Status Ketersediaan'}
                 </span>
                 <span className={`text-[10px] font-mono px-2 py-0.5 rounded-full font-bold uppercase ${
                   fusedState.confidenceLevel === 'HIGH'
@@ -341,10 +356,10 @@ export const GeospatialFusionIntelligenceTab: React.FC<GeospatialFusionIntellige
               </div>
               <div className="flex items-baseline gap-1">
                 <span className="text-2xl font-black text-slate-900 dark:text-white">
-                  {fusedState.overallConfidenceScore}%
+                  {fusedState.overallConfidenceScore != null ? `${fusedState.overallConfidenceScore}%` : '—'}
                 </span>
                 <span className="text-xs text-slate-400">
-                  {fusedState.isLiveConnected ? 'Terasimilasi Aktif' : 'Estimasi Simulasi'}
+                  {fusedState.isLiveConnected ? 'Terasimilasi Aktif' : 'Belum Tersedia'}
                 </span>
               </div>
               <p className="text-[10px] text-slate-400 truncate">
@@ -359,7 +374,7 @@ export const GeospatialFusionIntelligenceTab: React.FC<GeospatialFusionIntellige
               <div>
                 <h3 className="text-sm font-bold text-slate-800 dark:text-white flex items-center gap-2">
                   <Cpu className="w-4 h-4 text-indigo-500" />
-                  <span>Komposisi Asal Data &amp; Kerapatan Observasi (Provenance Breakdown)</span>
+                  <span>Komposisi Data</span>
                 </h3>
                 <p className="text-xs text-slate-500 dark:text-slate-400">
                   {fusedState.isLiveConnected
@@ -450,7 +465,7 @@ export const GeospatialFusionIntelligenceTab: React.FC<GeospatialFusionIntellige
           <div className="p-4 sm:p-5 rounded-3xl bg-white dark:bg-slate-800/80 border border-slate-200/80 dark:border-slate-700/80 shadow-xs space-y-3">
             <h3 className="text-sm font-bold text-slate-800 dark:text-white flex items-center gap-2">
               <Sliders className="w-4 h-4 text-indigo-500" />
-              <span>Arsitektur Pipeline Asimilasi Global-ke-Lokal Harmony</span>
+              <span>Tahapan Asimilasi</span>
             </h3>
             <div className="grid grid-cols-1 md:grid-cols-5 gap-2.5">
               {fusedState.pipelineSteps.map((step) => {
@@ -488,13 +503,13 @@ export const GeospatialFusionIntelligenceTab: React.FC<GeospatialFusionIntellige
                       </p>
                       {step.outputDescription && (
                         <div className="mt-2 p-1.5 rounded-lg bg-white/80 dark:bg-slate-800/80 border border-slate-200/60 dark:border-slate-700/60 text-[10px] text-slate-700 dark:text-slate-200 font-medium">
-                          <span className="text-emerald-600 dark:text-emerald-400 font-bold mr-1">✓ Output:</span>
+                          <span className="text-emerald-600 dark:text-emerald-400 font-bold mr-1">Keluaran:</span>
                           {step.outputDescription}
                         </div>
                       )}
                     </div>
                     <div className="pt-2 border-t border-slate-200/50 dark:border-slate-800/80 text-[10px] font-mono text-slate-600 dark:text-slate-300">
-                      ⚙️ {step.methodology}
+                      {step.methodology}
                     </div>
                   </div>
                 );
@@ -512,17 +527,26 @@ export const GeospatialFusionIntelligenceTab: React.FC<GeospatialFusionIntellige
               <div>
                 <h3 className="text-sm font-bold text-slate-800 dark:text-white flex items-center gap-2">
                   <ShieldCheck className="w-4 h-4 text-emerald-500" />
-                  <span>Matriks Pengujian Kendali Mutu Data Otomatis (Real-time QC/QA Engine)</span>
+                  <span>Kendali Mutu</span>
                 </h3>
                 <p className="text-xs text-slate-500 dark:text-slate-400">
                   Memvalidasi batas fisis, laju perubahan waktu, dan konsistensi lintas sensor sebelum data disajikan
                 </p>
               </div>
-              <span className="px-3 py-1 rounded-xl text-xs font-extrabold bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 border border-emerald-500/30">
+              <span className={`px-3 py-1 rounded-xl text-xs font-extrabold border ${
+                fusedState.qualityControlStatus === 'UNAVAILABLE'
+                  ? 'bg-rose-500/15 text-rose-600 dark:text-rose-400 border-rose-500/30'
+                  : 'bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 border-emerald-500/30'
+              }`}>
                 Status: {fusedState.qualityControlStatus}
               </span>
             </div>
 
+            {fusedState.qcChecks.length === 0 ? (
+              <div role="alert" className="p-4 rounded-2xl bg-rose-50 dark:bg-rose-950/30 border border-rose-200 dark:border-rose-800 text-xs text-rose-700 dark:text-rose-300">
+                Uji kendali mutu (QC/QA) belum dapat dijalankan karena telemetri cuaca live untuk koordinat terpilih belum tersedia.
+              </div>
+            ) : (
             <div className="overflow-x-auto">
               <table className="w-full text-left text-xs border-collapse">
                 <thead>
@@ -552,6 +576,8 @@ export const GeospatialFusionIntelligenceTab: React.FC<GeospatialFusionIntellige
                             ? 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400'
                             : check.status === 'INFILLED_ESTIMATE'
                             ? 'bg-sky-500/10 text-sky-600 dark:text-sky-400'
+                            : check.status === 'UNAVAILABLE'
+                            ? 'bg-rose-500/10 text-rose-600 dark:text-rose-400'
                             : 'bg-amber-500/10 text-amber-600 dark:text-amber-400'
                         }`}>
                           {check.status === 'VALID' ? <CheckCircle2 className="w-3 h-3" /> : <Info className="w-3 h-3" />}
@@ -566,6 +592,7 @@ export const GeospatialFusionIntelligenceTab: React.FC<GeospatialFusionIntellige
                 </tbody>
               </table>
             </div>
+            )}
           </div>
         </div>
       )}
@@ -576,12 +603,18 @@ export const GeospatialFusionIntelligenceTab: React.FC<GeospatialFusionIntellige
           <div className="p-4 rounded-3xl bg-white dark:bg-slate-800/80 border border-slate-200/80 dark:border-slate-700/80 shadow-xs">
             <h3 className="text-sm font-bold text-slate-800 dark:text-white flex items-center gap-2 mb-1">
               <Mountain className="w-4 h-4 text-indigo-500" />
-              <span>Prakiraan Berbasis Dampak Geografis (Impact-Based Forecasting)</span>
+              <span>Prakiraan Dampak</span>
             </h3>
             <p className="text-xs text-slate-500 dark:text-slate-400 mb-4">
               Bukan sekadar menyatakan curah hujan, melainkan menganalisis implikasi hidrologi, morfologi lereng, dan keterpaparan risiko
             </p>
 
+            {!fusedState.impacts ? (
+              <div role="alert" className="p-4 rounded-2xl bg-rose-50 dark:bg-rose-950/30 border border-rose-200 dark:border-rose-800 text-xs text-rose-700 dark:text-rose-300">
+                Indeks paparan banjir, longsor, dan karhutla tidak dapat dihitung karena data cuaca/DEM aktual belum tersedia untuk titik terpilih.
+              </div>
+            ) : (
+            <>
             <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
               {/* Flood Exposure */}
               <div className="p-4 rounded-2xl bg-slate-50 dark:bg-slate-900/60 border border-slate-200/70 dark:border-slate-800 space-y-2">
@@ -675,7 +708,7 @@ export const GeospatialFusionIntelligenceTab: React.FC<GeospatialFusionIntellige
                   <div className="flex items-center gap-2">
                     <AlertTriangle className="w-4 h-4 text-amber-600 dark:text-amber-400" />
                     <h4 className="text-xs font-bold uppercase tracking-wider text-slate-800 dark:text-white">
-                      Fusi Data Pemicu Bencana Geologi Sekunder (Gerakan Tanah &amp; Banjir Bandang)
+                      Risiko Geologi Sekunder
                     </h4>
                   </div>
                   <span className={`text-[10px] font-mono px-2 py-0.5 rounded-full font-bold border ${
@@ -734,6 +767,8 @@ export const GeospatialFusionIntelligenceTab: React.FC<GeospatialFusionIntellige
                 </p>
               </div>
             )}
+            </>
+            )}
           </div>
         </div>
       )}
@@ -744,7 +779,7 @@ export const GeospatialFusionIntelligenceTab: React.FC<GeospatialFusionIntellige
           <div className="p-4 rounded-3xl bg-white dark:bg-slate-800/80 border border-slate-200/80 dark:border-slate-700/80 shadow-xs">
             <h3 className="text-sm font-bold text-slate-800 dark:text-white flex items-center gap-2 mb-1">
               <Radio className="w-4 h-4 text-purple-500" />
-              <span>Prioritas Penguatan Observasi Wilayah Kesenjangan Data (Sensor Placement Decision Support)</span>
+              <span>Prioritas Sensor</span>
             </h3>
             <p className="text-xs text-slate-500 dark:text-slate-400 mb-4">
               Menganalisis kombinasi kerentanan bahaya alam, kesenjangan kerapatan sensor (*data gap*), dan populasi untuk merekomendasikan kandidat penambahan instrumen
@@ -800,7 +835,7 @@ export const GeospatialFusionIntelligenceTab: React.FC<GeospatialFusionIntellige
           <div className="p-4 rounded-3xl bg-white dark:bg-slate-800/80 border border-slate-200/80 dark:border-slate-700/80 shadow-xs space-y-3">
             <h3 className="text-sm font-bold text-slate-800 dark:text-white flex items-center gap-2">
               <FileText className="w-4 h-4 text-indigo-500" />
-              <span>Inspektur Atribut Fitur Geospasial: {inspectedFeature.name}</span>
+              <span>Atribut Wilayah: {inspectedFeature.name}</span>
             </h3>
             <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-2.5">
               {Object.entries(inspectedFeature.attributes).map(([key, val]) => (
@@ -818,7 +853,7 @@ export const GeospatialFusionIntelligenceTab: React.FC<GeospatialFusionIntellige
           <div className="p-4 rounded-3xl bg-white dark:bg-slate-800/80 border border-slate-200/80 dark:border-slate-700/80 shadow-xs space-y-3">
             <h3 className="text-sm font-bold text-slate-800 dark:text-white flex items-center gap-2">
               <Compass className="w-4 h-4 text-indigo-500" />
-              <span>Registri Sistem Referensi Koordinat (CRS Engine) Indonesia</span>
+              <span>Registri CRS Indonesia</span>
             </h3>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
               {INDONESIA_CRS_REGISTRY.map((crs) => (
@@ -838,7 +873,7 @@ export const GeospatialFusionIntelligenceTab: React.FC<GeospatialFusionIntellige
           <div className="p-4 rounded-3xl bg-white dark:bg-slate-800/80 border border-slate-200/80 dark:border-slate-700/80 shadow-xs space-y-3">
             <h3 className="text-sm font-bold text-slate-800 dark:text-white flex items-center gap-2">
               <Database className="w-4 h-4 text-indigo-500" />
-              <span>Katalog Metadata Dataset &amp; Rekam Jejak Data (Data Lineage)</span>
+              <span>Katalog Metadata</span>
             </h3>
             <div className="space-y-3">
               {MASTER_METADATA_CATALOG.map((meta) => (

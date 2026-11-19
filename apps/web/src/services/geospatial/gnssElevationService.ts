@@ -12,16 +12,17 @@ export interface GnssElevationReport {
   lat: number;
   lng: number;
   accuracyM: number;
-  altitudeM: number;
-  altitudeSource: 'device_sensor' | 'dem_srtm_model' | 'sensor_fusion';
+  altitudeM: number | null;
+  altitudeSource: 'device_sensor' | 'dem_srtm_model' | 'sensor_fusion' | 'unavailable';
+  elevationError?: string;
   dmsLat: string;
   dmsLng: string;
   dmsDisplay: string;
   epsg3857: { x: number; y: number };
   topographyZone: string;
   topographyDescription: string;
-  estimatedBarometricPressureHpa: number;
-  estimatedBoilingPointC: number;
+  estimatedBarometricPressureHpa: number | null;
+  estimatedBoilingPointC: number | null;
   locationInfo?: PreciseLocationInfo;
   timestamp: string;
   formattedReportText: string;
@@ -166,12 +167,115 @@ export class GnssElevationService {
    * Prompts user for high-accuracy GPS permission, pinpoints position,
    * measures altitude and compiles an elevation report.
    */
+  public buildElevationReport(params: {
+    lat: number;
+    lng: number;
+    accuracyM: number;
+    deviceAlt: number | null;
+    demAlt: number | null;
+    locationInfo?: PreciseLocationInfo;
+    elevationError?: string;
+  }): GnssElevationReport {
+    const { lat, lng, accuracyM, deviceAlt, demAlt, locationInfo, elevationError } = params;
+    let finalAltitudeM: number | null;
+    let altitudeSource: GnssElevationReport['altitudeSource'];
+    let resolvedError = elevationError;
+
+    if (deviceAlt !== null && demAlt !== null) {
+      finalAltitudeM = deviceAlt;
+      altitudeSource = 'sensor_fusion';
+    } else if (deviceAlt !== null) {
+      finalAltitudeM = deviceAlt;
+      altitudeSource = 'device_sensor';
+    } else if (demAlt !== null) {
+      finalAltitudeM = demAlt;
+      altitudeSource = 'dem_srtm_model';
+    } else {
+      finalAltitudeM = null;
+      altitudeSource = 'unavailable';
+      resolvedError = resolvedError || 'Sensor altimeter perangkat tidak tersedia dan API DEM Open-Meteo gagal merespons.';
+    }
+
+    const dmsLat = this.toDMS(lat, true);
+    const dmsLng = this.toDMS(lng, false);
+    const dmsDisplay = `${dmsLat}, ${dmsLng}`;
+    const epsg3857 = geospatialAnalysisService.toEPSG3857(lat, lng);
+    const topo = finalAltitudeM !== null
+      ? this.getTopographyZone(finalAltitudeM)
+      : {
+          zone: 'Data Elevasi Tidak Tersedia',
+          description: resolvedError || 'Elevasi medan tidak dapat dipastikan karena GPS tidak melaporkan ketinggian dan API DEM gagal dihubungi.',
+        };
+    const pressure = finalAltitudeM !== null ? this.calculateBarometricPressure(finalAltitudeM) : null;
+    const boilingPoint = finalAltitudeM !== null ? this.calculateBoilingPoint(finalAltitudeM) : null;
+
+    const nowFormatted = new Intl.DateTimeFormat('id-ID', {
+      timeZone: 'Asia/Jakarta',
+      dateStyle: 'full',
+      timeStyle: 'medium',
+    }).format(new Date());
+
+    const altDisplay = finalAltitudeM !== null
+      ? `${finalAltitudeM >= 0 ? `+${finalAltitudeM}` : finalAltitudeM} mdpl`
+      : 'Tidak tersedia (ERROR)';
+
+    const sourceDisplay = altitudeSource === 'sensor_fusion'
+      ? 'Fusi Sensor Barometrik & Model DEM SRTM'
+      : altitudeSource === 'device_sensor'
+      ? 'Sensor GNSS Perangkat'
+      : altitudeSource === 'dem_srtm_model'
+      ? 'Model Digital Elevasi (DEMNAS/SRTM)'
+      : 'Tidak tersedia (Sensor & DEM Offline)';
+
+    const reportLines = [
+      '========================================',
+      'LAPORAN KETINGGIAN & KOORDINAT GNSS',
+      '========================================',
+      `Waktu Pengukuran  : ${nowFormatted} WIB`,
+      `Wilayah / Lokasi  : ${locationInfo?.shortDisplay || 'Koordinat Geospasial'}`,
+      `Alamat Lengkap    : ${locationInfo?.fullAddress || `${lat.toFixed(5)}°, ${lng.toFixed(5)}°`}`,
+      '----------------------------------------',
+      `Ketinggian Medan  : ${altDisplay}`,
+      `Zona Topografi    : ${topo.zone}`,
+      `Deskripsi Morfo   : ${topo.description}`,
+      `Tekanan Udara     : ${pressure !== null ? `${pressure} hPa` : 'Tidak tersedia'}`,
+      `Titik Didih Air   : ${boilingPoint !== null ? `${boilingPoint} °C` : 'Tidak tersedia'}`,
+      '----------------------------------------',
+      `Lintang / Bujur   : ${lat.toFixed(6)}°, ${lng.toFixed(6)}°`,
+      `Format DMS        : ${dmsDisplay}`,
+      `Proyeksi Mercator : X: ${epsg3857.x} m, Y: ${epsg3857.y} m (EPSG:3857)`,
+      `Akurasi GPS       : ±${accuracyM} meter`,
+      `Sumber Ketinggian : ${sourceDisplay}`,
+      '========================================',
+      'Harmony Geospatial GNSS Altimeter Engine',
+    ];
+
+    return {
+      lat,
+      lng,
+      accuracyM,
+      altitudeM: finalAltitudeM,
+      altitudeSource,
+      elevationError: resolvedError,
+      dmsLat,
+      dmsLng,
+      dmsDisplay,
+      epsg3857,
+      topographyZone: topo.zone,
+      topographyDescription: topo.description,
+      estimatedBarometricPressureHpa: pressure,
+      estimatedBoilingPointC: boilingPoint,
+      locationInfo,
+      timestamp: nowFormatted,
+      formattedReportText: reportLines.join('\n'),
+    };
+  }
+
   public async measureElevationAndPosition(): Promise<GnssElevationReport> {
     if (typeof window === 'undefined' || !('geolocation' in navigator)) {
       throw new Error('Sensor GPS / Web Geolocation API tidak didukung pada peramban ini.');
     }
 
-    // 1. Request position with high accuracy
     const pos = await new Promise<GeolocationPosition>((resolve, reject) => {
       navigator.geolocation.getCurrentPosition(
         resolve,
@@ -201,27 +305,8 @@ export class GnssElevationService {
       ? Math.round(pos.coords.altitude * 10) / 10
       : null;
 
-    // 2. Fetch SRTM / DEM ground elevation
     const demAlt = await this.fetchGroundElevation(lat, lng);
 
-    let finalAltitudeM: number;
-    let altitudeSource: 'device_sensor' | 'dem_srtm_model' | 'sensor_fusion';
-
-    if (deviceAlt !== null && demAlt !== null) {
-      finalAltitudeM = deviceAlt;
-      altitudeSource = 'sensor_fusion';
-    } else if (deviceAlt !== null) {
-      finalAltitudeM = deviceAlt;
-      altitudeSource = 'device_sensor';
-    } else if (demAlt !== null) {
-      finalAltitudeM = demAlt;
-      altitudeSource = 'dem_srtm_model';
-    } else {
-      finalAltitudeM = 25.0; // Standard Indonesian coastal average fallback
-      altitudeSource = 'dem_srtm_model';
-    }
-
-    // 3. Reverse Geocode address
     let locationInfo: PreciseLocationInfo | undefined;
     try {
       locationInfo = await preciseGeocodingService.reverseGeocode(lat, lng, accuracyM);
@@ -229,67 +314,14 @@ export class GnssElevationService {
       // Continue without reverse geocoding
     }
 
-    const dmsLat = this.toDMS(lat, true);
-    const dmsLng = this.toDMS(lng, false);
-    const dmsDisplay = `${dmsLat}, ${dmsLng}`;
-    const epsg3857 = geospatialAnalysisService.toEPSG3857(lat, lng);
-    const topo = this.getTopographyZone(finalAltitudeM);
-    const pressure = this.calculateBarometricPressure(finalAltitudeM);
-    const boilingPoint = this.calculateBoilingPoint(finalAltitudeM);
-
-    const nowFormatted = new Intl.DateTimeFormat('id-ID', {
-      timeZone: 'Asia/Jakarta',
-      dateStyle: 'full',
-      timeStyle: 'medium',
-    }).format(new Date());
-
-    const reportLines = [
-      '========================================',
-      '📌 LAPORAN KETINGGIAN & KOORDINAT GNSS',
-      '========================================',
-      `🕒 Waktu Pengukuran : ${nowFormatted} WIB`,
-      `📍 Wilayah / Lokasi : ${locationInfo?.shortDisplay || 'Koordinat Geospasial'}`,
-      `🏠 Alamat Lengkap   : ${locationInfo?.fullAddress || `${lat.toFixed(5)}°, ${lng.toFixed(5)}°`}`,
-      '----------------------------------------',
-      `🏔️ Ketinggian Medan  : ${finalAltitudeM >= 0 ? `+${finalAltitudeM}` : finalAltitudeM} mdpl (Meter Di Atas Permukaan Laut)`,
-      `⛰️ Zona Topografi    : ${topo.zone}`,
-      `📝 Deskripsi Morfo   : ${topo.description}`,
-      `🌡️ Tekanan Udara Est : ${pressure} hPa`,
-      `☕ Titik Didih Air   : ${boilingPoint} °C`,
-      '----------------------------------------',
-      `🌐 Lintang / Bujur   : ${lat.toFixed(6)}°, ${lng.toFixed(6)}°`,
-      `🧭 Format DMS (Geod) : ${dmsDisplay}`,
-      `📐 Proyeksi Mercator : X: ${epsg3857.x} m, Y: ${epsg3857.y} m (EPSG:3857)`,
-      `🎯 Akurasi Sensor GPS: ±${accuracyM} meter`,
-      `📡 Sumber Ketinggian : ${
-        altitudeSource === 'sensor_fusion'
-          ? 'Fusi Sensor Barometrik Perangkat & Model DEM SRTM'
-          : altitudeSource === 'device_sensor'
-          ? 'Sensor GNSS Internal Perangkat'
-          : 'Model Digital Elevasi Resolusi Tinggi (DEMNAS/SRTM)'
-      }`,
-      '========================================',
-      'Dihasilkan secara resmi oleh Harmony Geospatial GNSS Altimeter Engine',
-    ];
-
-    return {
+    return this.buildElevationReport({
       lat,
       lng,
       accuracyM,
-      altitudeM: finalAltitudeM,
-      altitudeSource,
-      dmsLat,
-      dmsLng,
-      dmsDisplay,
-      epsg3857,
-      topographyZone: topo.zone,
-      topographyDescription: topo.description,
-      estimatedBarometricPressureHpa: pressure,
-      estimatedBoilingPointC: boilingPoint,
+      deviceAlt,
+      demAlt,
       locationInfo,
-      timestamp: nowFormatted,
-      formattedReportText: reportLines.join('\n'),
-    };
+    });
   }
 }
 

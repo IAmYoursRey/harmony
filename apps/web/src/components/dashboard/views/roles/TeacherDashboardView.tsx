@@ -701,13 +701,13 @@ export function TeacherDashboardView() {
             onClick={() => setActiveTab("overview")}
             className={`px-4 py-2 border-b-2 font-semibold text-sm transition-colors ${activeTab === "overview" ? "border-white text-white" : "border-transparent text-white/60 hover:text-white/80"}`}
           >
-            Overview &amp; Analisis
+            Ringkasan Kelas
           </button>
           <button
             onClick={() => setActiveTab("classes")}
             className={`px-4 py-2 border-b-2 font-semibold text-sm transition-colors ${activeTab === "classes" ? "border-white text-white" : "border-transparent text-white/60 hover:text-white/80"}`}
           >
-            Manajemen Kelas
+            Daftar Kelas
           </button>
           <button
             onClick={() => setActiveTab("students")}
@@ -720,7 +720,7 @@ export function TeacherDashboardView() {
             className={`px-4 py-2 border-b-2 font-semibold text-sm transition-colors flex items-center gap-1.5 ${activeTab === "learning-gain" ? "border-white text-white" : "border-transparent text-white/60 hover:text-white/80"}`}
           >
             <Sparkles className="h-4 w-4 text-amber-300 animate-pulse" />
-            <span>Efektivitas &amp; Learning Gain (0,7+)</span>
+            <span>Learning Gain (0,7+)</span>
           </button>
         </div>
       </div>
@@ -728,13 +728,13 @@ export function TeacherDashboardView() {
         <div className="grid gap-6">
           <div className="flex items-center justify-between border-b border-brand-100 dark:border-slate-800 pb-4">
             <h3 className="font-bold text-ink-900 dark:text-white flex items-center gap-2">
-              <School className="h-5 w-5 text-brand-600" /> Manajemen Kelas
+              <School className="h-5 w-5 text-brand-600" /> Daftar Kelas
             </h3>
             <button
               onClick={() => setIsAddingClass(true)}
               className="flex items-center gap-2 rounded-xl bg-brand-600 px-4 py-2 text-xs font-semibold text-white hover:bg-brand-700 shadow-sm"
             >
-              <Plus className="h-4 w-4" /> Buat Class
+              <Plus className="h-4 w-4" /> Tambah Kelas
             </button>
           </div>
 
@@ -842,7 +842,7 @@ export function TeacherDashboardView() {
             <Card className="flex flex-col items-center justify-center p-8 text-center border border-red-200 bg-red-50 dark:bg-red-900/10 dark:border-red-900/30">
               <AlertTriangle className="h-8 w-8 text-red-500 mb-3" />
               <h3 className="text-sm font-bold text-red-800 dark:text-red-400">
-                Gagal memuat data kelas
+                Gagal Memuat Kelas
               </h3>
               <button
                 onClick={() => fetchUsersAndClasses()}
@@ -855,16 +855,16 @@ export function TeacherDashboardView() {
             <div className="flex flex-col items-center justify-center min-h-[300px] text-center bg-slate-50 dark:bg-slate-900/50 rounded-2xl border border-slate-200 dark:border-slate-800">
               <School className="h-12 w-12 text-slate-300 mb-4" />
               <h3 className="text-lg font-bold text-ink-900 dark:text-white">
-                Belum ada Class
+                Belum Ada Kelas
               </h3>
               <p className="text-sm text-ink-500 mb-4">
-                Buat Class pertama Anda untuk memulai.
+                Buat kelas pertama untuk memulai.
               </p>
               <button
                 onClick={() => setIsAddingClass(true)}
                 className="px-4 py-2 text-sm font-bold bg-brand-600 text-white rounded-xl"
               >
-                + Buat Class
+                Tambah Kelas
               </button>
             </div>
           ) : (
@@ -881,13 +881,13 @@ export function TeacherDashboardView() {
                     <div className="mt-2 space-y-1 text-sm text-ink-600 dark:text-slate-300">
                       <p>
                         <span className="font-semibold text-ink-400">
-                          Grade:
+                          Tingkat:
                         </span>{" "}
                         {c.grade}
                       </p>
                       <p>
                         <span className="font-semibold text-ink-400">
-                          Section:
+                          Rombel:
                         </span>{" "}
                         {c.section}
                       </p>
@@ -916,7 +916,7 @@ export function TeacherDashboardView() {
         <div className="grid gap-6">
           <div className="flex items-center justify-between border-b border-brand-100 dark:border-slate-800 pb-4">
             <h3 className="font-bold text-ink-900 dark:text-white flex items-center gap-2">
-              <Users className="h-5 w-5 text-brand-600" /> Manajemen Murid
+              <Users className="h-5 w-5 text-brand-600" /> Data Siswa
             </h3>
             <div className="flex items-center gap-4">
               {teacherClasses.length > 0 ? (
@@ -970,7 +970,7 @@ export function TeacherDashboardView() {
             <Card className="flex flex-col items-center justify-center p-8 text-center border border-red-200 bg-red-50 dark:bg-red-900/10 dark:border-red-900/30">
               <AlertTriangle className="h-8 w-8 text-red-500 mb-3" />
               <h3 className="text-sm font-bold text-red-800 dark:text-red-400">
-                Gagal memuat data murid
+                Gagal Memuat Siswa
               </h3>
               <button
                 onClick={() => fetchUsersAndClasses()}
@@ -1083,7 +1083,7 @@ export function TeacherDashboardView() {
               className="relative w-full max-w-lg rounded-2xl bg-white dark:bg-slate-900 shadow-2xl p-6"
             >
               <h3 className="font-bold text-xl mb-4 dark:text-white">
-                Tambah Student
+                Tambah Siswa
               </h3>
               <form onSubmit={handleAddStudent} className="space-y-4">
                 <div>
@@ -1262,7 +1262,7 @@ export function TeacherDashboardView() {
             <Card className="flex flex-col items-center justify-center p-8 text-center border border-red-200 bg-red-50 dark:bg-red-900/10 dark:border-red-900/30">
               <AlertTriangle className="h-12 w-12 text-red-500 mb-4" />
               <h3 className="text-lg font-bold text-red-800 dark:text-red-400 mb-2">
-                Gagal memuat analitik
+                Gagal Memuat Analitik
               </h3>
               <p className="text-sm text-red-600 dark:text-red-300 mb-6 max-w-sm">
                 Terjadi kesalahan saat mengambil data performa kelas. Silakan
@@ -1335,11 +1335,10 @@ export function TeacherDashboardView() {
                 <div className="flex items-center justify-between mb-4">
                   <h3 className="font-display text-base font-bold text-ink-900 dark:text-white flex items-center gap-2">
                     <Users className="h-4 w-4 text-brand-600" />
-                    Student Roster — {selectedClass.name} (Grade{" "}
-                    {selectedClass.grade} Section {selectedClass.section})
+                    Daftar Siswa — {selectedClass.name} ({selectedClass.grade}-{selectedClass.section})
                   </h3>
                   <span className="text-xs font-semibold text-brand-600 bg-brand-50 dark:bg-brand-500/10 px-3 py-1 rounded-full">
-                    Total: {dashboardData.students.length} Students
+                    {dashboardData.students.length} Siswa
                   </span>
                 </div>
 

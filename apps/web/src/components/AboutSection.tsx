@@ -99,26 +99,26 @@ const team: {
   {
     initials: "MD",
     name: "M. David Silva W.",
-    role: "Data & Research Analyst",
+    role: "Analis Data & Riset",
     subtitle: "Pengumpulan Data Geospasial",
     icon: BarChart3,
-    bio: "Bertanggung jawab mengumpulkan, memvalidasi, dan mengelola data geospasial serta titik lapangan di seluruh Indonesia.",
+    bio: "Mengumpulkan, memvalidasi, dan mengelola data geospasial serta titik observasi di seluruh Indonesia.",
   },
   {
     initials: "AF",
     name: "Alvira Fitriatun Nizha",
-    role: "Project Leader & Ideator",
+    role: "Ketua Proyek",
     subtitle: "Koordinator Utama Riset",
     icon: Sparkles,
-    bio: "Penggagas ide konsep Harmony dan memimpin koordinasi riset, strategi edukasi, serta pengembangan platform.",
+    bio: "Penggagas konsep Harmony sekaligus koordinator riset, strategi edukasi, dan pengembangan platform.",
   },
   {
     initials: "RA",
     name: "Raihan Ansari",
-    role: "Lead Software Engineer",
-    subtitle: "Full Stack & UI/UX Developer",
+    role: "Insinyur Perangkat Lunak",
+    subtitle: "Arsitektur Sistem & UI/UX",
     icon: Code2,
-    bio: "Pengembang utama arsitektur platform, rekayasa perangkat lunak, dan integrasi Harmony Twin.",
+    bio: "Pengembang utama arsitektur platform, rekayasa perangkat lunak, dan integrasi kembar digital.",
   },
 ];
 
@@ -408,7 +408,7 @@ export function AboutSection({ compact = false }: { compact?: boolean }) {
               </div>
             </div>
             <h2 className="font-display text-xl font-extrabold text-ink-900 dark:text-white">
-              Kesiapsiagaan Bencana untuk Semua
+              Kesiapsiagaan Bencana
             </h2>
             <p className="mt-3 text-sm leading-relaxed text-ink-600 dark:text-slate-300">
               Menjadi pionir dalam pemetaan kebencanaan cerdas yang mengubah cara masyarakat Indonesia memahami dan menghadapi potensi bencana alam.
@@ -486,10 +486,10 @@ export function AboutSection({ compact = false }: { compact?: boolean }) {
       <div>
         <div className="mb-5 text-center">
           <SectionLabel>
-            <Sparkles className="h-3.5 w-3.5" /> Core Technology
+            <Sparkles className="h-3.5 w-3.5" /> Teknologi Inti
           </SectionLabel>
           <h2 className="mt-2 font-display text-2xl font-extrabold text-ink-900 dark:text-white">
-            3 Pilar Inovasi Kami
+            Tiga Pilar Inovasi
           </h2>
           <p className="mt-2 text-sm text-ink-500 dark:text-slate-400">
             Menggabungkan kecerdasan buatan dan visualisasi geospasial.
@@ -536,10 +536,10 @@ export function AboutSection({ compact = false }: { compact?: boolean }) {
       <div>
         <div className="mb-5 text-center">
           <SectionLabel>
-            <Globe className="h-3.5 w-3.5" /> Sustainable Development Goals
+            <Globe className="h-3.5 w-3.5" /> Tujuan SDGs
           </SectionLabel>
           <h2 className="mt-2 font-display text-2xl font-extrabold text-ink-900 dark:text-white">
-            Dampak Kami bagi SDGs
+            Dampak SDGs
           </h2>
         </div>
 
@@ -583,10 +583,10 @@ export function AboutSection({ compact = false }: { compact?: boolean }) {
             <Users className="h-3.5 w-3.5" /> Tim Kami
           </SectionLabel>
           <h2 className="mt-2 font-display text-2xl font-extrabold text-ink-900 dark:text-white">
-            Tim Pengembang & Riset
+            Tim Pengembang
           </h2>
           <p className="mt-2 text-sm text-ink-500 dark:text-slate-400">
-            Research & Development Team · SMA Negeri 1 Ngoro, Mojokerto, Jawa Timur
+            Tim Riset &amp; Pengembangan · SMA Negeri 1 Ngoro, Mojokerto, Jawa Timur
           </p>
         </div>
 

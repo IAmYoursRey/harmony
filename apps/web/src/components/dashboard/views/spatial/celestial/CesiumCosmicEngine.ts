@@ -749,7 +749,7 @@ export class CesiumCosmicEngine {
         distanceDisplayCondition: new C.DistanceDisplayCondition(sunRadius * 2.5, 5e10),
       },
       label: {
-        text: '☀️ Matahari (Sun)',
+        text: 'Matahari (Sun)',
         font: 'bold 13px Inter, sans-serif',
         fillColor: C.Color.WHITE,
         outlineColor: C.Color.BLACK,
@@ -882,7 +882,7 @@ export class CesiumCosmicEngine {
             distanceDisplayCondition: new C.DistanceDisplayCondition(25000000, 5e10),
           },
           label: {
-            text: `🌍 ${data.name} (${data.englishName})`,
+            text: `${data.name} (${data.englishName})`,
             font: 'bold 12px Inter, sans-serif',
             fillColor: C.Color.WHITE,
             outlineColor: C.Color.BLACK,
@@ -1068,7 +1068,7 @@ export class CesiumCosmicEngine {
         distanceDisplayCondition: new C.DistanceDisplayCondition(moonRadius * 3.5, 5e10),
       },
       label: {
-        text: '🌕 Bulan (Moon)',
+        text: 'Bulan (Moon)',
         font: 'bold 11px Inter, sans-serif',
         fillColor: C.Color.WHITE,
         outlineColor: C.Color.BLACK,

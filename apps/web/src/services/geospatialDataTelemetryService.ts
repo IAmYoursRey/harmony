@@ -11,6 +11,7 @@ import {
 import { isValidUsgsFeed } from './geospatial/earthquakeSnapshotService';
 import type { WeatherConsensusData } from './weatherAggregatorService';
 import type { AiNwpVerificationResult } from './atmosphericNwpAiService';
+import { createTimeoutSignal, safeStructuredClone } from '../utils/browserCompat';
 
 export type TelemetryLogLevel = 
   | 'INFO' 
@@ -127,8 +128,8 @@ export interface AccuracyAuditMetric {
   sensorRaw: string;
   aiCalibrated: string;
   spreadOrStdDev: string;
-  accuracyScore: number;
-  status: 'AKURAT' | 'TERVERIFIKASI' | 'TERKALIBRASI' | 'PERINGATAN';
+  accuracyScore: number | null;
+  status: 'LOLOS UJI' | 'PARSIAL' | 'PERINGATAN' | 'TIDAK TERSEDIA';
   methodology: string;
 }
 
@@ -141,16 +142,16 @@ export interface ConsistencyCheckResult {
 }
 
 export interface AccuracyScorecard {
-  overallConfidenceScore: number;
-  multiModelStdDev: number;
-  confidenceRating: 'Sangat Tinggi' | 'Tinggi' | 'Cukup' | 'Meragukan';
+  overallConfidenceScore: number | null;
+  multiModelStdDev: number | null;
+  confidenceRating: 'Sangat Tinggi' | 'Tinggi' | 'Cukup' | 'Meragukan' | 'Belum Terverifikasi';
   metricsAudit: AccuracyAuditMetric[];
   consistencyChecks: ConsistencyCheckResult[];
 }
 
 // Snapshot consumers must not mutate caller-owned responses or another query's audit.
 function detachedFrozenSnapshot<T>(value: T): T {
-  const copy = structuredClone(value);
+  const copy = safeStructuredClone(value);
   const freeze = (item: any): void => {
     if (!item || typeof item !== 'object' || Object.isFrozen(item)) return;
     Object.values(item).forEach(freeze);
@@ -186,7 +187,12 @@ class GeospatialDataTelemetryService {
     { id: 'osm_tile_basemap', name: 'OpenStreetMap (OSM) — Tile server slippy map XYZ', category: 'Basemap / Spatial', url: 'https://tile.openstreetmap.org/0/0/0.png' },
     { id: 'esri_world_imagery', name: 'ESRI World Imagery — Satelit optik komposit global', category: 'Basemap / Spatial', url: 'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/0/0/0' },
     { id: 'esri_world_topo', name: 'ESRI World Topo — Peta topografi & elevasi kontur', category: 'Basemap / Spatial', url: 'https://server.arcgisonline.com/ArcGIS/rest/services/World_Topo_Map/MapServer/tile/0/0/0' },
-    { id: 'pusgen_active_faults', name: 'PuSGeN — Peta 295 sesar & patahan aktif tektonik', category: 'BMKG Radar/InaTEWS', url: '/api/spatial/faults' },
+    { id: 'pusgen_active_faults', name: 'PuSGeN — Katalog Sesar Aktif Indonesia (Subset 26 Segmen Utama)', category: 'BMKG Radar/InaTEWS', url: '/api/spatial/faults' },
+    { id: 'nasa_firms_public', name: 'NASA FIRMS Open NRT — Titik Panas Publik (VIIRS/MODIS)', category: 'Satellite Hotspot', url: '/api/spatial/hotspots/public-feed?scope=indonesia&dayRange=1' },
+    { id: 'volcano_live_gvp', name: 'Smithsonian GVP / USGS — Laporan Gunung Api Mingguan Live', category: 'BMKG Radar/InaTEWS', url: '/api/spatial/volcanoes/live' },
+    { id: 'noaa_aviation_metar', name: 'NOAA Aviation Weather — METAR Bandara Indonesia', category: 'Weather Model', url: '/api/bmkg/aviation/metar?ids=WARR,WIII,WADD' },
+    { id: 'noaa_swpc_kp', name: 'NOAA SWPC — Indeks Geomagnetik Planetari Kp Live', category: 'BMKG Radar/InaTEWS', url: '/api/bmkg/geophysics/kp-index' },
+    { id: 'noaa_cpc_oni', name: 'NOAA CPC — Indeks ENSO Niño 3.4 (ONI) Live', category: 'Weather Model', url: '/api/bmkg/climate/enso-oni' },
   ].map(ep => ({ ...ep, status: 'UNCHECKED', httpStatus: null, latencyMs: null, lastChecked: 'Belum diperiksa', payloadSize: '—' } as EndpointHealthStatus));
 
   constructor() {
@@ -258,114 +264,146 @@ class GeospatialDataTelemetryService {
     if (!ep) throw new Error('Endpoint tidak ditemukan.');
     if (id === 'windy_embed') {
       const t0 = Date.now();
+      ep.status = 'CHECKING'; ep.errorMessage = undefined; this.notify();
+      const timeoutHandle = createTimeoutSignal(5000);
       try {
-        await fetch(ep.url, { mode: 'no-cors' });
-        const latencyMs = Math.max(35, Date.now() - t0);
+        await fetch(ep.url, { mode: 'no-cors', signal: timeoutHandle.signal });
+        const latencyMs = Math.max(1, Date.now() - t0);
         Object.assign(ep, {
-          status: 'ONLINE',
-          httpStatus: 200,
+          status: 'UNVERIFIABLE',
+          httpStatus: null,
           latencyMs,
-          payloadSize: 'Iframe View',
-          errorMessage: undefined,
+          payloadSize: 'Iframe Lintas-Domain',
+          errorMessage: 'Embed iframe lintas-domain (kode HTTP tidak dapat diverifikasi oleh browser)',
           lastChecked: new Date().toISOString(),
         });
-        this.addLog('INFO', id, 'Koneksi ke Web Windy aktif (Tampilan iframe visual cuaca/radar).');
-      } catch {
+        this.addLog('WARN', id, 'Embed Windy tercapai secara jaringan, namun respons lintas-domain bersifat opaque (tidak dapat memverifikasi HTTP 200).');
+      } catch (err: any) {
         Object.assign(ep, {
-          status: 'ONLINE',
-          httpStatus: 200,
-          latencyMs: 120,
-          payloadSize: 'Iframe View',
-          errorMessage: undefined,
+          status: 'OFFLINE',
+          httpStatus: null,
+          latencyMs: Date.now() - t0,
+          payloadSize: '—',
+          errorMessage: err?.message || 'Gagal menjangkau embed.windy.com',
           lastChecked: new Date().toISOString(),
         });
-        this.addLog('INFO', id, 'Koneksi ke Web Windy terkonfirmasi.');
+        this.addLog('ERROR', id, `Gagal menjangkau Web Windy: ${err?.message || 'Offline'}`);
+      } finally {
+        timeoutHandle.cleanup();
       }
       this.notify();
       return { ...ep };
     }
     if (id === 'osm_tile_basemap' || id === 'esri_world_imagery' || id === 'esri_world_topo') {
       const t0 = Date.now();
+      ep.status = 'CHECKING'; ep.errorMessage = undefined; this.notify();
+      const timeoutHandle = createTimeoutSignal(6000);
       try {
-        await fetch(ep.url, { mode: 'no-cors' });
-        const latencyMs = Math.max(25, Date.now() - t0);
+        const res = await fetch(ep.url, { signal: timeoutHandle.signal });
+        const latencyMs = Math.max(1, Date.now() - t0);
+        const contentType = res.headers.get('content-type') || '';
+        if (!res.ok) {
+          throw new Error(`HTTP_${res.status}`);
+        }
+        if (contentType && !contentType.startsWith('image/')) {
+          throw new Error(`Content-Type bukan gambar (${contentType})`);
+        }
+        const buf = await res.arrayBuffer();
         Object.assign(ep, {
           status: 'ONLINE',
-          httpStatus: 200,
+          httpStatus: res.status,
           latencyMs,
-          payloadSize: '256x256 Tile PNG/JPG',
+          payloadSize: `${buf.byteLength} B`,
           errorMessage: undefined,
           lastChecked: new Date().toISOString(),
         });
-        this.addLog('SUCCESS', id, `Tile server ${ep.name} berhasil dijangkau dan siap melayani raster basemap (${latencyMs}ms).`);
-      } catch {
+        this.addLog('SUCCESS', id, `Tile server ${ep.name} merespons HTTP ${res.status} (${buf.byteLength} B, ${latencyMs} ms).`);
+      } catch (err: any) {
         Object.assign(ep, {
-          status: 'ONLINE',
-          httpStatus: 200,
-          latencyMs: 45,
-          payloadSize: 'Tile Active',
-          errorMessage: undefined,
+          status: 'OFFLINE',
+          httpStatus: /^HTTP_(\d+)$/.test(err?.message || '') ? Number(RegExp.$1) : null,
+          latencyMs: Date.now() - t0,
+          payloadSize: '—',
+          errorMessage: err?.message || 'Tile server basemap gagal merespons',
           lastChecked: new Date().toISOString(),
         });
-        this.addLog('INFO', id, `Tile server ${ep.name} terverifikasi aktif.`);
+        this.addLog('ERROR', id, `Tile server ${ep.name} gagal: ${err?.message || 'Offline'}`);
+      } finally {
+        timeoutHandle.cleanup();
       }
       this.notify();
       return { ...ep };
     }
     if (id === 'pusgen_active_faults') {
-      Object.assign(ep, {
-        status: 'ONLINE',
-        httpStatus: 200,
-        latencyMs: 15,
-        payloadSize: '295 Garis Sesar Geometri WGS84',
-        errorMessage: undefined,
-        lastChecked: new Date().toISOString(),
+      ep.status = 'CHECKING'; ep.responseSnippet = undefined; ep.errorMessage = undefined; this.notify();
+      const { data, attempt } = await fetchCheckedJson(id, ep.url, d => {
+        if (d?.success !== true || typeof d?.segmentCount !== 'number') {
+          return d?.error || 'Endpoint metadata PuSGeN tidak mengembalikan segmentCount valid.';
+        }
+        return null;
       });
-      this.addLog('SUCCESS', id, 'Basis data 295 sesar aktif PuSGeN 2017 terindeks dan tervalidasi secara spasial.');
+      this.applyAttempt(attempt);
+      if (data?.success && typeof data?.segmentCount === 'number') {
+        ep.payloadSize = `${data.segmentCount} Segmen PuSGeN (Statis)`;
+      }
+      ep.responseSnippet = data ? JSON.stringify(data).slice(0, 160) : undefined;
       this.notify();
       return { ...ep };
     }
     const snapshotToUse = this.getSnapshotForLocation(lat, lng) || this.latestSnapshot;
+    if (id === 'ai_nwp') {
+      const hasValidTemp = finiteNumber(snapshotToUse?.current?.consensusTemperature) || finiteNumber(snapshotToUse?.rawParameters?.rawTemperature);
+      if (!snapshotToUse || !hasValidTemp) {
+        Object.assign(ep, {
+          status: 'DEGRADED',
+          httpStatus: null,
+          latencyMs: null,
+          payloadSize: '—',
+          errorMessage: 'Belum ada snapshot cuaca valid untuk diverifikasi AI.',
+          lastChecked: new Date().toISOString(),
+        });
+        this.addLog('WARN', id, 'Verifikasi AI dilewati: belum ada snapshot cuaca live yang tersedia.');
+        this.notify();
+        return { ...ep };
+      }
+    }
     ep.status = 'CHECKING'; ep.responseSnippet = undefined; ep.errorMessage = undefined; this.notify();
     let url = buildEndpointAuditUrl(ep.url, lat, lng);
-    // Endpoints and credentials are strictly locked to server authority to protect data integrity.
     const requestHeaders: Record<string, string> = {};
 
     const snap = snapshotToUse;
-    const currentTemp = snap?.current?.consensusTemperature ?? snap?.rawParameters?.rawTemperature ?? 28.5;
-    const modelComparison = Array.isArray(snap?.modelComparison) && snap.modelComparison.length > 0
+    const currentTemp = snap?.current?.consensusTemperature ?? snap?.rawParameters?.rawTemperature ?? null;
+    const modelComparison = Array.isArray(snap?.modelComparison)
       ? snap.modelComparison.map((m: any) => ({
           modelName: m.modelName || m.modelId,
           sourceFlag: m.sourceFlag,
           temperature: m.temperature,
         }))
-      : [
-          { modelName: 'ECMWF IFS', sourceFlag: '🇪🇺', temperature: 28.3 },
-          { modelName: 'GFS NOAA', sourceFlag: '🇺🇸', temperature: 28.8 },
-          { modelName: 'ICON DWD', sourceFlag: '🇩🇪', temperature: 28.1 },
-        ];
+      : [];
     const options: RequestInit = id === 'ai_nwp' ? {
       method: 'POST',
+      cache: 'no-store',
       headers: { 'Content-Type': 'application/json', ...requestHeaders },
       body: JSON.stringify({
         lat,
         lng,
-        locationName: snap?.locationName || 'Pusat Monitoring Geospasial Indonesia',
+        locationName: snap?.locationName || 'Lokasi Dipilih',
         current: {
           consensusTemperature: currentTemp,
-          apparentTemperature: snap?.current?.apparentTemperature ?? snap?.rawParameters?.rawApparentTemperature ?? 31.2,
-          humidity: snap?.current?.humidity ?? snap?.rawParameters?.rawHumidity ?? 75,
-          pressure: snap?.current?.pressure ?? snap?.rawParameters?.rawSurfacePressure ?? 1010,
-          windSpeed: snap?.current?.windSpeed ?? snap?.rawParameters?.rawWindSpeed ?? 12,
-          windDirection: snap?.current?.windDirection ?? snap?.rawParameters?.rawWindDirection ?? 180,
-          precipitation: snap?.current?.precipitation ?? snap?.rawParameters?.rawPrecipitationSensor ?? 0,
-          precipitationProb: snap?.current?.precipitationProb ?? snap?.rawParameters?.rawPrecipitationProbability ?? 15,
+          apparentTemperature: snap?.current?.apparentTemperature ?? snap?.rawParameters?.rawApparentTemperature ?? null,
+          humidity: snap?.current?.humidity ?? snap?.rawParameters?.rawHumidity ?? null,
+          pressure: snap?.current?.pressure ?? snap?.rawParameters?.rawSurfacePressure ?? null,
+          windSpeed: snap?.current?.windSpeed ?? snap?.rawParameters?.rawWindSpeed ?? null,
+          windDirection: snap?.current?.windDirection ?? snap?.rawParameters?.rawWindDirection ?? null,
+          precipitation: snap?.current?.precipitation ?? snap?.rawParameters?.rawPrecipitationSensor ?? null,
+          precipitationProb: snap?.current?.precipitationProb ?? snap?.rawParameters?.rawPrecipitationProbability ?? null,
         },
         modelComparison,
       }),
-    } : Object.keys(requestHeaders).length > 0 ? {
-      headers: requestHeaders,
-    } : {};
+    } : {
+      cache: 'no-store',
+      ...(Object.keys(requestHeaders).length > 0 ? { headers: requestHeaders } : {}),
+    };
     const { data, attempt } = await fetchCheckedJson(id, url, d => {
       if (id === 'open_meteo_weather') return validateCurrentWeather(d, lat, lng);
       if (id !== 'ai_nwp' && (d?.error || d?.success === false)) return d.reason?.message || d.reason || d.error || 'Sumber melaporkan kegagalan.';
@@ -557,6 +595,37 @@ class GeospatialDataTelemetryService {
         }
         return null;
       }
+      if (id === 'nasa_firms_public') {
+        if (d?.success !== true || !Array.isArray(d?.data)) return d?.reason?.message || d?.error || 'Respons feed publik FIRMS tidak valid.';
+        if (d.isFallback || d.partial || d.provenance?.dataStatus === 'PARTIAL' || d.provenance?.dataStatus === 'CACHED') {
+          return { partial: true, message: d.warning || d.reason?.message || 'Sebagian feed satelit gagal merespons.' } as any;
+        }
+        return null;
+      }
+      if (id === 'volcano_live_gvp') {
+        if (d?.success !== true || d?.dataStatus !== 'LIVE' || !Array.isArray(d?.data)) {
+          return d?.error || 'Feed laporan gunung api GVP/USGS tidak tersedia.';
+        }
+        return null;
+      }
+      if (id === 'noaa_aviation_metar') {
+        if (d?.success !== true || !Array.isArray(d?.data) || d.data.length === 0) {
+          return d?.error || 'Feed METAR NOAA Aviation Weather tidak tersedia.';
+        }
+        return null;
+      }
+      if (id === 'noaa_swpc_kp') {
+        if (d?.success !== true || !finiteNumber(d?.data?.kpIndex)) {
+          return d?.error || 'Feed Planetary Kp-Index NOAA SWPC tidak tersedia.';
+        }
+        return null;
+      }
+      if (id === 'noaa_cpc_oni') {
+        if (d?.success !== true || !finiteNumber(d?.data?.anomalyOni)) {
+          return d?.error || 'Feed ENSO ONI NOAA CPC tidak tersedia.';
+        }
+        return null;
+      }
       return 'Tidak ada pemeriksa payload untuk sumber ini.';
     }, options);
     if (data && (data.partial === true || data.provenance?.dataStatus === 'PARTIAL')) { attempt.status = 'PARTIAL'; attempt.error = 'Sebagian sumber atau parameter tidak tersedia.'; }
@@ -629,6 +698,7 @@ class GeospatialDataTelemetryService {
     if (matches(this.latestSnapshot)) {
       this.latestSnapshot = null;
       this.transformationDeltas = [];
+      this.accuracyScorecard = null;
     }
     attempts.forEach(attempt => this.applyAttempt(attempt));
     this.addLog('ERROR', 'WEATHER', `Tidak menghasilkan prakiraan baru untuk ${locationName}.`, { lat, lng, queryKey: queryKey || pointKey });
@@ -637,39 +707,28 @@ class GeospatialDataTelemetryService {
   public recordRawIngestion(lat: number, lng: number, locationName: string, weatherRes: any, airRes: any, data: WeatherConsensusData, _aiNwp?: AiNwpVerificationResult, queryKey?: string) {
     data.sourceFetches.forEach(attempt => this.applyAttempt(attempt));
     const value = (v: unknown) => finiteNumber(v) ? v : null;
-    const currentTemp = data.current?.consensusTemperature ?? 28.0;
+    const currentTemp = value(data.current?.consensusTemperature);
 
     const c = (weatherRes && Object.keys(weatherRes?.current || {}).length > 0) ? weatherRes.current : {
-      temperature_2m: data.current?.consensusTemperature ?? 28.0,
-      relative_humidity_2m: data.current?.humidity ?? 75,
-      apparent_temperature: data.current?.apparentTemperature ?? 31.0,
-      surface_pressure: (data.current as any)?.surfacePressure ?? data.current?.pressure ?? 1010,
-      pressure_msl: (data.current as any)?.seaLevelPressure ?? data.current?.pressure ?? 1011,
-      wind_speed_10m: data.current?.windSpeed ?? 10,
-      wind_direction_10m: data.current?.windDirection ?? 180,
-      cloud_cover: data.current?.cloudCover ?? 30,
-      precipitation: data.current?.precipitation ?? 0,
-      weather_code: data.current?.conditionCode ?? 2,
-      wind_gusts_10m: data.current?.windGusts ?? 15,
+      temperature_2m: value(data.current?.consensusTemperature),
+      relative_humidity_2m: value(data.current?.humidity),
+      apparent_temperature: value(data.current?.apparentTemperature),
+      surface_pressure: value((data.current as any)?.surfacePressure ?? data.current?.pressure),
+      pressure_msl: value((data.current as any)?.seaLevelPressure ?? data.current?.pressure),
+      wind_speed_10m: value(data.current?.windSpeed),
+      wind_direction_10m: value(data.current?.windDirection),
+      cloud_cover: value(data.current?.cloudCover),
+      precipitation: value(data.current?.precipitation),
+      weather_code: value(data.current?.conditionCode),
+      wind_gusts_10m: value(data.current?.windGusts),
     };
     const aq = (airRes && Object.keys(airRes?.current || {}).length > 0) ? airRes.current : {
-      pm2_5: (data as any).airQuality?.pm2_5 ?? 18.4,
-      pm10: (data as any).airQuality?.pm10 ?? 32.1,
-      ozone: (data as any).airQuality?.ozone ?? 44.5,
+      pm2_5: value(data.current?.pm25 ?? (data as any).airQuality?.pm2_5),
+      pm10: value(data.current?.pm10 ?? (data as any).airQuality?.pm10),
+      ozone: value(data.current?.ozone ?? (data as any).airQuality?.ozone),
     };
 
-    const modelComparisonList = Array.isArray(data.modelComparison) && data.modelComparison.length > 0
-      ? data.modelComparison
-      : [
-          { modelId: 'ecmwf_ifs025', modelName: 'ECMWF IFS (0.25°)', sourceFlag: '🇪🇺', country: 'Eropa (ECMWF)', agency: 'European Centre for Medium-Range Weather Forecasts', temperature: currentTemp, dataTime: data.dataTime || 'Live' },
-          { modelId: 'gfs_seamless', modelName: 'GFS Seamless', sourceFlag: '🇺🇸', country: 'Amerika Serikat (NOAA)', agency: 'National Oceanic and Atmospheric Administration', temperature: parseFloat((currentTemp + 0.4).toFixed(1)), dataTime: data.dataTime || 'Live' },
-          { modelId: 'icon_seamless', modelName: 'ICON Seamless', sourceFlag: '🇩🇪', country: 'Jerman (DWD)', agency: 'Deutscher Wetterdienst', temperature: parseFloat((currentTemp - 0.3).toFixed(1)), dataTime: data.dataTime || 'Live' },
-          { modelId: 'jma_seamless', modelName: 'JMA GSM/MSM', sourceFlag: '🇯🇵', country: 'Jepang (JMA)', agency: 'Japan Meteorological Agency', temperature: parseFloat((currentTemp + 0.1).toFixed(1)), dataTime: data.dataTime || 'Live' },
-          { modelId: 'cma_grapes_global', modelName: 'CMA GRAPES', sourceFlag: '🇨🇳', country: 'Tiongkok (CMA)', agency: 'China Meteorological Administration', temperature: parseFloat((currentTemp - 0.2).toFixed(1)), dataTime: data.dataTime || 'Live' },
-          { modelId: 'gem_seamless', modelName: 'GEM Global', sourceFlag: '🇨🇦', country: 'Kanada (CMC)', agency: 'Canadian Meteorological Centre', temperature: parseFloat((currentTemp + 0.2).toFixed(1)), dataTime: data.dataTime || 'Live' },
-          { modelId: 'meteofrance_seamless', modelName: 'Météo-France ARPEGE', sourceFlag: '🇫🇷', country: 'Prancis (Météo-France)', agency: 'Météo-France', temperature: parseFloat((currentTemp - 0.1).toFixed(1)), dataTime: data.dataTime || 'Live' },
-          { modelId: 'ukmo_seamless', modelName: 'UK Met Office', sourceFlag: '🇬🇧', country: 'Inggris (UKMO)', agency: 'UK Met Office Unified Model', temperature: parseFloat((currentTemp + 0.3).toFixed(1)), dataTime: data.dataTime || 'Live' },
-        ];
+    const modelComparisonList = Array.isArray(data.modelComparison) ? data.modelComparison : [];
 
     this.addLog(
       'DATA_IN',
@@ -730,48 +789,6 @@ class GeospatialDataTelemetryService {
         updateCadence: 'Mengikuti waktu keluaran penyedia',
         authorityLink: 'https://open-meteo.com/en/docs',
       };
-    });
-
-    // BMKG & ASEAN Regional Meteorological Feeds
-    regionalModelEntries.push({
-      id: 'bmkg_inatews_telemetry',
-      variableName: 'Sensor Seismik & InaTEWS Gempa Terkini',
-      modelCode: 'BMKG InaTEWS Real-time',
-      sourceFlag: '🇮🇩',
-      country: 'Indonesia',
-      countryCode: 'ID',
-      agencyName: 'Badan Meteorologi, Klimatologi, dan Geofisika (BMKG)',
-      category: 'ASEAN_NEIGHBOR',
-      categoryLabel: 'Lembaga Nasional Meteorologi Indonesia',
-      rawValue: 'Aktif (AutoGempa & Sensor Seismik)',
-      numericValue: 1,
-      unit: 'Status Operasional',
-      biasVsConsensus: '—',
-      resolution: 'Nasional / Stasiun Seismologi',
-      status: 'SYNCHRONIZED',
-      anomalyNotes: 'Data parameter guncangan seismik dan tsunami real-time terintegrasi BMKG.',
-      updateCadence: 'Setiap peristiwa / Real-time',
-      authorityLink: 'https://data.bmkg.go.id/',
-    });
-    regionalModelEntries.push({
-      id: 'asean_asmc_transboundary',
-      variableName: 'Pemantauan Asap Lintas Batas (Haze ASMC)',
-      modelCode: 'ASMC / MSS Regional',
-      sourceFlag: '🇸🇬',
-      country: 'Singapura / ASEAN',
-      countryCode: 'SG',
-      agencyName: 'ASEAN Specialised Meteorological Centre (ASMC)',
-      category: 'ASEAN_NEIGHBOR',
-      categoryLabel: 'Meteorologi Kawasan ASEAN',
-      rawValue: 'Normal / Rendah',
-      numericValue: 0,
-      unit: 'Tingkat Bahaya',
-      biasVsConsensus: '—',
-      resolution: 'Kawasan Regional ASEAN',
-      status: 'SYNCHRONIZED',
-      anomalyNotes: 'Indeks pemantauan anomali asap lintas batas dan dispersi polusi atmosferik regional.',
-      updateCadence: 'Harian',
-      authorityLink: 'http://asmc.asean.org/',
     });
 
     if (isMetFallback && metTemp !== null) {
@@ -919,7 +936,7 @@ class GeospatialDataTelemetryService {
           id,
           variableName,
           modelCode: id.startsWith('rawP') && ['rawPm25', 'rawPm10'].includes(id) || id === 'rawOzone' ? 'CAMS' : 'Open-Meteo Best Match',
-          sourceFlag: '🌐',
+          sourceFlag: 'OM',
           country: 'Koordinat pilihan',
           countryCode: '',
           agencyName: 'Melalui Open-Meteo',
@@ -947,7 +964,7 @@ class GeospatialDataTelemetryService {
           id,
           variableName,
           modelCode: 'CAMS',
-          sourceFlag: '🌐',
+          sourceFlag: 'OM',
           country: 'Koordinat pilihan',
           countryCode: '',
           agencyName: 'Melalui Open-Meteo',
@@ -1010,111 +1027,177 @@ class GeospatialDataTelemetryService {
     if (queryKey) this.snapshotsByLocation.set(`query:${queryKey}`, snapshot);
     while (this.snapshotsByLocation.size > 256) this.snapshotsByLocation.delete(this.snapshotsByLocation.keys().next().value!);
 
-    const validTemps = temperatures.filter(t => finiteNumber(t));
-    const meanTemp = validTemps.length ? validTemps.reduce((a, b) => a + b, 0) / validTemps.length : (data.current?.consensusTemperature ?? 28);
-    const variance = validTemps.length > 1 ? validTemps.reduce((sum, t) => sum + (t - meanTemp) ** 2, 0) / validTemps.length : 0;
-    const stdDev = parseFloat(Math.sqrt(variance).toFixed(2));
-    const spread = data.modelSpread != null ? data.modelSpread : (validTemps.length > 1 ? Math.max(...validTemps) - Math.min(...validTemps) : 0);
-    const overallScore = Math.min(99.2, Math.max(76.0, parseFloat((98.6 - stdDev * 2.1).toFixed(1))));
+    const validTemps = temperatures.filter((t): t is number => finiteNumber(t));
+    const consensusT = value(data.current?.consensusTemperature);
+    const meanTemp = validTemps.length ? validTemps.reduce((a, b) => a + b, 0) / validTemps.length : consensusT;
+    const variance = validTemps.length > 1 && meanTemp !== null
+      ? validTemps.reduce((sum, t) => sum + (t - meanTemp) ** 2, 0) / validTemps.length
+      : null;
+    const stdDev = variance !== null ? parseFloat(Math.sqrt(variance).toFixed(2)) : null;
+    const spread = data.modelSpread != null ? data.modelSpread : (validTemps.length > 1 ? Math.max(...validTemps) - Math.min(...validTemps) : null);
+
+    const rhVal = rawParameters.rawHumidity;
+    const dewpointC = finiteNumber(consensusT) && finiteNumber(rhVal) && rhVal > 0 && rhVal <= 100
+      ? (() => {
+          const a = 17.625;
+          const b = 243.04;
+          const gamma = Math.log(rhVal / 100) + (a * consensusT) / (b + consensusT);
+          return parseFloat(((b * gamma) / (a - gamma)).toFixed(1));
+        })()
+      : null;
+
+    const pressVal = rawParameters.rawSurfacePressure ?? rawParameters.rawSeaLevelPressure;
+    const coriolisNum = finiteNumber(lat) && Math.abs(lat) <= 90 ? (2 * 7.2921e-5 * Math.sin((lat * Math.PI) / 180) * 1e5) : null;
+    const coriolisVal = coriolisNum !== null ? coriolisNum.toFixed(3) : '—';
+
+    const precipVal = rawParameters.rawPrecipitationSensor;
+    const wmoCodeVal = rawParameters.rawWeatherCode;
+    const cloudVal = rawParameters.rawCloudCover;
+    const uvVal = rawParameters.rawUvIndex;
+
+    const tempRhPassed = finiteNumber(consensusT) && finiteNumber(rhVal) && consensusT >= -60 && consensusT <= 60 && rhVal >= 0 && rhVal <= 100;
+    const lclPassed = dewpointC !== null && finiteNumber(consensusT) && dewpointC <= consensusT + 0.1;
+    const lclHeightM = lclPassed ? Math.max(0, Math.round(125 * (consensusT! - dewpointC!))) : null;
+    const baroPassed = finiteNumber(pressVal) && pressVal >= 500 && pressVal <= 1085 && finiteNumber(data.elevation);
+    const coriolisPassed = coriolisNum !== null;
+    const cloudUvPassed = finiteNumber(cloudVal) && cloudVal >= 0 && cloudVal <= 100 && (uvVal === null || (uvVal >= 0 && uvVal <= 20));
+    const precipWmoInconsistent = finiteNumber(precipVal) && finiteNumber(wmoCodeVal) && (
+      (precipVal > 2.5 && wmoCodeVal <= 1) || (wmoCodeVal >= 63 && wmoCodeVal <= 65 && precipVal === 0)
+    );
+    const precipPassed = finiteNumber(precipVal) && precipVal >= 0 && (wmoCodeVal === null || (wmoCodeVal >= 0 && wmoCodeVal <= 99)) && !precipWmoInconsistent;
 
     const metricsAudit: AccuracyAuditMetric[] = [
       {
         parameter: 'Konsensus Suhu Udara Multi-Model',
-        sensorRaw: validTemps.length > 1 ? `Min ${Math.min(...validTemps).toFixed(1)}°C ~ Max ${Math.max(...validTemps).toFixed(1)}°C` : `${rawParameters.rawTemperature ?? 0}°C`,
-        aiCalibrated: `${data.current?.consensusTemperature ?? meanTemp.toFixed(1)}°C`,
-        spreadOrStdDev: `σ = ${stdDev}°C (${validTemps.length} Model NWP Aktif)`,
-        accuracyScore: overallScore,
-        status: stdDev < 1.0 ? 'AKURAT' : 'TERVERIFIKASI',
-        methodology: 'Ensemble model NWP global (ECMWF, GFS, ICON, JMA, GEM) tervalidasi rentang fisik.',
+        sensorRaw: validTemps.length > 1 ? `Min ${Math.min(...validTemps).toFixed(1)}°C ~ Max ${Math.max(...validTemps).toFixed(1)}°C` : (rawParameters.rawTemperature != null ? `${rawParameters.rawTemperature}°C` : 'Tidak tersedia'),
+        aiCalibrated: consensusT != null ? `${consensusT}°C` : 'Tidak tersedia',
+        spreadOrStdDev: stdDev != null ? `σ = ${stdDev}°C (${validTemps.length} Model)` : (validTemps.length === 1 ? 'Model Tunggal' : '0 Model NWP'),
+        accuracyScore: null,
+        status: validTemps.length >= 2 && stdDev != null && stdDev <= 1.5 ? 'LOLOS UJI' : (consensusT != null ? 'PARSIAL' : 'TIDAK TERSEDIA'),
+        methodology: 'Dispersi ensemble model NWP; belum dipasangkan dengan observasi stasiun AWS darat.',
       },
       {
-        parameter: 'Presipitasi & Deteksi Hujan',
-        sensorRaw: `${rawParameters.rawPrecipitationSensor ?? 0} mm/jam`,
-        aiCalibrated: `${data.current?.precipitation ?? 0} mm/jam`,
-        spreadOrStdDev: 'Respon multi-sensor WMO',
-        accuracyScore: 98.2,
-        status: 'TERVERIFIKASI',
-        methodology: 'Cross-check kode WMO 51-67 dengan kelembapan jenuh troposfer.',
+        parameter: 'Presipitasi & Kode WMO',
+        sensorRaw: precipVal != null ? `${precipVal} mm/jam` : 'Tidak tersedia',
+        aiCalibrated: data.current?.precipitation != null ? `${data.current.precipitation} mm/jam` : 'Tidak tersedia',
+        spreadOrStdDev: wmoCodeVal != null ? `WMO Code ${wmoCodeVal}` : 'WMO Code tidak tersedia',
+        accuracyScore: null,
+        status: precipPassed ? 'LOLOS UJI' : precipVal == null ? 'TIDAK TERSEDIA' : 'PERINGATAN',
+        methodology: 'Validasi rentang fisik presipitasi (≥ 0 mm/jam) & kode hidrometeor WMO.',
       },
       {
         parameter: 'Tekanan Udara Permukaan / MSL',
         sensorRaw: rawParameters.rawSurfacePressure != null ? `${rawParameters.rawSurfacePressure} hPa (Surface)` : (rawParameters.rawSeaLevelPressure != null ? `${rawParameters.rawSeaLevelPressure} hPa (MSL)` : 'Tidak tersedia'),
         aiCalibrated: data.current?.pressure != null ? `${data.current.pressure} hPa` : 'Tidak tersedia',
-        spreadOrStdDev: '±0.5 hPa vs Barometrik',
-        accuracyScore: 99.1,
-        status: 'AKURAT',
-        methodology: `Gradien barometrik hidrostatik dp/dz = -ρg diselaraskan dengan elevasi ${data.elevation} m DPL.`,
+        spreadOrStdDev: finiteNumber(data.elevation) ? `Elevasi DEM ${data.elevation} m` : 'Elevasi tidak tersedia',
+        accuracyScore: null,
+        status: baroPassed ? 'LOLOS UJI' : pressVal == null ? 'TIDAK TERSEDIA' : 'PERINGATAN',
+        methodology: 'Pemeriksaan rentang hidrostatik atmosfer (500–1085 hPa).',
       },
       {
         parameter: 'Kecepatan & Vektor Angin',
-        sensorRaw: `${rawParameters.rawWindSpeed ?? 0} km/jam (Arah ${rawParameters.rawWindDirection ?? 0}°)`,
-        aiCalibrated: `${data.current?.windSpeed ?? 0} km/jam`,
-        spreadOrStdDev: 'Lapisan batas permukaan 10m',
-        accuracyScore: 97.9,
-        status: 'AKURAT',
-        methodology: 'Vektor momentum atmosfer 10m sesuai lapisan gesekan permukaan bumi.',
+        sensorRaw: rawParameters.rawWindSpeed != null ? `${rawParameters.rawWindSpeed} km/jam (${rawParameters.rawWindDirection != null ? `${rawParameters.rawWindDirection}°` : 'Arah —'})` : 'Tidak tersedia',
+        aiCalibrated: data.current?.windSpeed != null ? `${data.current.windSpeed} km/jam` : 'Tidak tersedia',
+        spreadOrStdDev: 'Lapisan permukaan 10m',
+        accuracyScore: null,
+        status: finiteNumber(data.current?.windSpeed) && data.current!.windSpeed! >= 0 ? 'LOLOS UJI' : 'TIDAK TERSEDIA',
+        methodology: 'Validasi batas fisik kecepatan & arah angin 10m (0–360°).',
       },
       {
         parameter: 'Kualitas Udara (PM2.5, PM10, Ozon)',
         sensorRaw: `PM2.5: ${rawParameters.rawPm25 ?? '—'} | PM10: ${rawParameters.rawPm10 ?? '—'} | O₃: ${rawParameters.rawOzone ?? '—'}`,
-        aiCalibrated: `AQI Terverifikasi (${rawParameters.rawPm25 ?? '—'} µg/m³)`,
+        aiCalibrated: rawParameters.rawPm25 != null ? `${rawParameters.rawPm25} µg/m³` : 'Tidak tersedia',
         spreadOrStdDev: 'Copernicus CAMS',
-        accuracyScore: 96.8,
-        status: 'TERVERIFIKASI',
-        methodology: 'Data aerosol dan fotokimia troposferik dari satelit Sentinel-5P / CAMS.',
+        accuracyScore: null,
+        status: rawParameters.rawPm25 != null && rawParameters.rawPm10 != null && rawParameters.rawOzone != null
+          ? 'LOLOS UJI'
+          : (rawParameters.rawPm25 != null || rawParameters.rawOzone != null ? 'PARSIAL' : 'TIDAK TERSEDIA'),
+        methodology: 'Data model komposisi atmosfer Copernicus CAMS via Open-Meteo (bukan sensor AQMS lokal).',
       },
     ];
 
-    const coriolisVal = (2 * 7.2921e-5 * Math.sin((lat * Math.PI) / 180) * 1e5).toFixed(3);
     const consistencyChecks: ConsistencyCheckResult[] = [
       {
         testName: 'Uji Termodinamika Suhu & Kelembapan Relatif',
         formula: 'e_sat = 6.112 * exp(17.67*T / (T+243.5))',
-        evaluated: `RH = ${rawParameters.rawHumidity ?? 75}% pada T = ${data.current?.consensusTemperature ?? 28}°C`,
-        passed: true,
-        explanation: 'Kelembapan relatif dan tekanan uap air jenuh berada pada batas fisik valid tanpa melanggar batas saturasi.',
+        evaluated: tempRhPassed
+          ? `RH = ${rhVal}% pada T = ${consensusT}°C`
+          : 'Data suhu/kelembapan tidak lengkap atau di luar rentang fisik.',
+        passed: Boolean(tempRhPassed),
+        explanation: tempRhPassed
+          ? 'Kelembapan relatif (0–100%) dan suhu berada pada batas fisik valid.'
+          : 'Gagal verifikasi karena data suhu atau kelembapan tidak tersedia/tidak valid.',
       },
       {
         testName: 'Uji Termodinamika Penguapan vs Kondensasi Awan',
-        formula: 'LCL ≈ 125 × (T - T_dew) | VPD = e_sat(T) - e',
-        evaluated: `LCL ≈ ${Math.round(125 * Math.max(1, (data.current?.consensusTemperature ?? 28) - 22))}m (Kondensasi Awan Normal)`,
-        passed: true,
-        explanation: 'Ketinggian dasar kondensasi awan (LCL) konsisten dengan suhu dan kelembapan permukaan.',
+        formula: 'LCL ≈ 125 × (T - T_dew) | Magnus T_dew',
+        evaluated: lclPassed
+          ? `T_dew = ${dewpointC}°C | LCL ≈ ${lclHeightM} m`
+          : 'T_dew / LCL tidak dapat dihitung (data suhu/RH tidak tersedia).',
+        passed: Boolean(lclPassed),
+        explanation: lclPassed
+          ? 'Ketinggian dasar kondensasi awan (LCL) dihitung deterministik dari titik embun Magnus-Tetens.'
+          : 'Perhitungan titik embun memerlukan suhu dan kelembapan relatif valid > 0%.',
       },
       {
         testName: 'Uji Gradien Barometrik vs Elevasi',
-        formula: 'dp/dz = -ρ * g',
-        evaluated: rawParameters.rawSurfacePressure != null ? `p = ${rawParameters.rawSurfacePressure} hPa pada elevasi ${data.elevation}m DPL` : `Tekanan terverifikasi pada elevasi ${data.elevation}m DPL`,
-        passed: true,
-        explanation: 'Tekanan atmosfer permukaan sinkron dengan profil elevasi barometrik standar atmosfer.',
+        formula: 'dp/dz = -ρ * g (500–1085 hPa)',
+        evaluated: baroPassed
+          ? `p = ${pressVal} hPa pada elevasi ${data.elevation}m DPL`
+          : 'Data tekanan udara atau elevasi tidak tersedia.',
+        passed: Boolean(baroPassed),
+        explanation: baroPassed
+          ? 'Tekanan atmosfer berada pada rentang fisik valid terhadap elevasi DEM.'
+          : 'Tidak dapat memverifikasi kesetimbangan barometrik karena nilai tekanan atau elevasi kosong.',
       },
       {
         testName: 'Uji Dinamika Angin & Parameter Coriolis Navier-Stokes',
-        formula: 'du/dt - f*v = -(1/ρ)*dp/dx + ν∇²u',
-        evaluated: `Parameter Coriolis f = ${coriolisVal}×10⁻⁵ s⁻¹ pada lintang ${lat.toFixed(2)}°`,
-        passed: true,
-        explanation: 'Gaya semu Coriolis terhitung deterministik dan seimbang terhadap rotasi bumi.',
+        formula: 'f = 2 * Ω * sin(φ)',
+        evaluated: coriolisPassed
+          ? `Parameter Coriolis f = ${coriolisVal}×10⁻⁵ s⁻¹ pada lintang ${lat.toFixed(2)}°`
+          : 'Koordinat lintang tidak valid.',
+        passed: Boolean(coriolisPassed),
+        explanation: 'Parameter Coriolis dihitung deterministik terhadap koordinat lintang lokasi.',
       },
       {
         testName: 'Uji Korelasi Tutupan Awan vs Indeks UV',
         formula: 'UV_net = UV_clear * (1 - 0.75 * (CloudCover/100)³)',
-        evaluated: `Awan = ${rawParameters.rawCloudCover ?? 30}% | Indeks UV = ${rawParameters.rawUvIndex ?? 'Proporsional'}`,
-        passed: true,
-        explanation: 'Fluks radiasi surya permukaan berbanding terbalik secara konsisten dengan tutupan awan.',
+        evaluated: cloudUvPassed
+          ? `Awan = ${cloudVal}% | Indeks UV = ${uvVal ?? 'Tidak dilaporkan'}`
+          : 'Data tutupan awan tidak tersedia atau Indeks UV di luar batas.',
+        passed: Boolean(cloudUvPassed),
+        explanation: cloudUvPassed
+          ? 'Nilai tutupan awan dan indeks UV berada dalam batas fisik yang konsisten.'
+          : 'Tutupan awan tidak dilaporkan (mis. fallback sumber parsial).',
       },
       {
         testName: 'Uji Kesesuaian Sensor Presipitasi vs WMO Code',
-        formula: 'WMO Code (51-67, 80-82) ↔ Presipitasi > 0 mm',
-        evaluated: `WMO Code ${rawParameters.rawWeatherCode ?? 0} ↔ Hujan ${rawParameters.rawPrecipitationSensor ?? 0} mm/jam`,
-        passed: true,
-        explanation: 'Status presipitasi selaras dengan klasifikasi hidrometeor standar Organisasi Meteorologi Dunia (WMO).',
+        formula: 'WMO Code ↔ Presipitasi ≥ 0 mm',
+        evaluated: finiteNumber(precipVal)
+          ? `WMO Code ${wmoCodeVal ?? 'N/A'} ↔ Hujan ${precipVal} mm/jam`
+          : 'Data presipitasi tidak tersedia.',
+        passed: Boolean(precipPassed),
+        explanation: precipPassed
+          ? 'Presipitasi dan kode WMO konsisten dan berada pada batas fisik.'
+          : 'Data presipitasi kosong atau tidak selaras dengan kode WMO.',
       },
     ];
+
+    const passedCount = consistencyChecks.filter(c => c.passed).length;
+    const overallScore = parseFloat(((passedCount / consistencyChecks.length) * 100).toFixed(1));
+    const confidenceRating: AccuracyScorecard['confidenceRating'] =
+      passedCount === consistencyChecks.length && validTemps.length >= 2 && (stdDev ?? 99) <= 1.2
+        ? 'Sangat Tinggi'
+        : passedCount >= 4
+          ? 'Tinggi'
+          : passedCount >= 2
+            ? 'Cukup'
+            : 'Meragukan';
 
     this.accuracyScorecard = {
       overallConfidenceScore: overallScore,
       multiModelStdDev: stdDev,
-      confidenceRating: stdDev <= 1.0 ? 'Sangat Tinggi' : stdDev <= 2.2 ? 'Tinggi' : 'Cukup',
+      confidenceRating,
       metricsAudit,
       consistencyChecks,
     };
@@ -1122,12 +1205,14 @@ class GeospatialDataTelemetryService {
     const rawTempStr = finiteNumber(c.temperature_2m) ? `${c.temperature_2m}°C` : (metTemp != null ? `${metTemp}°C` : '—');
     const rawPressStr = finiteNumber(c.surface_pressure) ? `${c.surface_pressure} hPa` : (metSeaPressure != null ? `${metSeaPressure} hPa` : '—');
     const rawWindStr = finiteNumber(c.wind_speed_10m) ? `${c.wind_speed_10m} km/j` : (metWindSpeed != null ? `${metWindSpeed} km/j` : '—');
-    const consensusTempStr = data.current?.consensusTemperature != null ? `${data.current.consensusTemperature}°C` : '—';
-    const consensusPressStr = (data.current as any)?.seaLevelPressure != null ? `${(data.current as any).seaLevelPressure} hPa` : '—';
+    const consensusTempStr = consensusT != null ? `${consensusT}°C` : '—';
+    const consensusPressStr = (data.current as any)?.seaLevelPressure != null ? `${(data.current as any).seaLevelPressure} hPa` : (data.current?.pressure != null ? `${data.current.pressure} hPa` : '—');
     const consensusWindStr = data.current?.windSpeed != null ? `${data.current.windSpeed} km/j` : '—';
 
     const aiSummaryText = _aiNwp?.scientificBriefing || (
-      data.current?.conditionText ? `Kondisi ${data.current.conditionText.toLowerCase()}, probabilitas hujan ${data.current.precipitationProb ?? 0}%, kelembapan ${data.current.humidity ?? 0}%` : 'Sintesis numerik konsensus siap dianalisis'
+      data.current?.conditionText
+        ? `Kondisi ${data.current.conditionText.toLowerCase()}, probabilitas hujan ${data.current.precipitationProb != null ? `${data.current.precipitationProb}%` : '—'}, kelembapan ${data.current.humidity != null ? `${data.current.humidity}%` : '—'}`
+        : 'Sintesis numerik konsensus siap dianalisis'
     );
 
     this.transformationDeltas = [
@@ -1142,25 +1227,27 @@ class GeospatialDataTelemetryService {
       },
       {
         parameter: 'Konsensus Ensemble Multi-Model',
-        rawInput: validTemps.length > 1 ? `${validTemps.length} Model NWP (${Math.min(...validTemps).toFixed(1)}°C ~ ${Math.max(...validTemps).toFixed(1)}°C)` : 'Model Tunggal',
-        aiProcessed: `${data.current?.consensusTemperature ?? meanTemp.toFixed(1)}°C (Dispersi σ = ${stdDev}°C)`,
-        delta: `±${(spread / 2).toFixed(1)}°C rentang dispersi`,
+        rawInput: validTemps.length > 1
+          ? `${validTemps.length} Model NWP (${Math.min(...validTemps).toFixed(1)}°C ~ ${Math.max(...validTemps).toFixed(1)}°C)`
+          : validTemps.length === 1 ? '1 Model NWP' : '0 Model NWP Tersedia',
+        aiProcessed: `${consensusT ?? (meanTemp != null ? meanTemp.toFixed(1) : '—')}°C${stdDev != null ? ` (Dispersi σ = ${stdDev}°C)` : ''}`,
+        delta: spread != null ? `±${(spread / 2).toFixed(1)}°C rentang dispersi` : 'Rentang dispersi tidak tersedia',
         stage: 'Konsensus Multi-Model',
-        scientificRationale: 'Agregasi pembobotan ensemble multi-lembaga (ECMWF, GFS, ICON, JMA, GEM) untuk mereduksi bias model tunggal.',
+        scientificRationale: 'Agregasi ensemble model NWP yang benar-benar diterima tanpa penambahan model sintetis.',
         impactLevel: 'Kritis',
       },
       {
-        parameter: 'Koreksi Anomali & Deteksi Gerimis',
-        rawInput: `Presipitasi: ${rawParameters.rawPrecipitationSensor ?? 0} mm/jam | WMO: ${rawParameters.rawWeatherCode ?? 0}`,
-        aiProcessed: `${data.current?.precipitation ?? 0} mm/jam (Kondisi: ${data.current?.conditionText ?? 'Stabil'})`,
-        delta: 'Koreksi ambang batas deteksi',
+        parameter: 'Pemeriksaan Sensor Presipitasi & WMO',
+        rawInput: `Presipitasi: ${precipVal ?? '—'} mm/jam | WMO: ${wmoCodeVal ?? '—'}`,
+        aiProcessed: `${data.current?.precipitation ?? '—'} mm/jam (Kondisi: ${data.current?.conditionText ?? '—'})`,
+        delta: precipPassed ? 'Lolos validasi fisik' : 'Periksa ketersediaan parameter',
         stage: 'Koreksi Gerimis / Anomali',
-        scientificRationale: 'Memverifikasi presipitasi mikro terhadap kelembapan relatif dan tutupan awan agar gerimis tidak terbaca kering.',
+        scientificRationale: 'Memverifikasi presipitasi dan kode WMO secara ketat dengan mempertahankan null bila tidak tersedia.',
         impactLevel: 'Penting',
       },
       {
         parameter: 'Diagnostik Persamaan Fisika NWP',
-        rawInput: `Lintang: ${lat.toFixed(3)}° | Tekanan: ${rawParameters.rawSurfacePressure ?? rawParameters.rawSeaLevelPressure ?? 'MSL'} hPa`,
+        rawInput: `Lintang: ${lat.toFixed(3)}° | Tekanan: ${pressVal ?? '—'} hPa`,
         aiProcessed: `f Coriolis = ${coriolisVal}×10⁻⁵ s⁻¹`,
         delta: 'Parameter dinamika fluida',
         stage: '7 Persamaan Fisika NWP',
@@ -1169,31 +1256,31 @@ class GeospatialDataTelemetryService {
       },
       {
         parameter: 'Sintesis Saintifik Gemini AI',
-        rawInput: `Snapshot: ${validTemps.length} model NWP (${Math.min(...validTemps).toFixed(1)}°C ~ ${Math.max(...validTemps).toFixed(1)}°C), RH: ${rawParameters.rawHumidity ?? 0}%, Awan: ${rawParameters.rawCloudCover ?? 0}%`,
+        rawInput: `Snapshot: ${validTemps.length} model NWP, RH: ${rhVal ?? '—'}%, Awan: ${cloudVal ?? '—'}%`,
         aiProcessed: aiSummaryText,
-        delta: 'Sintesis naratif saintifik',
+        delta: _aiNwp?.isAiVerified ? 'Penjelasan AI tersedia' : 'Ringkasan lokal',
         stage: 'Sintesis Gemini AI',
-        scientificRationale: 'Menerjemahkan divergensi model dan profil fisik ke narasi prakiraan yang dapat ditindaklanjuti pengguna.',
+        scientificRationale: 'Merangkum data yang benar-benar diterima tanpa menggantikan akurasi pengamatan lapangan.',
         impactLevel: 'Penting',
       },
     ];
     this.addLog(
       'AI_EXEC',
       'PHYSICS_NWP_CALC',
-      `[Proses Hitung] Komputasi deterministik atmosfer: Parameter Coriolis f=${coriolisVal}×10⁻⁵ s⁻¹, deviasi ensemble multi-model σ=${stdDev}°C, uji gradien barometrik elevasi ${data.elevation}m DPL.`,
-      { coriolisVal, stdDev, overallScore }
+      `[Proses Hitung] Komputasi deterministik atmosfer: Coriolis f=${coriolisVal}×10⁻⁵ s⁻¹, deviasi multi-model σ=${stdDev != null ? `${stdDev}°C` : '—'}, ${passedCount}/${consistencyChecks.length} uji konsistensi fisik lolos.`,
+      { coriolisVal, stdDev, overallScore, passedCount }
     );
     this.addLog(
       'AI_EXEC',
       'GEMINI_AI_SYNTHESIS',
-      `[Pasca-Hitung] Gemini AI menyelesaikan evaluasi saintifik pasca-kalkulasi: ${aiSummaryText}. Status verifikasi fisika: ${this.accuracyScorecard?.consistencyChecks?.filter(c => c.passed).length ?? 6}/6 uji lolos.`,
+      `[Pasca-Hitung] Evaluasi konsistensi fisik selesai (${passedCount}/${consistencyChecks.length} uji lolos): ${aiSummaryText}`,
       { summary: aiSummaryText, isAiVerified: _aiNwp?.isAiVerified ?? false }
     );
     this.addLog(
       'DATA_OUT',
       'WEATHER_CONSENSUS',
-      `[Pasca-Hitung] Data konsensus terharmonisasi siap dipajang (${locationName}): Suhu Konsensus ${data.current?.consensusTemperature ?? meanTemp.toFixed(1)}°C, Rasa Panas ${data.current?.apparentTemperature ?? '—'}°C, Prob. Hujan ${data.current?.precipitationProb ?? 0}%, Skor Akurasi Konsensus ${overallScore}%.`,
-      { dataTime: data.dataTime, coverageScope: data.coverageScope, accuracyScore: overallScore }
+      `[Pasca-Hitung] Data konsensus siap (${locationName}): Suhu ${consensusTempStr}, Hujan Prob ${data.current?.precipitationProb ?? '—'}%, Lolos Uji Fisik ${overallScore}%.`,
+      { dataTime: data.dataTime, coverageScope: data.coverageScope, consistencyScore: overallScore }
     );
     this.addLog(
       'SUCCESS',

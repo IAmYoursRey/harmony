@@ -119,8 +119,9 @@ export function GameHUD({
       </div>
 
       {phase === "running" && timerCritical && (
-        <div className="mt-3 text-xs text-white font-bold text-center bg-red-600 rounded-lg py-1.5 animate-pulse shadow-lg ring-2 ring-red-400">
-          ⚠ WAKTU HAMPIR HABIS! LARI!
+        <div className="mt-3 text-xs text-white font-bold text-center bg-red-600 rounded-lg py-1.5 animate-pulse shadow-lg ring-2 ring-red-400 flex items-center justify-center gap-1.5">
+          <AlertTriangle className="h-3.5 w-3.5" />
+          <span>WAKTU HAMPIR HABIS! LARI!</span>
         </div>
       )}
     </div>

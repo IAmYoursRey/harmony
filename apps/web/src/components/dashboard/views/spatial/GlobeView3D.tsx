@@ -1793,7 +1793,7 @@ export function GlobeView3D({
           lat: h.lat,
           lng: h.lng,
           type: 'fire_hotspot',
-          name: `🔥 Karhutla: ${h.locationName}`,
+          name: `Karhutla: ${h.locationName}`,
           visualSummary: `Titik panas satelit ${h.instrument} (${h.satellite}) dengan suhu kecerahan ${h.brightnessKelvin ?? '—'} K (${h.brightnessCelsius ?? '—'}°C) dan daya radiasi api (FRP) ${h.frpMw ?? '—'} MW. Kategori vegetasi: ${h.vegetationType || 'Belum tersedia'}.`,
           monitoringSource: `NASA FIRMS (deteksi termal, bukan konfirmasi kebakaran)`,
           fireData: h,
@@ -1857,7 +1857,7 @@ export function GlobeView3D({
           lng: corr.center[0],
           source: 'SIMULATION',
           type: 'traffic_corridor',
-          name: `🚗 ${corr.name}`,
+          name: `${corr.name}`,
           visualSummary: `[SIMULASI KORIDOR] Status: ${corr.status.toUpperCase()} (${corr.speedKmh} km/jam). ${corr.condition}. Panjang rute: ${corr.lengthKm} km. Posisi beacon merupakan simulasi visual kecepatan rata-rata, bukan posisi GPS fisik kendaraan.`,
           monitoringSource: 'Simulasi Koridor Lalu Lintas (Model Geometri Jalan & Estimasi OSRM)',
           trafficData: corr,
@@ -2115,7 +2115,7 @@ export function GlobeView3D({
           lat: node.lat,
           lng: node.lng,
           type: 'earth_sensor',
-          name: `📡 ${node.name}`,
+          name: `${node.name}`,
           visualSummary: `[Katalog Stasiun Sensor] Kode: ${node.code}. Kategori: ${family?.name || node.family} (${node.subCategory}). Platform: ${node.platform}. Status: ${node.status}. Pengukuran: ${node.primaryMeasurement} (${node.unit}). Nilai Terkini: ${node.currentValue}. Telemetri: ${node.telemetryType}.`,
           monitoringSource: `${node.provider} (${node.country || 'Global'})`,
           sensorData: node,
@@ -2218,7 +2218,7 @@ export function GlobeView3D({
         lat: userCoords.lat,
         lng: userCoords.lng,
         type: 'route_pin',
-        name: '📍 Lokasi Pengguna',
+        name: 'Lokasi Pengguna',
         visualSummary: `Posisi perangkat: ${userCoords.lat.toFixed(4)}°, ${userCoords.lng.toFixed(4)}° (akurasi ±${Math.round(userCoords.accuracy || 10)}m).`,
         monitoringSource: 'GPS / Geolocation Browser',
       } as GlobeMarker,
@@ -2622,7 +2622,7 @@ export function GlobeView3D({
         <div 
           onPointerDown={(e) => e.stopPropagation()}
           onClick={(e) => e.stopPropagation()}
-          className="absolute top-24 sm:top-28 right-4 md:right-36 lg:right-40 z-30 w-80 max-w-[calc(100vw-2.5rem)] p-4 rounded-3xl bg-slate-900/95 backdrop-blur-2xl border border-white/15 text-white shadow-2xl animate-in fade-in zoom-in-95 duration-200 max-h-[calc(100vh-14rem)] overflow-y-auto"
+          className="absolute top-24 sm:top-28 right-4 md:right-36 lg:right-40 z-30 w-80 max-w-[calc(100vw-2.5rem)] p-4 rounded-3xl bg-slate-900/95 backdrop-blur-2xl border border-white/15 text-white shadow-2xl animate-in fade-in zoom-in-95 duration-200 max-h-[calc(var(--vh-full)-14rem)] overflow-y-auto"
         >
           <div className="flex items-center justify-between pb-2 mb-2 border-b border-slate-800">
             <span className="text-[10px] font-mono font-bold tracking-wider text-sky-400 uppercase flex items-center gap-1.5">
@@ -2711,7 +2711,7 @@ export function GlobeView3D({
                 </div>
               )}
               <div className="mt-2 pt-1.5 border-t border-amber-500/20 text-[10px] text-amber-200/80 leading-tight">
-                ⚠️ Catatan: Tidak ada prediksi waktu kejadian gempa bumi atau jaminan ketiadaan risiko dari nihilnya marker feed.
+                Catatan: Tidak ada prediksi waktu kejadian gempa bumi atau jaminan ketiadaan risiko dari nihilnya marker feed.
               </div>
             </div>
           )}

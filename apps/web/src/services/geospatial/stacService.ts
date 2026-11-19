@@ -1,4 +1,5 @@
 import { DataProvenance } from './types';
+import { createTimeoutSignal } from '../../utils/browserCompat';
 
 export interface STACSearchQuery {
   bbox?: [number, number, number, number]; // [minLng, minLat, maxLng, maxLat]
@@ -260,9 +261,10 @@ class STACService {
       return assetHref;
     }
 
+    const localTimeout = signal ? null : createTimeoutSignal(5000);
     try {
       const signUrl = `https://planetarycomputer.microsoft.com/api/sas/v1/sign?href=${encodeURIComponent(assetHref)}`;
-      const res = await fetch(signUrl, { signal: signal || AbortSignal.timeout(5000) });
+      const res = await fetch(signUrl, { signal: signal || localTimeout?.signal });
       if (!res.ok) {
         throw new Error(`SIGNING_FAILED: Planetary Computer SAS signing gagal (HTTP ${res.status})`);
       }
@@ -280,6 +282,8 @@ class STACService {
         throw err;
       }
       throw new Error(`SIGNING_FAILED: Gagal menandatangani aset raster: ${msg}`);
+    } finally {
+      localTimeout?.cleanup();
     }
   }
 
@@ -305,9 +309,10 @@ class STACService {
     }
 
     if (currentHref.startsWith('s3://')) {
+      const localTimeout = signal ? null : createTimeoutSignal(8000);
       try {
         const itemUrl = `https://planetarycomputer.microsoft.com/api/stac/v1/collections/${encodeURIComponent(collection)}/items/${encodeURIComponent(sceneId)}`;
-        const res = await fetch(itemUrl, { signal: signal || AbortSignal.timeout(8000) });
+        const res = await fetch(itemUrl, { signal: signal || localTimeout?.signal });
         if (res.ok) {
           const item = await res.json();
           if (item?.id && item.id !== sceneId) {
@@ -338,6 +343,8 @@ class STACService {
       } catch (err: any) {
         if (signal?.aborted) throw err;
         throw new Error(`ASSET_RESOLUTION_FAILED: ${err instanceof Error ? err.message : String(err)}`);
+      } finally {
+        localTimeout?.cleanup();
       }
     }
 

@@ -106,17 +106,17 @@ export function StudentSessionJoin() {
           <Users className="h-7 w-7" />
         </div>
         <h2 className="text-2xl font-display font-black text-ink-900 dark:text-white mb-1.5 text-center">
-          Gabung Mode Online / Mabar
+          Gabung Sesi
         </h2>
         <p className="text-sm text-slate-500 mb-5 text-center">
-          Pilih nama karakter unik, lalu masukkan kode room atau klik room aktif di bawah.
+          Tentukan nama peserta, lalu masukkan kode ruang atau pilih ruang aktif.
         </p>
 
         <form onSubmit={handleJoin} className="space-y-4">
           <div>
             <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1.5 flex items-center gap-1.5">
               <UserCheck className="h-3.5 w-3.5 text-indigo-500" />
-              Nama Karakter Kamu di Simulasi
+              Nama Peserta Simulasi
             </label>
             <input
               type="text"
@@ -147,7 +147,7 @@ export function StudentSessionJoin() {
 
           <div>
             <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1.5 text-center">
-              Kode Room 6 Digit
+              Kode Ruang 6 Digit
             </label>
             <input
               id="session-code-input"
@@ -181,7 +181,7 @@ export function StudentSessionJoin() {
       <div className="glass rounded-2xl p-5 space-y-3">
         <div className="flex items-center justify-between">
           <h3 className="font-bold text-sm text-slate-800 dark:text-white">
-            Room Publik Aktif ({rooms.length})
+            Ruang Aktif ({rooms.length})
           </h3>
           <button
             type="button"
@@ -195,7 +195,7 @@ export function StudentSessionJoin() {
 
         {rooms.length === 0 ? (
           <p className="text-xs text-slate-500 text-center py-6">
-            Belum ada room online aktif saat ini. Buat room baru untuk mabar!
+            Belum ada ruang aktif saat ini. Buat ruang baru untuk memulai sesi bersama.
           </p>
         ) : (
           <div className="space-y-2">
@@ -223,8 +223,8 @@ export function StudentSessionJoin() {
                     </span>
                   </div>
                   <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-0.5">
-                    {room.disasterType} · {room.participantCount} pemain ·{" "}
-                    {room.settings?.mode === "race" ? "Kompetisi Balap" : "Mabar Santai"}
+                    {room.disasterType} · {room.participantCount} peserta ·{" "}
+                    {room.settings?.mode === "race" ? "Kompetisi Cepat" : "Sesi Kolaboratif"}
                   </p>
                 </div>
                 <button

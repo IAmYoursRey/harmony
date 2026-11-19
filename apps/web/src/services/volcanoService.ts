@@ -6,6 +6,7 @@ export type VolcanoAlertLevel =
   | 'Level III (Siaga)'
   | 'Level II (Waspada)'
   | 'Level I (Normal)'
+  | 'Dilaporkan Aktif (GVP/USGS)'
   | 'Tidak Aktif (Padam/Purba)'
   | 'Tidak Aktif (Tidur/Dormant)';
 
@@ -14,6 +15,15 @@ export interface EruptionEvent {
   vei?: number;
   duration?: string;
   note: string;
+}
+
+export interface VolcanoLiveSyncState {
+  status: 'UNCHECKED' | 'LIVE' | 'ERROR';
+  provider: string;
+  fetchedAt: string | null;
+  feedPublishedAt: string | null;
+  matchedCount: number;
+  error: string | null;
 }
 
 export interface VolcanoLiveStatus {
@@ -31,7 +41,8 @@ export interface VolcanoLiveStatus {
   seismicitySummary?: string;
   dangerRadiusKm: number;
   source: string;
-  operationalStatus: 'VERIFIED_LIVE_FEED' | 'UNVERIFIED_CATALOG_BASELINE';
+  operationalStatus: 'VERIFIED_GVP_WEEKLY_FEED' | 'VERIFIED_LIVE_FEED' | 'UNVERIFIED_CATALOG_BASELINE';
+  gvpLink?: string;
   isGeologicallyActive: boolean;
   volcanoClassification:
     | 'Tipe A (Sangat Aktif)'
@@ -62,12 +73,12 @@ const COMPREHENSIVE_VOLCANO_CATALOG: VolcanoLiveStatus[] = [
     level: 'Level III (Siaga)',
     levelCode: 3,
     province: 'DI Yogyakarta & Jawa Tengah',
-    lastUpdate: new Date().toISOString(),
+    lastUpdate: 'Katalog Dasar Historis (Belum Tersinkron Live)',
     visualSummary: 'Kubah lava aktif di barat daya dan tengah kawah. Teramati guguran lava pijar mengarah ke Kali Bebeng & Kali Krasak dengan jarak luncur hingga 1.800 meter.',
     seismicitySummary: 'Gempa guguran harian berkisar 70-110 kejadian, vulkanik dangkal terdeteksi.',
     dangerRadiusKm: 7.0,
     source: 'PVMBG / MAGMA Indonesia',
-    operationalStatus: 'VERIFIED_LIVE_FEED',
+    operationalStatus: 'UNVERIFIED_CATALOG_BASELINE',
     isGeologicallyActive: true,
     volcanoClassification: 'Tipe A (Sangat Aktif)',
     formationEra: 'Pleistosen Akhir (~400.000 Tahun Lalu). Berkembang melalui 4 tahapan geologi: Pra-Merapi, Merapi Tua, Merapi Pertengahan, dan Merapi Baru/Modern sejak 2.000 SM.',
@@ -103,12 +114,12 @@ const COMPREHENSIVE_VOLCANO_CATALOG: VolcanoLiveStatus[] = [
     level: 'Level III (Siaga)',
     levelCode: 3,
     province: 'Jawa Timur',
-    lastUpdate: new Date().toISOString(),
+    lastUpdate: 'Katalog Dasar Historis (Belum Tersinkron Live)',
     visualSummary: 'Erupsi letusan abu berkala setinggi 500-1000m di atas puncak kawah Jonggring Saloko condong ke arah tenggara.',
     seismicitySummary: 'Gempa letusan harian rata-rata 40-75 kali, tremor menerus dan gempa hembusan.',
     dangerRadiusKm: 13.0,
     source: 'PVMBG / MAGMA Indonesia',
-    operationalStatus: 'VERIFIED_LIVE_FEED',
+    operationalStatus: 'UNVERIFIED_CATALOG_BASELINE',
     isGeologicallyActive: true,
     volcanoClassification: 'Tipe A (Sangat Aktif)',
     formationEra: 'Pleistosen Akhir (~300.000 SM), tumbuh bertahap di atas kaldera purba Mahameru dan komplek Tengger-Jambangan.',
@@ -141,12 +152,12 @@ const COMPREHENSIVE_VOLCANO_CATALOG: VolcanoLiveStatus[] = [
     level: 'Level III (Siaga)',
     levelCode: 3,
     province: 'Lampung (Selat Sunda)',
-    lastUpdate: new Date().toISOString(),
+    lastUpdate: 'Katalog Dasar Historis (Belum Tersinkron Live)',
     visualSummary: 'Asap kawah bertekanan lemah-sedang warna putih hingga kelabu tipis. Lontaran pijar terlihat saat malam hari.',
     seismicitySummary: 'Tremor mikro menerus beramplitudo 2-18 mm dan gempa vulkanik dangkal.',
     dangerRadiusKm: 5.0,
     source: 'PVMBG / MAGMA Indonesia',
-    operationalStatus: 'VERIFIED_LIVE_FEED',
+    operationalStatus: 'UNVERIFIED_CATALOG_BASELINE',
     isGeologicallyActive: true,
     volcanoClassification: 'Tipe A (Sangat Aktif)',
     formationEra: 'Muncul ke permukaan laut pada tahun 1927 di tengah kaldera runtuhan letusan dahsyat Krakatau 1883.',
@@ -177,12 +188,12 @@ const COMPREHENSIVE_VOLCANO_CATALOG: VolcanoLiveStatus[] = [
     level: 'Level IV (Awas)',
     levelCode: 4,
     province: 'Nusa Tenggara Timur',
-    lastUpdate: new Date().toISOString(),
+    lastUpdate: 'Katalog Dasar Historis (Belum Tersinkron Live)',
     visualSummary: 'Erupsi eksplosif paroksismal memuntahkan batu pijar dan kolom abu tebal setinggi 2.000-4.000m. Radius bahaya diperluas.',
     seismicitySummary: 'Tremor menerus amplitudo jenuh overscale dan gempa vulkanik dalam intensif.',
     dangerRadiusKm: 8.0,
     source: 'PVMBG / MAGMA Indonesia',
-    operationalStatus: 'VERIFIED_LIVE_FEED',
+    operationalStatus: 'UNVERIFIED_CATALOG_BASELINE',
     isGeologicallyActive: true,
     volcanoClassification: 'Tipe A (Sangat Aktif)',
     formationEra: 'Pleistosen Kuarter (~200.000 SM), merupakan pasangan gunung kembar vulkanik Lewotobi Laki-laki & Lewotobi Perempuan.',
@@ -213,12 +224,12 @@ const COMPREHENSIVE_VOLCANO_CATALOG: VolcanoLiveStatus[] = [
     level: 'Level III (Siaga)',
     levelCode: 3,
     province: 'Sumatera Barat',
-    lastUpdate: new Date().toISOString(),
+    lastUpdate: 'Katalog Dasar Historis (Belum Tersinkron Live)',
     visualSummary: 'Kolom abu teramati kelabu tebal condong ke timur laut. Terdengar dentuman letusan disertai hujan abu tipis di lereng.',
     seismicitySummary: 'Gempa letusan harian 3-12 kali dan hembusan berfluktuasi tinggi.',
     dangerRadiusKm: 4.5,
     source: 'PVMBG / MAGMA Indonesia',
-    operationalStatus: 'VERIFIED_LIVE_FEED',
+    operationalStatus: 'UNVERIFIED_CATALOG_BASELINE',
     isGeologicallyActive: true,
     volcanoClassification: 'Tipe A (Sangat Aktif)',
     formationEra: 'Pleistosen Akhir (~250.000 SM) pada sesar besar aktif Sumatra (The Great Sumatran Fault Zone).',
@@ -248,12 +259,12 @@ const COMPREHENSIVE_VOLCANO_CATALOG: VolcanoLiveStatus[] = [
     level: 'Level II (Waspada)',
     levelCode: 2,
     province: 'Jawa Timur',
-    lastUpdate: new Date().toISOString(),
+    lastUpdate: 'Katalog Dasar Historis (Belum Tersinkron Live)',
     visualSummary: 'Hembusan asap kawah putih tebal setinggi 200-500m disertai bau belerang kuat di bibir kawah.',
     seismicitySummary: 'Gempa tremor menerus amplitudo 0.5-3.5 mm mencirikan dinamika fluida gas hidrotermal aktif.',
     dangerRadiusKm: 1.0,
     source: 'PVMBG / MAGMA Indonesia',
-    operationalStatus: 'VERIFIED_LIVE_FEED',
+    operationalStatus: 'UNVERIFIED_CATALOG_BASELINE',
     isGeologicallyActive: true,
     volcanoClassification: 'Tipe A (Sangat Aktif)',
     formationEra: 'Pleistosen Tengah (~820.000 SM), terbentuk di dalam kaldera runtuhan Lautan Pasir Tengger raksasa pasca kolaps Gunung Tengger Purba.',
@@ -284,12 +295,12 @@ const COMPREHENSIVE_VOLCANO_CATALOG: VolcanoLiveStatus[] = [
     level: 'Level I (Normal)',
     levelCode: 1,
     province: 'Jawa Timur',
-    lastUpdate: new Date().toISOString(),
+    lastUpdate: 'Katalog Dasar Historis (Belum Tersinkron Live)',
     visualSummary: 'Kawah tenang pasca erupsi plinian 2014. Kubah lava dan danau kawah stabil, asap putih tipis.',
     seismicitySummary: 'Kegempaan vulkanik dalam batas normal.',
     dangerRadiusKm: 1.5,
     source: 'PVMBG / MAGMA Indonesia',
-    operationalStatus: 'VERIFIED_LIVE_FEED',
+    operationalStatus: 'UNVERIFIED_CATALOG_BASELINE',
     isGeologicallyActive: true,
     volcanoClassification: 'Tipe A (Sangat Aktif)',
     formationEra: 'Pleistosen Akhir (~150.000 SM), terkenal dengan siklus letusan eksplosif pendek yang sangat mematikan.',
@@ -320,12 +331,12 @@ const COMPREHENSIVE_VOLCANO_CATALOG: VolcanoLiveStatus[] = [
     level: 'Level I (Normal)',
     levelCode: 1,
     province: 'Nusa Tenggara Barat',
-    lastUpdate: new Date().toISOString(),
+    lastUpdate: 'Katalog Dasar Historis (Belum Tersinkron Live)',
     visualSummary: 'Kaldera raksasa sedalam 1.100m dengan diameter 6 km terpantau tenang dan megah.',
     seismicitySummary: 'Seismisitas dasar vulkanik stabil normal.',
     dangerRadiusKm: 1.0,
     source: 'PVMBG / MAGMA Indonesia',
-    operationalStatus: 'VERIFIED_LIVE_FEED',
+    operationalStatus: 'UNVERIFIED_CATALOG_BASELINE',
     isGeologicallyActive: true,
     volcanoClassification: 'Tipe A (Sangat Aktif)',
     formationEra: 'Pleistosen (~43.000 SM) di semenanjung Sanggar, Sumbawa.',
@@ -354,12 +365,12 @@ const COMPREHENSIVE_VOLCANO_CATALOG: VolcanoLiveStatus[] = [
     level: 'Level II (Waspada)',
     levelCode: 2,
     province: 'Sumatera Utara',
-    lastUpdate: new Date().toISOString(),
+    lastUpdate: 'Katalog Dasar Historis (Belum Tersinkron Live)',
     visualSummary: 'Asap kawah bertekanan lemah-sedang warna putih setinggi 100-300m di atas puncak.',
     seismicitySummary: 'Didominasi gempa hembusan dan gempa tektonik jauh.',
     dangerRadiusKm: 3.0,
     source: 'PVMBG / MAGMA Indonesia',
-    operationalStatus: 'VERIFIED_LIVE_FEED',
+    operationalStatus: 'UNVERIFIED_CATALOG_BASELINE',
     isGeologicallyActive: true,
     volcanoClassification: 'Tipe A (Sangat Aktif)',
     formationEra: 'Pleistosen Akhir (~200.000 SM) di dataran tinggi Karo, barat laut Kaldera Toba.',
@@ -389,12 +400,12 @@ const COMPREHENSIVE_VOLCANO_CATALOG: VolcanoLiveStatus[] = [
     level: 'Tidak Aktif (Padam/Purba)',
     levelCode: 0,
     province: 'Jawa Tengah (Kudus, Jepara, Pati)',
-    lastUpdate: new Date().toISOString(),
+    lastUpdate: 'Katalog Dasar Historis (Belum Tersinkron Live)',
     visualSummary: 'Kondisi stabil total. Kompleks puncak ditutupi hutan lindung lebat, perkebunan kopi, dan mata air jernih alami.',
     seismicitySummary: 'Nol aktivitas vulkanik. Hanya gempa tektonik kerak dangkal regional.',
     dangerRadiusKm: 0,
     source: 'Pusat Survei Geologi / PVMBG',
-    operationalStatus: 'VERIFIED_LIVE_FEED',
+    operationalStatus: 'UNVERIFIED_CATALOG_BASELINE',
     isGeologicallyActive: false,
     volcanoClassification: 'Gunung Api Purba (Padam / Extinct)',
     formationEra: 'Pleistosen Tengah (~1,5 Juta - 300.000 SM). Dulunya merupakan pulau vulkanik terpisah dari Pulau Jawa sebelum Selat Muria mendangkal pada abad ke-17.',
@@ -421,12 +432,12 @@ const COMPREHENSIVE_VOLCANO_CATALOG: VolcanoLiveStatus[] = [
     level: 'Tidak Aktif (Tidur/Dormant)',
     levelCode: 0,
     province: 'Jawa Tengah (Semarang)',
-    lastUpdate: new Date().toISOString(),
+    lastUpdate: 'Katalog Dasar Historis (Belum Tersinkron Live)',
     visualSummary: 'Kawah purba tenang dengan mata air panas belerang dan manifestasi solfatara aktif bersuhu 60-80°C di kompleks Candi Gedong Songo.',
     seismicitySummary: 'Kondisi seismik stabil dan tenang, tidak terdeteksi magma bergerak ke permukaan.',
     dangerRadiusKm: 0.5,
     source: 'PVMBG / Badan Geologi',
-    operationalStatus: 'VERIFIED_LIVE_FEED',
+    operationalStatus: 'UNVERIFIED_CATALOG_BASELINE',
     isGeologicallyActive: false,
     volcanoClassification: 'Tipe B (Istirahat / Dormant)',
     formationEra: 'Pleistosen Awal (~500.000 SM). Mengalami keruntuhan katastrofik kaldera Ungaran Tua sebelum membangun kerucut Ungaran Muda.',
@@ -453,12 +464,12 @@ const COMPREHENSIVE_VOLCANO_CATALOG: VolcanoLiveStatus[] = [
     level: 'Level II (Waspada)',
     levelCode: 2,
     province: 'Nusa Tenggara Barat (Lombok)',
-    lastUpdate: new Date().toISOString(),
+    lastUpdate: 'Katalog Dasar Historis (Belum Tersinkron Live)',
     visualSummary: 'Danau Kaldera Segara Anak dalam kondisi stabil. Anak gunung api Barujari sesekali mengeluarkan asap putih tipis.',
     seismicitySummary: 'Gempa hembusan minor dan tremor harmonik sporadis di tubuh Barujari.',
     dangerRadiusKm: 1.5,
     source: 'PVMBG / MAGMA Indonesia',
-    operationalStatus: 'VERIFIED_LIVE_FEED',
+    operationalStatus: 'UNVERIFIED_CATALOG_BASELINE',
     isGeologicallyActive: true,
     volcanoClassification: 'Tipe A (Sangat Aktif)',
     formationEra: 'Pleistosen (~12.000 SM). Kaldera Segara Anak terbentuk akibat runtuhnya Gunung Samalas purba pada letusan raksasa tahun 1257.',
@@ -489,12 +500,12 @@ const COMPREHENSIVE_VOLCANO_CATALOG: VolcanoLiveStatus[] = [
     level: 'Level I (Normal)',
     levelCode: 1,
     province: 'Bali',
-    lastUpdate: new Date().toISOString(),
+    lastUpdate: 'Katalog Dasar Historis (Belum Tersinkron Live)',
     visualSummary: 'Kawah puncak terpantau tenang, hembusan solfatara putih tipis dengan tekanan lemah.',
     seismicitySummary: 'Aktivitas seismik berada pada level dasar (baseline normal).',
     dangerRadiusKm: 0.5,
     source: 'PVMBG / MAGMA Indonesia',
-    operationalStatus: 'VERIFIED_LIVE_FEED',
+    operationalStatus: 'UNVERIFIED_CATALOG_BASELINE',
     isGeologicallyActive: true,
     volcanoClassification: 'Tipe A (Sangat Aktif)',
     formationEra: 'Pleistosen Akhir (~100.000 SM), puncak tertinggi dan paling disucikan di Pulau Bali.',
@@ -524,12 +535,12 @@ const COMPREHENSIVE_VOLCANO_CATALOG: VolcanoLiveStatus[] = [
     level: 'Level I (Normal)',
     levelCode: 1,
     province: 'Jawa Barat (Bandung & Subang)',
-    lastUpdate: new Date().toISOString(),
+    lastUpdate: 'Katalog Dasar Historis (Belum Tersinkron Live)',
     visualSummary: 'Kawah Ratu dan Kawah Upas terpantau tenang dengan hembusan asap solfatara putih tipis.',
     seismicitySummary: 'Tremor getaran fluida hidrotermal dalam batas aman terkendali.',
     dangerRadiusKm: 0.5,
     source: 'PVMBG / MAGMA Indonesia',
-    operationalStatus: 'VERIFIED_LIVE_FEED',
+    operationalStatus: 'UNVERIFIED_CATALOG_BASELINE',
     isGeologicallyActive: true,
     volcanoClassification: 'Tipe A (Sangat Aktif)',
     formationEra: 'Pleistosen Akhir (~40.000 SM), sisa keruntuhan kaldera Gunung Sunda purba yang meletus dahsyat dan membendung Sungai Citarum purba.',
@@ -553,16 +564,35 @@ const COMPREHENSIVE_VOLCANO_CATALOG: VolcanoLiveStatus[] = [
 
 type VolcanoUpdateListener = (volcanoes: VolcanoLiveStatus[]) => void;
 
+const VOLCANO_NAME_ALIASES: Record<string, string> = {
+  'tengger caldera': 'bromo',
+  'bromo': 'bromo',
+  'lewotobi': 'lewotobi laki-laki',
+  'lewotobi laki-laki': 'lewotobi laki-laki',
+  'krakatau': 'anak krakatau',
+  'anak krakatau': 'anak krakatau',
+  'ili lewotolok': 'lewotolok',
+  'lewotolok': 'lewotolok',
+};
+
 class VolcanoService {
   private cache: Map<string, VolcanoLiveStatus> = new Map();
   private listeners: Set<VolcanoUpdateListener> = new Set();
-  private pollIntervalMs = 60000; // 60s auto refresh loop
+  private pollIntervalMs = 60000;
   private consecutiveFailures = 0;
   private timer: any = null;
+  private liveSyncState: VolcanoLiveSyncState = {
+    status: 'UNCHECKED',
+    provider: 'Smithsonian GVP / USGS Weekly Volcanic Activity RSS',
+    fetchedAt: null,
+    feedPublishedAt: null,
+    matchedCount: 0,
+    error: null,
+  };
 
   constructor() {
     COMPREHENSIVE_VOLCANO_CATALOG.forEach(v => {
-      this.cache.set(this.normalizeName(v.name), v);
+      this.cache.set(this.normalizeName(v.name), { ...v });
     });
     if (typeof window !== 'undefined') {
       this.startPolling();
@@ -570,7 +600,12 @@ class VolcanoService {
   }
 
   private normalizeName(name: string): string {
-    return name.toLowerCase().replace(/^(gunung|gn\.?|g\.)\s*/i, '').trim();
+    const cleaned = name.toLowerCase().replace(/^(gunung|gn\.?|g\.)\s*/i, '').trim();
+    return VOLCANO_NAME_ALIASES[cleaned] || cleaned;
+  }
+
+  public getLiveSyncState(): VolcanoLiveSyncState {
+    return { ...this.liveSyncState };
   }
 
   public subscribe(listener: VolcanoUpdateListener): () => void {
@@ -588,47 +623,108 @@ class VolcanoService {
 
   public async fetchLiveVolcanoUpdates(): Promise<VolcanoLiveStatus[]> {
     if (typeof navigator !== 'undefined' && !navigator.onLine) {
+      this.liveSyncState = {
+        ...this.liveSyncState,
+        status: 'ERROR',
+        error: 'Perangkat dalam kondisi offline.',
+      };
+      this.notify();
       return this.getAllMonitoredVolcanoes();
     }
 
     try {
       const res = await fetch('/api/spatial/volcanoes/live');
-      if (res.ok) {
-        const json = await res.json();
-        if (json.success && Array.isArray(json.data)) {
-          this.consecutiveFailures = 0;
-          json.data.forEach((update: any) => {
-            const key = this.normalizeName(update.name);
-            const existing = this.cache.get(key);
-            if (existing) {
-              this.cache.set(key, {
-                ...existing,
-                ...update,
-                lastUpdate: update.lastUpdate || new Date().toISOString(),
-                operationalStatus: 'VERIFIED_LIVE_FEED',
-              });
-            } else {
-              this.cache.set(key, {
-                ...update,
-                operationalStatus: 'VERIFIED_LIVE_FEED',
-              });
-            }
-          });
-          this.notify();
-          return this.getAllMonitoredVolcanoes();
+      const json = await res.json().catch(() => null);
+      if (res.ok && json?.success === true && Array.isArray(json.data)) {
+        this.consecutiveFailures = 0;
+        let matchedCount = 0;
+
+        for (const update of json.data) {
+          if (!update?.name) continue;
+          const key = this.normalizeName(update.name);
+          const existing = this.cache.get(key);
+          const reportDate = update.reportPeriod
+            ? `Buletin GVP ${update.reportPeriod}`
+            : (update.pubDate || json.feedPublishedAt || 'Laporan Mingguan GVP');
+
+          if (existing) {
+            matchedCount++;
+            this.cache.set(key, {
+              ...existing,
+              level: update.level || existing.level,
+              levelCode: (typeof update.levelCode === 'number' ? update.levelCode : existing.levelCode) as any,
+              visualSummary: update.summary || existing.visualSummary,
+              latestEruption: `${update.activityCategory || 'Aktivitas Terlaporkan'} (${update.reportPeriod || 'Terbaru'})`,
+              lastUpdate: reportDate,
+              source: update.source || 'Smithsonian GVP / USGS Weekly Report (Live RSS)',
+              operationalStatus: 'VERIFIED_GVP_WEEKLY_FEED',
+              gvpLink: update.link,
+            });
+          } else if (typeof update.lat === 'number' && typeof update.lng === 'number') {
+            matchedCount++;
+            this.cache.set(key, {
+              id: update.id || key,
+              name: update.name.startsWith('Gunung') ? update.name : `Gunung ${update.name}`,
+              lat: update.lat,
+              lng: update.lng,
+              elevation: 0,
+              level: update.level || 'Dilaporkan Aktif (GVP/USGS)',
+              levelCode: (typeof update.levelCode === 'number' ? update.levelCode : 2) as any,
+              province: update.country || 'Indonesia',
+              lastUpdate: reportDate,
+              visualSummary: update.summary || 'Tercatat pada laporan aktivitas mingguan Smithsonian GVP/USGS.',
+              seismicitySummary: 'Rujuk buletin resmi PVMBG/GVP terlampir.',
+              dangerRadiusKm: 3.0,
+              source: update.source || 'Smithsonian GVP / USGS Weekly Report (Live RSS)',
+              operationalStatus: 'VERIFIED_GVP_WEEKLY_FEED',
+              isGeologicallyActive: true,
+              volcanoClassification: 'Tipe A (Sangat Aktif)',
+              formationEra: 'Busur Vulkanik Kepulauan Indonesia',
+              geologicalAge: 'Kuarter',
+              tectonicSetting: 'Zona Subduksi Nusantara',
+              geologicalStructure: 'Stratovolcano Aktif',
+              latestEruption: `${update.activityCategory || 'Aktivitas Terlaporkan'} (${update.reportPeriod || 'Terbaru'})`,
+              eruptionHistory: [],
+              gvpLink: update.link,
+            });
+          }
         }
-      } else {
-        this.consecutiveFailures++;
+
+        this.liveSyncState = {
+          status: 'LIVE',
+          provider: json.liveFeedSource || 'Smithsonian GVP / USGS Weekly RSS',
+          fetchedAt: json.fetchedAt || new Date().toISOString(),
+          feedPublishedAt: json.feedPublishedAt || null,
+          matchedCount,
+          error: null,
+        };
+        this.notify();
+        return this.getAllMonitoredVolcanoes();
       }
-    } catch {
+
       this.consecutiveFailures++;
-      // Graceful local cache fallback
+      this.liveSyncState = {
+        ...this.liveSyncState,
+        status: 'ERROR',
+        fetchedAt: new Date().toISOString(),
+        matchedCount: 0,
+        error: json?.error || `HTTP_${res.status} saat mengambil buletin gunung api live.`,
+      };
+    } catch (err: any) {
+      this.consecutiveFailures++;
+      this.liveSyncState = {
+        ...this.liveSyncState,
+        status: 'ERROR',
+        fetchedAt: new Date().toISOString(),
+        matchedCount: 0,
+        error: err?.message || 'Gagal menghubungi API gunung api live.',
+      };
     }
+    this.notify();
     return this.getAllMonitoredVolcanoes();
   }
 
   public async fetchEnrichedVolcanoes(rawMountains: any[]): Promise<any[]> {
-    // Attempt live sync first
     try {
       await this.fetchLiveVolcanoUpdates();
     } catch {}
@@ -637,6 +733,7 @@ class VolcanoService {
       if (m.type !== 'volcano') return m;
       const matched = this.getVolcanoStatus(m.name);
       if (matched) {
+        const isLiveGvp = matched.operationalStatus === 'VERIFIED_GVP_WEEKLY_FEED' || matched.operationalStatus === 'VERIFIED_LIVE_FEED';
         return {
           ...m,
           status: matched.levelCode >= 2 ? 'Active (Peringatan)' : matched.levelCode === 1 ? 'Normal (Geologis Aktif)' : 'Inactive (Padam/Tidur)',
@@ -647,7 +744,9 @@ class VolcanoService {
           visualSummary: matched.visualSummary,
           seismicitySummary: matched.seismicitySummary,
           lastMonitorUpdate: matched.lastUpdate,
-          monitoringSource: `${matched.source} (Live Bulletin Terverifikasi)`,
+          monitoringSource: isLiveGvp
+            ? `${matched.source} (Tersinkron Live)`
+            : `${matched.source} (Katalog Referensi Statis — PVMBG JSON Belum Terhubung)`,
           operationalStatus: matched.operationalStatus,
           volcanoClassification: matched.volcanoClassification,
           formationEra: matched.formationEra,

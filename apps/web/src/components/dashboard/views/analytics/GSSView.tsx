@@ -159,11 +159,11 @@ export function GSSView() {
         "#8b5cf6",
       ];
       const defaultDesc = [
-        "Quiz and lesson mastery",
-        "Correct simulation choices",
-        "Speed of decisions",
-        "Daily streak strength",
-        "Growth over time",
+        "Penguasaan materi & kuis",
+        "Ketepatan keputusan simulasi",
+        "Kecepatan respons evakuasi",
+        "Konsistensi latihan harian",
+        "Perkembangan skor berkala",
       ];
       return {
         icon: defaultIcons[i % defaultIcons.length],
@@ -212,14 +212,13 @@ export function GSSView() {
         <div className="absolute -right-10 -top-10 h-48 w-48 rounded-full bg-white/10 blur-3xl" />
         <div className="relative">
           <div className="inline-flex items-center gap-1.5 rounded-full bg-white/15 px-3 py-1 text-xs font-semibold backdrop-blur-sm">
-            <Gauge className="h-3.5 w-3.5" /> Your Harmony Score
+            <Gauge className="h-3.5 w-3.5" /> Skor Harmony
           </div>
           <h2 className="mt-3 font-display text-2xl font-extrabold tracking-tight sm:text-3xl">
-            Preparedness, measured
+            Kesiapsiagaan Terukur
           </h2>
           <p className="mt-1.5 max-w-md text-sm text-brand-100">
-            A composite score across five dimensions that tracks how ready you
-            are for real disasters.
+            Skor komposit lima dimensi untuk memantau kesiapan menghadapi bencana.
           </p>
         </div>
       </div>
@@ -231,7 +230,7 @@ export function GSSView() {
       <div className="grid gap-6 lg:grid-cols-3">
         <Card className="lg:col-span-2">
           <h3 className="mb-4 font-display text-base font-bold text-ink-900 dark:text-white">
-            Score Breakdown
+            Rincian Skor
           </h3>
           <div className="flex flex-col items-center gap-6 sm:flex-row sm:justify-around">
             <RadarChart
@@ -274,7 +273,7 @@ export function GSSView() {
 
         <Card className="flex flex-col items-center text-center">
           <h3 className="mb-4 font-display text-base font-bold text-ink-900 dark:text-white">
-            Overall GSS
+            Skor Keseluruhan
           </h3>
           <Donut
             value={displayScore}
@@ -286,12 +285,12 @@ export function GSSView() {
           <div className="mt-4 flex items-center gap-2 rounded-full bg-brand-50 px-3 py-1.5 text-xs font-semibold text-brand-700 dark:bg-brand-950/30">
             <TrendingUp className="h-3.5 w-3.5" />{" "}
             {hasPoints && gssData
-              ? `Total ${currentProfile.totalPoints} points`
+              ? `Total ${currentProfile.totalPoints} poin`
               : t("dashboard.no_score_yet", "Belum ada skor")}
           </div>
           <p className="mt-3 text-xs text-ink-500 dark:text-slate-400">
             {hasPoints && gssData
-              ? `Level ${Math.floor((currentProfile?.totalPoints || 0) / 1000) + 1} · Harmony Index`
+              ? `Level ${Math.floor((currentProfile?.totalPoints || 0) / 1000) + 1} · Indeks Harmony`
               : t("dashboard.not_started", "Belum Dimulai")}
           </p>
         </Card>
@@ -301,7 +300,7 @@ export function GSSView() {
       <div className="grid gap-6 lg:grid-cols-3">
         <Card className="lg:col-span-2">
           <h3 className="mb-4 font-display text-base font-bold text-ink-900 dark:text-white">
-            Score History
+            Riwayat Skor
           </h3>
           <div className="mb-3 flex items-end justify-between">
             <div>
@@ -310,25 +309,25 @@ export function GSSView() {
               </p>
               <p className="text-xs text-ink-500 dark:text-slate-400">
                 {hasPoints && gssData
-                  ? `Current score · based on ${gssData.history?.length || 1} sessions`
+                  ? `Skor saat ini · dari ${gssData.history?.length || 1} sesi`
                   : t("dashboard.no_score_data", "Belum ada data skor")}
               </p>
             </div>
             <span className="rounded-full bg-brand-50 px-2.5 py-1 text-xs font-semibold text-brand-700 dark:bg-brand-950/30">
               {hasPoints && gssData?.history && gssData.history.length > 1
-                ? `+${gssData.overall - gssData.history[0]} points`
+                ? `+${gssData.overall - gssData.history[0]} poin`
                 : "0%"}
             </span>
           </div>
           <Sparkline data={displayHistory} height={80} />
           <p className="mt-2 text-xs text-ink-400 dark:text-slate-500">
-            Last 12 weeks
+            12 minggu terakhir
           </p>
         </Card>
 
         <Card>
           <h3 className="mb-4 font-display text-base font-bold text-ink-900 dark:text-white">
-            Milestones
+            Pencapaian Utama
           </h3>
           <div className="space-y-3">
             {displayMilestones.map((ms) => (

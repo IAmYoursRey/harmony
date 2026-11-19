@@ -25,6 +25,17 @@ import {
   MapIcon,
   Edit,
   Key,
+  MousePointer2,
+  Hand,
+  Eraser,
+  BrickWall,
+  DoorOpen,
+  Square,
+  Grid,
+  ArrowUpRight,
+  ArrowDownRight,
+  ShieldAlert,
+  Lock,
 } from "lucide-react";
 import { AssetRenderer } from "./Phase1AssetRenderer";
 import { Phase1Canvas } from "./Phase1Canvas";
@@ -288,7 +299,7 @@ export function Phase1MapEditor({
               {map.name}
             </h1>
             <div className="text-xs text-slate-500 font-medium">
-              {unsaved ? "Unsaved changes" : "Saved"}
+              {unsaved ? "Belum tersimpan" : "Tersimpan"}
             </div>
           </div>
         </div>
@@ -300,17 +311,17 @@ export function Phase1MapEditor({
               onClick={handleUndo}
               disabled={historyIndex <= 0}
               className="px-3 py-1 text-sm font-bold text-slate-500 hover:text-slate-800 disabled:opacity-30"
-              title="Undo"
+              title="Urung"
             >
-              ↶
+              <Undo className="h-4 w-4" />
             </button>
             <button
               onClick={handleRedo}
               disabled={historyIndex >= history.length - 1}
               className="px-3 py-1 text-sm font-bold text-slate-500 hover:text-slate-800 disabled:opacity-30"
-              title="Redo"
+              title="Ulangi"
             >
-              ↷
+              <Redo className="h-4 w-4" />
             </button>
           </div>
 
@@ -328,7 +339,7 @@ export function Phase1MapEditor({
             <button
               onClick={handleAddFloor}
               className="px-2 py-1 text-slate-500 hover:text-brand-600"
-              title="Add Floor"
+              title="Tambah Lantai"
             >
               <Plus className="h-4 w-4" />
             </button>
@@ -339,7 +350,7 @@ export function Phase1MapEditor({
             disabled={saving}
             className="flex items-center gap-2 bg-brand-600 hover:bg-brand-700 disabled:opacity-50 text-white px-4 py-2 rounded-lg font-bold text-sm shadow-sm transition-colors ml-2"
           >
-            <Save className="h-4 w-4" /> {saving ? "Saving..." : "Save Map"}
+            <Save className="h-4 w-4" /> {saving ? "Menyimpan..." : "Simpan Peta"}
           </button>
         </div>
       </div>
@@ -348,8 +359,8 @@ export function Phase1MapEditor({
         {/* TOOLBOX LEFT */}
         <div className="w-full sm:w-16 h-auto sm:h-auto bg-white dark:bg-slate-900 border-b sm:border-b-0 sm:border-r border-slate-200 dark:border-slate-800 flex flex-row sm:flex-col items-center py-2 sm:py-4 px-4 sm:px-0 gap-2 z-10 shrink-0 shadow-[0_2px_10px_rgba(0,0,0,0.05)] sm:shadow-[2px_0_10px_rgba(0,0,0,0.05)] overflow-x-auto sm:overflow-y-auto">
           <ToolBtn
-            icon="👆"
-            label="Select"
+            icon={<MousePointer2 className="h-5 w-5" />}
+            label="Pilih"
             tool="select"
             def={null}
             active={activeTool}
@@ -360,8 +371,8 @@ export function Phase1MapEditor({
             }}
           />
           <ToolBtn
-            icon="✋"
-            label="Move"
+            icon={<Hand className="h-5 w-5" />}
+            label="Geser"
             tool="move"
             def={null}
             active={activeTool}
@@ -372,8 +383,8 @@ export function Phase1MapEditor({
             }}
           />
           <ToolBtn
-            icon="🧽"
-            label="Eraser"
+            icon={<Eraser className="h-5 w-5" />}
+            label="Hapus"
             tool="eraser"
             def={null}
             active={activeTool}
@@ -385,8 +396,8 @@ export function Phase1MapEditor({
           />
           <div className="w-px h-8 sm:w-8 sm:h-px bg-slate-200 dark:bg-slate-800 mx-2 sm:mx-0 sm:my-1 shrink-0" />
           <ToolBtn
-            icon="🧱"
-            label="Wall"
+            icon={<BrickWall className="h-5 w-5" />}
+            label="Dinding"
             tool="WALL"
             def="WALL"
             active={activeTool}
@@ -397,8 +408,8 @@ export function Phase1MapEditor({
             }}
           />
           <ToolBtn
-            icon="🚪"
-            label="Door"
+            icon={<DoorOpen className="h-5 w-5" />}
+            label="Pintu"
             tool="OPENING"
             def="DOOR"
             active={activeTool}
@@ -409,8 +420,8 @@ export function Phase1MapEditor({
             }}
           />
           <ToolBtn
-            icon="⬜"
-            label="Floor"
+            icon={<Square className="h-5 w-5" />}
+            label="Lantai"
             tool="FLOOR"
             def="FLOOR"
             active={activeTool}
@@ -421,7 +432,7 @@ export function Phase1MapEditor({
             }}
           />
           <ToolBtn
-            icon="⬛"
+            icon={<Grid className="h-5 w-5" />}
             label="Paving"
             tool="FLOOR"
             def="PAVING"
@@ -433,8 +444,8 @@ export function Phase1MapEditor({
             }}
           />
           <ToolBtn
-            icon="↗️"
-            label="Stair Up"
+            icon={<ArrowUpRight className="h-5 w-5" />}
+            label="Tangga Naik"
             tool="STAIRS"
             def="STAIR_UP"
             active={activeTool}
@@ -445,8 +456,8 @@ export function Phase1MapEditor({
             }}
           />
           <ToolBtn
-            icon="↘️"
-            label="Stair Down"
+            icon={<ArrowDownRight className="h-5 w-5" />}
+            label="Tangga Turun"
             tool="STAIRS"
             def="STAIR_DOWN"
             active={activeTool}
@@ -457,8 +468,8 @@ export function Phase1MapEditor({
             }}
           />
           <ToolBtn
-            icon="🚧"
-            label="Border"
+            icon={<ShieldAlert className="h-5 w-5" />}
+            label="Pembatas"
             tool="BORDER"
             def="BORDER"
             active={activeTool}
@@ -469,8 +480,8 @@ export function Phase1MapEditor({
             }}
           />
           <ToolBtn
-            icon="🔒"
-            label="Locked"
+            icon={<Lock className="h-5 w-5" />}
+            label="Terkunci"
             tool="OPENING"
             def="DOOR_LOCKED"
             active={activeTool}
@@ -538,7 +549,7 @@ export function Phase1MapEditor({
         <div className="w-full sm:w-64 h-48 sm:h-auto bg-white dark:bg-slate-900 border-t sm:border-t-0 sm:border-l border-slate-200 dark:border-slate-800 flex flex-col z-10 shrink-0 shadow-[0_-2px_10px_rgba(0,0,0,0.05)] sm:shadow-[-2px_0_10px_rgba(0,0,0,0.05)] overflow-y-auto">
           <div className="p-4 border-b border-slate-200 dark:border-slate-800">
             <h3 className="font-bold text-slate-800 dark:text-white">
-              Properties
+              Properti
             </h3>
           </div>
           <div className="p-4 overflow-y-auto flex-1">
@@ -546,7 +557,7 @@ export function Phase1MapEditor({
               <div className="space-y-4">
                 <div>
                   <label className="text-xs font-bold text-slate-500 uppercase tracking-wider">
-                    Type
+                    Jenis
                   </label>
                   <div className="mt-1 font-medium text-slate-800 dark:text-white">
                     {selectedItem.type}
@@ -554,7 +565,7 @@ export function Phase1MapEditor({
                 </div>
                 <div>
                   <label className="text-xs font-bold text-slate-500 uppercase tracking-wider">
-                    Position
+                    Posisi
                   </label>
                   <div className="mt-1 font-medium text-slate-800 dark:text-white">
                     X: {selectedItem.x}, Y: {selectedItem.y}
@@ -566,7 +577,7 @@ export function Phase1MapEditor({
                       Status
                     </label>
                     <div className="mt-1 font-medium text-emerald-600">
-                      Active Area
+                      Area Aktif
                     </div>
                   </div>
                 )}
@@ -575,7 +586,7 @@ export function Phase1MapEditor({
                   onClick={requestDeleteItem}
                   className="w-full mt-4 py-2 bg-rose-50 text-rose-600 rounded-lg font-bold text-sm hover:bg-rose-100 transition-colors"
                 >
-                  Delete Item
+                  Hapus Objek
                 </button>
               </div>
             ) : (
@@ -587,7 +598,7 @@ export function Phase1MapEditor({
                 {/* LAYERS */}
                 <div>
                   <h4 className="font-bold text-xs text-slate-800 dark:text-white uppercase tracking-wider mb-3">
-                    Layers
+                    Lapisan
                   </h4>
                   <div className="space-y-2">
                     {Object.entries(visibleLayers).map(([key, val]) => (
@@ -676,7 +687,7 @@ function ToolBtn({
   defActive,
   setTool,
 }: {
-  icon: string;
+  icon: React.ReactNode;
   label: string;
   tool: Tool;
   def: string | null;
@@ -688,10 +699,10 @@ function ToolBtn({
   return (
     <button
       onClick={() => setTool(tool, def)}
-      className={`relative p-3 rounded-xl transition-all group flex flex-col items-center justify-center gap-1 w-12 h-12 ${isActive ? "bg-brand-100 dark:bg-brand-900/40 shadow-inner" : "hover:bg-slate-100 dark:hover:bg-slate-800"}`}
+      className={`relative p-3 rounded-xl transition-all group flex flex-col items-center justify-center gap-1 w-12 h-12 ${isActive ? "bg-brand-100 dark:bg-brand-900/40 text-brand-700 dark:text-brand-300 shadow-inner" : "text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800"}`}
       title={label}
     >
-      <span className="text-xl leading-none block">{icon}</span>
+      <span className="flex items-center justify-center leading-none">{icon}</span>
     </button>
   );
 }

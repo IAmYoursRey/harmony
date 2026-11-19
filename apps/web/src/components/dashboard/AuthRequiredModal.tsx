@@ -105,15 +105,15 @@ export function AuthRequiredModal({
             </div>
 
             <span className="mt-4 inline-flex items-center rounded-full bg-brand-50 px-3 py-1 text-[11px] font-semibold text-brand-700 ring-1 ring-inset ring-brand-500/20 dark:bg-brand-950/60 dark:text-brand-300">
-              Portal Pembelajaran & Simulasi
+              Portal Edukasi
             </span>
 
             <h3 className="mt-2.5 font-display text-lg font-extrabold tracking-tight text-ink-900 dark:text-white">
-              Masuk untuk Membuka {itemName}
+              Masuk: {itemName}
             </h3>
 
             <p className="mt-2 text-xs leading-relaxed text-ink-500 dark:text-slate-400">
-              Masuk dengan akun Google atau gunakan Mode Demo SMAN 1 Ngoro untuk mencoba seluruh modul dan simulasi.
+              Masuk dengan akun Google atau gunakan Demo SMAN 1 Ngoro untuk membuka seluruh modul.
             </p>
           </div>
 
@@ -125,7 +125,7 @@ export function AuthRequiredModal({
               className="group flex w-full items-center justify-center gap-2 rounded-xl bg-brand-600 hover:bg-brand-700 px-4 py-3 text-sm font-semibold text-white shadow-sm transition-colors"
             >
               <LogIn className="h-4 w-4" />
-              <span>Masuk / Daftar Akun</span>
+              <span>Masuk Akun</span>
               <ArrowRight className="h-4 w-4 transition-transform group-hover:translate-x-0.5" />
             </button>
 
@@ -140,7 +140,7 @@ export function AuthRequiredModal({
               ) : (
                 <ShieldCheck className="h-3.5 w-3.5 text-brand-600 dark:text-brand-400" />
               )}
-              <span>Mode Demo — SMAN 1 Ngoro</span>
+              <span>Demo SMAN 1</span>
             </button>
 
             <button

@@ -19,7 +19,13 @@ export const GeospatialStudioView: React.FC = () => {
   const [deviceCoords, setDeviceCoords] = useState<{ lat: number; lng: number } | null>(null);
   const [userPreciseLocation, setUserPreciseLocation] = useState<PreciseLocationInfo | null>(null);
 
+  const schoolLat = selection?.school?.lat ?? (currentUser ? (currentProfile as any)?.schoolLat : null);
+  const schoolLng = selection?.school?.lng ?? (currentUser ? (currentProfile as any)?.schoolLng : null);
+  const schoolName = selection?.school?.name || (currentUser ? (currentProfile as any)?.schoolName : null);
+  const hasSchoolCoords = typeof schoolLat === 'number' && typeof schoolLng === 'number';
+
   useEffect(() => {
+    if (hasSchoolCoords) return;
     let isMounted = true;
     if ('geolocation' in navigator) {
       navigator.geolocation.getCurrentPosition(
@@ -27,13 +33,15 @@ export const GeospatialStudioView: React.FC = () => {
           if (!isMounted) return;
           const lat = pos.coords.latitude;
           const lng = pos.coords.longitude;
-          setDeviceCoords({ lat, lng });
+          let info: PreciseLocationInfo | null = null;
           try {
-            const info = await preciseGeocodingService.reverseGeocode(lat, lng, pos.coords.accuracy);
-            if (isMounted) setUserPreciseLocation(info);
+            info = await preciseGeocodingService.reverseGeocode(lat, lng, pos.coords.accuracy);
           } catch {
             // non-fatal
           }
+          if (!isMounted) return;
+          setUserPreciseLocation(info);
+          setDeviceCoords({ lat, lng });
         },
         () => {},
         { enableHighAccuracy: true, timeout: 8000, maximumAge: 300000 }
@@ -42,7 +50,7 @@ export const GeospatialStudioView: React.FC = () => {
     return () => {
       isMounted = false;
     };
-  }, []);
+  }, [hasSchoolCoords]);
 
   useEffect(() => {
     let isMounted = true;
@@ -120,15 +128,14 @@ export const GeospatialStudioView: React.FC = () => {
     };
   }, []);
 
-  const activeLat = deviceCoords?.lat ?? selection?.school?.lat ?? (currentUser ? (currentProfile as any)?.schoolLat : null) ?? -6.2088;
-  const activeLng = deviceCoords?.lng ?? selection?.school?.lng ?? (currentUser ? (currentProfile as any)?.schoolLng : null) ?? 106.8456;
-  const activeLocationName = userPreciseLocation?.shortDisplay
-    || selection?.school?.name
-    || (currentUser ? (currentProfile as any)?.schoolName : null)
-    || (deviceCoords ? `Koordinat (${deviceCoords.lat.toFixed(3)}°, ${deviceCoords.lng.toFixed(3)}°)` : 'DKI Jakarta (Pusat)');
+  const activeLat = hasSchoolCoords ? schoolLat : (deviceCoords?.lat ?? -6.2088);
+  const activeLng = hasSchoolCoords ? schoolLng : (deviceCoords?.lng ?? 106.8456);
+  const activeLocationName = hasSchoolCoords
+    ? (schoolName || `Koordinat (${activeLat.toFixed(3)}°, ${activeLng.toFixed(3)}°)`)
+    : (userPreciseLocation?.shortDisplay || (deviceCoords ? `Koordinat (${deviceCoords.lat.toFixed(3)}°, ${deviceCoords.lng.toFixed(3)}°)` : 'DKI Jakarta'));
 
   return (
-    <div className="w-full h-full min-h-[calc(100vh-3.5rem)] flex flex-col p-2 sm:p-4 bg-slate-100/70 dark:bg-slate-950">
+    <div className="w-full h-full min-h-[calc(var(--vh-full)-3.5rem)] flex flex-col p-2 sm:p-4 bg-slate-100/70 dark:bg-slate-950">
       <GeospatialWeatherModal
         isOpen={true}
         asPage={true}
@@ -137,7 +144,7 @@ export const GeospatialStudioView: React.FC = () => {
         lat={activeLat}
         lng={activeLng}
         locationName={activeLocationName}
-        userPreciseLocation={userPreciseLocation}
+        userPreciseLocation={hasSchoolCoords ? null : userPreciseLocation}
         mountains={mountains}
         schools={schools}
         earthquakes={earthquakes}

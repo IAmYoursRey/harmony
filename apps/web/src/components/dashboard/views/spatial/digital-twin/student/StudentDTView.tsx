@@ -129,7 +129,7 @@ export function StudentDTView() {
 
       <div className="flex items-center justify-between">
         <h3 className="font-display text-base font-bold text-ink-900 dark:text-white">
-          Ruang Aktif untuk Kelasmu
+          Ruang Kelas
         </h3>
         <button
           onClick={loadRooms}

@@ -295,7 +295,7 @@ export const GeospatialFieldSurveyTab: React.FC<GeospatialFieldSurveyTabProps> =
           <div>
             <div className="flex items-center gap-2">
               <h3 className="text-sm font-bold text-slate-800 dark:text-white">
-                Survei Lapangan, Drone UAV & Ingesti Data
+                Survei Lapangan
               </h3>
               <span className="text-[10px] font-extrabold uppercase px-2 py-0.5 rounded-full bg-teal-500/15 text-teal-700 dark:text-teal-300 border border-teal-500/25">
                 Multi-Format Ingestion
@@ -322,7 +322,7 @@ export const GeospatialFieldSurveyTab: React.FC<GeospatialFieldSurveyTabProps> =
         <div className="flex items-center justify-between pb-3 border-b border-slate-100 dark:border-slate-700/60">
           <div>
             <h4 className="text-sm font-bold text-slate-900 dark:text-white flex items-center gap-2">
-              <Upload className="w-4 h-4 text-teal-500" /> Ingesti Berkas Spasial Eksternal
+              <Upload className="w-4 h-4 text-teal-500" /> Unggah Berkas Spasial
             </h4>
             <p className="text-xs text-slate-500 dark:text-slate-400">
               Format yang didukung: GeoJSON (.geojson, .json), Google Earth (.kml), Koordinat GPS (.csv), Metadata GeoTIFF
@@ -366,7 +366,7 @@ export const GeospatialFieldSurveyTab: React.FC<GeospatialFieldSurveyTabProps> =
         className="p-5 rounded-3xl bg-white dark:bg-slate-800/90 border border-slate-200 dark:border-slate-700/80 shadow-sm space-y-4"
       >
         <h4 className="text-sm font-bold text-slate-900 dark:text-white flex items-center gap-2">
-          <MapPin className="w-4 h-4 text-indigo-500" /> Tambah Catatan Lapangan Geotagged (Geotagging Logger)
+          <MapPin className="w-4 h-4 text-indigo-500" /> Catatan Lapangan
         </h4>
 
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
@@ -431,7 +431,7 @@ export const GeospatialFieldSurveyTab: React.FC<GeospatialFieldSurveyTabProps> =
       <div className="p-5 rounded-3xl bg-white dark:bg-slate-800/90 border border-slate-200 dark:border-slate-700/80 shadow-sm space-y-3">
         <div className="flex items-center justify-between pb-2 border-b border-slate-100 dark:border-slate-700/60">
           <h4 className="text-sm font-bold text-slate-900 dark:text-white flex items-center gap-2">
-            <FileCheck2 className="w-4 h-4 text-emerald-500" /> Katalog Data Survei Lapangan Aktif ({entries.length})
+            <FileCheck2 className="w-4 h-4 text-emerald-500" /> Daftar Survei ({entries.length})
           </h4>
         </div>
 

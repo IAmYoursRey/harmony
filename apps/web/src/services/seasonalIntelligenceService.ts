@@ -181,7 +181,7 @@ class SeasonalIntelligenceService {
         seasonName: isPeakRain ? 'Musim Hujan Ekuatorial (Puncak Ekuinoks)' : 'Musim Tropis Lembap Sepanjang Tahun',
         seasonKey: isPeakRain ? 'hujan' : 'pancaroba',
         zoneCategory: 'Tropis Ekuatorial',
-        seasonIcon: isPeakRain ? '🌧️' : '⛅',
+        seasonIcon: isPeakRain ? 'HUJAN' : 'BERAWAN',
         avgTempRange: '25°C - 32°C',
         typicalRainMmMonth: isPeakRain ? '280 - 450 mm' : '150 - 240 mm',
         precipitationCharacteristic: 'Hujan konvektif lokal harian (zenithal) akibat pemanasan matahari tegak lurus.',
@@ -201,7 +201,7 @@ class SeasonalIntelligenceService {
           seasonName: 'Musim Hujan (Monsun Asia Barat)',
           seasonKey: 'hujan',
           zoneCategory: 'Tropis Ekuatorial',
-          seasonIcon: '🌧️',
+          seasonIcon: 'HUJAN',
           avgTempRange: '24°C - 31°C',
           typicalRainMmMonth: '250 - 500 mm',
           precipitationCharacteristic: 'Curah hujan tinggi disertai awan kumulonimbus tebal akibat massa udara basah dari Laut Cina Selatan.',
@@ -218,7 +218,7 @@ class SeasonalIntelligenceService {
           seasonName: 'Masa Pancaroba (Peralihan Hujan ke Kemarau)',
           seasonKey: 'pancaroba',
           zoneCategory: 'Tropis Ekuatorial',
-          seasonIcon: '🌦️',
+          seasonIcon: 'PANCAROBA',
           avgTempRange: '26°C - 33°C',
           typicalRainMmMonth: '100 - 180 mm',
           precipitationCharacteristic: 'Cuaca terik di siang hari, potensi hujan lebat lokal berdurasi singkat disertai petir dan angin kencang di sore hari.',
@@ -235,7 +235,7 @@ class SeasonalIntelligenceService {
           seasonName: 'Musim Kemarau (Monsun Australia Timur)',
           seasonKey: 'kemarau',
           zoneCategory: 'Tropis Ekuatorial',
-          seasonIcon: '☀️',
+          seasonIcon: 'CERAH',
           avgTempRange: '22°C - 33°C (Malam Dingin Bediding)',
           typicalRainMmMonth: '20 - 70 mm',
           precipitationCharacteristic: 'Tutupan awan minimal, kelembapan rendah, curah hujan jarang, fenomena bediding di malam-dini hari.',
@@ -251,7 +251,7 @@ class SeasonalIntelligenceService {
         seasonName: 'Masa Pancaroba (Peralihan Kemarau ke Hujan)',
         seasonKey: 'pancaroba',
         zoneCategory: 'Tropis Ekuatorial',
-        seasonIcon: '⛅',
+        seasonIcon: 'BERAWAN',
         avgTempRange: '25°C - 34°C',
         typicalRainMmMonth: '120 - 200 mm',
         precipitationCharacteristic: 'Suhu maksimum tahunan meningkat, kelembapan mulai naik menandai datangnya musim basah.',
@@ -270,7 +270,7 @@ class SeasonalIntelligenceService {
         seasonName: 'Musim Hujan Tropis Utara (Monsun Barat Daya)',
         seasonKey: 'hujan',
         zoneCategory: 'Tropis Ekuatorial',
-        seasonIcon: '🌧️',
+        seasonIcon: 'HUJAN',
         avgTempRange: '25°C - 32°C',
         typicalRainMmMonth: '220 - 450 mm',
         precipitationCharacteristic: 'Hujan lebat disertai siklon tropis aktif di wilayah Pasifik Barat / Samudra Hindia Utara.',
@@ -287,7 +287,7 @@ class SeasonalIntelligenceService {
       seasonName: 'Musim Kemarau Tropis Utara (Monsun Timur Laut)',
       seasonKey: 'kemarau',
       zoneCategory: 'Tropis Ekuatorial',
-      seasonIcon: '☀️',
+      seasonIcon: 'CERAH',
       avgTempRange: '22°C - 31°C',
       typicalRainMmMonth: '30 - 90 mm',
       precipitationCharacteristic: 'Curah hujan relatif rendah, angin kering bertiup dari daratan benua Asia utara.',
@@ -311,7 +311,7 @@ class SeasonalIntelligenceService {
         seasonName: 'Musim Semi (Spring / Haru)',
         seasonKey: 'spring',
         zoneCategory: 'Subtropis Belahan Utara',
-        seasonIcon: '🌸',
+        seasonIcon: 'SEMI',
         avgTempRange: '8°C - 19°C',
         typicalRainMmMonth: '70 - 130 mm',
         precipitationCharacteristic: 'Salju mencair, suhu mulai menghangat, bunga mekar dan vegetasi bertunas.',
@@ -329,7 +329,7 @@ class SeasonalIntelligenceService {
         seasonName: 'Musim Panas (Summer / Natsu)',
         seasonKey: 'summer',
         zoneCategory: 'Subtropis Belahan Utara',
-        seasonIcon: '☀️',
+        seasonIcon: 'CERAH',
         avgTempRange: '22°C - 35°C',
         typicalRainMmMonth: '80 - 180 mm',
         precipitationCharacteristic: 'Hari siang panjang (hingga 15 jam), suhu panas dengan gelombang panas sesekali.',
@@ -347,7 +347,7 @@ class SeasonalIntelligenceService {
         seasonName: 'Musim Gugur (Autumn / Aki)',
         seasonKey: 'autumn',
         zoneCategory: 'Subtropis Belahan Utara',
-        seasonIcon: '🍁',
+        seasonIcon: 'GUGUR',
         avgTempRange: '7°C - 18°C',
         typicalRainMmMonth: '60 - 110 mm',
         precipitationCharacteristic: 'Daun berubah warna merah/kuning dan gugur, udara mulai sejuk dan kering.',
@@ -364,7 +364,7 @@ class SeasonalIntelligenceService {
       seasonName: 'Musim Dingin (Winter / Fuyu)',
       seasonKey: 'winter',
       zoneCategory: 'Subtropis Belahan Utara',
-      seasonIcon: '❄️',
+      seasonIcon: 'DINGIN',
       avgTempRange: '-10°C - 6°C',
       typicalRainMmMonth: '40 - 90 mm (Presipitasi Salju)',
       precipitationCharacteristic: 'Suhu beku di bawah nol, presipitasi salju padat, hari siang pendek (hanya ~9 jam).',
@@ -388,7 +388,7 @@ class SeasonalIntelligenceService {
         seasonName: 'Musim Gugur Selatan (Autumn)',
         seasonKey: 'autumn',
         zoneCategory: 'Subtropis Belahan Selatan',
-        seasonIcon: '🍁',
+        seasonIcon: 'GUGUR',
         avgTempRange: '9°C - 20°C',
         typicalRainMmMonth: '50 - 100 mm',
         precipitationCharacteristic: 'Suhu menurun stabil, dedaunan berguguran.',
@@ -405,7 +405,7 @@ class SeasonalIntelligenceService {
         seasonName: 'Musim Dingin Selatan (Winter)',
         seasonKey: 'winter',
         zoneCategory: 'Subtropis Belahan Selatan',
-        seasonIcon: '❄️',
+        seasonIcon: 'DINGIN',
         avgTempRange: '2°C - 14°C',
         typicalRainMmMonth: '40 - 80 mm',
         precipitationCharacteristic: 'Suhu terendah tahunan di Australia/Selandia Baru/Argentina, salju di dataran tinggi.',
@@ -422,7 +422,7 @@ class SeasonalIntelligenceService {
         seasonName: 'Musim Semi Selatan (Spring)',
         seasonKey: 'spring',
         zoneCategory: 'Subtropis Belahan Selatan',
-        seasonIcon: '🌸',
+        seasonIcon: 'SEMI',
         avgTempRange: '12°C - 22°C',
         typicalRainMmMonth: '40 - 90 mm',
         precipitationCharacteristic: 'Suhu menghangat cepat, hari siang memanjang.',
@@ -438,7 +438,7 @@ class SeasonalIntelligenceService {
       seasonName: 'Musim Panas Selatan (Summer)',
       seasonKey: 'summer',
       zoneCategory: 'Subtropis Belahan Selatan',
-      seasonIcon: '☀️',
+      seasonIcon: 'CERAH',
       avgTempRange: '20°C - 34°C',
       typicalRainMmMonth: '30 - 70 mm',
       precipitationCharacteristic: 'Suhu terpanas belahan bumi selatan, siang hari panjang hingga 14.5 jam.',
@@ -465,7 +465,7 @@ class SeasonalIntelligenceService {
         seasonName: 'Musim Siang Kutub (Midnight Sun / Polar Day)',
         seasonKey: 'polar_day',
         zoneCategory: 'Zona Kutub',
-        seasonIcon: '☀️',
+        seasonIcon: 'CERAH',
         avgTempRange: '-5°C - 4°C',
         typicalRainMmMonth: '15 - 35 mm',
         precipitationCharacteristic: 'Matahari tidak terbenam selama 24 jam penuh di puncak musim.',
@@ -481,7 +481,7 @@ class SeasonalIntelligenceService {
       seasonName: 'Musim Malam Kutub (Polar Night / Beku Total)',
       seasonKey: 'polar_night',
       zoneCategory: 'Zona Kutub',
-      seasonIcon: '🌌',
+      seasonIcon: 'KUTUB',
       avgTempRange: '-45°C - -20°C',
       typicalRainMmMonth: '10 - 25 mm',
       precipitationCharacteristic: 'Matahari tidak terbit selama berbulan-bulan, fenomena aurora borealis/australis.',
@@ -703,7 +703,7 @@ class SeasonalIntelligenceService {
     let seasonKey: 'hujan' | 'kemarau' | 'pancaroba' = 'pancaroba';
     let seasonName = 'Masa Pancaroba';
     let seasonBadge = 'Pancaroba';
-    let seasonIcon = '⛅';
+    let seasonIcon = 'BERAWAN';
     let climatologicalNote = '';
 
     if (regimeType === 'lokal') {
@@ -711,19 +711,19 @@ class SeasonalIntelligenceService {
         seasonKey = 'hujan';
         seasonName = 'Musim Hujan Lokal (Monsun Timur Laut Banda)';
         seasonBadge = 'Musim Hujan';
-        seasonIcon = '🌧️';
+        seasonIcon = 'HUJAN';
         climatologicalNote = 'Pola lokal Maluku: angin timur dari Laut Banda memicu curah hujan maksimum.';
       } else if (month >= 9 || month <= 1) {
         seasonKey = 'kemarau';
         seasonName = 'Musim Kering / Stabil Lokal';
         seasonBadge = 'Musim Stabil';
-        seasonIcon = '☀️';
+        seasonIcon = 'CERAH';
         climatologicalNote = 'Periode transisi relatif stabil dengan tutupan awan moderat.';
       } else {
         seasonKey = 'pancaroba';
         seasonName = 'Masa Peralihan Lokal';
         seasonBadge = 'Pancaroba';
-        seasonIcon = '🌦️';
+        seasonIcon = 'PANCAROBA';
         climatologicalNote = 'Peralihan angin regional dengan variasi hujan sporadis.';
       }
     } else if (regimeType === 'ekuatorial') {
@@ -733,7 +733,7 @@ class SeasonalIntelligenceService {
         ? 'Puncak Hujan Ekuatorial (Kulminasi Ekuinoks)'
         : 'Musim Tropis Lembap Konvektif';
       seasonBadge = isEquinoxPeak ? 'Hujan Ekuatorial' : 'Tropis Lembap';
-      seasonIcon = isEquinoxPeak ? '🌧️' : '🌦️';
+      seasonIcon = isEquinoxPeak ? 'HUJAN' : 'PANCAROBA';
       climatologicalNote = 'Pola bimodal khatulistiwa: hujan konvektif zenital harian tinggi akibat insolasi surya ekuator.';
     } else {
       if (month === 9) {
@@ -741,25 +741,25 @@ class SeasonalIntelligenceService {
         seasonKey = 'pancaroba';
         seasonName = 'Masa Pancaroba (Peralihan Kemarau ke Musim Hujan)';
         seasonBadge = 'Pancaroba';
-        seasonIcon = '⛅';
+        seasonIcon = 'BERAWAN';
         climatologicalNote = 'Pemanasan siang terik memicu labilitas udara dan konveksi awan sore hari (14:00–17:30).';
       } else if (month >= 10 || month <= 1) {
         seasonKey = 'hujan';
         seasonName = 'Puncak Musim Hujan (Monsun Barat Asia)';
         seasonBadge = 'Musim Hujan';
-        seasonIcon = '🌧️';
+        seasonIcon = 'HUJAN';
         climatologicalNote = 'Arus basah Monsun Asia membawa awan hujan tebal berskala luas melintasi daratan.';
       } else if (month >= 2 && month <= 4) {
         seasonKey = 'pancaroba';
         seasonName = 'Masa Pancaroba (Peralihan Hujan ke Kemarau)';
         seasonBadge = 'Pancaroba';
-        seasonIcon = '🌦️';
+        seasonIcon = 'PANCAROBA';
         climatologicalNote = 'Fluktuasi suhu tajam dengan potensi hujan petir lokal di sore hari.';
       } else {
         seasonKey = 'kemarau';
         seasonName = 'Puncak Musim Kemarau (Monsun Australia)';
         seasonBadge = 'Musim Kemarau';
-        seasonIcon = '☀️';
+        seasonIcon = 'CERAH';
         climatologicalNote = 'Massa udara kering Australia menekan pembentukan awan hujan, malam cenderung dingin (bediding).';
       }
     }

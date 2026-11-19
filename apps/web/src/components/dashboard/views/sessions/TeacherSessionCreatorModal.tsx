@@ -73,17 +73,17 @@ export function TeacherSessionCreatorModal({
 
       const sessionId = res.data?.id || res.id;
       if (sessionId) {
-        show("Session created successfully", "success");
+        show("Sesi berhasil dibuat", "success");
         navigate(`/app/teacher/session/${sessionId}`);
       } else {
         console.error("Invalid response format:", res);
-        setErrorMsg("Invalid response format");
+        setErrorMsg("Format respons tidak valid");
         throw new Error("Invalid response format");
       }
     } catch (err: any) {
       console.error("API Error in TeacherSessionCreatorModal:", err);
-      setErrorMsg("API Error: " + (err.message || err));
-      show(err.message || "Failed to create session", "error");
+      setErrorMsg("Kendala API: " + (err.message || err));
+      show(err.message || "Gagal membuat sesi", "error");
     } finally {
       setCreating(false);
     }
@@ -106,7 +106,7 @@ export function TeacherSessionCreatorModal({
       >
         <div className="flex items-center justify-between border-b border-slate-100 p-5 dark:border-slate-800">
           <h3 className="font-display text-xl font-bold text-ink-900 dark:text-white">
-            Create Simulation Session
+            Buat Sesi Simulasi
           </h3>
           {errorMsg && (
             <p className="text-red-500 font-bold" id="qa-error-log">
@@ -123,18 +123,18 @@ export function TeacherSessionCreatorModal({
 
         <div className="p-5 space-y-4">
           <div className="p-3 bg-brand-50 rounded-xl text-sm font-semibold text-brand-700 dark:bg-brand-900/20 dark:text-brand-300">
-            Target Class: {classData.name} ({classData.grade})
+            Kelas Tujuan: {classData.name} ({classData.grade})
           </div>
 
           {loading ? (
             <div className="p-4 text-center text-sm text-slate-500">
-              Loading maps...
+              Memuat peta...
             </div>
           ) : (
             <>
               <div>
                 <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">
-                  Select Base Map
+                  Pilih Peta
                 </label>
                 <div className="relative">
                   <MapIcon className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
@@ -144,7 +144,7 @@ export function TeacherSessionCreatorModal({
                     onChange={(e) => setSelectedMap(e.target.value)}
                     className="w-full pl-9 pr-4 py-2.5 rounded-xl border border-slate-200 bg-slate-50 text-sm focus:border-brand-500 focus:ring-1 focus:ring-brand-500 dark:border-slate-700 dark:bg-slate-800 dark:text-white"
                   >
-                    <option value="">-- Select Map --</option>
+                    <option value="">-- Pilih Peta --</option>
                     {maps.map((m) => (
                       <option key={m.id} value={m.id}>
                         {m.name}
@@ -157,7 +157,7 @@ export function TeacherSessionCreatorModal({
               {selectedMap && (
                 <div>
                   <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">
-                    Select Published Scenario
+                    Pilih Skenario
                   </label>
                   <div className="relative">
                     <ShieldAlert className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
@@ -167,7 +167,7 @@ export function TeacherSessionCreatorModal({
                       onChange={(e) => setSelectedScenario(e.target.value)}
                       className="w-full pl-9 pr-4 py-2.5 rounded-xl border border-slate-200 bg-slate-50 text-sm focus:border-brand-500 focus:ring-1 focus:ring-brand-500 dark:border-slate-700 dark:bg-slate-800 dark:text-white"
                     >
-                      <option value="">-- Select Scenario --</option>
+                      <option value="">-- Pilih Skenario --</option>
                       {scenarios.map((s) => (
                         <option key={s.id} value={s.id}>
                           {s.name} ({s.disasterType})
@@ -177,7 +177,7 @@ export function TeacherSessionCreatorModal({
                   </div>
                   {scenarios.length === 0 && (
                     <p className="mt-1 text-xs text-amber-600">
-                      No published scenarios found for this map.
+                      Belum ada skenario terbit pada peta ini.
                     </p>
                   )}
                 </div>
@@ -191,7 +191,7 @@ export function TeacherSessionCreatorModal({
             onClick={onClose}
             className="px-4 py-2 text-sm font-semibold text-slate-600 hover:text-slate-900 dark:text-slate-400 dark:hover:text-white"
           >
-            Cancel
+            Batal
           </button>
           <button
             disabled={!selectedMap || !selectedScenario || creating}
@@ -199,10 +199,10 @@ export function TeacherSessionCreatorModal({
             className="flex items-center gap-2 rounded-xl bg-brand-600 px-5 py-2 text-sm font-bold text-white shadow-sm hover:bg-brand-700 disabled:opacity-50"
           >
             {creating ? (
-              "Creating..."
+              "Membuat..."
             ) : (
               <>
-                <Play className="h-4 w-4" /> Start Simulation
+                <Play className="h-4 w-4" /> Mulai Simulasi
               </>
             )}
           </button>

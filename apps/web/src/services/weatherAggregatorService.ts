@@ -271,7 +271,7 @@ class WeatherAggregatorService {
     }
     const existing = this.inFlight.get(key);
     if (existing) return existing;
-    const pending = this.fetchFromSources(lat, lng, placeName, key).then(data => {
+    const pending = this.fetchFromSources(lat, lng, placeName, key, forceRefresh).then(data => {
       this.cache.set(key, { data, timestamp: Date.now() });
       return data;
     }).finally(() => this.inFlight.delete(key));
@@ -279,7 +279,7 @@ class WeatherAggregatorService {
     return pending;
   }
 
-  private async fetchFromSources(lat: number, lng: number, placeName?: string, queryKey?: string): Promise<WeatherConsensusData> {
+  private async fetchFromSources(lat: number, lng: number, placeName?: string, queryKey?: string, forceRefresh = false): Promise<WeatherConsensusData> {
     const coordinates = `latitude=${lat}&longitude=${lng}&timezone=auto&timeformat=unixtime`;
     const currentFields = 'temperature_2m,relative_humidity_2m,apparent_temperature,precipitation,rain,showers,weather_code,cloud_cover,surface_pressure,wind_speed_10m,wind_direction_10m,wind_gusts_10m';
     const hourlyFields = 'temperature_2m,relative_humidity_2m,apparent_temperature,precipitation_probability,precipitation,rain,showers,weather_code,cloud_cover,surface_pressure,wind_speed_10m,wind_direction_10m,wind_gusts_10m,uv_index';
@@ -287,13 +287,14 @@ class WeatherAggregatorService {
     const weatherUrl = `https://api.open-meteo.com/v1/forecast?${coordinates}&current=${currentFields}&hourly=${hourlyFields}&daily=${dailyFields}&past_days=7&forecast_days=14`;
     const modelUrl = `https://api.open-meteo.com/v1/forecast?${coordinates}&hourly=temperature_2m&past_days=7&forecast_days=14&models=${WEATHER_MODELS.map(m => m.id).join(',')}`;
     const airUrl = `https://air-quality-api.open-meteo.com/v1/air-quality?${coordinates}&current=pm10,pm2_5,ozone&hourly=pm10,pm2_5,ozone&past_days=7&forecast_days=7`;
+    const fetchOpts: RequestInit = forceRefresh ? { cache: 'no-store' } : {};
     const [weather, models, air] = await Promise.all([
       fetchCheckedJson('open_meteo_weather', weatherUrl, d => {
         const error = validateCurrentWeather(d, lat, lng);
         if (error) return error;
         if (!increasingForecastTimes(d.hourly?.time) || !d.hourly.time.some((t: number) => t <= d.current.time && d.current.time - t < 3600)) return 'Deret prakiraan tidak berurutan atau tidak mencakup waktu cuaca saat ini.';
         return null;
-      }),
+      }, fetchOpts),
       fetchCheckedJson('open_meteo_models', modelUrl, d => {
         const v = validateOpenMeteoModelPayload(d, lat, lng);
         if (!v.valid) return v.error || 'Permintaan model gagal.';
@@ -301,8 +302,8 @@ class WeatherAggregatorService {
           return { partial: true, message: v.error || 'Sebagian model tidak tersedia atau tidak valid.', acceptedCount: v.acceptedCount, rejectedCount: v.rejectedCount } as any;
         }
         return null;
-      }),
-      fetchCheckedJson('open_meteo_air', airUrl, d => validateAirQuality(d, lat, lng)),
+      }, fetchOpts),
+      fetchCheckedJson('open_meteo_air', airUrl, d => validateAirQuality(d, lat, lng), fetchOpts),
     ]);
     const attempts = [weather.attempt, models.attempt, air.attempt];
     if (air.data) {
@@ -321,18 +322,18 @@ class WeatherAggregatorService {
 
     let modelResult = models;
     const initialHourly = modelResult.data?.hourly || {};
-    const retryModels = (modelResult.data && modelResult.attempt.httpStatus !== 429)
-      ? WEATHER_MODELS.filter(m => {
-          const values = initialHourly[`temperature_2m_${m.id}`];
-          if (!Array.isArray(values)) return true;
-          if (values.length > 0 && values.every(v => v === null)) return false;
-          return values.some(v => !finiteNumber(v) || v < -100 || v > 65);
-        })
+    const retryModels = modelResult.attempt.httpStatus !== 429
+      ? (!modelResult.data
+          ? [...WEATHER_MODELS]
+          : WEATHER_MODELS.filter(m => {
+              const values = initialHourly[`temperature_2m_${m.id}`];
+              if (!Array.isArray(values)) return true;
+              if (values.length > 0 && values.every(v => v === null)) return false;
+              return values.some(v => !finiteNumber(v) || v < -100 || v > 65);
+            }))
       : [];
     if (retryModels.length) {
       const individual: Array<{ model: typeof WEATHER_MODELS[number]; data: any; attempt: SourceFetchAttempt }> = [];
-      // Limit retries to three concurrent requests to avoid a burst against the
-      // shared provider quota. Failed attempts remain visible in the audit.
       for (let offset = 0; offset < retryModels.length; offset += 3) {
         const batch = await Promise.all(retryModels.slice(offset, offset + 3).map(async m => {
           const url = `https://api.open-meteo.com/v1/forecast?${coordinates}&hourly=temperature_2m&forecast_days=14&models=${m.id}`;
@@ -341,7 +342,7 @@ class WeatherAggregatorService {
             const v = validateOpenMeteoModelPayload(d, lat, lng, m.id);
             if (!v.valid) return v.error || 'Model tidak tersedia.';
             return v.status === 'PARTIAL' ? { partial: true, message: v.error || 'Sebagian titik model ditolak.', acceptedCount: v.acceptedCount, rejectedCount: v.rejectedCount } : null;
-          }, {}, 6000);
+          }, fetchOpts, 6000);
           return { model: m, ...result };
         }));
         individual.push(...batch);

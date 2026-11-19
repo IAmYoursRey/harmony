@@ -414,7 +414,7 @@ export function LearningGainEvaluationView() {
               </span>
             </div>
             <h2 className="font-display text-xl sm:text-2xl font-bold tracking-tight text-white">
-              Hasil Evaluasi &amp; Learning Gain Siswa
+              Evaluasi Pembelajaran
             </h2>
             <p className="max-w-3xl text-xs sm:text-sm text-indigo-100/90 leading-relaxed">
               {isInitialMode ? (
@@ -572,7 +572,7 @@ export function LearningGainEvaluationView() {
           <div className="space-y-2.5">
             <h3 className="font-bold text-sm text-ink-900 dark:text-white flex items-center gap-2">
               <BookOpen className="h-4 w-4 text-brand-600" />
-              Perhitungan N-Gain (Hake, 1998)
+              Rumus N-Gain
             </h3>
 
             <div className="rounded-xl border border-slate-200 bg-slate-50/70 p-3 text-xs dark:border-slate-800 dark:bg-slate-950/60 space-y-2">
@@ -637,10 +637,10 @@ export function LearningGainEvaluationView() {
               <h3 className="font-bold text-sm text-ink-900 dark:text-white flex items-center gap-2">
                 <School className="h-4 w-4 text-brand-600" />
                 {isInitialMode
-                  ? "Rata-Rata Skor Pre-Test per Kelas (Oktober 2026)"
+                  ? "Skor Pre-Test Kelas"
                   : isFinalMode
-                  ? "Rata-Rata Skor Post-Test per Kelas (November 2026)"
-                  : "Perbandingan Skor Pre-Test vs Post-Test per Kelas"}
+                  ? "Skor Post-Test Kelas"
+                  : "Komparasi Skor Kelas"}
               </h3>
               <p className="text-xs text-ink-500 dark:text-slate-400">
                 {isInitialMode
@@ -698,7 +698,7 @@ export function LearningGainEvaluationView() {
             <div className="flex flex-wrap items-center gap-2">
               <GraduationCap className="h-4 w-4 text-brand-600" />
               <h3 className="font-bold text-sm sm:text-base text-ink-900 dark:text-white">
-                Data Nilai Siswa ({filteredStudents.length} dari {summary.totalStudentsTested} Siswa)
+                Daftar Nilai ({filteredStudents.length}/{summary.totalStudentsTested})
               </h3>
               <span className="inline-flex items-center gap-1 rounded-full bg-brand-50 dark:bg-brand-950/60 px-2.5 py-0.5 text-[11px] font-bold text-brand-700 dark:text-brand-300 border border-brand-200 dark:border-brand-800">
                 No. {displayedStudents.length > 0 ? startIndex + 1 : 0}&ndash;{endIndex} dari {displayedStudents.length}

@@ -53,7 +53,7 @@ export const TrafficSignalModal: React.FC<TrafficSignalModalProps> = ({ signalId
         <div className="flex items-center justify-between border-b border-slate-800 bg-slate-950/80 px-4 py-3">
           <div className="flex items-center gap-2.5 min-w-0">
             <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-amber-500/20 text-amber-400 shrink-0 border border-amber-500/30">
-              <span className="text-lg">🚦</span>
+              <Activity className="w-4 h-4" />
             </div>
             <div className="min-w-0">
               <div className="flex items-center gap-2">

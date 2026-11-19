@@ -119,24 +119,67 @@ export interface BMKGAirQualityStation {
   province: string;
   lat: number;
   lng: number;
-  altitudeM: number;
-  pm25: number;
-  pm10: number;
-  so2: number;
-  no2: number;
-  o3: number;
-  co: number;
+  altitudeM: number | null;
+  pm25: number | null;
+  pm10: number | null;
+  so2: number | null;
+  no2: number | null;
+  o3: number | null;
+  co: number | null;
+  sourceLabel?: string;
   greenhouseGas?: {
     co2Ppm: number;
     ch4Ppb: number;
     n2oPpb: number;
     note: string;
-  };
-  rainChemistry: {
+  } | null;
+  rainChemistry?: {
     ph: number;
     conductivityUsCm: number;
     status: string;
-  };
+  } | null;
+}
+
+export interface AviationMetarRecord {
+  icaoId: string;
+  name: string;
+  reportTime: string | null;
+  obsTime: string | null;
+  rawOb: string;
+  tempC: number | null;
+  dewpointC: number | null;
+  windDirDeg: number | null;
+  windSpeedKt: number | null;
+  visibility: string | null;
+  altimeterHpa: number | null;
+  flightCategory: string | null;
+  clouds: Array<{ cover?: string; base?: number }>;
+}
+
+export interface GeomagneticKpRecord {
+  timeTag: string;
+  kpIndex: number;
+  aRunning: number | null;
+  stationCount: number | null;
+  stormScale: string;
+  statusText: string;
+}
+
+export interface EnsoOniRecord {
+  season: string;
+  year: number;
+  totalSstC: number;
+  anomalyOni: number;
+  phase: string;
+  recentSeries: Array<{ season: string; year: number; totalSstC: number; anomalyOni: number }>;
+}
+
+export interface LiveFeedResult<T> {
+  status: 'LIVE' | 'ERROR';
+  provider: string;
+  fetchedAt: string | null;
+  data: T;
+  error: string | null;
 }
 
 export interface BMKGGeophysicsData {
@@ -277,35 +320,125 @@ export class BMKGService {
       const res = await this.fetchBody('/api/bmkg/gempa/autogempa', signal);
       if (res.data?.data) return res.data.data;
     } catch {
-      // Direct BMKG Open Data fallback if local backend proxy is bypassed
       try {
         const resp = await fetch('https://data.bmkg.go.id/DataMKG/TEWS/autogempa.json', { signal });
         if (resp.ok) {
           const raw = await resp.json();
           const g = raw?.Infogempa?.gempa;
-          if (g) {
-            const parts = (g.Coordinates || '').split(',');
-            return {
-              date: g.Tanggal || '',
-              time: g.Jam || '',
-              datetime: g.DateTime || '',
-              lat: parts[0] ? parseFloat(parts[0]) : 0,
-              lng: parts[1] ? parseFloat(parts[1]) : 0,
-              magnitude: g.Magnitude ? parseFloat(g.Magnitude) : 5.0,
-              depth: g.Kedalaman || '10 km',
-              depthKm: parseInt(g.Kedalaman || '10', 10),
-              location: g.Wilayah || '',
-              potential: g.Potensi || '',
-              shakemapUrl: g.Shakemap ? `https://data.bmkg.go.id/DataMKG/TEWS/${g.Shakemap}` : null,
-              attribution: 'BMKG InaTEWS Real-Time Feed',
-            };
+          if (g && typeof g.Coordinates === 'string' && typeof g.DateTime === 'string' && Number.isFinite(Date.parse(g.DateTime))) {
+            const parts = g.Coordinates.split(',').map((s: string) => s.trim());
+            const strictNum = /^[-+]?\d+(?:\.\d+)?$/;
+            const lat = parts.length === 2 && strictNum.test(parts[0]) ? parseFloat(parts[0]) : NaN;
+            const lng = parts.length === 2 && strictNum.test(parts[1]) ? parseFloat(parts[1]) : NaN;
+            const mag = strictNum.test(String(g.Magnitude || '').trim()) ? parseFloat(String(g.Magnitude).trim()) : NaN;
+            const depthMatch = String(g.Kedalaman || '').trim().match(/^(\d+(?:\.\d+)?)\s*km$/i);
+            if (
+              Number.isFinite(lat) && Number.isFinite(lng) &&
+              Math.abs(lat) <= 90 && Math.abs(lng) <= 180 &&
+              Number.isFinite(mag) && mag >= 0 && mag <= 10 &&
+              depthMatch
+            ) {
+              const parsed: BMKGEarthquake = {
+                date: g.Tanggal || '',
+                time: g.Jam || '',
+                datetime: g.DateTime,
+                lat,
+                lng,
+                magnitude: mag,
+                depth: g.Kedalaman,
+                depthKm: parseFloat(depthMatch[1]),
+                location: g.Wilayah || '',
+                potential: g.Potensi || '',
+                shakemapUrl: g.Shakemap ? `https://data.bmkg.go.id/DataMKG/TEWS/${g.Shakemap}` : null,
+                felt: g.Dirasakan || null,
+                attribution: 'BMKG InaTEWS Real-Time Feed',
+              };
+              this.retrievalStatus.set('/api/bmkg/gempa/autogempa', { status: 'AVAILABLE' });
+              return parsed;
+            }
           }
         }
-      } catch {
-        // Fallback gracefully if network restricted
+      } catch (directErr: any) {
+        this.retrievalStatus.set('/api/bmkg/gempa/autogempa', {
+          status: 'FAILED',
+          message: directErr?.message || 'Gagal menghubungi BMKG InaTEWS.',
+        });
       }
     }
     return null;
+  }
+
+  async getLiveAviationMetar(ids: string[] = ['WARR', 'WIII', 'WADD'], signal?: AbortSignal): Promise<LiveFeedResult<AviationMetarRecord[]>> {
+    const query = ids.join(',');
+    try {
+      const body = await apiClient.get<any>(`/api/bmkg/aviation/metar?ids=${encodeURIComponent(query)}`, { ttl: 0, signal });
+      if (body?.success === true && Array.isArray(body?.data) && body.data.length > 0) {
+        return {
+          status: 'LIVE',
+          provider: body.provider || 'NOAA Aviation Weather Center',
+          fetchedAt: body.fetchedAt || new Date().toISOString(),
+          data: body.data,
+          error: null,
+        };
+      }
+      throw new Error(body?.error || 'Respons METAR live kosong.');
+    } catch (err: any) {
+      return {
+        status: 'ERROR',
+        provider: 'NOAA Aviation Weather Center',
+        fetchedAt: null,
+        data: [],
+        error: err?.message || 'Gagal mengambil data METAR bandara live.',
+      };
+    }
+  }
+
+  async getLiveGeomagneticKp(signal?: AbortSignal): Promise<LiveFeedResult<GeomagneticKpRecord | null>> {
+    try {
+      const body = await apiClient.get<any>('/api/bmkg/geophysics/kp-index', { ttl: 0, signal });
+      if (body?.success === true && body?.data && typeof body.data.kpIndex === 'number') {
+        return {
+          status: 'LIVE',
+          provider: body.provider || 'NOAA SWPC Planetary K-Index',
+          fetchedAt: body.fetchedAt || new Date().toISOString(),
+          data: body.data,
+          error: null,
+        };
+      }
+      throw new Error(body?.error || 'Respons Kp-Index live tidak valid.');
+    } catch (err: any) {
+      return {
+        status: 'ERROR',
+        provider: 'NOAA SWPC Planetary K-Index',
+        fetchedAt: null,
+        data: null,
+        error: err?.message || 'Gagal mengambil data Kp-Index live.',
+      };
+    }
+  }
+
+  async getLiveEnsoOni(signal?: AbortSignal): Promise<LiveFeedResult<EnsoOniRecord | null>> {
+    try {
+      const body = await apiClient.get<any>('/api/bmkg/climate/enso-oni', { ttl: 0, signal });
+      if (body?.success === true && body?.data && typeof body.data.anomalyOni === 'number') {
+        return {
+          status: 'LIVE',
+          provider: body.provider || 'NOAA CPC Niño 3.4 ONI',
+          fetchedAt: body.fetchedAt || new Date().toISOString(),
+          data: body.data,
+          error: null,
+        };
+      }
+      throw new Error(body?.error || 'Respons ENSO ONI live tidak valid.');
+    } catch (err: any) {
+      return {
+        status: 'ERROR',
+        provider: 'NOAA CPC Niño 3.4 ONI',
+        fetchedAt: null,
+        data: null,
+        error: err?.message || 'Gagal mengambil data ENSO ONI live.',
+      };
+    }
   }
 
   async getGempaTerkini(signal?: AbortSignal): Promise<BMKGEarthquake[]> {
@@ -402,6 +535,9 @@ export class BMKGService {
   }
 
   getDynamicWeatherWarnings(lat = -7.25, lng = 112.75, weatherCurrent?: any, locationName?: string): BMKGWeatherWarning[] {
+    if (!weatherCurrent || (typeof weatherCurrent.precipitation !== 'number' && typeof weatherCurrent.windSpeed !== 'number')) {
+      return [];
+    }
     const now = new Date();
     const tzOffset = lng < 114.5 ? 7 : lng < 127.5 ? 8 : 9;
     const tzAbbr = tzOffset === 7 ? 'WIB' : tzOffset === 8 ? 'WITA' : 'WIT';
@@ -409,26 +545,29 @@ export class BMKGService {
     const issuedTime = new Intl.DateTimeFormat('id-ID', { hour: '2-digit', minute: '2-digit', timeZone: tzRegion }).format(now) + ` ${tzAbbr}`;
     const validUntil = new Intl.DateTimeFormat('id-ID', { hour: '2-digit', minute: '2-digit', timeZone: tzRegion }).format(new Date(now.getTime() + 3 * 3600000)) + ` ${tzAbbr}`;
 
-    const precip = typeof weatherCurrent?.precipitation === 'number' ? weatherCurrent.precipitation : 0;
-    const wind = typeof weatherCurrent?.windGusts === 'number' ? weatherCurrent.windGusts : (typeof weatherCurrent?.windSpeed === 'number' ? weatherCurrent.windSpeed : 10);
-    const code = typeof weatherCurrent?.conditionCode === 'number' ? weatherCurrent.conditionCode : 1;
+    const precip = typeof weatherCurrent.precipitation === 'number' ? weatherCurrent.precipitation : 0;
+    const wind = typeof weatherCurrent.windGusts === 'number'
+      ? weatherCurrent.windGusts
+      : (typeof weatherCurrent.windSpeed === 'number' ? weatherCurrent.windSpeed : 0);
+    const code = typeof weatherCurrent.conditionCode === 'number' ? weatherCurrent.conditionCode : -1;
     const place = locationName || `Koordinat (${lat.toFixed(2)}, ${lng.toFixed(2)})`;
+    const attrNote = 'Klasifikasi Ambang Cuaca Open-Meteo/MET Norway (Feed CAP Peringatan Dini BMKG Belum Terhubung)';
 
     if (code >= 95 || precip >= 15) {
       return [
         {
           id: `warn-live-${Date.now()}-01`,
           province: place,
-          title: `Peringatan Dini Cuaca Ekstrem (${tzAbbr})`,
+          title: `Status Ambang Cuaca Ekstrem (${tzAbbr})`,
           issuedAt: issuedTime,
           validUntil,
-          hazardType: "Hujan Sangat Lebat Disertai Kilat/Petir & Angin Kencang",
+          hazardType: "Hujan Sangat Lebat atau Petir Berdasarkan Data Model",
           level: "AWAS",
           color: "#ef4444",
-          affectedAreas: [place, "Kawasan Sekitar Radius 25 km"],
-          expandToAreas: ["Daerah Aliran Sungai & Lereng Rawan Longsor"],
-          meteorologicalDescription: `Terpantau aktivitas sel awan konvektif Cumulonimbus dengan intensitas presipitasi tinggi (${precip} mm/jam) dan kecepatan angin kencang (${wind} km/jam).`,
-          attribution: "Sistem Peringatan Dini Geospasial BMKG (Pembaruan Otomatis 5 Menit)",
+          affectedAreas: [place],
+          expandToAreas: ["Evaluasi radius 25 km sesuai prakiraan lokal"],
+          meteorologicalDescription: `Presipitasi terukur model ${precip} mm/jam dan kecepatan angin ${wind} km/jam.`,
+          attribution: attrNote,
         },
       ];
     }
@@ -438,16 +577,16 @@ export class BMKGService {
         {
           id: `warn-live-${Date.now()}-01`,
           province: place,
-          title: `Peringatan Dini Cuaca Signifikan (${tzAbbr})`,
+          title: `Status Ambang Cuaca Signifikan (${tzAbbr})`,
           issuedAt: issuedTime,
           validUntil,
-          hazardType: "Hujan Sedang-Lebat Berdurasi Singkat & Angin Kencang",
+          hazardType: "Hujan Sedang-Lebat atau Angin Kencang",
           level: "SIAGA",
           color: "#f97316",
           affectedAreas: [place],
-          expandToAreas: ["Wilayah Penyangga Sekitar"],
-          meteorologicalDescription: `Kondisi atmosfer labil moderat memicu pertumbuhan awan hujan dengan kecepatan angin terdeteksi ${wind} km/jam.`,
-          attribution: "Sistem Peringatan Dini Geospasial BMKG (Pembaruan Otomatis 5 Menit)",
+          expandToAreas: ["Kawasan sekitar koordinat"],
+          meteorologicalDescription: `Presipitasi terukur model ${precip.toFixed(1)} mm/jam dan kecepatan angin ${wind} km/jam.`,
+          attribution: attrNote,
         },
       ];
     }
@@ -457,16 +596,16 @@ export class BMKGService {
         {
           id: `warn-live-${Date.now()}-01`,
           province: place,
-          title: `Peringatan Dini Cuaca Ringan-Sedang (${tzAbbr})`,
+          title: `Status Ambang Hujan Ringan-Sedang (${tzAbbr})`,
           issuedAt: issuedTime,
           validUntil,
-          hazardType: "Potensi Hujan Ringan Disertai Embusan Angin Lokal",
+          hazardType: "Potensi Hujan Ringan / Angin Lokal",
           level: "WASPADA",
           color: "#fbbf24",
           affectedAreas: [place],
-          expandToAreas: ["Kawasan Sekitarnya"],
-          meteorologicalDescription: `Tutupan awan stratiform dan konvektif lokal berpotensi memicu hujan ringan sesaat (${precip.toFixed(1)} mm/jam).`,
-          attribution: "Sistem Peringatan Dini Geospasial BMKG (Pembaruan Otomatis 5 Menit)",
+          expandToAreas: ["Kawasan sekitar koordinat"],
+          meteorologicalDescription: `Presipitasi model ${precip.toFixed(1)} mm/jam, angin ${wind} km/jam.`,
+          attribution: attrNote,
         },
       ];
     }
@@ -475,16 +614,16 @@ export class BMKGService {
       {
         id: `warn-live-${Date.now()}-01`,
         province: place,
-        title: `Informasi Kondisi Cuaca Dinamis (${tzAbbr})`,
+        title: `Status Parameter Cuaca Lokal (${tzAbbr})`,
         issuedAt: issuedTime,
         validUntil,
-        hazardType: "Kondisi Atmosfer Terpantau Terkendali & Kondusif",
+        hazardType: "Parameter Cuaca Model di Bawah Ambang Ekstrem",
         level: "AMAN",
         color: "#10b981",
         affectedAreas: [place],
-        expandToAreas: ["Seluruh Wilayah Pengamatan"],
-        meteorologicalDescription: "Pemindaian citra satelit Himawari-9 dan asimilasi model radar menunjukkan dinamika atmosfer stabil; tidak terdeteksi potensi cuaca ekstrem dalam 3 jam ke depan.",
-        attribution: "Sistem Pemantauan Cuaca & Radar Geospasial BMKG (Pembaruan Otomatis 5 Menit)",
+        expandToAreas: ["Koordinat terpilih"],
+        meteorologicalDescription: `Presipitasi ${precip.toFixed(1)} mm/jam, angin ${wind} km/jam (bukan peringatan resmi BMKG CAP).`,
+        attribution: attrNote,
       },
     ];
   }
@@ -493,163 +632,40 @@ export class BMKGService {
     return this.getDynamicWeatherWarnings(lat, lng, weatherCurrent, locationName);
   }
 
-  getDynamicClimateData(): BMKGClimateData {
-    const now = new Date();
-    const day = now.getDate();
-    const monthNames = ['Januari', 'Februari', 'Maret', 'April', 'Mei', 'Juni', 'Juli', 'Agustus', 'September', 'Oktober', 'November', 'Desember'];
-    const currentMonth = monthNames[now.getMonth()];
-    const currentYear = now.getFullYear();
-    const dasarianName = day <= 10 ? 'Dasarian I' : day <= 20 ? 'Dasarian II' : 'Dasarian III';
-
-    const warmingStripes = [
-      { year: 1981, anomalyC: -0.45, hexColor: '#2166ac' },
-      { year: 1985, anomalyC: -0.32, hexColor: '#4393c3' },
-      { year: 1990, anomalyC: -0.18, hexColor: '#92c5de' },
-      { year: 1995, anomalyC: -0.05, hexColor: '#d1e5f0' },
-      { year: 2000, anomalyC: 0.02, hexColor: '#f7f7f7' },
-      { year: 2005, anomalyC: 0.28, hexColor: '#fddbc7' },
-      { year: 2010, anomalyC: 0.39, hexColor: '#f4a582' },
-      { year: 2015, anomalyC: 0.61, hexColor: '#d6604d' },
-      { year: 2020, anomalyC: 0.72, hexColor: '#b2182b' },
-      { year: 2024, anomalyC: 0.81, hexColor: '#67001f' },
-      { year: 2026, anomalyC: 0.88, hexColor: '#490014' },
-    ];
-
-    return {
-      enso: {
-        status: "Netral (Normal)",
-        indexOni: -0.15,
-        description: "Anomali suhu muka laut di wilayah Niño 3.4 berada dalam ambang batas netral (-0.5°C s.d. +0.5°C). Sirkulasi Walker normal.",
-        lastUpdated: `${dasarianName} ${currentMonth} ${currentYear}`,
-      },
-      iod: {
-        status: "Netral",
-        description: "Dipole Mode Index Samudra Hindia berada pada fase Netral, aliran uap air ke wilayah barat Indonesia stabil.",
-      },
-      hariTanpaHujan: {
-        categorySummary: {
-          sangatPendek: "1 - 5 Hari (Mayoritas Jawa, Bali, Nusa Tenggara)",
-          pendek: "6 - 10 Hari (Sebagian NTT timur)",
-          menengah: "11 - 20 Hari (Nusa Tenggara Timur & Pesisir Jatim)",
-          panjang: "21 - 30 Hari (Nihil)",
-          sangatPanjang: "31 - 60 Hari (Nihil)",
-          ekstrem: "> 60 Hari (Nihil)",
-        },
-        monitoringDate: `Monitoring ${dasarianName} ${currentMonth} ${currentYear}`,
-      },
-      prediksiDasarian: {
-        dasarian1: {
-          period: "Dasarian I",
-          curahHujanMm: "50 - 150 mm (Deterministik)",
-          sifatHujan: "NORMAL s.d. ATAS NORMAL",
-          peluangLebih20mm: "90% di wilayah Jawa & Sumatera",
-          peluangLebih50mm: "65% di wilayah pegunungan",
-        },
-        dasarian2: {
-          period: "Dasarian II",
-          curahHujanMm: "75 - 200 mm",
-          sifatHujan: "ATAS NORMAL",
-          peluangLebih20mm: "95%",
-          peluangLebih50mm: "75%",
-        },
-        dasarian3: {
-          period: "Dasarian III",
-          curahHujanMm: "100 - 250 mm",
-          sifatHujan: "ATAS NORMAL (Transisi Monsun Asia)",
-          peluangLebih20mm: "95%",
-          peluangLebih50mm: "80%",
-        },
-      },
-      spi: {
-        period: "3-Bulanan",
-        indexValue: 0.42,
-        category: "Normal s.d. Agak Basah",
-        note: "Standardized Precipitation Index (SPI) menunjukkan ketersediaan air tanah yang memadai untuk tanaman pangan.",
-      },
-      warmingStripes,
-      attribution: "Pusat Informasi Perubahan Iklim BMKG (Diperbarui Siklus Berkala)",
-    };
+  getDynamicClimateData(): BMKGClimateData | null {
+    return null;
   }
 
-  getReferenceClimateData(): BMKGClimateData {
-    return this.getDynamicClimateData();
+  getReferenceClimateData(): BMKGClimateData | null {
+    return null;
   }
 
   getDynamicAirQuality(lat = -7.25, lng = 112.75, currentAir?: any, locationName?: string): BMKGAirQualityStation[] {
-    const pm25 = typeof currentAir?.pm25 === 'number' ? currentAir.pm25 : 24.5;
-    const pm10 = typeof currentAir?.pm10 === 'number' ? currentAir.pm10 : 38.2;
-    const ozone = typeof currentAir?.ozone === 'number' ? currentAir.ozone : 28.0;
-    const place = locationName || `Lokasi Terpilih (${lat.toFixed(2)}, ${lng.toFixed(2)})`;
+    const hasPm25 = typeof currentAir?.pm25 === 'number' && Number.isFinite(currentAir.pm25);
+    const hasPm10 = typeof currentAir?.pm10 === 'number' && Number.isFinite(currentAir.pm10);
+    const hasOzone = typeof currentAir?.ozone === 'number' && Number.isFinite(currentAir.ozone);
+    if (!hasPm25 && !hasPm10 && !hasOzone) {
+      return [];
+    }
 
+    const place = locationName || `Lokasi Terpilih (${lat.toFixed(2)}, ${lng.toFixed(2)})`;
     return [
       {
-        code: "LOC",
-        name: `Sensor Kualitas Udara Live - ${place}`,
+        code: 'CAMS-OM',
+        name: `Copernicus CAMS via Open-Meteo — ${place}`,
         province: place,
         lat,
         lng,
-        altitudeM: 15,
-        pm25: Number(pm25.toFixed(1)),
-        pm10: Number(pm10.toFixed(1)),
-        so2: 4.2,
-        no2: 12.8,
-        o3: Number(ozone.toFixed(1)),
-        co: 320,
-        greenhouseGas: {
-          co2Ppm: 423.1,
-          ch4Ppb: 1985.4,
-          n2oPpb: 337.2,
-          note: "Asimilasi data satelit Copernicus CAMS & Open-Meteo pada koordinat pengguna",
-        },
-        rainChemistry: {
-          ph: 5.2,
-          conductivityUsCm: 22.4,
-          status: "Normal (Bukan Hujan Asam)",
-        },
-      },
-      {
-        code: "KTB",
-        name: "Stasiun Pemantau Atmosfer Global (GAW) Bukit Kototabang",
-        province: "Sumatera Barat",
-        lat: -0.202,
-        lng: 100.318,
-        altitudeM: 864,
-        pm25: 12.4,
-        pm10: 22.1,
-        so2: 1.2,
-        no2: 3.4,
-        o3: 24.5,
-        co: 210,
-        greenhouseGas: {
-          co2Ppm: 422.5,
-          ch4Ppb: 1980.2,
-          n2oPpb: 336.8,
-          note: "Baseline GRK Indonesia terstandarisasi World Meteorological Organization (WMO GAW)",
-        },
-        rainChemistry: {
-          ph: 5.4,
-          conductivityUsCm: 18.2,
-          status: "Normal (Bukan Hujan Asam)",
-        },
-      },
-      {
-        code: "KMY",
-        name: "Stasiun Kualitas Udara BMKG Kemayoran",
-        province: "DKI Jakarta",
-        lat: -6.155,
-        lng: 106.845,
-        altitudeM: 5,
-        pm25: 48.6,
-        pm10: 74.2,
-        so2: 14.8,
-        no2: 28.5,
-        o3: 36.2,
-        co: 840,
-        rainChemistry: {
-          ph: 4.8,
-          conductivityUsCm: 42.1,
-          status: "Agak Asam (Pengaruh Emisi Urban Perkotaan)",
-        },
+        altitudeM: null,
+        pm25: hasPm25 ? Number(currentAir.pm25.toFixed(1)) : null,
+        pm10: hasPm10 ? Number(currentAir.pm10.toFixed(1)) : null,
+        so2: null,
+        no2: null,
+        o3: hasOzone ? Number(currentAir.ozone.toFixed(1)) : null,
+        co: null,
+        sourceLabel: 'Model komposisi atmosfer Copernicus CAMS via Open-Meteo (bukan stasiun BMKG)',
+        greenhouseGas: null,
+        rainChemistry: null,
       },
     ];
   }
@@ -658,43 +674,8 @@ export class BMKGService {
     return this.getDynamicAirQuality(lat, lng, currentAir, locationName);
   }
 
-  getReferenceGeophysicsData(): BMKGGeophysicsData {
-    return {
-      lightning: {
-        provider: "BMKG Lightning Detection Network (LDN) Sensors",
-        samplingWindow: "Real-time 1 Jam Terakhir (Ilustrasi Rujukan)",
-        strikesCount1Hour: 342,
-        breakdown: {
-          cloudToGroundNegative: 210,
-          cloudToGroundPositive: 45,
-          intraCloud: 87,
-        },
-        highDensityZones: [
-          { area: "Lereng Selatan Gunung Semeru & Malang Selatan", strikes: 128, density: "14.2 sambaran/km²/jam" },
-          { area: "Cisarua - Puncak Bogor", strikes: 94, density: "11.8 sambaran/km²/jam" },
-          { area: "Selat Malaka bagian timur", strikes: 62, density: "8.4 sambaran/km²/jam" },
-        ],
-      },
-      gravity: {
-        system: "Jaringan Gaya Berat Standar BMKG (Relative & Absolute Gravimetry)",
-        unit: "mGal (miliGal)",
-        referenceEllipsoid: "WGS84 / EGM2008",
-        anomalyRangeIndonesia: "-180 mGal s.d. +240 mGal (Anomali Bouguer)",
-        interpretation: "Anomali Bouguer tinggi mencerminkan kerak samudra dan intrusi batuan mafik; anomali negatif menandakan sedimentasi tebal busur muka dan akar pegunungan vulkanik.",
-      },
-      geomagnetism: {
-        observatories: ["Tuntungan (Medan)", "Pelabuhan Ratu", "Kupang", "Tondano", "Jayapura"],
-        magneticFieldParameters: {
-          declination: "-0.85° (Barat)",
-          inclination: "-32.4°",
-          totalIntensityNt: 44850,
-          horizontalComponentNt: 37820,
-          verticalComponentNt: -24100,
-        },
-        geomagneticStormStatus: "TENANG (Kp-Index: 2, Tidak ada badai matahari signifikan)",
-      },
-      attribution: "Pusat Seismologi Teknik, Geofisika Potensial dan Tanda Waktu BMKG (Rujukan)",
-    };
+  getReferenceGeophysicsData(): BMKGGeophysicsData | null {
+    return null;
   }
 
   getDynamicTimeSun(lat = -7.25, lng = 112.75): BMKGTimeSun {
@@ -772,7 +753,7 @@ export class BMKGService {
         wib: formatAtomic(7, 'WIB'),
         wita: formatAtomic(8, 'WITA'),
         wit: formatAtomic(9, 'WIT'),
-        standard: "Standar Frekuensi & Waktu Atom Sesium BMKG (Sinkronisasi NTP Nasional)",
+        standard: "Waktu Perangkat Lokal (Bukan Sinkronisasi NTP Atom Sesium BMKG)",
       },
       solarSchedule: {
         latitude: lat,
@@ -795,7 +776,7 @@ export class BMKGService {
           { date: "28 Agu 2026", event: "Gerhana Bulan Sebagian (Tampak dari Indonesia Timur)" },
         ],
       },
-      attribution: "Kedeputian Bidang Geofisika - Tim Tanda Waktu & Astronomi BMKG (Kalkulasi Astronomi Realtime)",
+      attribution: "Kalkulasi Ephemeris Astronomi Matematis (Bukan Feed Resmi Tim Tanda Waktu BMKG)",
     };
   }
 
@@ -803,35 +784,8 @@ export class BMKGService {
     return this.getDynamicTimeSun(lat, lng);
   }
 
-  getReferenceMicrozonation(lat = -7.25, lng = 112.75): BMKGSeismicMicrozonation {
-    return {
-      coordinates: { lat, lng },
-      method: "Horizontal-to-Vertical Spectral Ratio (HVSR) Mikrotremor 3 Komponen",
-      soilClassification: "Tanah Sedang (Kelas Situs SD / NEHRP)",
-      parameters: {
-        f0Hz: 2.14,
-        f0Description: "Frekuensi Alami Tanah (f0) = 2.14 Hz. Berpotensi resonansi dengan struktur bangunan 4–6 lantai.",
-        amplificationFactorA0: 3.45,
-        a0Description: "Faktor Penguatan Gelombang Seismik (A0) = 3.45 kali lipat relatif terhadap batuan dasar (bedrock).",
-        seismicVulnerabilityIndexKg: 5.56,
-        kgDescription: "Indeks Kerentanan Seismik (Kg = A0² / f0) = 5.56. Kategori kerentanan deformasi tanah sedang-tinggi jika terjadi gempa dekat.",
-        vs30EstimatedMs: 245,
-        vs30Description: "Kecepatan rambat gelombang geser rata-rata pada kedalaman 30 meter = 245 m/s.",
-      },
-      spectralAcceleration: {
-        pgaBedrockG: 0.28,
-        pgaSurfaceG: 0.42,
-        spectralPeriod02sG: 0.88,
-        spectralPeriod10sG: 0.54,
-        standardCode: "SNI 1726:2019 / Puskim BMKG",
-      },
-      engineeringRecommendations: [
-        "Perhitungkan faktor penguatan amplifikasi lokal A0 = 3.45 pada desain struktur beton bertulang bertingkat.",
-        "Gunakan pondasi tiang pancang (piles) yang menembus lapisan tanah lunak hingga mencapai batuan dasar.",
-        "Hindari frekuensi resonansi alami gedung yang mendekati 2.1 Hz untuk memitigasi keruntuhan getaran gempa.",
-      ],
-      attribution: "Sub Koordinator Seismologi Teknik BMKG (Data Rujukan Edukasi)",
-    };
+  getReferenceMicrozonation(): BMKGSeismicMicrozonation | null {
+    return null;
   }
 
   getStoryMaps(): BMKGStoryMap[] {

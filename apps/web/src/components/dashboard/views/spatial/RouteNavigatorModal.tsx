@@ -258,7 +258,7 @@ export const RouteNavigatorModal: React.FC<RouteNavigatorModalProps> = ({
           </div>
           <div>
             <h3 className="text-xs font-bold text-slate-800 dark:text-white flex items-center gap-1.5">
-              AI Route & Weather Copilot
+              Navigasi Rute
             </h3>
             <p className="text-[10px] text-slate-500">Navigasi jalan raya, meteorologi & analisis waktu</p>
           </div>
@@ -425,7 +425,6 @@ export const RouteNavigatorModal: React.FC<RouteNavigatorModalProps> = ({
               <div className="p-3 rounded-xl bg-gradient-to-br from-rose-500/10 via-amber-500/10 to-indigo-500/10 border border-rose-500/30 space-y-2">
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-1.5">
-                    <span className="text-base">🚨</span>
                     <span className="text-xs font-black uppercase text-rose-700 dark:text-rose-300">
                       {(routeResult as any).evacuationPlan.scenarioTitle}
                     </span>
@@ -437,7 +436,7 @@ export const RouteNavigatorModal: React.FC<RouteNavigatorModalProps> = ({
 
                 <div className="grid grid-cols-2 gap-2 text-[11px] pt-1 border-t border-rose-200/50 dark:border-rose-900/40">
                   <div className="p-2 rounded-lg bg-white/80 dark:bg-slate-900/60 border border-rose-200/40">
-                    <span className="text-[9px] uppercase font-bold text-slate-400 block">Titik Kumpul Aman (TES/TEA)</span>
+                    <span className="text-[9px] uppercase font-bold text-slate-400 block">Titik Kumpul</span>
                     <strong className="text-slate-800 dark:text-slate-100 truncate block">
                       {(routeResult as any).evacuationPlan.safeAssemblyPoint.name}
                     </strong>
@@ -446,13 +445,13 @@ export const RouteNavigatorModal: React.FC<RouteNavigatorModalProps> = ({
                     </span>
                   </div>
                   <div className="p-2 rounded-lg bg-white/80 dark:bg-slate-900/60 border border-rose-200/40">
-                    <span className="text-[9px] uppercase font-bold text-slate-400 block">Estimasi Waktu Evakuasi</span>
+                    <span className="text-[9px] uppercase font-bold text-slate-400 block">Estimasi Evakuasi</span>
                     <div className="flex items-center justify-between text-[11px] font-bold text-slate-700 dark:text-slate-200">
-                      <span>🚶 Kaki:</span>
+                      <span>Jalan Kaki:</span>
                       <span className="text-rose-600 font-mono">~{(routeResult as any).evacuationPlan.walkDurationMin} menit</span>
                     </div>
                     <div className="flex items-center justify-between text-[10px] text-slate-500">
-                      <span>🚗 Armada:</span>
+                      <span>Kendaraan:</span>
                       <span className="font-mono">~{(routeResult as any).evacuationPlan.vehicleDurationMin} menit</span>
                     </div>
                   </div>
@@ -462,7 +461,7 @@ export const RouteNavigatorModal: React.FC<RouteNavigatorModalProps> = ({
                 {(routeResult as any).evacuationPlan.hazardAvoidanceRecommendations?.length > 0 && (
                   <div className="text-[10.5px] p-2 rounded-lg bg-rose-50/80 dark:bg-rose-950/40 border border-rose-200/60 text-rose-800 dark:text-rose-200 space-y-1">
                     <span className="font-bold flex items-center gap-1">
-                      ⚠️ Protokol Jalur Evakuasi Aman:
+                      Protokol Evakuasi
                     </span>
                     <ul className="list-disc list-inside space-y-0.5 text-[10px] opacity-90">
                       {(routeResult as any).evacuationPlan.hazardAvoidanceRecommendations.map((rec: string, i: number) => (
@@ -570,7 +569,7 @@ export const RouteNavigatorModal: React.FC<RouteNavigatorModalProps> = ({
             {/* Estimasi Emisi Karbon Perjalanan */}
             <div className="p-2.5 rounded-xl bg-white/70 dark:bg-slate-900/60 border border-indigo-100 dark:border-indigo-900/50 text-[11px] space-y-1.5">
               <div className="flex items-center justify-between font-bold text-slate-700 dark:text-slate-200">
-                <span className="flex items-center gap-1">🍃 Estimasi Emisi ({routeResult.distanceKm} km):</span>
+                <span className="flex items-center gap-1">Estimasi Emisi ({routeResult.distanceKm} km):</span>
                 <span className="text-emerald-600 font-mono">
                   {((routeResult.distanceKm * 170.5) / 1000).toFixed(2)} kg CO₂e
                 </span>

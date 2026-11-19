@@ -204,10 +204,10 @@ export function OnlineRoomModal({
             </div>
             <div>
               <h3 className="font-bold text-slate-900 dark:text-white text-base">
-                Mode Online — Mabar & Kompetisi
+                Sesi Bersama
               </h3>
               <p className="text-xs text-slate-500 dark:text-slate-400">
-                Main bersama teman atau adu cepat menuju Gerbang Utama.
+                Latihan kolaboratif atau kompetisi menuju titik kumpul.
               </p>
             </div>
           </div>
@@ -230,7 +230,7 @@ export function OnlineRoomModal({
                 : "border-transparent text-slate-500 hover:text-slate-800 dark:hover:text-slate-200"
             }`}
           >
-            Buat Room Baru
+            Buat Ruang
           </button>
           <button
             type="button"
@@ -241,14 +241,14 @@ export function OnlineRoomModal({
                 : "border-transparent text-slate-500 hover:text-slate-800 dark:hover:text-slate-200"
             }`}
           >
-            Gabung Room / Kode
+            Gabung Ruang
           </button>
         </div>
 
         <div className="p-5 space-y-4">
           <div className="p-3 rounded-xl bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700">
             <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">
-              Nama Karakter Kamu di Game:
+              Nama Peserta Simulasi
             </label>
             <input
               type="text"
@@ -309,10 +309,10 @@ export function OnlineRoomModal({
                 >
                   <div className="flex items-center gap-1.5 text-xs font-bold text-slate-900 dark:text-white">
                     <Users className="h-3.5 w-3.5 text-emerald-500" />
-                    Mabar Bebas
+                    Kolaboratif
                   </div>
                   <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-1">
-                    Bertahan bersama di satu peta.
+                    Simulasi bersama dalam satu peta.
                   </p>
                 </button>
               </div>
@@ -352,13 +352,13 @@ export function OnlineRoomModal({
               <div className="grid sm:grid-cols-2 gap-3 items-end">
                 <div>
                   <label className="block text-xs font-bold text-slate-600 dark:text-slate-300 mb-1">
-                    Nama Room (Opsional)
+                    Nama Ruang (Opsional)
                   </label>
                   <input
                     type="text"
                     value={roomName}
                     onChange={(e) => setRoomName(e.target.value)}
-                    placeholder={`Room ${currentUser?.name?.split(" ")[0] || "SMAN 1"}`}
+                    placeholder={`Ruang ${currentUser?.name?.split(" ")[0] || "SMAN 1"}`}
                     maxLength={50}
                     className="w-full px-3 py-2 text-sm rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-900 dark:text-white"
                   />
@@ -390,7 +390,7 @@ export function OnlineRoomModal({
                 className="w-full py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-sm flex items-center justify-center gap-2 shadow-lg disabled:opacity-50 transition-colors"
               >
                 <Plus className="h-4 w-4" />
-                {creating ? "Membuat Room..." : "Buat Room & Masuk Lobi"}
+                {creating ? "Membuat Ruang..." : "Buat Ruang & Masuk"}
               </button>
             </form>
           ) : (
@@ -400,7 +400,7 @@ export function OnlineRoomModal({
                   type="text"
                   value={joinCode}
                   onChange={(e) => setJoinCode(e.target.value)}
-                  placeholder="Masukkan 6 digit kode room..."
+                  placeholder="Masukkan 6 digit kode ruang..."
                   maxLength={8}
                   className="flex-1 px-3.5 py-2.5 text-sm font-mono font-bold tracking-widest uppercase rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-900 dark:text-white"
                 />
@@ -417,7 +417,7 @@ export function OnlineRoomModal({
               <div>
                 <div className="flex items-center justify-between mb-2">
                   <span className="text-xs font-bold text-slate-600 dark:text-slate-300">
-                    Room Online Aktif
+                    Ruang Sesi Aktif
                   </span>
                   <button
                     type="button"
@@ -433,7 +433,7 @@ export function OnlineRoomModal({
 
                 {publicRooms.length === 0 ? (
                   <div className="p-6 rounded-xl border border-dashed border-slate-200 dark:border-slate-700 text-center text-xs text-slate-500">
-                    Belum ada room publik aktif. Buat room baru dan bagikan kodenya!
+                    Belum ada ruang publik aktif. Buat ruang baru dan bagikan kodenya.
                   </div>
                 ) : (
                   <div className="space-y-2 max-h-56 overflow-y-auto pr-1">
@@ -457,15 +457,15 @@ export function OnlineRoomModal({
                                   : "bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-300"
                               }`}
                             >
-                              {room.status === "RUNNING" ? "BERJALAN" : "LOBBY"}
+                              {room.status === "RUNNING" ? "BERJALAN" : "LOBI"}
                             </span>
                           </div>
                           <p className="text-[11px] text-slate-500 dark:text-slate-400 truncate mt-0.5">
                             {room.disasterType} ·{" "}
                             {room.settings?.mode === "race"
                               ? "Kompetisi"
-                              : "Mabar"}{" "}
-                            · {room.participantCount} pemain
+                              : "Kolaboratif"}{" "}
+                            · {room.participantCount} peserta
                           </p>
                         </div>
                         <button

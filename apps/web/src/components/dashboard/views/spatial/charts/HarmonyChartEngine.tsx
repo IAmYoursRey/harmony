@@ -363,7 +363,7 @@ export const HarmonyChartEngine: React.FC<HarmonyChartEngineProps> = ({
               })()}
             </svg>
             <p className="text-slate-400 text-center">Kotak Q1–Q3, garis median; ujung garis menunjukkan minimum dan maksimum sampel.</p>
-            <div className="grid grid-cols-5 gap-2 text-center">
+            <div className="grid grid-cols-2 sm:grid-cols-5 gap-2 text-center">
               <div className="p-2.5 rounded-xl bg-slate-900/60 border border-slate-700">
                 <span className="text-[10px] text-slate-400 block">Min</span>
                 <span className="text-sm font-bold text-sky-400">{statDistributionData.min?.toFixed(1)}°C</span>
@@ -372,7 +372,7 @@ export const HarmonyChartEngine: React.FC<HarmonyChartEngineProps> = ({
                 <span className="text-[10px] text-slate-400 block">Kuartil 1 (Q1)</span>
                 <span className="text-sm font-bold text-indigo-400">{statDistributionData.q1?.toFixed(1)}°C</span>
               </div>
-              <div className="p-2.5 rounded-xl bg-slate-900/60 border border-indigo-500/40 bg-indigo-950/20">
+              <div className="col-span-2 sm:col-span-1 p-2.5 rounded-xl bg-slate-900/60 border border-indigo-500/40 bg-indigo-950/20">
                 <span className="text-[10px] text-indigo-300 block font-semibold">Median (Q2)</span>
                 <span className="text-base font-extrabold text-emerald-400">{statDistributionData.median?.toFixed(1)}°C</span>
               </div>
@@ -502,7 +502,9 @@ export const HarmonyChartEngine: React.FC<HarmonyChartEngineProps> = ({
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-3 border-b border-slate-100 dark:border-slate-700/60 pb-3">
         <div className="space-y-0.5">
           <div className="flex items-center gap-2 flex-wrap">
-            <span className="text-base">{activeChart.icon}</span>
+            <span className="inline-flex h-6 px-1.5 items-center justify-center rounded-md bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 text-[10px] font-mono font-bold border border-indigo-500/20">
+              {activeChart.icon}
+            </span>
             <h3 className="text-xs sm:text-sm font-black text-slate-800 dark:text-slate-100">
               {title || activeChart.name}
             </h3>
@@ -555,7 +557,7 @@ export const HarmonyChartEngine: React.FC<HarmonyChartEngineProps> = ({
             className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-500 hover:to-purple-500 text-white text-xs font-bold transition-all shadow-md shadow-indigo-500/20 active:scale-95 cursor-pointer"
           >
             <Sliders className="w-3.5 h-3.5" />
-            <span>Pilih Jenis Grafik (30+ Tipe)</span>
+            <span>Katalog Grafik</span>
           </button>
         </div>
       </div>
@@ -563,25 +565,25 @@ export const HarmonyChartEngine: React.FC<HarmonyChartEngineProps> = ({
       {/* Quick Access Top Chart Pills */}
       <div className="flex items-center gap-1.5 overflow-x-auto no-scrollbar scroll-smooth touch-pan-x pb-1 text-xs font-bold">
         {[
-          { id: 'line', label: '📈 Line Suhu' },
-          { id: 'bar', label: '🌧️ Bar Hujan' },
-          { id: 'wind_rose', label: '🧭 Wind Rose' },
-          { id: 'meteogram', label: '📊 Meteogram' },
-          { id: 'fan_chart', label: '🪭 Fan Chart' },
-          { id: 'sounding', label: '🎈 Sounding Skew-T' },
-          { id: 'wave_rose', label: '🌊 Swell Rose' },
-          { id: 'violin_density', label: '🎻 Violin Density' },
-          { id: 'boxplot', label: '📦 Box Plot' },
-          { id: 'seismograph', label: '⚡ Seismogram' },
-          { id: 'depth_mag_scatter', label: '🌋 Kedalaman Gempa' },
-          { id: 'gutenberg_richter', label: '📉 Gutenberg-Richter' },
-          { id: 'isoseismal_curve', label: '📐 Isoseismal MMI' },
-          { id: 'calendar_heatmap', label: '📅 Kalender HTH' },
-          { id: 'sankey_flow', label: '🔀 Sankey Aliran' },
-          { id: 'parallel_coords', label: '📏 Parallel Coords' },
-          { id: 'treemap', label: '🔲 Treemap Wilayah' },
-          { id: 'funnel', label: '⏳ Funnel Respons' },
-          { id: 'aqi_gauge', label: '🧭 Dial AQI' },
+          { id: 'line', label: 'Line Suhu' },
+          { id: 'bar', label: 'Bar Hujan' },
+          { id: 'wind_rose', label: 'Wind Rose' },
+          { id: 'meteogram', label: 'Meteogram' },
+          { id: 'fan_chart', label: 'Fan Chart' },
+          { id: 'sounding', label: 'Sounding Skew-T' },
+          { id: 'wave_rose', label: 'Swell Rose' },
+          { id: 'violin_density', label: 'Violin Density' },
+          { id: 'boxplot', label: 'Box Plot' },
+          { id: 'seismograph', label: 'Seismogram' },
+          { id: 'depth_mag_scatter', label: 'Kedalaman Gempa' },
+          { id: 'gutenberg_richter', label: 'Gutenberg-Richter' },
+          { id: 'isoseismal_curve', label: 'Isoseismal MMI' },
+          { id: 'calendar_heatmap', label: 'Kalender HTH' },
+          { id: 'sankey_flow', label: 'Sankey Aliran' },
+          { id: 'parallel_coords', label: 'Parallel Coords' },
+          { id: 'treemap', label: 'Treemap Wilayah' },
+          { id: 'funnel', label: 'Funnel Respons' },
+          { id: 'aqi_gauge', label: 'Dial AQI' },
         ].map((pill) => (
           <button
             key={pill.id}
@@ -657,10 +659,10 @@ export const HarmonyChartEngine: React.FC<HarmonyChartEngineProps> = ({
                 </div>
                 <div>
                   <h3 className="text-sm font-bold text-slate-800 dark:text-white">
-                    Katalog Lengkap Jenis Grafik & Visualisasi Data
+                    Katalog Grafik
                   </h3>
                   <p className="text-[11px] text-slate-500 dark:text-slate-400">
-                    Pilih visualisasi optimal sesuai dengan tujuan analisis (Perbandingan, Tren, Distribusi, Korelasi, Meteorologi, Seismologi)
+                    Pilih visualisasi sesuai kebutuhan analisis data
                   </p>
                 </div>
               </div>
@@ -697,7 +699,7 @@ export const HarmonyChartEngine: React.FC<HarmonyChartEngineProps> = ({
                       : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 hover:bg-slate-200 dark:hover:bg-slate-700'
                   }`}
                 >
-                  🌟 Semua Kategori ({ALL_CHARTS.length})
+                  Semua ({ALL_CHARTS.length})
                 </button>
                 {CHART_CATEGORIES.map((cat) => (
                   <button
@@ -710,7 +712,7 @@ export const HarmonyChartEngine: React.FC<HarmonyChartEngineProps> = ({
                         : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 hover:bg-slate-200 dark:hover:bg-slate-700'
                     }`}
                   >
-                    <span>{cat.icon} {cat.name.split('(')[0]}</span>
+                    <span>{cat.name.split('(')[0]}</span>
                   </button>
                 ))}
               </div>
@@ -735,7 +737,9 @@ export const HarmonyChartEngine: React.FC<HarmonyChartEngineProps> = ({
                   >
                     <div className="space-y-2">
                       <div className="flex items-center justify-between">
-                        <span className="text-xl">{chart.icon}</span>
+                        <span className="text-[10px] font-mono font-bold px-2 py-0.5 rounded bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 border border-indigo-500/20">
+                          {chart.icon}
+                        </span>
                         <span className="text-[9px] font-extrabold uppercase px-2 py-0.5 rounded bg-slate-100 dark:bg-slate-800 text-slate-500 border border-slate-200 dark:border-slate-700">
                           {chart.categoryName}
                         </span>

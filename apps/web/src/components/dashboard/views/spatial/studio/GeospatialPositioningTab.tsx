@@ -521,7 +521,7 @@ export const GeospatialPositioningTab: React.FC<GeospatialPositioningTabProps> =
           <div>
             <div className="flex items-center gap-2">
               <h3 className="text-sm font-bold text-slate-800 dark:text-white">
-                Telemetri GNSS & Posisi Presisi
+                Telemetri GNSS
               </h3>
               <span className="text-[10px] font-extrabold uppercase px-2 py-0.5 rounded-full bg-blue-500/15 text-blue-700 dark:text-blue-300 border border-blue-500/25">
                 Datum WGS 84 / Referensi Geodesi
@@ -639,7 +639,7 @@ export const GeospatialPositioningTab: React.FC<GeospatialPositioningTabProps> =
             </div>
             <div>
               <h4 className="text-xs font-bold uppercase tracking-wider text-white">
-                Taksonomi Variabel Fisik Geodinamika GNSS Geodetik &amp; Tektonik
+                Variabel Geodinamika
               </h4>
               <p className="text-[11px] text-slate-400">
                 Standar pengukuran geodinamika kerak bumi Badan Informasi Geospasial (BIG) &amp; Pusat Studi Gempa Nasional (PuSGeN)
@@ -716,7 +716,7 @@ export const GeospatialPositioningTab: React.FC<GeospatialPositioningTabProps> =
           <div className="flex items-center gap-2">
             <MapPin className="w-4 h-4 text-indigo-600 dark:text-indigo-400" />
             <h4 className="text-xs font-bold uppercase tracking-wider text-slate-800 dark:text-white">
-              Hierarki Administrasi Wilayah GPS (Tingkat Desa/Kelurahan)
+              Wilayah Administrasi
             </h4>
           </div>
           <span className="text-[10px] font-mono px-2 py-0.5 rounded-full bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 font-bold border border-indigo-500/20">
@@ -769,7 +769,7 @@ export const GeospatialPositioningTab: React.FC<GeospatialPositioningTabProps> =
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b border-slate-100 dark:border-slate-700/60">
           <div>
             <h4 className="text-sm font-bold text-slate-900 dark:text-white flex items-center gap-2">
-              <Activity className="w-4 h-4 text-blue-500" /> Perekam Jejak Geospasial (Track Recorder)
+              <Activity className="w-4 h-4 text-blue-500" /> Perekam Lintasan
             </h4>
             <p className="text-xs text-slate-500 dark:text-slate-400">
               Merekam lintasan pergerakan survei lapangan secara kontinyu beserta cap waktu dan elevasi

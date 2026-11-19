@@ -487,9 +487,9 @@ export const GeospatialHotspotMapView: React.FC<GeospatialHotspotMapViewProps> =
           <div>
             <div className="flex items-center gap-2">
               <h4 className="font-bold text-slate-100 flex items-center gap-1.5">
-                Peta Resolusi Footprint Anomali Satelit
+                Peta Titik Panas
                 <span className="text-[10px] font-mono px-2 py-0.5 rounded-full bg-emerald-500/10 text-emerald-400 border border-emerald-500/25 font-semibold">
-                  Sapuan Kuas Tanah Nyata Tetap
+                  Jejak Sensor
                 </span>
               </h4>
             </div>

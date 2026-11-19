@@ -775,7 +775,7 @@ export function CesiumGlobe3D({
           disableDepthTestDistance: Number.POSITIVE_INFINITY,
         },
         label: {
-          text: `🔥 ${tempC.toFixed(0)}°C • ${frp.toFixed(0)}MW`,
+          text: `${tempC.toFixed(0)}°C • ${frp.toFixed(0)} MW`,
           font: 'bold 10px Inter, sans-serif',
           fillColor: C.Color.WHITE,
           outlineColor: C.Color.BLACK,
@@ -819,7 +819,7 @@ export function CesiumGlobe3D({
           disableDepthTestDistance: Number.POSITIVE_INFINITY,
         },
         label: {
-          text: `${isActive ? '🌋' : isInactive ? '🌋' : '⛰️'} ${m.name || 'Gunung'}`,
+          text: `${m.name || 'Gunung'}`,
           font: 'bold 11px Inter, sans-serif',
           fillColor: C.Color.WHITE,
           outlineColor: C.Color.BLACK,
@@ -879,7 +879,7 @@ export function CesiumGlobe3D({
             disableDepthTestDistance: Number.POSITIVE_INFINITY,
           },
           label: {
-            text: `📡 ${radar.name}`,
+            text: `${radar.name}`,
             font: 'bold 10px Inter, sans-serif',
             fillColor: C.Color.WHITE,
             outlineColor: C.Color.BLACK,
@@ -940,7 +940,7 @@ export function CesiumGlobe3D({
             disableDepthTestDistance: Number.POSITIVE_INFINITY,
           },
           label: {
-            text: `⚠️ ${spot.name}`,
+            text: `${spot.name}`,
             font: 'bold 10px Inter, sans-serif',
             fillColor: C.Color.fromCssColorString('#fca5a5'),
             outlineColor: C.Color.BLACK,
@@ -1044,7 +1044,7 @@ export function CesiumGlobe3D({
             disableDepthTestDistance: Number.POSITIVE_INFINITY,
           },
           label: {
-            text: `🏛️ ${mon.name}`,
+            text: `${mon.name}`,
             font: 'bold 11px Inter, sans-serif',
             fillColor: C.Color.fromCssColorString('#fef08a'),
             outlineColor: C.Color.BLACK,
@@ -1259,7 +1259,7 @@ export function CesiumGlobe3D({
         if (!validPosition(cam.location[1], cam.location[0])) return;
         data.entities.add({
           id: `traffic-cctv-${cam.id}`,
-          name: `📹 CCTV: ${cam.name}`,
+          name: `CCTV: ${cam.name}`,
           position: C.Cartesian3.fromDegrees(cam.location[0], cam.location[1], 15),
           point: {
             pixelSize: 10,
@@ -1269,7 +1269,7 @@ export function CesiumGlobe3D({
             disableDepthTestDistance: Number.POSITIVE_INFINITY,
           },
           label: {
-            text: `📹 ${cam.name}`,
+            text: `${cam.name}`,
             font: 'bold 9.5px Inter, sans-serif',
             fillColor: C.Color.fromCssColorString('#a5f3fc'),
             outlineColor: C.Color.BLACK,
@@ -1293,7 +1293,7 @@ export function CesiumGlobe3D({
         const phaseCol = sig.currentPhase === 'GREEN' ? '#10b981' : sig.currentPhase === 'YELLOW' ? '#f59e0b' : '#ef4444';
         data.entities.add({
           id: `traffic-signal-${sig.id}`,
-          name: `🚦 Simpang ATCS: ${sig.name}`,
+          name: `Simpang ATCS: ${sig.name}`,
           position: C.Cartesian3.fromDegrees(sig.location[0], sig.location[1], 12),
           point: {
             pixelSize: 10,
@@ -1303,7 +1303,7 @@ export function CesiumGlobe3D({
             disableDepthTestDistance: Number.POSITIVE_INFINITY,
           },
           label: {
-            text: `🚦 ${sig.name} (${sig.remainingSeconds}s)`,
+            text: `${sig.name} (${sig.remainingSeconds}s)`,
             font: 'bold 9.5px Inter, sans-serif',
             fillColor: C.Color.fromCssColorString(phaseCol),
             outlineColor: C.Color.BLACK,
@@ -1576,7 +1576,7 @@ export function CesiumGlobe3D({
           <div 
             onPointerDown={(e) => e.stopPropagation()}
             onClick={(e) => e.stopPropagation()}
-            className="fixed top-auto bottom-0 sm:top-4 sm:bottom-4 right-0 sm:right-4 left-0 sm:left-auto z-[9999] w-full sm:w-96 max-h-[88vh] sm:max-h-[calc(100vh-2rem)] rounded-t-3xl sm:rounded-3xl bg-white/95 dark:bg-slate-900/95 shadow-2xl backdrop-blur-2xl border-t sm:border border-slate-200/80 dark:border-slate-800 flex flex-col overflow-hidden text-slate-800 dark:text-slate-100 animate-in slide-in-from-right duration-300 pointer-events-auto"
+            className="fixed top-auto bottom-0 sm:top-4 sm:bottom-4 right-0 sm:right-4 left-0 sm:left-auto z-[9999] w-full sm:w-96 max-h-[calc(var(--vh-full)*0.88)] sm:max-h-[calc(var(--vh-full)-2rem)] rounded-t-3xl sm:rounded-3xl bg-white/95 dark:bg-slate-900/95 shadow-2xl backdrop-blur-2xl border-t sm:border border-slate-200/80 dark:border-slate-800 flex flex-col overflow-hidden text-slate-800 dark:text-slate-100 animate-in slide-in-from-right duration-300 pointer-events-auto"
             role="dialog"
             aria-label="Pengaturan Harmony Kosmik 3D"
           >
@@ -1645,14 +1645,14 @@ export function CesiumGlobe3D({
           {/* Panel Scrollable Body */}
           <div className="flex-1 overflow-y-auto p-4 sm:p-5 space-y-4">
             {/* Active Focus Target Banner */}
-            <div className="p-3 rounded-2xl bg-gradient-to-r from-sky-500/15 via-indigo-500/15 to-purple-500/15 border border-sky-500/30 flex items-center justify-between">
-              <div className="flex items-center gap-2.5">
-                <div className="w-9 h-9 rounded-xl bg-indigo-600 text-white flex items-center justify-center font-bold text-sm shadow-md">
-                  {activeCelestialId === 'overview' ? '★' : PLANETARY_CATALOG[activeCelestialId]?.name?.charAt(0) || 'B'}
+            <div className="p-3 rounded-2xl bg-gradient-to-r from-sky-500/15 via-indigo-500/15 to-purple-500/15 border border-sky-500/30 flex flex-col sm:flex-row sm:items-center justify-between gap-2.5">
+              <div className="flex items-center gap-2.5 min-w-0">
+                <div className="w-9 h-9 rounded-xl bg-indigo-600 text-white flex items-center justify-center font-bold text-sm shadow-md shrink-0">
+                  {activeCelestialId === 'overview' ? 'TS' : PLANETARY_CATALOG[activeCelestialId]?.name?.charAt(0) || 'B'}
                 </div>
-                <div>
+                <div className="min-w-0">
                   <span className="text-[10px] text-sky-400 font-mono block uppercase">Fokus Aktif</span>
-                  <p className="text-xs font-bold text-slate-800 dark:text-white">
+                  <p className="text-xs font-bold text-slate-800 dark:text-white truncate">
                     {activeCelestialId === 'earth' 
                       ? 'Bumi (HD Kosmik)' 
                       : activeCelestialId === 'overview'
@@ -1661,7 +1661,7 @@ export function CesiumGlobe3D({
                   </p>
                 </div>
               </div>
-              <div className="flex items-center gap-1.5">
+              <div className="flex flex-wrap items-center gap-1.5">
                 <button
                   type="button"
                   onClick={() => {
@@ -1710,18 +1710,18 @@ export function CesiumGlobe3D({
               </div>
 
               {/* Grid of planet buttons */}
-              <div className="grid grid-cols-5 gap-1.5 text-xs font-medium">
+              <div className="grid grid-cols-3 sm:grid-cols-5 gap-1.5 text-xs font-medium">
                 {[
-                  { id: 'earth', label: '🌍 Bumi' },
-                  { id: 'sun', label: '☀️ Surya' },
-                  { id: 'moon', label: '🌕 Bulan' },
-                  { id: 'mars', label: '🔴 Mars' },
-                  { id: 'jupiter', label: '🟠 Yupiter' },
-                  { id: 'saturn', label: '🪐 Saturnus' },
-                  { id: 'neptune', label: '🔵 Neptunus' },
-                  { id: 'mercury', label: '🌑 Merkurius' },
-                  { id: 'venus', label: '🟡 Venus' },
-                  { id: 'uranus', label: '🟢 Uranus' },
+                  { id: 'earth', label: 'Bumi' },
+                  { id: 'sun', label: 'Surya' },
+                  { id: 'moon', label: 'Bulan' },
+                  { id: 'mars', label: 'Mars' },
+                  { id: 'jupiter', label: 'Yupiter' },
+                  { id: 'saturn', label: 'Saturnus' },
+                  { id: 'neptune', label: 'Neptunus' },
+                  { id: 'mercury', label: 'Merkurius' },
+                  { id: 'venus', label: 'Venus' },
+                  { id: 'uranus', label: 'Uranus' },
                 ].map((item) => (
                   <button
                     key={item.id}
@@ -1776,7 +1776,7 @@ export function CesiumGlobe3D({
             {/* Section 2: Simulasi Waktu & Kecepatan Orbit */}
             <section className="space-y-2.5">
               <h3 className="text-xs font-bold uppercase tracking-wider text-slate-400">
-                Waktu &amp; Putaran Orbit
+                Waktu &amp; Orbit
               </h3>
 
               <div className="flex items-center justify-between p-2.5 rounded-xl bg-slate-100/70 dark:bg-slate-800/60 border border-slate-200/60 dark:border-slate-700/60">
@@ -1826,16 +1826,16 @@ export function CesiumGlobe3D({
             {/* Section 3: Basemap Bumi 3D */}
             <section className="space-y-2.5">
               <h3 className="text-xs font-bold uppercase tracking-wider text-slate-400">
-                Gaya Peta Bumi 3D (Basemap)
+                Gaya Peta 3D
               </h3>
               <div className="grid grid-cols-2 gap-2">
                 {[
-                  { id: 'satellite', label: 'Citra Satelit', icon: '🛰️', badge: 'Optik Hybrid' },
-                  { id: 'osm', label: 'Peta Vektor', icon: '🗺️', badge: 'Standar OSM' },
-                  { id: 'dark', label: 'Kanvas Gelap', icon: '🌌', badge: 'Night Mode' },
-                  { id: 'elevation', label: 'Topografi', icon: '⛰️', badge: 'Relief DEM' },
-                  { id: 'thermal', label: 'Fisik Bumi', icon: '🌡️', badge: 'Bioklimat' },
-                  { id: 'traffic', label: 'Jalan & Trafik', icon: '🛣️', badge: 'Lalu Lintas' },
+                  { id: 'satellite', label: 'Citra Satelit', badge: 'Optik Hybrid' },
+                  { id: 'osm', label: 'Peta Vektor', badge: 'Standar OSM' },
+                  { id: 'dark', label: 'Kanvas Gelap', badge: 'Mode Malam' },
+                  { id: 'elevation', label: 'Topografi', badge: 'Relief DEM' },
+                  { id: 'thermal', label: 'Fisik Bumi', badge: 'Bioklimat' },
+                  { id: 'traffic', label: 'Jalan & Trafik', badge: 'Lalu Lintas' },
                 ].map((item) => (
                   <button
                     key={item.id}
@@ -1847,10 +1847,7 @@ export function CesiumGlobe3D({
                         : 'bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 border-transparent text-slate-700 dark:text-slate-300 font-medium'
                     }`}
                   >
-                    <div className="flex items-center gap-1.5 w-full">
-                      <span>{item.icon}</span>
-                      <span className="text-xs font-semibold truncate">{item.label}</span>
-                    </div>
+                    <span className="text-xs font-semibold truncate">{item.label}</span>
                     <span className="text-[9px] font-mono opacity-75 mt-0.5">{item.badge}</span>
                   </button>
                 ))}
@@ -2001,7 +1998,7 @@ export function CesiumGlobe3D({
               }`}
             >
               <Sparkles size={14} className="text-amber-300" />
-              <span>{isTourActive ? 'Hentikan Tur Otomatis' : '🚀 Mulai Tur Sinematik Tata Surya'}</span>
+              <span>{isTourActive ? 'Hentikan Tur' : 'Mulai Tur'}</span>
             </button>
           </div>
 
@@ -2012,7 +2009,7 @@ export function CesiumGlobe3D({
               id="cesium-planet-search-input"
               name="planetSearch"
               type="text"
-              placeholder="Cari nama planet (misal: Mars, Yupiter)..."
+              placeholder="Cari nama planet..."
               value={planetSearchTerm}
               onChange={(e) => setPlanetSearchTerm(e.target.value)}
               className="w-full bg-slate-900/80 border border-slate-700/80 rounded-xl pl-9 pr-3 py-2 text-xs text-white placeholder-slate-400 focus:outline-none focus:border-sky-500"
@@ -2023,10 +2020,10 @@ export function CesiumGlobe3D({
           <div className="flex items-center gap-1.5 overflow-x-auto pb-2 scrollbar-none text-[11px]">
             {[
               { id: 'all', label: 'Semua' },
-              { id: 'star', label: '☀️ Bintang' },
-              { id: 'terrestrial', label: '🌍 Terestrial' },
-              { id: 'giant', label: '🪐 Gas & Es' },
-              { id: 'moon', label: '🌕 Satelit' },
+              { id: 'star', label: 'Bintang' },
+              { id: 'terrestrial', label: 'Terestrial' },
+              { id: 'giant', label: 'Gas & Es' },
+              { id: 'moon', label: 'Satelit' },
             ].map((cat) => (
               <button
                 key={cat.id}

@@ -149,28 +149,43 @@ class RoutingService {
           throw new Error('Respons API cuaca koridor tidak valid atau tidak memiliki parameter current.');
         }
 
-        const waypoints: RouteWaypointWeather[] = samplePoints.map((pt, idx) => {
-          const item = dataList[idx] || dataList[0];
-          const curr = item?.current || {};
-          const temp = typeof curr.temperature_2m === 'number' ? curr.temperature_2m : 31.5;
-          const rain = typeof curr.precipitation === 'number' ? Math.max(0, curr.precipitation) : 0.0;
-          const wind = typeof curr.wind_speed_10m === 'number' ? Math.max(0, curr.wind_speed_10m) : 10.0;
-          const code = typeof curr.weather_code === 'number' ? curr.weather_code : 1;
-          const desc = getWeatherConditionDescription(code);
+        const waypoints: RouteWaypointWeather[] = samplePoints
+          .map((pt, idx): RouteWaypointWeather | null => {
+            const item = dataList[idx];
+            const curr = item?.current;
+            if (
+              !curr ||
+              typeof curr.temperature_2m !== 'number' || !Number.isFinite(curr.temperature_2m) ||
+              typeof curr.precipitation !== 'number' || !Number.isFinite(curr.precipitation) ||
+              typeof curr.wind_speed_10m !== 'number' || !Number.isFinite(curr.wind_speed_10m) ||
+              typeof curr.weather_code !== 'number' || !Number.isFinite(curr.weather_code)
+            ) {
+              return null;
+            }
+            const temp = curr.temperature_2m;
+            const rain = Math.max(0, curr.precipitation);
+            const wind = Math.max(0, curr.wind_speed_10m);
+            const code = curr.weather_code;
+            const desc = getWeatherConditionDescription(code);
 
-          return {
-            lat: pt.lat,
-            lng: pt.lng,
-            km: pt.milestoneKm,
-            estimatedTimeStr: pt.estimatedTimeStr,
-            label: pt.label,
-            temperatureC: temp,
-            precipitationMm: rain,
-            windSpeedKmh: wind,
-            weatherCode: code,
-            weatherDescription: desc,
-          };
-        });
+            return {
+              lat: pt.lat,
+              lng: pt.lng,
+              km: pt.milestoneKm,
+              estimatedTimeStr: pt.estimatedTimeStr,
+              label: pt.label,
+              temperatureC: temp,
+              precipitationMm: rain,
+              windSpeedKmh: wind,
+              weatherCode: code,
+              weatherDescription: desc,
+            };
+          })
+          .filter((wp): wp is RouteWaypointWeather => wp !== null);
+
+        if (waypoints.length === 0) {
+          throw new Error('Tidak ada waypoint dengan pembacaan cuaca numerik valid dari Open-Meteo.');
+        }
 
         const maxRainMm = Math.max(...waypoints.map((w) => w.precipitationMm));
         const maxWindKmh = Math.max(...waypoints.map((w) => w.windSpeedKmh));
@@ -323,8 +338,8 @@ class RoutingService {
 
         if (effectiveRain === undefined || effectiveWind === undefined) {
           corridorWeather = await this.fetchCorridorWeather(coords, distKm, durMin);
-          if (effectiveRain === undefined) effectiveRain = corridorWeather.maxRainMm;
-          if (effectiveWind === undefined) effectiveWind = corridorWeather.maxWindKmh;
+          if (effectiveRain === undefined) effectiveRain = corridorWeather?.maxRainMm ?? null;
+          if (effectiveWind === undefined) effectiveWind = corridorWeather?.maxWindKmh ?? null;
         }
 
         const hazardAnalysis = this.evaluateHazards(coords, effectiveRain, effectiveWind);
@@ -386,7 +401,7 @@ class RoutingService {
           closestVolcanoDistance = d;
           closestVolcanoName = v.name;
           closestVolcanoStatus = v.level;
-          isLiveVolcanoFeed = v.operationalStatus === 'VERIFIED_LIVE_FEED';
+          isLiveVolcanoFeed = v.operationalStatus === 'VERIFIED_LIVE_FEED' || v.operationalStatus === 'VERIFIED_GVP_WEEKLY_FEED';
         }
       });
     });
@@ -513,8 +528,8 @@ class RoutingService {
 
     if (effectiveRain === undefined || effectiveWind === undefined) {
       corridorWeather = await this.fetchCorridorWeather(coords, distKm, durMin);
-      if (effectiveRain === undefined) effectiveRain = corridorWeather.maxRainMm;
-      if (effectiveWind === undefined) effectiveWind = corridorWeather.maxWindKmh;
+      if (effectiveRain === undefined) effectiveRain = corridorWeather?.maxRainMm ?? null;
+      if (effectiveWind === undefined) effectiveWind = corridorWeather?.maxWindKmh ?? null;
     }
 
     const hazard = this.evaluateHazards(coords, effectiveRain, effectiveWind);

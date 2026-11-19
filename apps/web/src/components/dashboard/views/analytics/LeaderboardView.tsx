@@ -134,7 +134,7 @@ export function LeaderboardView() {
       );
       return {
         id: p.userId,
-        name: acc?.name || "Student",
+        name: acc?.name || "Siswa",
         avatar: p.avatar,
         totalPoints: p.totalPoints || 0,
         schoolName: p.schoolName || p.schoolId,
@@ -160,7 +160,7 @@ export function LeaderboardView() {
           <div>
             <h3 className="font-display text-lg font-bold text-ink-900 dark:text-white flex items-center gap-2">
               <Trophy className="h-5 w-5 text-amber-500" />
-              Papan Peringkat Ketahanan
+              Peringkat Ketahanan
             </h3>
             <p className="text-sm text-ink-500 dark:text-slate-400 mt-1">
               10 siswa dengan kesiapsiagaan bencana tertinggi

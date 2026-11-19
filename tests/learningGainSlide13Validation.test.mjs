@@ -54,7 +54,7 @@ test("TeacherDashboardView and SurveyAnalyticsView include Learning Gain navigat
   );
   assert.match(teacherSrc, /learning-gain/);
   assert.match(teacherSrc, /LearningGainEvaluationView/);
-  assert.match(teacherSrc, /Efektivitas &amp; Learning Gain \(0,7\+\)/);
+  assert.match(teacherSrc, /Learning Gain \(0,7\+\)/);
 
   const surveySrc = fs.readFileSync(
     path.resolve(process.cwd(), "apps/web/src/components/dashboard/views/analytics/SurveyAnalyticsView.tsx"),
@@ -111,11 +111,11 @@ test("Demo Mode accessibility and Privacy Masking (a*** b***) integrity", async 
   // Verify DashboardView and LoginPage have quick access links for demo users
   const dashSrc = fs.readFileSync(path.resolve(process.cwd(), "apps/web/src/components/dashboard/DashboardView.tsx"), "utf8");
   assert.match(dashSrc, /to="\/app\/learning-gain"/);
-  assert.match(dashSrc, /Buka Laporan Validasi \(Mode Demo\)/);
+  assert.match(dashSrc, /Laporan Validasi/);
 
   const loginSrc = fs.readFileSync(path.resolve(process.cwd(), "apps/web/src/pages/LoginPage.tsx"), "utf8");
   assert.match(loginSrc, /to="\/app\/learning-gain"/);
-  assert.match(loginSrc, /Mode Demo Privasi/);
+  assert.match(loginSrc, /Validasi Empiris/);
 });
 
 test("320+ Students Cohort & Database Persistence Integrity (All 320 students have real scores)", async () => {

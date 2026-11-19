@@ -85,13 +85,13 @@ const FEATURE_PRIORITIES: FeaturePriorityItem[] = [
       'Sesar Aktif & Patahan Darat: Memetakan jalur patahan geologi PuSGeN yang melintasi pemukiman dan kompleks sekolah.',
       'Deteksi Hotspot Karhutla: Pantauan anomali radiasi termal satelit NASA FIRMS MODIS/VIIRS untuk pencegahan kebakaran hutan dan lahan.',
     ],
-    actionLabel: 'Buka Pusat Bahaya Bencana 🚨',
+    actionLabel: 'Pusat Bencana',
     actionKey: 'disaster',
   },
   {
     rank: 2,
-    title: 'Rute Evakuasi Cerdas & Keterjangkauan Isochrone',
-    categoryBadge: 'PRIORITAS 2 • SANGAT PENTING (MOBILITAS SURVIVAL)',
+    title: 'Rute Evakuasi',
+    categoryBadge: 'PRIORITAS 2 • MOBILITAS',
     badgeColor: 'bg-emerald-500/10 text-emerald-700 dark:text-emerald-300 border-emerald-500/30',
     icon: ShieldCheck,
     iconBg: 'from-emerald-600 to-teal-600',
@@ -102,13 +102,13 @@ const FEATURE_PRIORITIES: FeaturePriorityItem[] = [
       'Uji Keterjangkauan 15 Menit: Analisis isochrone untuk memastikan warga mampu mencapai titik aman sebelum gelombang tsunami tiba.',
       'Penghindaran Koridor Runtuhan: Menghindari jembatan rawan retak, bibir tebing longsor, dan jalan sempit yang berpotensi macet total.',
     ],
-    actionLabel: 'Simulasi Rute Evakuasi 🛡️',
+    actionLabel: 'Simulasi Rute',
     actionKey: 'evacuation',
   },
   {
     rank: 3,
-    title: 'Intelijen Cuaca Ekstrem, Radar Doppler & Konsensus NWP',
-    categoryBadge: 'PRIORITAS 3 • PENTING (PEMICU BENCANA SEKUNDER)',
+    title: 'Radar Cuaca & NWP',
+    categoryBadge: 'PRIORITAS 3 • HIDROMETEOROLOGI',
     badgeColor: 'bg-sky-500/10 text-sky-700 dark:text-sky-300 border-sky-500/30',
     icon: CloudRain,
     iconBg: 'from-sky-500 to-blue-600',
@@ -119,13 +119,13 @@ const FEATURE_PRIORITIES: FeaturePriorityItem[] = [
       'Ambang Batas Kejenuhan Lereng: Peringatan otomatis saat akumulasi hujan melebihi ambang batas fisis pemicu longsor (>50 mm).',
       'Konsensus 5 Model NWP: Sintesis prakiraan dari ECMWF IFS Eropa, GFS NOAA Amerika, ICON DWD Jerman, JMA Jepang, dan BMKG Indonesia.',
     ],
-    actionLabel: 'Buka Panel Cuaca & Radar ⛅',
+    actionLabel: 'Panel Cuaca',
     actionKey: 'weather',
   },
   {
     rank: 4,
-    title: 'Pengawasan Lapangan Visual: 700+ CCTV Jalan/Tol & Lampu ATCS',
-    categoryBadge: 'PRIORITAS 4 • VALIDASI LAPANGAN REAL-TIME',
+    title: 'Pantauan CCTV & ATCS',
+    categoryBadge: 'PRIORITAS 4 • VALIDASI VISUAL',
     badgeColor: 'bg-purple-500/10 text-purple-700 dark:text-purple-300 border-purple-500/30',
     icon: Video,
     iconBg: 'from-purple-600 to-indigo-600',
@@ -136,13 +136,13 @@ const FEATURE_PRIORITIES: FeaturePriorityItem[] = [
       'Validasi Kondisi Riil Lapangan: Memeriksa genangan banjir jalanan, pohon tumbang, atau antrean kendaraan secara visual 24 jam.',
       'Sinkronisasi Lampu Lalu Lintas ATCS: Memantau titik persimpangan lampu pengatur lalu lintas untuk kelancaran konvoi tanggap darurat.',
     ],
-    actionLabel: 'Buka Pantauan CCTV Jalan/Tol 📹',
+    actionLabel: 'Pantau CCTV',
     actionKey: 'cctv',
   },
   {
     rank: 5,
-    title: 'Altimeter Elevasi GNSS & Pemodelan Topografi (SRTM 30m)',
-    categoryBadge: 'PRIORITAS 5 • ANALISIS MORFOLOGI LOKAL',
+    title: 'Elevasi GNSS & DEM',
+    categoryBadge: 'PRIORITAS 5 • TOPOGRAFI',
     badgeColor: 'bg-indigo-500/10 text-indigo-700 dark:text-indigo-300 border-indigo-500/30',
     icon: Mountain,
     iconBg: 'from-indigo-600 to-blue-700',
@@ -153,13 +153,13 @@ const FEATURE_PRIORITIES: FeaturePriorityItem[] = [
       'Klasifikasi Zona Topografi: Memetakan apakah wilayah tergolong Dataran Rendah Pesisir, Perbukitan Terjal, atau Lereng Pegunungan.',
       'Kalkulasi Tekanan Atmosfer: Menghitung estimasi tekanan barometer (hPa) dan titik didih air untuk kesiapsiagaan dataran tinggi.',
     ],
-    actionLabel: 'Ukur Elevasi & Posisi GPS 📍',
+    actionLabel: 'Ukur Elevasi',
     actionKey: 'elevation',
   },
   {
     rank: 6,
-    title: 'Studio Geospasial & Analisis Citra Satelit Spektral',
-    categoryBadge: 'PRIORITAS 6 • ANALISIS SPASIAL LANJUTAN',
+    title: 'Studio Geospasial',
+    categoryBadge: 'PRIORITAS 6 • CITRA SATELIT',
     badgeColor: 'bg-teal-500/10 text-teal-700 dark:text-teal-300 border-teal-500/30',
     icon: Globe2,
     iconBg: 'from-teal-600 to-emerald-700',
@@ -170,13 +170,13 @@ const FEATURE_PRIORITIES: FeaturePriorityItem[] = [
       'Indeks Vegetasi NDVI: Mendeteksi deforestasi lereng bukit yang dapat mempercepat laju erosi dan tanah longsor.',
       'Indeks Kebasahan Air (NDWI) & Bekas Api (NBR): Memetakan luas genangan banjir dan sebaran area bekas kebakaran hutan.',
     ],
-    actionLabel: 'Buka Studio Geospasial 🛰️',
+    actionLabel: 'Buka Studio',
     actionKey: 'studio',
   },
   {
     rank: 7,
-    title: 'Harmony AI Copilot & Navigasi Suara/Teks Otomatis',
-    categoryBadge: 'PRIORITAS 7 • PENDUKUNG OPERASIONAL & KONSULTASI',
+    title: 'Asisten AI Harmony',
+    categoryBadge: 'PRIORITAS 7 • ASISTEN CERDAS',
     badgeColor: 'bg-fuchsia-500/10 text-fuchsia-700 dark:text-fuchsia-300 border-fuchsia-500/30',
     icon: Bot,
     iconBg: 'from-fuchsia-600 to-pink-600',
@@ -187,7 +187,7 @@ const FEATURE_PRIORITIES: FeaturePriorityItem[] = [
       'Otomatisasi Navigasi: Mengetik perintah singkat seperti "buka cuaca", "buka peta", atau "lokasi saya" untuk navigasi langsung.',
       'Edukasi Interaktif Siswa: Menjelaskan konsep kebencanaan secara simpel dan mudah dipahami dengan bahasa santun.',
     ],
-    actionLabel: 'Buka Harmony AI Copilot 🤖',
+    actionLabel: 'Buka Asisten',
     actionKey: 'copilot',
   },
 ];
@@ -281,7 +281,7 @@ const TUTORIAL_STEPS: TutorialStep[] = [
         icon: Flame,
       },
     ],
-    actionHint: 'Gunakan tombol "⚠️ Zona Rawan Bencana" di bilah atas untuk menyaring lapisan bencana dengan cepat.',
+    actionHint: 'Gunakan tombol "Zona Rawan Bencana" di bilah atas untuk menyaring lapisan bencana.',
   },
   {
     stepNumber: 4,
@@ -484,7 +484,7 @@ export const WebGISTutorialModal: React.FC<WebGISTutorialModalProps> = ({
                   </span>
                 </div>
                 <h3 className="font-display text-sm sm:text-base font-extrabold text-slate-900 dark:text-white leading-tight truncate">
-                  Panduan Penggunaan &amp; Urutan Prioritas Fitur
+                  Panduan WebGIS
                 </h3>
               </div>
             </div>
@@ -543,7 +543,7 @@ export const WebGISTutorialModal: React.FC<WebGISTutorialModalProps> = ({
                   <Sparkles className="w-4 h-4 text-indigo-600 dark:text-indigo-400 shrink-0 mt-0.5" />
                   <div>
                     <h4 className="font-bold text-slate-900 dark:text-white text-xs sm:text-sm">
-                      Mengapa Urutan Ini Paling Penting Menurut Logika Mitigasi Bencana?
+                      Prioritas Mitigasi
                     </h4>
                     <p className="mt-1 text-[11px] sm:text-xs text-slate-600 dark:text-slate-300 leading-relaxed">
                       Dalam penanganan bencana kebencanaan, <strong>penyelamatan nyawa manusia (Early Warning &amp; Evakuasi)</strong> selalu menjadi prioritas mutlak di atas segalanya (#1 dan #2). Setelah deteksi dini dan jalur evakuasi aman, barulah dibutuhkan intelijen cuaca ekstrem pemicu bencana susulan (#3), validasi visual kamera CCTV di lapangan (#4), pemodelan elevasi tanah (#5), analisis satelit citra lanjutan (#6), dan dipermudah oleh bantuan interaktif AI Copilot (#7).
@@ -606,7 +606,7 @@ export const WebGISTutorialModal: React.FC<WebGISTutorialModalProps> = ({
                         <ul className="space-y-1 text-[11px] text-slate-600 dark:text-slate-300">
                           {feat.practicalUtilities.map((util, uIdx) => (
                             <li key={uIdx} className="flex items-start gap-2 leading-relaxed">
-                              <span className="text-emerald-500 font-bold shrink-0 mt-0.5">✓</span>
+                              <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 shrink-0 mt-1.5" />
                               <span>{util}</span>
                             </li>
                           ))}

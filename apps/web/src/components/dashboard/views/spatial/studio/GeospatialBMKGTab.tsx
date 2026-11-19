@@ -38,6 +38,10 @@ import {
   BMKGTimeSun,
   BMKGSeismicMicrozonation,
   BMKGStoryMap,
+  AviationMetarRecord,
+  GeomagneticKpRecord,
+  EnsoOniRecord,
+  LiveFeedResult,
 } from '../../../../../services/bmkgService';
 import {
   earthquakeSnapshotService,
@@ -95,6 +99,12 @@ export const GeospatialBMKGTab: React.FC<GeospatialBMKGTabProps> = ({
   const [storyMaps, setStoryMaps] = useState<BMKGStoryMap[]>([]);
   const [activeStoryId, setActiveStoryId] = useState<string>('story-cianjur');
 
+  const [aviationMetar, setAviationMetar] = useState<LiveFeedResult<AviationMetarRecord[]> | null>(null);
+  const [geomagneticKp, setGeomagneticKp] = useState<LiveFeedResult<GeomagneticKpRecord | null> | null>(null);
+  const [ensoOni, setEnsoOni] = useState<LiveFeedResult<EnsoOniRecord | null> | null>(null);
+  const [bmkgQuakeError, setBmkgQuakeError] = useState<string | null>(null);
+  const [usgsQuakeError, setUsgsQuakeError] = useState<string | null>(null);
+
   // Multi-Source Seismic & Fault States (InaTEWS + USGS + PuSGeN)
   const [quakeSourceTab, setQuakeSourceTab] = useState<'inatews' | 'usgs' | 'pusgen'>('inatews');
   const [usgsQuakes, setUsgsQuakes] = useState<EarthquakeRecord[]>([]);
@@ -143,6 +153,8 @@ export const GeospatialBMKGTab: React.FC<GeospatialBMKGTabProps> = ({
     const currentGen = ++reqGenRef.current;
 
     setLoading(true);
+    setBmkgQuakeError(null);
+    setUsgsQuakeError(null);
     try {
       const [
         gempaRes,
@@ -150,12 +162,21 @@ export const GeospatialBMKGTab: React.FC<GeospatialBMKGTabProps> = ({
         dirasakanRes,
         satRes,
         quakeSnap,
+        metarRes,
+        kpRes,
+        oniRes,
       ] = await Promise.all([
         bmkgService.getAutoGempa(controller.signal),
         bmkgService.getGempaTerkini(controller.signal),
         bmkgService.getGempaDirasakan(controller.signal),
         bmkgService.getSatelliteProducts(controller.signal),
-        earthquakeSnapshotService.fetchEarthquakeSnapshot({ feed: '2.5_day' }).catch(() => null),
+        earthquakeSnapshotService.fetchEarthquakeSnapshot({ feed: '2.5_day' }).catch((err) => {
+          setUsgsQuakeError(err instanceof Error ? err.message : 'Gagal menghubungi USGS Earthquake API.');
+          return null;
+        }),
+        bmkgService.getLiveAviationMetar(['WARR', 'WIII', 'WADD'], controller.signal),
+        bmkgService.getLiveGeomagneticKp(controller.signal),
+        bmkgService.getLiveEnsoOni(controller.signal),
       ]);
 
       if (currentGen !== reqGenRef.current) return;
@@ -163,9 +184,24 @@ export const GeospatialBMKGTab: React.FC<GeospatialBMKGTabProps> = ({
       setAutoGempa(gempaRes);
       setRecentQuakes(terkiniRes);
       setFeltQuakes(dirasakanRes);
+      if (!gempaRes && terkiniRes.length === 0 && dirasakanRes.length === 0) {
+        const latestErr = bmkgService.getRetrievalStatus().find((s) => s.endpoint.includes('/gempa') && s.status === 'FAILED');
+        setBmkgQuakeError(latestErr?.message || 'Gagal mengambil data gempa live dari BMKG InaTEWS.');
+      }
+
       if (quakeSnap?.records) {
         setUsgsQuakes(quakeSnap.records.filter((r) => r.source === 'USGS' || !r.source.includes('BMKG')));
+        if (quakeSnap.status === 'UNAVAILABLE' || quakeSnap.status === 'ERROR') {
+          setUsgsQuakeError(quakeSnap.reason || 'Feed USGS M2.5+ gagal merespons.');
+        }
+      } else {
+        setUsgsQuakeError('Feed USGS M2.5+ tidak dapat dihubungi.');
       }
+
+      setAviationMetar(metarRes);
+      setGeomagneticKp(kpRes);
+      setEnsoOni(oniRes);
+
       setSatellites(satRes.length > 0 ? satRes : [
         {
           id: 'ir_enhanced',
@@ -197,7 +233,7 @@ export const GeospatialBMKGTab: React.FC<GeospatialBMKGTabProps> = ({
       setAirQuality(bmkgService.getDynamicAirQuality(lat, lng, weatherData?.current, regionName));
       setGeophysics(bmkgService.getReferenceGeophysicsData());
       setTimeSun(bmkgService.getDynamicTimeSun(lat, lng));
-      setMicrozonation(bmkgService.getReferenceMicrozonation(lat, lng));
+      setMicrozonation(bmkgService.getReferenceMicrozonation());
       setStoryMaps(bmkgService.getStoryMaps());
     } catch (err) {
       if (currentGen === reqGenRef.current && !controller.signal.aborted) {
@@ -253,10 +289,10 @@ export const GeospatialBMKGTab: React.FC<GeospatialBMKGTabProps> = ({
             </span>
           </div>
           <h2 className="text-base sm:text-lg font-black text-white flex items-center gap-2">
-            <span>Harmony Earth, Atmosphere & Geophysics Intelligence</span>
+            <span>Intelijen MKG Nasional</span>
           </h2>
           <p className="text-xs text-slate-300 max-w-2xl leading-relaxed">
-            Data gempa bumi real-time InaTEWS BMKG, citra satelit cuaca Himawari-9, dan sistem informasi analitik iklim, atmosfer, serta geofisika komprehensif Indonesia.
+            Data gempa InaTEWS BMKG, citra satelit Himawari-9, serta informasi iklim dan geofisika Indonesia.
           </p>
         </div>
 
@@ -267,7 +303,7 @@ export const GeospatialBMKGTab: React.FC<GeospatialBMKGTabProps> = ({
             className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-bold transition-all shadow-md active:scale-95 disabled:opacity-50 cursor-pointer"
           >
             <RefreshCw className={`w-3.5 h-3.5 ${loading ? 'animate-spin' : ''}`} />
-            <span>{loading ? 'Menyinkronkan...' : 'Sinkronkan BMKG'}</span>
+            <span>{loading ? 'Memuat...' : 'Perbarui Data'}</span>
           </button>
         </div>
       </div>
@@ -275,16 +311,16 @@ export const GeospatialBMKGTab: React.FC<GeospatialBMKGTabProps> = ({
       {/* 10 BMKG Sub-Module Navigation Pills */}
       <div className="flex items-center gap-1.5 overflow-x-auto pb-1 text-xs font-bold no-scrollbar">
         {[
-          { id: 'weather_nowcast', label: '🌦️ Cuaca & Radar', icon: Radio },
-          { id: 'satellite_himawari', label: '🛰️ Himawari-9', icon: Satellite },
-          { id: 'aviation_maritime', label: '🛫 Penerbangan & Maritim', icon: Waves },
-          { id: 'climate_stripes', label: '🌍 Iklim & Stripes', icon: ThermometerSnowflake },
-          { id: 'air_quality', label: '🍃 Kualitas Udara & GRK', icon: Activity },
-          { id: 'earthquake_tews', label: '🌋 Gempa & Tsunami InaTEWS', icon: ShieldAlert },
-          { id: 'lightning_geophysics', label: '⚡ Petir & Gaya Berat', icon: CloudLightning },
-          { id: 'time_astronomy', label: '⏱️ Tanda Waktu & Hilal', icon: Clock },
-          { id: 'engineering_seismology', label: '🏗️ Seismologi Teknik', icon: Building },
-          { id: 'satu_peta_story', label: '🗺️ Satu Peta & Story Maps', icon: Layers },
+          { id: 'weather_nowcast', label: 'Cuaca & Radar', icon: Radio },
+          { id: 'satellite_himawari', label: 'Himawari-9', icon: Satellite },
+          { id: 'aviation_maritime', label: 'Penerbangan', icon: Waves },
+          { id: 'climate_stripes', label: 'Iklim Nasional', icon: ThermometerSnowflake },
+          { id: 'air_quality', label: 'Kualitas Udara', icon: Activity },
+          { id: 'earthquake_tews', label: 'Gempa InaTEWS', icon: ShieldAlert },
+          { id: 'lightning_geophysics', label: 'Petir & Gravitasi', icon: CloudLightning },
+          { id: 'time_astronomy', label: 'Tanda Waktu', icon: Clock },
+          { id: 'engineering_seismology', label: 'Seismologi Teknik', icon: Building },
+          { id: 'satu_peta_story', label: 'Satu Peta', icon: Layers },
         ].map((mod) => {
           const isActive = subModule === mod.id;
           return (
@@ -310,7 +346,7 @@ export const GeospatialBMKGTab: React.FC<GeospatialBMKGTabProps> = ({
             <div className="flex items-center justify-between mb-3 flex-wrap gap-2">
               <h3 className="text-xs font-bold uppercase tracking-wider text-slate-700 dark:text-slate-300 flex items-center gap-2">
                 <AlertTriangle className="w-4 h-4 text-amber-500" />
-                <span>Peringatan Dini Cuaca Ekstrem (Nowcasting 0–6 Jam) BMKG</span>
+                <span>Peringatan Dini Cuaca</span>
               </h3>
               <span className="text-[10px] font-semibold px-2 py-0.5 rounded-md bg-amber-500/10 text-amber-600 dark:text-amber-400 border border-amber-500/20">
                 Mode Rujukan SOP Nowcasting BMKG
@@ -358,7 +394,7 @@ export const GeospatialBMKGTab: React.FC<GeospatialBMKGTabProps> = ({
             <h3 className="text-xs font-bold uppercase tracking-wider text-slate-700 dark:text-slate-300 mb-3 flex items-center justify-between">
               <span className="flex items-center gap-2">
                 <Radio className="w-4 h-4 text-sky-500" />
-                <span>Klasifikasi Intensitas Sebaran Hujan Radar Cuaca Doppler BMKG</span>
+                <span>Sebaran Hujan Radar</span>
               </span>
               <span className="text-[10px] font-normal text-slate-400">
                 Wajib menyertakan atribusi BMKG
@@ -496,7 +532,7 @@ export const GeospatialBMKGTab: React.FC<GeospatialBMKGTabProps> = ({
                   </div>
 
                   <div className="p-3.5 rounded-xl bg-blue-50 dark:bg-blue-950/40 border border-blue-200 dark:border-blue-900/50 text-[11px] text-blue-700 dark:text-blue-300">
-                    💡 <strong>Analisis Harmony:</strong> Citra satelit Himawari-9 ditampilkan sebagai rujukan penginderaan jauh BMKG. Puncak awan dingin mencerminkan aktivitas konveksi lokal.
+                    <strong>Analisis Citra:</strong> Citra satelit Himawari-9 ditampilkan sebagai rujukan BMKG. Puncak awan dingin mencerminkan aktivitas konveksi lokal.
                   </div>
                 </div>
               </div>
@@ -518,91 +554,68 @@ export const GeospatialBMKGTab: React.FC<GeospatialBMKGTabProps> = ({
             </span>
           </div>
 
-          {/* Aviation METAR / TAF */}
+          {/* Aviation METAR (Live NOAA Aviation Weather) */}
           <div className="p-4 sm:p-5 rounded-2xl bg-white dark:bg-slate-800/60 border border-slate-200/80 dark:border-slate-700/80 space-y-3">
-            <div className="flex items-center justify-between">
+            <div className="flex items-center justify-between flex-wrap gap-2">
               <h3 className="text-xs font-bold uppercase tracking-wider text-slate-700 dark:text-slate-300 flex items-center gap-2">
                 <Plane className="w-4 h-4 text-indigo-500" />
-                <span>Format Observasi Cuaca Bandara Utama (METAR / TAF Standard)</span>
+                <span>Observasi Bandara Resmi (METAR Live)</span>
               </h3>
-              <span className="text-[10px] text-slate-400">ICAO International Aerodrome Code</span>
+              <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full border ${
+                aviationMetar?.status === 'LIVE'
+                  ? 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-500/20'
+                  : 'bg-rose-500/10 text-rose-600 dark:text-rose-400 border-rose-500/20'
+              }`}>
+                {aviationMetar?.status === 'LIVE' ? 'NOAA AWC Live Feed' : aviationMetar ? 'ERROR FEED METAR' : 'Memuat...'}
+              </span>
             </div>
 
-            {(() => {
-              const now = new Date();
-              const utcDay = String(now.getUTCDate()).padStart(2, '0');
-              const utcHour = String(now.getUTCHours()).padStart(2, '0');
-              const timeMetar = `${utcDay}${utcHour}00Z`;
-              const curTemp = weatherData?.current?.consensusTemperature != null ? Math.round(weatherData.current.consensusTemperature) : 31;
-              const curPress = weatherData?.current?.pressure != null ? Math.round(weatherData.current.pressure) : 1010;
-              const curWindSpeed = weatherData?.current?.windSpeed != null ? Math.round(weatherData.current.windSpeed * 0.539957) : 8;
-              const curWindDir = weatherData?.current?.windDirection != null ? String(Math.round(weatherData.current.windDirection)).padStart(3, '0') : '110';
-              const curWindStr = `${curWindDir}${String(curWindSpeed).padStart(2, '0')}KT`;
-
-              const airports = [
-                {
-                  code: 'WARR',
-                  name: 'Bandara Juanda (Surabaya)',
-                  metar: `WARR ${timeMetar} ${curWindStr} 9999 FEW018 ${curTemp}/24 Q${curPress} NOSIG`,
-                  wind: `${curWindDir}° / ${curWindSpeed} knot`,
-                  vis: '> 10 km',
-                  temp: `${curTemp}°C / DP 24°C`,
-                  cloud: 'Few 1800 ft',
-                },
-                {
-                  code: 'WIII',
-                  name: 'Bandara Soekarno-Hatta (Jakarta)',
-                  metar: `WIII ${timeMetar} 05010KT 8000 SCT020 ${curTemp + 1}/25 Q${curPress - 1} NOSIG`,
-                  wind: '050° / 10 knot',
-                  vis: '8 km',
-                  temp: `${curTemp + 1}°C / DP 25°C`,
-                  cloud: 'Scattered 2000 ft',
-                },
-                {
-                  code: 'WADD',
-                  name: 'Bandara I Gusti Ngurah Rai (Bali)',
-                  metar: `WADD ${timeMetar} 14012KT 9999 SCT018 ${curTemp - 1}/23 Q${curPress + 1} NOSIG`,
-                  wind: '140° / 12 knot',
-                  vis: '> 10 km',
-                  temp: `${curTemp - 1}°C / DP 23°C`,
-                  cloud: 'Scattered 1800 ft',
-                },
-              ];
-
-              return (
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-                  {airports.map((apt) => (
-                    <div key={apt.code} className="p-3.5 rounded-xl bg-slate-50 dark:bg-slate-900/60 border border-slate-200 dark:border-slate-700 space-y-2">
-                      <div className="flex items-center justify-between">
-                        <div>
-                          <span className="text-xs font-bold text-slate-900 dark:text-white">{apt.code}</span>
-                          <p className="text-[11px] text-slate-500">{apt.name}</p>
-                        </div>
-                        <span className="text-[10px] font-mono font-bold px-2 py-0.5 rounded bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20">
-                          METAR {timeMetar}
-                        </span>
-                      </div>
-                      <div className="p-2 rounded bg-slate-100 dark:bg-slate-800 text-[10px] font-mono text-slate-700 dark:text-slate-300 break-all select-all">
-                        {apt.metar}
-                      </div>
-                      <div className="grid grid-cols-2 gap-1 text-[10px] text-slate-500">
-                        <div>Angin: <strong className="text-slate-700 dark:text-slate-300">{apt.wind}</strong></div>
-                        <div>Visibilitas: <strong className="text-slate-700 dark:text-slate-300">{apt.vis}</strong></div>
-                        <div>Suhu: <strong className="text-slate-700 dark:text-slate-300">{apt.temp}</strong></div>
-                        <div>Awan: <strong className="text-slate-700 dark:text-slate-300">{apt.cloud}</strong></div>
-                      </div>
-                    </div>
-                  ))}
+            {aviationMetar?.status === 'ERROR' ? (
+              <div className="p-4 rounded-xl bg-rose-500/10 border border-rose-500/30 text-xs text-rose-700 dark:text-rose-300 flex items-start gap-2.5">
+                <AlertTriangle className="w-4 h-4 text-rose-500 shrink-0 mt-0.5" />
+                <div>
+                  <strong className="block">Data METAR Live Tidak Tersedia (ERROR)</strong>
+                  <p className="text-[11px] opacity-90 mt-0.5">{aviationMetar.error}</p>
                 </div>
-              );
-            })()}
+              </div>
+            ) : !aviationMetar || aviationMetar.data.length === 0 ? (
+              <p className="text-xs text-slate-500">Memuat observasi METAR bandara terkini...</p>
+            ) : (
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                {aviationMetar.data.map((apt) => (
+                  <div key={apt.icaoId} className="p-3.5 rounded-xl bg-slate-50 dark:bg-slate-900/60 border border-slate-200 dark:border-slate-700 space-y-2">
+                    <div className="flex items-center justify-between gap-2">
+                      <div className="min-w-0">
+                        <span className="text-xs font-bold text-slate-900 dark:text-white">{apt.icaoId}</span>
+                        <p className="text-[11px] text-slate-500 truncate">{apt.name}</p>
+                      </div>
+                      <span className="text-[10px] font-mono font-bold px-2 py-0.5 rounded bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20 shrink-0">
+                        {apt.flightCategory || 'LIVE'}
+                      </span>
+                    </div>
+                    <div className="p-2 rounded bg-slate-100 dark:bg-slate-800 text-[10px] font-mono text-slate-700 dark:text-slate-300 break-all select-all">
+                      {apt.rawOb}
+                    </div>
+                    <div className="grid grid-cols-2 gap-1 text-[10px] text-slate-500">
+                      <div>Angin: <strong className="text-slate-700 dark:text-slate-300">{apt.windDirDeg != null || apt.windSpeedKt != null ? `${apt.windDirDeg ?? '—'}° / ${apt.windSpeedKt ?? '—'} kt` : '—'}</strong></div>
+                      <div>Visibilitas: <strong className="text-slate-700 dark:text-slate-300">{apt.visibility ? `${apt.visibility} SM` : '—'}</strong></div>
+                      <div>Suhu / DP: <strong className="text-slate-700 dark:text-slate-300">{apt.tempC != null ? `${apt.tempC}°C` : '—'} / {apt.dewpointC != null ? `${apt.dewpointC}°C` : '—'}</strong></div>
+                      <div>Altimeter: <strong className="text-slate-700 dark:text-slate-300">{apt.altimeterHpa != null ? `${apt.altimeterHpa} hPa` : '—'}</strong></div>
+                    </div>
+                    {apt.reportTime && (
+                      <div className="text-[9px] font-mono text-slate-400">Obs: {new Date(apt.reportTime).toLocaleString('id-ID')} WIB</div>
+                    )}
+                  </div>
+                ))}
+              </div>
+            )}
           </div>
 
           {/* Maritime Sea Wave Classification */}
           <div className="p-4 sm:p-5 rounded-2xl bg-white dark:bg-slate-800/60 border border-slate-200/80 dark:border-slate-700/80 space-y-3">
             <h3 className="text-xs font-bold uppercase tracking-wider text-slate-700 dark:text-slate-300 flex items-center gap-2">
               <Waves className="w-4 h-4 text-sky-500" />
-              <span>Klasifikasi Skala Tinggi Gelombang Signifikan Perairan BMKG</span>
+              <span>Tinggi Gelombang</span>
             </h3>
 
             <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-6 gap-2 text-center">
@@ -626,116 +639,123 @@ export const GeospatialBMKGTab: React.FC<GeospatialBMKGTabProps> = ({
         </div>
       )}
 
-      {/* MODULE 4: CLIMATE & WARMING STRIPES */}
-      {subModule === 'climate_stripes' && climate && (
+      {/* MODULE 4: CLIMATE & ENSO (LIVE NOAA CPC + EXPLICIT BMKG STATUS) */}
+      {subModule === 'climate_stripes' && (
         <div className="space-y-4">
-          {/* Warming Stripes Visual Bar */}
-          <div className="p-4 sm:p-5 rounded-2xl bg-white dark:bg-slate-800/60 border border-slate-200/80 dark:border-slate-700/80 space-y-3">
-            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-1">
+          {ensoOni?.status === 'ERROR' ? (
+            <div className="p-4 rounded-2xl bg-rose-500/10 border border-rose-500/30 text-xs text-rose-700 dark:text-rose-300 flex items-start gap-2.5">
+              <AlertTriangle className="w-4 h-4 text-rose-500 shrink-0 mt-0.5" />
               <div>
-                <h3 className="text-xs font-bold uppercase tracking-wider text-slate-700 dark:text-slate-300">
-                  Warming Stripes Indonesia (1981 - 2026)
-                </h3>
-                <p className="text-[11px] text-slate-400">
-                  Visualisasi anomali suhu rata-rata tahunan BMKG (Ed Hawkins Methodology)
-                </p>
+                <strong className="block">Indeks ENSO Niño 3.4 Live Tidak Tersedia (ERROR)</strong>
+                <p className="text-[11px] opacity-90 mt-0.5">{ensoOni.error}</p>
               </div>
-              <span className="text-[10px] text-rose-500 font-bold bg-rose-500/10 px-2 py-0.5 rounded-lg">
-                Tren Pemanasan Nyata
-              </span>
             </div>
+          ) : ensoOni?.data ? (
+            <div className="p-4 sm:p-5 rounded-2xl bg-white dark:bg-slate-800/60 border border-slate-200/80 dark:border-slate-700/80 space-y-3">
+              <div className="flex items-center justify-between flex-wrap gap-2">
+                <div>
+                  <h3 className="text-xs font-bold uppercase tracking-wider text-slate-700 dark:text-slate-300">
+                    Indeks ENSO Niño 3.4 Live ({ensoOni.data.season} {ensoOni.data.year})
+                  </h3>
+                  <p className="text-[11px] text-slate-500">{ensoOni.provider}</p>
+                </div>
+                <span className="text-[10px] font-bold px-2.5 py-0.5 rounded-full bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20">
+                  NOAA CPC Live
+                </span>
+              </div>
 
-            <div className="flex h-12 w-full rounded-xl overflow-hidden shadow-inner">
-              {climate.warmingStripes.map((st) => (
-                <div
-                  key={st.year}
-                  className="flex-1 transition-all hover:opacity-80 hover:scale-y-110 cursor-pointer"
-                  style={{ backgroundColor: st.hexColor }}
-                  title={`Tahun ${st.year}: Anomali ${st.anomalyC > 0 ? '+' : ''}${st.anomalyC}°C`}
-                />
-              ))}
-            </div>
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                <div className="p-3.5 rounded-xl bg-slate-50 dark:bg-slate-900/60 border border-slate-200 dark:border-slate-700 space-y-1">
+                  <span className="text-[10px] uppercase font-bold text-indigo-500">Fase ENSO Terkini</span>
+                  <div className="text-sm font-black text-slate-900 dark:text-white">{ensoOni.data.phase}</div>
+                  <p className="text-[11px] text-slate-500">Anomali ONI: {ensoOni.data.anomalyOni >= 0 ? `+${ensoOni.data.anomalyOni}` : ensoOni.data.anomalyOni}°C</p>
+                </div>
 
-            <div className="flex justify-between text-[10px] font-mono text-slate-400">
-              <span>1981 (-0.45°C Dingin)</span>
-              <span>2000 (Transisi Netral)</span>
-              <span>2026 (+0.88°C Terpanas)</span>
-            </div>
-          </div>
+                <div className="p-3.5 rounded-xl bg-slate-50 dark:bg-slate-900/60 border border-slate-200 dark:border-slate-700 space-y-1">
+                  <span className="text-[10px] uppercase font-bold text-sky-500">Suhu Muka Laut Niño 3.4</span>
+                  <div className="text-sm font-black text-slate-900 dark:text-white">{ensoOni.data.totalSstC}°C</div>
+                  <p className="text-[11px] text-slate-500">Periode: {ensoOni.data.season} {ensoOni.data.year}</p>
+                </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-            <div className="p-3.5 rounded-xl bg-slate-50 dark:bg-slate-900/60 border border-slate-200 dark:border-slate-700 space-y-1">
-              <span className="text-[10px] uppercase font-bold text-indigo-500">Status ENSO Samudra Pasifik:</span>
-              <div className="text-sm font-black text-slate-900 dark:text-white">{climate.enso.status} (ONI: {climate.enso.indexOni})</div>
-              <p className="text-[11px] text-slate-500">{climate.enso.description}</p>
+                <div className="p-3.5 rounded-xl bg-slate-50 dark:bg-slate-900/60 border border-slate-200 dark:border-slate-700 space-y-1">
+                  <span className="text-[10px] uppercase font-bold text-slate-500">Tren 6 Musim Terakhir</span>
+                  <div className="flex flex-wrap gap-1 pt-0.5">
+                    {ensoOni.data.recentSeries.map((r) => (
+                      <span key={`${r.season}-${r.year}`} className="text-[10px] font-mono px-1.5 py-0.5 rounded bg-slate-200/70 dark:bg-slate-800 text-slate-700 dark:text-slate-300">
+                        {r.season}: {r.anomalyOni >= 0 ? `+${r.anomalyOni}` : r.anomalyOni}
+                      </span>
+                    ))}
+                  </div>
+                </div>
+              </div>
             </div>
+          ) : (
+            <p className="text-xs text-slate-500">Memuat data ENSO Niño 3.4...</p>
+          )}
 
-            <div className="p-3.5 rounded-xl bg-slate-50 dark:bg-slate-900/60 border border-slate-200 dark:border-slate-700 space-y-1">
-              <span className="text-[10px] uppercase font-bold text-teal-500">Indian Ocean Dipole (IOD):</span>
-              <div className="text-sm font-black text-slate-900 dark:text-white">{climate.iod.status}</div>
-              <p className="text-[11px] text-slate-500">{climate.iod.description}</p>
+          <div className="p-4 rounded-2xl bg-amber-500/10 border border-amber-500/30 text-xs text-amber-800 dark:text-amber-300 space-y-1">
+            <div className="font-bold flex items-center gap-1.5">
+              <AlertTriangle className="w-4 h-4 shrink-0" />
+              <span>Klimatologi Dasarian, IOD, SPI &amp; Warming Stripes BMKG Belum Terhubung</span>
             </div>
-
-            <div className="p-3.5 rounded-xl bg-slate-50 dark:bg-slate-900/60 border border-slate-200 dark:border-slate-700 space-y-1">
-              <span className="text-[10px] uppercase font-bold text-emerald-500">Indeks Presipitasi (SPI):</span>
-              <div className="text-sm font-black text-slate-900 dark:text-white">{climate.spi.category} ({climate.spi.indexValue})</div>
-              <p className="text-[11px] text-slate-500">{climate.spi.note}</p>
-            </div>
+            <p className="text-[11px] opacity-90">
+              API Klimatologi Dasarian / IOD / SPI resmi BMKG tidak memiliki endpoint JSON publik terbuka (`NOT_CONNECTED`). Aplikasi menonaktifkan angka statis agar tidak menampilkan klaim iklim buatan.
+            </p>
           </div>
         </div>
       )}
 
-      {/* MODULE 5: AIR QUALITY & GREENHOUSE GAS */}
+      {/* MODULE 5: AIR QUALITY (COPERNICUS CAMS LIVE + HONEST BMKG GAW STATUS) */}
       {subModule === 'air_quality' && (
         <div className="space-y-4">
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            {airQuality.map((station) => (
-              <div
-                key={station.code}
-                className="p-4 rounded-2xl bg-white dark:bg-slate-800/60 border border-slate-200/80 dark:border-slate-700/80 space-y-3"
-              >
-                <div className="flex items-center justify-between">
-                  <div>
-                    <h4 className="text-xs font-bold text-slate-900 dark:text-white">{station.name}</h4>
-                    <span className="text-[10px] text-slate-400">{station.province} • Elevasi {station.altitudeM} mdpl</span>
-                  </div>
-                  <span className="text-xs font-mono font-black px-2 py-0.5 rounded bg-indigo-500/10 text-indigo-500">
-                    {station.code}
-                  </span>
-                </div>
-
-                <div className="grid grid-cols-3 gap-2 text-center">
-                  <div className="p-2 rounded-xl bg-slate-50 dark:bg-slate-900/60 border border-slate-100 dark:border-slate-800">
-                    <span className="text-[9px] text-slate-400 block">PM2.5</span>
-                    <span className="text-xs font-black text-purple-500">{station.pm25} µg/m³</span>
-                  </div>
-                  <div className="p-2 rounded-xl bg-slate-50 dark:bg-slate-900/60 border border-slate-100 dark:border-slate-800">
-                    <span className="text-[9px] text-slate-400 block">Ozon (O₃)</span>
-                    <span className="text-xs font-black text-sky-500">{station.o3} µg/m³</span>
-                  </div>
-                  <div className="p-2 rounded-xl bg-slate-50 dark:bg-slate-900/60 border border-slate-100 dark:border-slate-800">
-                    <span className="text-[9px] text-slate-400 block">NO₂ / SO₂</span>
-                    <span className="text-xs font-black text-emerald-500">{station.no2} / {station.so2}</span>
-                  </div>
-                </div>
-
-                {station.greenhouseGas && (
-                  <div className="p-3 rounded-xl bg-emerald-50 dark:bg-emerald-950/30 border border-emerald-200 dark:border-emerald-900/40 text-[11px] text-emerald-800 dark:text-emerald-300 space-y-1">
-                    <div className="font-bold flex items-center gap-1.5">
-                      <Sparkles className="w-3.5 h-3.5" />
-                      <span>Gas Rumah Kaca (GRK) WMO GAW:</span>
-                    </div>
-                    <div>CO₂: <strong>{station.greenhouseGas.co2Ppm} ppm</strong> | CH₄: <strong>{station.greenhouseGas.ch4Ppb} ppb</strong></div>
-                    <p className="text-[10px] text-emerald-600 dark:text-emerald-400">{station.greenhouseGas.note}</p>
-                  </div>
-                )}
-
-                <div className="pt-2 border-t border-slate-100 dark:border-slate-800 flex justify-between text-[10px] text-slate-400">
-                  <span>pH Kimia Air Hujan: {station.rainChemistry.ph}</span>
-                  <span>{station.rainChemistry.status}</span>
-                </div>
+          {airQuality.length === 0 ? (
+            <div className="p-4 rounded-2xl bg-rose-500/10 border border-rose-500/30 text-xs text-rose-700 dark:text-rose-300 flex items-start gap-2.5">
+              <AlertTriangle className="w-4 h-4 text-rose-500 shrink-0 mt-0.5" />
+              <div>
+                <strong className="block">Data Kualitas Udara Live Tidak Tersedia (ERROR / BELUM DIMUAT)</strong>
+                <p className="text-[11px] opacity-90 mt-0.5">
+                  Feed Copernicus CAMS belum mengembalikan nilai PM2.5/PM10/O₃ untuk koordinat ini dan API stasiun BMKG Kemayoran/GAW belum terhubung.
+                </p>
               </div>
-            ))}
+            </div>
+          ) : (
+            <div className="grid grid-cols-1 gap-4">
+              {airQuality.map((station) => (
+                <div
+                  key={station.code}
+                  className="p-4 rounded-2xl bg-white dark:bg-slate-800/60 border border-slate-200/80 dark:border-slate-700/80 space-y-3"
+                >
+                  <div className="flex items-center justify-between flex-wrap gap-2">
+                    <div>
+                      <h4 className="text-xs font-bold text-slate-900 dark:text-white">{station.name}</h4>
+                      <span className="text-[10px] text-slate-400">{station.sourceLabel || station.province}</span>
+                    </div>
+                    <span className="text-xs font-mono font-black px-2 py-0.5 rounded bg-indigo-500/10 text-indigo-500">
+                      {station.code}
+                    </span>
+                  </div>
+
+                  <div className="grid grid-cols-3 gap-2 text-center">
+                    <div className="p-2 rounded-xl bg-slate-50 dark:bg-slate-900/60 border border-slate-100 dark:border-slate-800">
+                      <span className="text-[9px] text-slate-400 block">PM2.5</span>
+                      <span className="text-xs font-black text-purple-500">{station.pm25 != null ? `${station.pm25} µg/m³` : '—'}</span>
+                    </div>
+                    <div className="p-2 rounded-xl bg-slate-50 dark:bg-slate-900/60 border border-slate-100 dark:border-slate-800">
+                      <span className="text-[9px] text-slate-400 block">PM10</span>
+                      <span className="text-xs font-black text-amber-500">{station.pm10 != null ? `${station.pm10} µg/m³` : '—'}</span>
+                    </div>
+                    <div className="p-2 rounded-xl bg-slate-50 dark:bg-slate-900/60 border border-slate-100 dark:border-slate-800">
+                      <span className="text-[9px] text-slate-400 block">Ozon (O₃)</span>
+                      <span className="text-xs font-black text-sky-500">{station.o3 != null ? `${station.o3} µg/m³` : '—'}</span>
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+
+          <div className="p-3.5 rounded-2xl bg-amber-500/10 border border-amber-500/30 text-xs text-amber-800 dark:text-amber-300">
+            <strong>Stasiun Darat BMKG GAW &amp; Kimia Air Hujan Tidak Terhubung:</strong> Pengukuran SO₂, NO₂, CO, GRK (CO₂/CH₄), dan pH air hujan BMKG memerlukan feed stasiun resmi yang belum tersedia.
           </div>
         </div>
       )}
@@ -782,7 +802,7 @@ export const GeospatialBMKGTab: React.FC<GeospatialBMKGTabProps> = ({
               }`}
             >
               <Layers className="w-3.5 h-3.5" />
-              <span>PuSGeN 295 Sesar Aktif</span>
+              <span>PuSGeN Sesar Aktif (26 Segmen)</span>
               <span className="text-[10px] px-1.5 py-0.2 rounded-full bg-amber-500/20 text-amber-300 font-bold">
                 SNI 1726
               </span>
@@ -792,6 +812,15 @@ export const GeospatialBMKGTab: React.FC<GeospatialBMKGTabProps> = ({
           {/* VIEW 1: INATEWS BMKG */}
           {quakeSourceTab === 'inatews' && (
             <div className="space-y-4">
+              {bmkgQuakeError && (
+                <div className="p-4 rounded-2xl bg-rose-500/10 border border-rose-500/30 text-xs text-rose-700 dark:text-rose-300 flex items-start gap-2.5">
+                  <AlertTriangle className="w-4 h-4 text-rose-500 shrink-0 mt-0.5" />
+                  <div>
+                    <strong className="block">Feed Gempa BMKG InaTEWS Gagal Dimuat (ERROR)</strong>
+                    <p className="text-[11px] opacity-90 mt-0.5">{bmkgQuakeError}</p>
+                  </div>
+                </div>
+              )}
               {/* Real-time Latest Earthquake Hero */}
               {autoGempa && (
                 <div className="p-4 sm:p-5 rounded-2xl bg-gradient-to-br from-rose-500/10 via-slate-900 to-slate-950 border border-rose-500/30 text-white shadow-xl space-y-3">
@@ -837,7 +866,7 @@ export const GeospatialBMKGTab: React.FC<GeospatialBMKGTabProps> = ({
               {/* List of Recent Earthquakes */}
               <div className="p-4 rounded-2xl bg-white dark:bg-slate-800/60 border border-slate-200/80 dark:border-slate-700/80 space-y-3">
                 <h4 className="text-xs font-bold uppercase tracking-wider text-slate-700 dark:text-slate-300">
-                  Daftar Gempa Bumi M 5.0+ & Gempa Dirasakan Terkini (BMKG)
+                  Gempa Terkini BMKG
                 </h4>
                 <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-2.5">
                   {[...recentQuakes, ...feltQuakes].slice(0, 6).map((g, idx) => (
@@ -859,6 +888,15 @@ export const GeospatialBMKGTab: React.FC<GeospatialBMKGTabProps> = ({
           {/* VIEW 2: USGS M2.5+ GLOBAL FEED */}
           {quakeSourceTab === 'usgs' && (
             <div className="space-y-4">
+              {usgsQuakeError && usgsQuakes.length === 0 && (
+                <div className="p-4 rounded-2xl bg-rose-500/10 border border-rose-500/30 text-xs text-rose-700 dark:text-rose-300 flex items-start gap-2.5">
+                  <AlertTriangle className="w-4 h-4 text-rose-500 shrink-0 mt-0.5" />
+                  <div>
+                    <strong className="block">Feed Gempa Global USGS Gagal Dimuat (ERROR)</strong>
+                    <p className="text-[11px] opacity-90 mt-0.5">{usgsQuakeError}</p>
+                  </div>
+                </div>
+              )}
               {/* USGS Nearest Quake Banner */}
               {nearestUsgsQuake && (
                 <div className="p-4 sm:p-5 rounded-2xl bg-gradient-to-br from-indigo-500/10 via-slate-900 to-slate-950 border border-indigo-500/30 text-white shadow-xl space-y-3">
@@ -913,7 +951,7 @@ export const GeospatialBMKGTab: React.FC<GeospatialBMKGTabProps> = ({
                 <div className="flex items-center justify-between">
                   <div>
                     <h4 className="text-xs font-bold uppercase tracking-wider text-slate-700 dark:text-slate-300">
-                      Feed Gempa Bumi Global M 2.5+ (USGS Earthquake Hazards Program)
+                      Gempa Global (USGS)
                     </h4>
                     <p className="text-[11px] text-slate-500">
                       Diperbarui langsung dari API earthquake.usgs.gov setiap 5 menit
@@ -1019,7 +1057,7 @@ export const GeospatialBMKGTab: React.FC<GeospatialBMKGTabProps> = ({
                 <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
                   <div>
                     <h4 className="text-xs font-bold uppercase tracking-wider text-slate-700 dark:text-slate-300">
-                      Katalog 295 Sesar & Patahan Aktif Darat Indonesia (PuSGeN PUPR/ESDM)
+                      Katalog Sesar Aktif
                     </h4>
                     <p className="text-[11px] text-slate-500">
                       Basis data resmi Peta Sumber dan Bahaya Gempa Indonesia Tahun 2017 (ISBN 978-602-5489-01-3)
@@ -1087,58 +1125,59 @@ export const GeospatialBMKGTab: React.FC<GeospatialBMKGTabProps> = ({
         </div>
       )}
 
-      {/* MODULE 7: LIGHTNING & POTENTIAL GEOPHYSICS */}
-      {subModule === 'lightning_geophysics' && geophysics && (
+      {/* MODULE 7: GEOMAGNETIC KP-INDEX (LIVE NOAA SWPC) & LIGHTNING / GRAVITY STATUS */}
+      {subModule === 'lightning_geophysics' && (
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <div className="p-4 sm:p-5 rounded-2xl bg-white dark:bg-slate-800/60 border border-slate-200/80 dark:border-slate-700/80 space-y-3">
-            <h3 className="text-xs font-bold uppercase tracking-wider text-slate-700 dark:text-slate-300 flex items-center gap-2">
-              <CloudLightning className="w-4 h-4 text-amber-500" />
-              <span>Sambaran Petir Real-time (Lightning Detection Network)</span>
-            </h3>
-
-            <div className="p-3 rounded-xl bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-900/40">
-              <div className="text-2xl font-black text-amber-600 dark:text-amber-400">
-                {geophysics.lightning.strikesCount1Hour} <span className="text-xs font-semibold text-slate-500">sambaran/jam</span>
-              </div>
-              <div className="text-[10px] text-slate-400 mt-1">
-                CG Negatif: {geophysics.lightning.breakdown.cloudToGroundNegative} | CG Positif: {geophysics.lightning.breakdown.cloudToGroundPositive} | Intra-Cloud: {geophysics.lightning.breakdown.intraCloud}
-              </div>
+            <div className="flex items-center justify-between">
+              <h3 className="text-xs font-bold uppercase tracking-wider text-slate-700 dark:text-slate-300 flex items-center gap-2">
+                <Compass className="w-4 h-4 text-purple-500" />
+                <span>Indeks Geomagnetik Planetari (Kp Live)</span>
+              </h3>
+              <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full border ${
+                geomagneticKp?.status === 'LIVE'
+                  ? 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-500/20'
+                  : 'bg-rose-500/10 text-rose-600 dark:text-rose-400 border-rose-500/20'
+              }`}>
+                {geomagneticKp?.status === 'LIVE' ? 'NOAA SWPC Live' : 'ERROR'}
+              </span>
             </div>
 
-            <div className="space-y-2">
-              <span className="text-[10px] uppercase font-bold text-slate-400">Zona Densitas Petir Tertinggi:</span>
-              {geophysics.lightning.highDensityZones.map((z, idx) => (
-                <div key={idx} className="p-2.5 rounded-xl bg-slate-50 dark:bg-slate-900/60 border border-slate-100 dark:border-slate-800 flex justify-between text-xs">
-                  <span className="font-medium text-slate-700 dark:text-slate-300">{z.area}</span>
-                  <span className="font-bold text-amber-500">{z.density}</span>
+            {geomagneticKp?.status === 'ERROR' ? (
+              <div className="p-3.5 rounded-xl bg-rose-500/10 border border-rose-500/30 text-xs text-rose-700 dark:text-rose-300">
+                <strong className="block">Data Kp-Index Live Tidak Tersedia (ERROR)</strong>
+                <p className="text-[11px] opacity-90 mt-0.5">{geomagneticKp.error}</p>
+              </div>
+            ) : geomagneticKp?.data ? (
+              <div className="p-3.5 rounded-xl bg-slate-50 dark:bg-slate-900/60 border border-slate-200 dark:border-slate-700 space-y-2">
+                <div className="flex items-baseline justify-between">
+                  <span className="text-2xl font-black text-purple-600 dark:text-purple-400 font-mono">
+                    Kp {geomagneticKp.data.kpIndex}
+                  </span>
+                  <span className="text-xs font-bold px-2 py-0.5 rounded bg-purple-500/15 text-purple-600 dark:text-purple-300">
+                    Skala {geomagneticKp.data.stormScale}
+                  </span>
                 </div>
-              ))}
-            </div>
+                <p className="text-xs font-medium text-slate-700 dark:text-slate-300">{geomagneticKp.data.statusText}</p>
+                <div className="text-[10px] text-slate-500 flex justify-between pt-1 border-t border-slate-200/60 dark:border-slate-800">
+                  <span>Index A-Running: {geomagneticKp.data.aRunning ?? '—'}</span>
+                  <span>Stasiun: {geomagneticKp.data.stationCount ?? '—'}</span>
+                </div>
+                <div className="text-[10px] font-mono text-slate-400">Waktu UTC: {geomagneticKp.data.timeTag}</div>
+              </div>
+            ) : (
+              <p className="text-xs text-slate-500">Memuat data Kp-Index live...</p>
+            )}
           </div>
 
-          <div className="p-4 sm:p-5 rounded-2xl bg-white dark:bg-slate-800/60 border border-slate-200/80 dark:border-slate-700/80 space-y-3">
-            <h3 className="text-xs font-bold uppercase tracking-wider text-slate-700 dark:text-slate-300 flex items-center gap-2">
-              <Compass className="w-4 h-4 text-purple-500" />
-              <span>Gaya Berat Bouguer & Magnet Bumi</span>
+          <div className="p-4 sm:p-5 rounded-2xl bg-amber-500/10 border border-amber-500/30 space-y-2 text-xs text-amber-800 dark:text-amber-300">
+            <h3 className="text-xs font-bold uppercase tracking-wider flex items-center gap-2">
+              <CloudLightning className="w-4 h-4 text-amber-500" />
+              <span>Jaringan Petir LDN &amp; Gravimetri BMKG Belum Terhubung</span>
             </h3>
-
-            <div className="p-3 rounded-xl bg-slate-50 dark:bg-slate-900/60 border border-slate-200 dark:border-slate-700 space-y-1">
-              <span className="text-[10px] uppercase font-bold text-slate-400">Anomali Gaya Berat Bouguer:</span>
-              <p className="text-xs text-slate-600 dark:text-slate-300 leading-relaxed">
-                {geophysics.gravity.interpretation}
-              </p>
-              <div className="text-[10px] text-slate-400 pt-1">Rentang: {geophysics.gravity.anomalyRangeIndonesia}</div>
-            </div>
-
-            <div className="p-3 rounded-xl bg-slate-50 dark:bg-slate-900/60 border border-slate-200 dark:border-slate-700 space-y-1">
-              <span className="text-[10px] uppercase font-bold text-slate-400">Parameter Medan Magnet Bumi:</span>
-              <div className="grid grid-cols-2 gap-2 text-[11px] text-slate-600 dark:text-slate-300">
-                <div>Deklinasi: <strong>{geophysics.geomagnetism.magneticFieldParameters.declination}</strong></div>
-                <div>Inklinasi: <strong>{geophysics.geomagnetism.magneticFieldParameters.inclination}</strong></div>
-                <div>Intensitas: <strong>{geophysics.geomagnetism.magneticFieldParameters.totalIntensityNt} nT</strong></div>
-                <div>Status Badai: <strong>{geophysics.geomagnetism.geomagneticStormStatus.split('(')[0]}</strong></div>
-              </div>
-            </div>
+            <p className="text-[11px] leading-relaxed opacity-90">
+              Data jumlah sambaran petir waktu nyata (BMKG LDN) dan observatorium gaya berat/magnet lokal BMKG belum menyediakan endpoint API publik (`NOT_CONNECTED`). Nilai tidak ditampilkan agar tidak menyajikan angka statis sebagai data live.
+            </p>
           </div>
         </div>
       )}
@@ -1149,7 +1188,7 @@ export const GeospatialBMKGTab: React.FC<GeospatialBMKGTabProps> = ({
           <div className="p-4 sm:p-5 rounded-2xl bg-white dark:bg-slate-800/60 border border-slate-200/80 dark:border-slate-700/80 space-y-3">
             <h3 className="text-xs font-bold uppercase tracking-wider text-slate-700 dark:text-slate-300 flex items-center gap-2">
               <Clock className="w-4 h-4 text-indigo-500" />
-              <span>Tanda Waktu Atom Nasional Terkalibrasi BMKG</span>
+              <span>Tanda Waktu Nasional</span>
             </h3>
 
             <div className="space-y-2">
@@ -1173,7 +1212,7 @@ export const GeospatialBMKGTab: React.FC<GeospatialBMKGTabProps> = ({
           <div className="p-4 sm:p-5 rounded-2xl bg-white dark:bg-slate-800/60 border border-slate-200/80 dark:border-slate-700/80 space-y-3">
             <h3 className="text-xs font-bold uppercase tracking-wider text-slate-700 dark:text-slate-300 flex items-center gap-2">
               <Sun className="w-4 h-4 text-amber-500" />
-              <span>Jadwal Matahari, Kulminasi & Posisi Hilal</span>
+              <span>Jadwal Matahari</span>
             </h3>
 
             <div className="grid grid-cols-2 gap-2 text-xs">
@@ -1200,55 +1239,20 @@ export const GeospatialBMKGTab: React.FC<GeospatialBMKGTabProps> = ({
       )}
 
       {/* MODULE 9: ENGINEERING SEISMOLOGY */}
-      {subModule === 'engineering_seismology' && microzonation && (
-        <div className="p-4 sm:p-5 rounded-2xl bg-white dark:bg-slate-800/60 border border-slate-200/80 dark:border-slate-700/80 space-y-4">
-          <div className="flex items-center justify-between">
-            <h3 className="text-xs font-bold uppercase tracking-wider text-slate-700 dark:text-slate-300 flex items-center gap-2">
-              <Building className="w-4 h-4 text-indigo-500" />
-              <span>Seismologi Teknik: Mikrozonasi Seismik & Spektral Percepatan SNI 1726</span>
+      {subModule === 'engineering_seismology' && (
+        <div className="p-4 sm:p-5 rounded-2xl bg-amber-500/10 border border-amber-500/30 space-y-2 text-xs text-amber-800 dark:text-amber-300">
+          <div className="flex items-center justify-between flex-wrap gap-2">
+            <h3 className="text-xs font-bold uppercase tracking-wider flex items-center gap-2">
+              <Building className="w-4 h-4 text-amber-500" />
+              <span>Mikrozonasi Seismologi Teknik Belum Terhubung</span>
             </h3>
-            <span className="text-[10px] text-slate-400">{microzonation.method}</span>
-          </div>
-
-          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-            <div className="p-3 rounded-xl bg-slate-50 dark:bg-slate-900/60 border border-slate-200 dark:border-slate-700">
-              <span className="text-[10px] text-slate-400 block font-medium">Frekuensi Alami (f₀)</span>
-              <span className="text-base font-black text-indigo-500">{microzonation.parameters.f0Hz} Hz</span>
-              <span className="text-[9px] text-slate-500 block mt-0.5">Resonansi 4–6 lantai</span>
-            </div>
-
-            <div className="p-3 rounded-xl bg-slate-50 dark:bg-slate-900/60 border border-slate-200 dark:border-slate-700">
-              <span className="text-[10px] text-slate-400 block font-medium">Amplifikasi Tanah (A₀)</span>
-              <span className="text-base font-black text-rose-500">{microzonation.parameters.amplificationFactorA0}×</span>
-              <span className="text-[9px] text-slate-500 block mt-0.5">Relatif batuan dasar</span>
-            </div>
-
-            <div className="p-3 rounded-xl bg-slate-50 dark:bg-slate-900/60 border border-slate-200 dark:border-slate-700">
-              <span className="text-[10px] text-slate-400 block font-medium">Indeks Kerentanan (Kg)</span>
-              <span className="text-base font-black text-amber-500">{microzonation.parameters.seismicVulnerabilityIndexKg}</span>
-              <span className="text-[9px] text-slate-500 block mt-0.5">Kg = A₀² / f₀</span>
-            </div>
-
-            <div className="p-3 rounded-xl bg-slate-50 dark:bg-slate-900/60 border border-slate-200 dark:border-slate-700">
-              <span className="text-[10px] text-slate-400 block font-medium">Kecepatan Geser (Vs30)</span>
-              <span className="text-base font-black text-emerald-500">{microzonation.parameters.vs30EstimatedMs} m/s</span>
-              <span className="text-[9px] text-slate-500 block mt-0.5">{microzonation.soilClassification}</span>
-            </div>
-          </div>
-
-          <div className="p-3.5 rounded-xl bg-slate-50 dark:bg-slate-900/60 border border-slate-200 dark:border-slate-700 space-y-2">
-            <span className="text-xs font-bold text-slate-800 dark:text-slate-200">
-              Rekomendasi Rekayasa Struktur Tahan Gempa BMKG:
+            <span className="text-[10px] font-bold px-2 py-0.5 rounded bg-amber-500/20 border border-amber-500/30">
+              TIDAK TERSEDIA
             </span>
-            <ul className="space-y-1.5 text-xs text-slate-600 dark:text-slate-300">
-              {microzonation.engineeringRecommendations.map((rec, idx) => (
-                <li key={idx} className="flex items-start gap-2">
-                  <span className="w-1.5 h-1.5 rounded-full bg-indigo-500 mt-1.5 shrink-0" />
-                  <span>{rec}</span>
-                </li>
-              ))}
-            </ul>
           </div>
+          <p className="text-[11px] leading-relaxed opacity-90">
+            Parameter HVSR (f₀, amplifikasi A₀, indeks kerentanan Kg, dan Vs30) memerlukan pengukuran mikrotremor 3-komponen atau feed resmi mikrozonasi BMKG pada koordinat {lat.toFixed(4)}°, {lng.toFixed(4)}°. API mikrozonasi BMKG belum terhubung sehingga angka generik tidak ditampilkan.
+          </p>
         </div>
       )}
 

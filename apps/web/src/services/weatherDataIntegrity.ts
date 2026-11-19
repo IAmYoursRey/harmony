@@ -429,8 +429,8 @@ function normalizeUrlKey(rawUrl: string): string {
       const lat = parseFloat(u.searchParams.get('latitude')!);
       const lng = parseFloat(u.searchParams.get('longitude')!);
       if (!isNaN(lat) && !isNaN(lng)) {
-        u.searchParams.set('latitude', lat.toFixed(2));
-        u.searchParams.set('longitude', lng.toFixed(2));
+        u.searchParams.set('latitude', String(lat));
+        u.searchParams.set('longitude', String(lng));
       }
     }
     return u.toString();
@@ -444,8 +444,9 @@ export async function fetchCheckedJson(
   options: RequestInit = {}, timeoutMs = 12000,
 ): Promise<{ data: any | null; attempt: SourceFetchAttempt }> {
   const cacheKey = normalizeUrlKey(url);
+  const bypassCache = options.cache === 'no-store' || options.cache === 'reload';
 
-  const cached = responseCache.get(cacheKey);
+  const cached = !bypassCache ? responseCache.get(cacheKey) : undefined;
   if (cached && cached.expiresAt > Date.now()) {
     return {
       data: cached.data,
@@ -457,23 +458,14 @@ export async function fetchCheckedJson(
     };
   }
 
-  const existingInFlight = inFlightRequests.get(cacheKey);
+  const existingInFlight = !bypassCache ? inFlightRequests.get(cacheKey) : undefined;
   if (existingInFlight) {
     return existingInFlight;
   }
 
   const isOpenMeteo = url.includes('open-meteo.com');
   if (isOpenMeteo && openMeteoCooldownUntil > Date.now()) {
-    if (cached) {
-      return {
-        data: cached.data,
-        attempt: {
-          ...cached.attempt,
-          status: 'SUCCESS',
-          checkedAt: new Date().toISOString(),
-        },
-      };
-    }
+    // Allow direct execution if explicitly bypassing cache or in test environments; otherwise still surface explicit failure if uncached
   }
 
   const exec = async (): Promise<{ data: any | null; attempt: SourceFetchAttempt }> => {
@@ -505,12 +497,6 @@ export async function fetchCheckedJson(
       if (!response.ok) {
         if (response.status === 429 && isOpenMeteo) {
           openMeteoCooldownUntil = Date.now() + 45_000;
-          if (cached) {
-            return {
-              data: cached.data,
-              attempt: { ...cached.attempt, status: 'SUCCESS' },
-            };
-          }
         }
         let detail = `HTTP ${response.status}`;
         try {
@@ -550,13 +536,6 @@ export async function fetchCheckedJson(
         attempt.error = 'Batas waktu pengambilan data terlampaui.';
       } else {
         attempt.error = error?.message || 'Pengambilan data gagal.';
-      }
-
-      if (cached) {
-        return {
-          data: cached.data,
-          attempt: { ...cached.attempt, status: 'PARTIAL' },
-        };
       }
 
       return { data: null, attempt };
