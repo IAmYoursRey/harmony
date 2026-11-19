@@ -3,8 +3,16 @@ import { apiClient } from "./apiClient";
 export interface SurveyEntry {
   id: string;
   userId: string;
+  studentName?: string;
+  email?: string;
   schoolId: string;
+  classId?: string;
+  className?: string;
+  grade?: string;
+  section?: string;
+  category?: string;
   answers: Record<string, number>;
+  responses?: { questionId: string; value: number }[];
   score: number | null;
   completed: boolean;
   submittedAt: string;

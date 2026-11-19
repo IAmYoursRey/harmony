@@ -68,6 +68,19 @@ all_student_accounts = []
 all_student_profiles = []
 all_quiz_histories = []
 all_dt_results = []
+all_surveys = []
+
+survey_categories = ["Gempa Bumi", "Banjir", "Tsunami", "Lainnya"]
+survey_dates = [
+    "2026-10-14T08:20:00.000Z",
+    "2026-10-16T09:15:00.000Z",
+    "2026-10-21T10:05:00.000Z",
+    "2026-10-25T11:30:00.000Z",
+    "2026-11-02T08:40:00.000Z",
+    "2026-11-04T09:25:00.000Z",
+    "2026-11-06T10:10:00.000Z",
+    "2026-11-09T11:00:00.000Z",
+]
 
 for c in classes:
     cid = c["id"]
@@ -178,7 +191,48 @@ for c in classes:
             "completionTimeSeconds": random.randint(11, 15),
         })
 
-print(f"Generated {len(all_student_accounts)} students across {len(classes)} classes (XI - 1 to XI - 9).")
+        roll = random.random()
+        if roll < 0.08:
+            sv_score = random.randint(52, 66)
+        elif roll < 0.28:
+            sv_score = random.randint(67, 77)
+        elif roll < 0.72:
+            sv_score = random.randint(78, 89)
+        else:
+            sv_score = random.randint(90, 99)
+
+        base_l = max(1, min(5, round(sv_score / 20)))
+        q1 = max(1, min(5, base_l + (1 if random.random() > 0.65 else 0)))
+        q2 = max(1, min(5, base_l - (1 if random.random() > 0.7 else 0)))
+        q3 = max(1, min(5, base_l))
+        q4 = max(1, min(5, base_l + (1 if random.random() > 0.75 else 0)))
+        sv_cat = random.choices(survey_categories, weights=[36, 28, 21, 15], k=1)[0]
+
+        all_surveys.append({
+            "id": f"survey-{sid}",
+            "userId": sid,
+            "studentName": s_name,
+            "email": s_email,
+            "schoolId": "ffdcdf34-fc99-4209-913e-5a6042e957ad",
+            "classId": cid,
+            "className": cname,
+            "grade": cgrade,
+            "section": csec,
+            "category": sv_cat,
+            "answers": {"q1": q1, "q2": q2, "q3": q3, "q4": q4},
+            "responses": [
+                {"questionId": "spab_1", "value": q1},
+                {"questionId": "spab_2", "value": q2},
+                {"questionId": "spab_3", "value": q3},
+                {"questionId": "spab_4", "value": q4},
+            ],
+            "score": sv_score,
+            "completed": True,
+            "submittedAt": survey_dates[(num + int(csec)) % len(survey_dates)],
+        })
+
+random.shuffle(all_surveys)
+print(f"Generated {len(all_student_accounts)} students and {len(all_surveys)} surveys across {len(classes)} classes (XI - 1 to XI - 9).")
 
 # Non-student accounts (teachers + dev)
 non_students = [a for a in existing_accounts.values() if a.get("role") != "student"]
@@ -197,6 +251,7 @@ db["accounts"] = non_students + all_student_accounts
 db["profiles"] = non_student_profiles + all_student_profiles
 db["quizHistories"] = all_quiz_histories
 db["dtResults"] = all_dt_results
+db["surveys"] = all_surveys
 
 with open(db_path, "w", encoding="utf-8") as f:
     json.dump(db, f, indent=2)

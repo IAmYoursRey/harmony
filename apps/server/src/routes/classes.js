@@ -9,10 +9,19 @@ function getCallerSchoolId(db, userId) {
   return profile?.schoolId || null;
 }
 
+const normalizeClassRecord = (c) => {
+  const grade =
+    c.grade === "X" || c.grade === "10" || !c.grade ? "XI" : c.grade;
+  const name = c.section ? `${grade} - ${c.section}` : c.name;
+  return { ...c, grade, name };
+};
+
 router.get("/", verifyToken, async (req, res) => {
   const db = await readDB();
   const callerRole = req.user.role;
-  const classes = db.classes || [];
+  const classes = (db.classes || [])
+    .map(normalizeClassRecord)
+    .sort((a, b) => Number(a.section || 0) - Number(b.section || 0));
 
   if (callerRole === "dev" || callerRole === "developer") {
     return res.json({ classes });

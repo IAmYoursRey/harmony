@@ -357,10 +357,12 @@ router.get("/sri", verifyToken, async (req, res) => {
       const acc = db.accounts.find((a) => a.id === sp.userId);
       const studentSims = schoolResults.filter((r) => r.userId === sp.userId);
       const latestSim = studentSims[studentSims.length - 1];
+      const displayGrade =
+        sp.grade === "X" || sp.grade === "10" || !sp.grade ? "XI" : sp.grade;
       return {
         id: sp.userId,
         name: acc?.name || sp.name || "Siswa SMAN 1 Ngoro",
-        classSection: `${sp.grade} - ${sp.classSection}`,
+        classSection: `${displayGrade} - ${sp.classSection || sp.section || "1"}`,
         totalPoints: sp.totalPoints || 0,
         averageScore: sp.topicScores?.t1?.averageScore || 85,
         lastSimHp: latestSim?.hpRemaining || 85,
@@ -390,20 +392,25 @@ router.get("/sri", verifyToken, async (req, res) => {
         totalSimulations: schoolResults.length,
         participation,
       },
-      classes: schoolClasses.map((c) => {
-        const teacherAcc = db.accounts.find((a) => a.id === c.teacherId);
-        const classStudents = studentProfiles.filter(
-          (sp) => sp.classId === c.id || sp.classSection === c.section
-        );
-        return {
-          id: c.id,
-          name: c.name,
-          grade: c.grade,
-          section: c.section,
-          teacherName: teacherAcc?.name || "Wali Kelas",
-          studentCount: classStudents.length || 16,
-        };
-      }),
+      classes: schoolClasses
+        .map((c) => {
+          const teacherAcc = db.accounts.find((a) => a.id === c.teacherId);
+          const classStudents = studentProfiles.filter(
+            (sp) => sp.classId === c.id || sp.classSection === c.section
+          );
+          const displayGrade =
+            c.grade === "X" || c.grade === "10" || !c.grade ? "XI" : c.grade;
+          const displayName = c.section ? `${displayGrade} - ${c.section}` : c.name;
+          return {
+            id: c.id,
+            name: displayName,
+            grade: displayGrade,
+            section: c.section,
+            teacherName: teacherAcc?.name || "Wali Kelas",
+            studentCount: classStudents.length || 35,
+          };
+        })
+        .sort((a, b) => Number(a.section || 0) - Number(b.section || 0)),
       sampleStudents,
       radarData: [
         { subject: "Pengetahuan Bencana", A: knowledge, fullMark: 100 },
