@@ -111,11 +111,60 @@ export class GnssElevationService {
   private elevationCache = new Map<string, { elevation: number; expiresAt: number }>();
   private inFlightElevation = new Map<string, Promise<number | null>>();
   private rateLimitCooldownUntil = 0;
+  private elevationCacheHydrated = false;
+  private readonly ELEV_STORAGE_KEY = 'hm_dem_elev_v1';
+
+  private hydrateElevationCache(): void {
+    if (this.elevationCacheHydrated) return;
+    this.elevationCacheHydrated = true;
+    try {
+      if (typeof window === 'undefined' || !window.localStorage) return;
+      const raw = window.localStorage.getItem(this.ELEV_STORAGE_KEY);
+      if (!raw) return;
+      const parsed = JSON.parse(raw);
+      if (!Array.isArray(parsed)) return;
+      const now = Date.now();
+      for (const entry of parsed) {
+        if (
+          entry &&
+          typeof entry.key === 'string' &&
+          typeof entry.elevation === 'number' &&
+          typeof entry.expiresAt === 'number' &&
+          entry.expiresAt > now
+        ) {
+          this.elevationCache.set(entry.key, {
+            elevation: entry.elevation,
+            expiresAt: entry.expiresAt,
+          });
+        }
+      }
+    } catch {
+      // Ignore storage access failures.
+    }
+  }
+
+  private persistElevationEntry(key: string, elevation: number, expiresAt: number): void {
+    this.elevationCache.set(key, { elevation, expiresAt });
+    try {
+      if (typeof window === 'undefined' || !window.localStorage) return;
+      if (this.elevationCache.size > 40) {
+        const oldestKey = this.elevationCache.keys().next().value;
+        if (oldestKey) this.elevationCache.delete(oldestKey);
+      }
+      const serializable = Array.from(this.elevationCache.entries())
+        .slice(-40)
+        .map(([k, v]) => ({ key: k, elevation: v.elevation, expiresAt: v.expiresAt }));
+      window.localStorage.setItem(this.ELEV_STORAGE_KEY, JSON.stringify(serializable));
+    } catch {
+      // Ignore storage write errors.
+    }
+  }
 
   /**
    * Fetches high-resolution digital ground elevation from Open-Meteo elevation API (DEMNAS/SRTM 30m)
    */
   public async fetchGroundElevation(lat: number, lng: number): Promise<number | null> {
+    this.hydrateElevationCache();
     const key = `${lat.toFixed(2)},${lng.toFixed(2)}`;
     const cached = this.elevationCache.get(key);
     if (cached && cached.expiresAt > Date.now()) {
@@ -144,7 +193,7 @@ export class GnssElevationService {
           const data = await res.json();
           if (Array.isArray(data?.elevation) && typeof data.elevation[0] === 'number') {
             const val = Math.round(data.elevation[0] * 10) / 10;
-            this.elevationCache.set(key, { elevation: val, expiresAt: Date.now() + 24 * 3600 * 1000 });
+            this.persistElevationEntry(key, val, Date.now() + 24 * 3600 * 1000);
             return val;
           }
         } else if (res.status === 429) {
@@ -276,27 +325,46 @@ export class GnssElevationService {
       throw new Error('Sensor GPS / Web Geolocation API tidak didukung pada peramban ini.');
     }
 
-    const pos = await new Promise<GeolocationPosition>((resolve, reject) => {
-      navigator.geolocation.getCurrentPosition(
-        resolve,
-        (err) => {
-          let msg = 'Gagal mengakses GPS perangkat.';
-          if (err.code === err.PERMISSION_DENIED) {
-            msg = 'Izin akses lokasi ditolak oleh pengguna. Mohon izinkan akses lokasi di pengaturan browser untuk mengukur ketinggian di titik Anda.';
-          } else if (err.code === err.POSITION_UNAVAILABLE) {
-            msg = 'Sinyal satelit GPS tidak terdeteksi. Pastikan perangkat Anda memiliki koneksi jaringan atau GPS aktif.';
-          } else if (err.code === err.TIMEOUT) {
-            msg = 'Batas waktu pencarian satelit GPS terlampaui (Timeout 15 detik). Silakan coba lagi di area terbuka.';
-          }
-          reject(new Error(msg));
-        },
-        {
-          enableHighAccuracy: true,
-          timeout: 15000,
-          maximumAge: 0,
+    const acquirePosition = (opts: PositionOptions) =>
+      new Promise<GeolocationPosition>((resolve, reject) => {
+        navigator.geolocation.getCurrentPosition(resolve, reject, opts);
+      });
+
+    let pos: GeolocationPosition;
+    try {
+      pos = await acquirePosition({
+        enableHighAccuracy: true,
+        timeout: 8000,
+        maximumAge: 30000,
+      });
+    } catch (err: any) {
+      if (err?.code === 1) {
+        throw new Error(
+          'Izin akses lokasi ditolak oleh pengguna. Mohon izinkan akses lokasi di pengaturan browser untuk mengukur ketinggian di titik Anda.'
+        );
+      }
+      // Stage 2: Fast network/Wi-Fi triangulation fallback for indoor Android devices
+      try {
+        pos = await acquirePosition({
+          enableHighAccuracy: false,
+          timeout: 10000,
+          maximumAge: 120000,
+        });
+      } catch (fallbackErr: any) {
+        let msg = 'Gagal mengakses GPS perangkat.';
+        if (fallbackErr?.code === 1) {
+          msg =
+            'Izin akses lokasi ditolak oleh pengguna. Mohon izinkan akses lokasi di pengaturan browser untuk mengukur ketinggian di titik Anda.';
+        } else if (fallbackErr?.code === 2) {
+          msg =
+            'Sinyal satelit GPS tidak terdeteksi. Pastikan perangkat Anda memiliki koneksi jaringan atau GPS aktif.';
+        } else if (fallbackErr?.code === 3) {
+          msg =
+            'Batas waktu pencarian lokasi GPS terlampaui. Silakan coba lagi atau aktifkan Layanan Lokasi perangkat.';
         }
-      );
-    });
+        throw new Error(msg);
+      }
+    }
 
     const lat = pos.coords.latitude;
     const lng = pos.coords.longitude;

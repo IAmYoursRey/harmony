@@ -406,7 +406,7 @@ export default function LoginPage() {
                 className="flex flex-col items-center justify-center gap-6 text-center"
               >
                 <div className="h-16 w-16 overflow-hidden rounded-full border-2 border-brand-100">
-                  <img src={googleData?.picture} alt="Profil" className="h-full w-full object-cover" />
+                  <img src={googleData?.picture} alt="Profil" loading="lazy" decoding="async" className="h-full w-full object-cover" />
                 </div>
                 <div>
                   <h3 className="text-lg font-bold text-ink-900 dark:text-white">{googleData?.name}</h3>

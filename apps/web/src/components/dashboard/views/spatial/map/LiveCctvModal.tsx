@@ -519,6 +519,8 @@ export const LiveCctvModal: React.FC<LiveCctvModalProps> = ({ camera, onClose, o
               key={`cctv-img-${currentCamera.id}-${frameCount}`}
               src={snapshotSrc}
               alt={currentCamera.name}
+              loading="lazy"
+              decoding="async"
               className="w-full h-full object-contain bg-black"
               onError={() => setSnapshotError(true)}
             />

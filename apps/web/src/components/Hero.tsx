@@ -14,6 +14,7 @@ import {
 } from "lucide-react";
 import { HeroIllustration } from "@/components/HeroIllustration";
 import { useI18n } from "@/hooks/useI18n";
+import { useDemoStudentLogin } from "@/hooks/useDemoStudentLogin";
 
 const pillars = [
   { icon: Brain, label: "Pembelajaran Adaptif" },
@@ -54,6 +55,7 @@ const featureCards = [
 
 export function Hero() {
   const { t } = useI18n();
+  const { isDemoLoading, handleInstantDemoLogin } = useDemoStudentLogin();
   return (
     <section
       id="home"
@@ -116,13 +118,15 @@ export function Hero() {
                 {t("landing.start_learning")}
                 <ArrowRight className="h-4 w-4 transition-transform group-hover:translate-x-1" />
               </Link>
-              <Link
-                to="/login"
-                className="inline-flex items-center gap-2 rounded-full border border-brand-200 bg-white/80 px-7 py-3.5 text-sm font-semibold text-brand-700 backdrop-blur-md transition-colors hover:border-brand-300 hover:bg-white dark:border-slate-700 dark:bg-slate-800/80 dark:text-brand-400"
+              <button
+                type="button"
+                onClick={handleInstantDemoLogin}
+                disabled={isDemoLoading}
+                className="inline-flex items-center gap-2 rounded-full border border-brand-200 bg-white/80 px-7 py-3.5 text-sm font-semibold text-brand-700 backdrop-blur-md transition-colors hover:border-brand-300 hover:bg-white disabled:opacity-60 dark:border-slate-700 dark:bg-slate-800/80 dark:text-brand-400"
               >
                 <GraduationCap className="h-4 w-4" />
-                Demo SMAN 1
-              </Link>
+                {isDemoLoading ? "Memuat Demo..." : "Demo SMAN 1"}
+              </button>
             </div>
 
             {/* Tech pillars */}

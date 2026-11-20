@@ -15,11 +15,24 @@
     },
     {
       "src": "/assets/(.*)",
-      "dest": "/assets/$1"
+      "dest": "/assets/$1",
+      "headers": {
+        "Cache-Control": "public, max-age=31536000, immutable"
+      }
+    },
+    {
+      "src": "/cesium/(.*)",
+      "dest": "/cesium/$1",
+      "headers": {
+        "Cache-Control": "public, max-age=31536000, immutable"
+      }
     },
     {
       "src": "/data/(.*)",
-      "dest": "/data/$1"
+      "dest": "/data/$1",
+      "headers": {
+        "Cache-Control": "public, max-age=86400, stale-while-revalidate=604800"
+      }
     },
     {
       "handle": "filesystem"

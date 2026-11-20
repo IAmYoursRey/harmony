@@ -55,9 +55,10 @@ import { gnssElevationService, type GnssElevationReport } from "@/services/geosp
 import { RouteResult, routingService } from "@/services/routingService";
 import { WebGISTutorialModal } from "./WebGISTutorialModal";
 import { DisasterRiskCenterModal, LANDSLIDE_SUSCEPTIBILITY_ZONES, TSUNAMI_HAZARD_ZONES } from "./DisasterRiskCenterModal";
-import { preciseGeocodingService, PreciseLocationInfo } from "@/services/preciseGeocodingService";
+import { preciseGeocodingService, type PreciseLocationInfo, type LocationSearchResult } from "@/services/preciseGeocodingService";
 import { geospatialAnalysisService } from "@/services/geospatialAnalysisService";
 import { weatherAggregatorService } from "@/services/weatherAggregatorService";
+import { mapWeatherLiveService } from "@/services/geospatial/mapWeatherLiveService";
 import { bmkgService } from "@/services/bmkgService";
 import { hotspotFireService, ActiveFireHotspot, HotspotSnapshot } from "@/services/hotspotFireService";
 import { safeCopyToClipboard } from "@/utils/browserCompat";
@@ -1737,9 +1738,30 @@ export function MapsView() {
   } | null>(null);
   const [globeInitialCenter, setGlobeInitialCenter] = useState<{ lat: number; lng: number } | undefined>(undefined);
   const [globeInitialZoom, setGlobeInitialZoom] = useState<number>(6);
+  const [cameraFocusRequestId, setCameraFocusRequestId] = useState<number>(0);
   const routeLayerRef = useRef<VectorLayer<VectorSource> | null>(null);
   const userMarkerLayerRef = useRef<VectorLayer<VectorSource> | null>(null);
   const watchIdRef = useRef<number | null>(null);
+  const handleFindUserLocationRef = useRef<() => void>(() => {});
+  const lastGpsFixAtRef = useRef<number>(0);
+
+  const flyCameraToCoords = useCallback((lat: number, lng: number, targetZoom = 16) => {
+    setGlobeInitialCenter({ lat, lng });
+    setGlobeInitialZoom(targetZoom);
+    setCameraFocusRequestId((n) => n + 1);
+    if (mapRef.current) {
+      const reducedMotion =
+        typeof window !== 'undefined' &&
+        window.matchMedia &&
+        window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+      const currentZoom = mapRef.current.getView().getZoom() || targetZoom;
+      mapRef.current.getView().animate({
+        center: fromLonLat([lng, lat]),
+        zoom: Math.max(targetZoom, Math.min(18, currentZoom)),
+        duration: reducedMotion ? 0 : 800,
+      });
+    }
+  }, []);
 
   // Garis Khatulistiwa, Garis Balik Tropis & Batas Zona Iklim State (Default OFF)
   const [showEquatorZones, setShowEquatorZones] = useState<boolean>(() => {
@@ -1765,6 +1787,7 @@ export function MapsView() {
     setShowWindyMenu(false);
     setShowTrafficCorridors(false);
     setShowObservationCoverage(false);
+    setShowAttributeTable(false);
   };
 
   const openStudioDomain = (domain: StudioDomain = 'weather') => {
@@ -1792,6 +1815,7 @@ export function MapsView() {
     };
 
     const handleOpenLayers = () => {
+      closeMapDrawers();
       setShowPanel(true);
     };
 
@@ -1800,15 +1824,9 @@ export function MapsView() {
       if (customEvent.detail?.lat && customEvent.detail?.lng) {
         const { lat, lng } = customEvent.detail;
         setUserCoords({ lat, lng });
-        if (mapRef.current) {
-          mapRef.current.getView().animate({
-            center: fromLonLat([lng, lat]),
-            zoom: 17,
-            duration: 800,
-          });
-        }
+        flyCameraToCoords(lat, lng, 17);
       } else {
-        handleFindUserLocation();
+        handleFindUserLocationRef.current();
       }
     };
 
@@ -1864,31 +1882,12 @@ export function MapsView() {
   });
   const [showSeasonalModal, setShowSeasonalModal] = useState<boolean>(false);
 
-  // Update Seasonal Intelligence when user location or active school changes
+  // Update Seasonal Intelligence synchronously (0 API calls) and reuse single throttled/proxied MapWeatherLiveService stream
   useEffect(() => {
     const lat = userCoords?.lat ?? selection?.school?.lat ?? activeSchoolLat;
     const lng = userCoords?.lng ?? selection?.school?.lng ?? activeSchoolLng;
     const info = seasonalIntelligenceService.calculateSeasonalIntelligence(lat, lng);
     setSeasonalInfo(info);
-
-    let isCancelled = false;
-    setGlobalWeatherSummary(null);
-    seasonalIntelligenceService.fetchGlobalWeatherAndSeason(lat, lng)
-      .then((res: any) => {
-        if (!isCancelled && res?.dataStatus === 'AVAILABLE') {
-          setGlobalWeatherSummary({
-            temperature: res.currentTemp,
-            weatherDesc: res.weatherDesc,
-            weatherCode: res.weatherCode,
-          });
-          setSeasonalInfo(res.seasonalInfo);
-        }
-      })
-      .catch(() => {});
-
-    return () => {
-      isCancelled = true;
-    };
   }, [userCoords?.lat, userCoords?.lng, selection?.school?.lat, selection?.school?.lng, activeSchoolLat, activeSchoolLng]);
 
   // Sync Equator Layer visibility
@@ -1914,48 +1913,100 @@ export function MapsView() {
     };
   }, []);
 
-  // Fetch real-time wind & weather data for current location with 5-minute periodic auto-refresh
+  // Fetch real-time wind & weather via shared MapWeatherLiveService (5-minute periodic refresh, deduped across widgets)
   useEffect(() => {
     let isMounted = true;
-    const fetchWind = async (force = false) => {
-      try {
-        const targetLat = userCoords?.lat ?? selection?.school?.lat ?? activeSchoolLat;
-        const targetLng = userCoords?.lng ?? selection?.school?.lng ?? activeSchoolLng;
-        const res = await weatherAggregatorService.fetchConsensusWeather(targetLat, targetLng, undefined, force);
-        if (isMounted && res?.current) {
-          if (res.current.windDirection !== undefined && res.current.windDirection !== null) {
-            setWindDirectionDeg(res.current.windDirection);
-          }
-          if (res.current.windSpeed !== undefined && res.current.windSpeed !== null) {
-            setWindSpeedKmh(res.current.windSpeed);
-          }
-        }
-      } catch (e) {}
-    };
-    fetchWind();
+    const targetLat = userCoords?.lat ?? selection?.school?.lat ?? activeSchoolLat;
+    const targetLng = userCoords?.lng ?? selection?.school?.lng ?? activeSchoolLng;
+
+    const unsubscribe = mapWeatherLiveService.subscribe((state) => {
+      if (!isMounted || !state.data) return;
+      setGlobalWeatherSummary({
+        temperature: state.data.temperature,
+        weatherDesc: state.data.weatherDesc,
+        weatherCode: state.data.weatherCode,
+      });
+      if (state.data.windDirectionDeg !== undefined && state.data.windDirectionDeg !== null) {
+        setWindDirectionDeg(state.data.windDirectionDeg);
+      }
+      if (state.data.windSpeedKmh !== undefined && state.data.windSpeedKmh !== null) {
+        setWindSpeedKmh(state.data.windSpeedKmh);
+      }
+    });
+
+    void mapWeatherLiveService.fetchWeather(targetLat, targetLng, false);
 
     const FIVE_MINUTES_MS = 5 * 60 * 1000;
     const intervalTimer = setInterval(() => {
-      fetchWind(true);
+      void mapWeatherLiveService.fetchWeather(targetLat, targetLng, true);
     }, FIVE_MINUTES_MS);
 
     return () => {
       isMounted = false;
+      unsubscribe();
       clearInterval(intervalTimer);
     };
   }, [userCoords?.lat, userCoords?.lng, selection?.school?.lat, selection?.school?.lng, activeSchoolLat, activeSchoolLng]);
 
+  // Broadcast active drawer/modal state so mobile FloatingAICopilot avoids HUD collisions
+  useEffect(() => {
+    const anyOverlayOpen = Boolean(
+      showPanel ||
+        showBasemapMenu ||
+        showLayerManager ||
+        showWindyMenu ||
+        showTrafficCorridors ||
+        showObservationCoverage ||
+        showAttributeTable ||
+        showGeospatialModal ||
+        showWindyModal
+    );
+    window.dispatchEvent(
+      new CustomEvent('harmony:map-overlay-state', {
+        detail: { source: 'maps', open: anyOverlayOpen },
+      })
+    );
+  }, [
+    showPanel,
+    showBasemapMenu,
+    showLayerManager,
+    showWindyMenu,
+    showTrafficCorridors,
+    showObservationCoverage,
+    showAttributeTable,
+    showGeospatialModal,
+    showWindyModal,
+  ]);
+
+  const acquireBestGpsPosition = (): Promise<GeolocationPosition> =>
+    new Promise<GeolocationPosition>((resolve, reject) => {
+      navigator.geolocation.getCurrentPosition(
+        resolve,
+        (highAccErr) => {
+          // Do not retry if the user explicitly denied permission.
+          if (highAccErr?.code === 1) {
+            reject(highAccErr);
+            return;
+          }
+          // Stage 2: Fast network / cell-tower fallback for indoor Android devices.
+          navigator.geolocation.getCurrentPosition(resolve, reject, {
+            enableHighAccuracy: false,
+            timeout: 10000,
+            maximumAge: 120000,
+          });
+        },
+        {
+          enableHighAccuracy: true,
+          timeout: 8000,
+          maximumAge: 30000,
+        }
+      );
+    });
+
   const handleFindUserLocation = () => {
-    // If already tracking and we have user coords, re-center camera on current user location
+    // Always re-center camera smoothly in both 2D & 3D when already tracking user coords
     if (isTrackingLive && userCoords) {
-      if (mapRef.current) {
-        mapRef.current.getView().animate({
-          center: fromLonLat([userCoords.lng, userCoords.lat]),
-          zoom: Math.max(16, mapRef.current.getView().getZoom() || 16),
-          duration: 700,
-        });
-      }
-      setGlobeInitialCenter({ lat: userCoords.lat, lng: userCoords.lng });
+      flyCameraToCoords(userCoords.lat, userCoords.lng, 16);
 
       // Refresh elevation report if missing
       if (!userElevationReport) {
@@ -2015,31 +2066,23 @@ export function MapsView() {
 
     const geoOptions: PositionOptions = {
       enableHighAccuracy: true,
-      timeout: 15000,
-      maximumAge: 0,
+      timeout: 12000,
+      maximumAge: 30000,
     };
 
-    navigator.geolocation.getCurrentPosition(
+    acquireBestGpsPosition().then(
       async (pos) => {
         setIsLocatingUser(false);
         setIsTrackingLive(true);
+        lastGpsFixAtRef.current = Date.now();
         const { latitude, longitude, accuracy } = pos.coords;
         const deviceAlt = pos.coords.altitude != null && Number.isFinite(pos.coords.altitude)
           ? Math.round(pos.coords.altitude * 10) / 10
           : null;
         setUserCoords({ lat: latitude, lng: longitude });
         setUserAccuracy(accuracy);
-        setGlobeInitialCenter({ lat: latitude, lng: longitude });
-
-        // Smooth camera fly in 2D with zoom into street / village level
-        if (mapRef.current) {
-          const targetZoom = accuracy < 50 ? 17 : accuracy < 200 ? 16 : 15;
-          mapRef.current.getView().animate({
-            center: fromLonLat([longitude, latitude]),
-            zoom: targetZoom,
-            duration: 1000,
-          });
-        }
+        const targetZoom = accuracy < 50 ? 17 : accuracy < 200 ? 16 : 15;
+        flyCameraToCoords(latitude, longitude, targetZoom);
 
         const accRounded = Math.round(accuracy);
         setLocationStatusToast({
@@ -2103,9 +2146,9 @@ export function MapsView() {
             setUserCoords({ lat, lng });
             setUserAccuracy(acc);
 
-            // Re-resolve geocode if moved more than 50 meters
+            // Re-resolve geocode if moved more than 150 meters to prevent API bursts
             const distMovedKm = geospatialAnalysisService.calculateDistanceKm(lastGeocodedLat, lastGeocodedLng, lat, lng);
-            if (distMovedKm > 0.05) {
+            if (distMovedKm > 0.15) {
               lastGeocodedLat = lat;
               lastGeocodedLng = lng;
               const newLocInfo = await preciseGeocodingService.reverseGeocode(lat, lng, acc);
@@ -2117,55 +2160,29 @@ export function MapsView() {
           },
           geoOptions
         );
-      },
-      (err) => {
-        setIsLocatingUser(false);
-        setIsTrackingLive(false);
-        console.warn('Geolocation error:', err);
-
-        let errMsg = 'Gagal mendeteksi lokasi GPS asli.';
-        if (err.code === 1) {
-          errMsg = 'Izin lokasi ditolak. Harap klik ikon gembok/izin di bilah browser dan izinkan "Location" agar koordinat dan nama desa Anda terdeteksi akurat.';
-        } else if (err.code === 2) {
-          errMsg = 'Sinyal satelit GPS tidak dapat ditemukan. Pastikan layanan lokasi pada perangkat aktif.';
-        } else if (err.code === 3) {
-          errMsg = 'Pencarian lokasi GPS waktu habis (timeout). Silakan periksa jaringan dan coba lagi.';
-        }
-
-        setLocationStatusToast({
-          type: 'error',
-          title: 'Akses GPS Belum Diizinkan',
-          message: errMsg,
-        });
-      },
-      geoOptions
-    );
-  };
-
-  // Otomatis meminta izin lokasi GPS saat pengguna membuka trafik atau geospasial
-  useEffect(() => {
-    if (
-      showTrafficCorridors ||
-      showTrafficSignals ||
-      showTrafficCctv ||
-      showGeospatialModal ||
-      showGeospatialIntelBar ||
-      activeMapBasemap === 'traffic'
-    ) {
-      if (!userCoords && !isLocatingUser) {
-        handleFindUserLocation();
       }
-    }
-  }, [
-    showTrafficCorridors,
-    showTrafficSignals,
-    showTrafficCctv,
-    showGeospatialModal,
-    showGeospatialIntelBar,
-    activeMapBasemap,
-    userCoords,
-    isLocatingUser,
-  ]);
+    ).catch((err) => {
+      setIsLocatingUser(false);
+      setIsTrackingLive(false);
+      console.warn('Geolocation error:', err);
+
+      let errMsg = 'Gagal mendeteksi lokasi GPS asli.';
+      if (err?.code === 1) {
+        errMsg = 'Izin lokasi ditolak. Harap klik ikon gembok/izin di bilah browser dan izinkan "Location" agar koordinat dan nama desa Anda terdeteksi akurat.';
+      } else if (err?.code === 2) {
+        errMsg = 'Sinyal satelit GPS tidak dapat ditemukan. Pastikan layanan lokasi pada perangkat aktif.';
+      } else if (err?.code === 3) {
+        errMsg = 'Pencarian lokasi GPS waktu habis (timeout). Gunakan tombol di bawah untuk memusatkan ke area SMAN 1 Ngoro atau coba lagi.';
+      }
+
+      setLocationStatusToast({
+        type: 'error',
+        title: 'Akses GPS Belum Diizinkan',
+        message: errMsg,
+      });
+    });
+  };
+  handleFindUserLocationRef.current = handleFindUserLocation;
 
 
   // Layer Refs for new features
@@ -2887,49 +2904,85 @@ export function MapsView() {
   // Search State
   const [searchQuery, setSearchQuery] = useState("");
   const [isSearchFocused, setIsSearchFocused] = useState(false);
-  
-  // Client-side search through 200k+ schools (using useMemo for performance)
+  const [placeSearchResults, setPlaceSearchResults] = useState<LocationSearchResult[]>([]);
+  const [isSearchingPlaces, setIsSearchingPlaces] = useState(false);
+
+  // Client-side search through registered schools (using useMemo for instant feedback)
   const searchResults = useMemo(() => {
     if (searchQuery.trim().length < 3) return [];
     const query = searchQuery.toLowerCase();
-    // Return max 10 results to keep it fast and UI clean
-    return schools.filter(s => s[4].toLowerCase().includes(query)).slice(0, 10);
+    return schools.filter(s => s[4].toLowerCase().includes(query)).slice(0, 8);
   }, [searchQuery, schools]);
+
+  // Debounced geocoding place/address/coordinate search (like Google Maps search)
+  useEffect(() => {
+    const trimmed = searchQuery.trim();
+    if (trimmed.length < 3) {
+      setPlaceSearchResults([]);
+      setIsSearchingPlaces(false);
+      return;
+    }
+
+    let cancelled = false;
+    setIsSearchingPlaces(true);
+    const timer = setTimeout(() => {
+      preciseGeocodingService
+        .searchLocations(trimmed, userCoords)
+        .then((res) => {
+          if (!cancelled) {
+            setPlaceSearchResults(Array.isArray(res) ? res.slice(0, 6) : []);
+          }
+        })
+        .catch(() => {
+          if (!cancelled) setPlaceSearchResults([]);
+        })
+        .finally(() => {
+          if (!cancelled) setIsSearchingPlaces(false);
+        });
+    }, 350);
+
+    return () => {
+      cancelled = true;
+      clearTimeout(timer);
+    };
+  }, [searchQuery, userCoords?.lat, userCoords?.lng]);
+
+  const showSearchPopupOnMap = (lat: number, lng: number, title: string, subtitle: string) => {
+    if (popupOverlayRef.current && popupRef.current) {
+      popupRef.current.innerHTML = `
+        <div style="min-width: 160px; font-family: Inter, sans-serif;" class="p-1 relative">
+            <button id="close-popup-btn" style="position: absolute; top: -2px; right: -2px; background: #f1f5f9; border-radius: 50%; padding: 2px; border: none; cursor: pointer; color: #94a3b8;">×</button>
+            <strong style="font-size: 13px; color: #1e293b; display: block; margin-bottom: 4px; padding-right: 16px;">${title}</strong>
+            <span style="font-size: 11px; color: #64748b; display: block;">${subtitle}</span>
+        </div>
+      `;
+      const closeBtn = popupRef.current.querySelector('#close-popup-btn');
+      if (closeBtn) {
+        closeBtn.addEventListener('click', () => {
+          if (popupRef.current) popupRef.current.style.display = 'none';
+        });
+      }
+      popupOverlayRef.current.setPosition(fromLonLat([lng, lat]));
+      popupRef.current.style.display = 'block';
+    }
+  };
+
+  const handleSelectPlace = (place: LocationSearchResult) => {
+    const zoom = place.type === 'city' ? 12 : place.type === 'district' ? 14 : 16;
+    flyCameraToCoords(place.lat, place.lng, zoom);
+    showSearchPopupOnMap(place.lat, place.lng, place.label, place.shortDisplay);
+    setSearchQuery('');
+    setIsSearchFocused(false);
+  };
 
   const handleSelectSchool = (school: any) => {
     const lat = school[1];
     const lng = school[2];
     const name = school[4];
-    const map = mapRef.current;
-    
-    if (map) {
-      // Animate map view to the school
-      map.getView().animate({
-        center: fromLonLat([lng, lat]),
-        zoom: 17,
-        duration: 1500
-      });
-
-      // Show popup manually
-      if (popupOverlayRef.current && popupRef.current) {
-        popupRef.current.innerHTML = `
-          <div style="min-width: 160px; font-family: Inter, sans-serif;" class="p-1 relative">
-              <button id="close-popup-btn" style="position: absolute; top: -2px; right: -2px; background: #f1f5f9; border-radius: 50%; padding: 2px; border: none; cursor: pointer; color: #94a3b8;">×</button>
-              <strong style="font-size: 13px; color: #1e293b; display: block; margin-bottom: 4px; padding-right: 16px;">${name}</strong>
-              <span style="font-size: 11px; color: #64748b; display: block;">Searched Location</span>
-          </div>
-        `;
-        const closeBtn = popupRef.current.querySelector('#close-popup-btn');
-        if (closeBtn) {
-          closeBtn.addEventListener('click', () => {
-            if (popupRef.current) popupRef.current.style.display = 'none';
-          });
-        }
-        popupOverlayRef.current.setPosition(fromLonLat([lng, lat]));
-        popupRef.current.style.display = 'block';
-      }
+    flyCameraToCoords(lat, lng, 17);
+    if (mapRef.current) {
+      showSearchPopupOnMap(lat, lng, name, 'Sekolah Terdaftar');
     }
-    
     setSearchQuery('');
     setIsSearchFocused(false);
   };
@@ -5650,6 +5703,7 @@ export function MapsView() {
               basemap={activeMapBasemap}
               onBasemapChange={setActiveMapBasemap}
               showTrafficCorridors={showTrafficCorridors}
+              cameraFocusRequestId={cameraFocusRequestId}
               trafficDataList={trafficDataList}
               onToggleTraffic={() => setShowTrafficCorridors(prev => !prev)}
               showHeatmapLayer={activeMapBasemap === 'thermal'}
@@ -6015,12 +6069,12 @@ export function MapsView() {
         </div>
       </div>
 
-      {/* Navigasi Geospasial & Pintasan Cepat Kanan (terpisah dari Mode Switcher agar bebas tabrakan pada HP) */}
+      {/* Navigasi Geospasial & Pintasan Cepat Kanan (ramping 1 kolom pada HP agar bebas tabrakan) */}
       <div className="absolute top-[calc(4.75rem+env(safe-area-inset-top))] sm:top-[calc(5.25rem+env(safe-area-inset-top))] right-3 sm:right-4 z-20 flex flex-col items-end gap-2">
         {/* Navigasi Geospasial Terpadu: GPS Realtime & Orientasi Kompas 360 */}
-        <div className="relative flex items-stretch gap-1 sm:gap-1.5 mt-0.5 p-1 sm:p-1.5 rounded-2xl bg-white/90 dark:bg-slate-900/90 shadow-glass backdrop-blur-xl border border-slate-200/80 dark:border-slate-800 shadow-lg select-none">
+        <div className="relative flex flex-col sm:flex-row items-center sm:items-stretch gap-1 sm:gap-1.5 mt-0.5 p-1 sm:p-1.5 rounded-2xl bg-white/90 dark:bg-slate-900/90 shadow-glass backdrop-blur-xl border border-slate-200/80 dark:border-slate-800 shadow-lg select-none">
           {/* Sisi Kiri: GPS Location Finder & Realtime Accuracy Tracking */}
-          <div className="relative flex flex-col items-center justify-between gap-1 w-11 sm:w-14">
+          <div className="relative flex flex-col items-center justify-between gap-1 w-10 sm:w-14">
             {/* Tombol GPS Utama dengan Animasi Deteksi */}
             <button
               type="button"
@@ -6096,7 +6150,7 @@ export function MapsView() {
             </div>
 
             {/* Tombol Sub-Aksi: Pusatkan Kembali / Lacak */}
-            <div className="flex items-center justify-center w-full">
+            <div className="hidden sm:flex items-center justify-center w-full">
               <button
                 type="button"
                 onClick={handleFindUserLocation}
@@ -6128,11 +6182,11 @@ export function MapsView() {
             </div>
           </div>
 
-          {/* Divider Vertikal Halus */}
-          <div className="w-px self-stretch bg-slate-200/80 dark:bg-slate-800 my-0.5" />
+          {/* Divider Responsif */}
+          <div className="h-px w-7 sm:h-auto sm:w-px sm:self-stretch bg-slate-200/80 dark:bg-slate-800 my-0.5" />
 
           {/* Sisi Kanan: Interactive 360 Compass & Wind Direction Rose */}
-          <div className="relative flex flex-col items-center justify-between gap-1 w-11 sm:w-14">
+          <div className="relative flex flex-col items-center justify-between gap-1 w-10 sm:w-14">
             {/* Compass Dial Face */}
             <button
               type="button"
@@ -6196,11 +6250,11 @@ export function MapsView() {
               </button>
             </div>
 
-            {/* Wind Speed Pill (Arah Hembusan Angin) */}
+            {/* Wind Speed Pill (Desktop) */}
             <button
               type="button"
               onClick={() => setShowWindDetail((prev) => !prev)}
-              className="flex items-center gap-1 px-1.5 py-0.5 rounded-lg bg-cyan-500/10 hover:bg-cyan-500/20 text-cyan-600 dark:text-cyan-400 border border-cyan-500/20 text-[9px] font-bold transition-all"
+              className="hidden sm:flex items-center gap-1 px-1.5 py-0.5 rounded-lg bg-cyan-500/10 hover:bg-cyan-500/20 text-cyan-600 dark:text-cyan-400 border border-cyan-500/20 text-[9px] font-bold transition-all"
               title={`Arah Angin: ${getCardinalDirection(windDirectionDeg).name} (${windDirectionDeg}°) @ ${windSpeedKmh} km/jam`}
             >
               <Wind className="w-2.5 h-2.5" />
@@ -6210,12 +6264,12 @@ export function MapsView() {
         </div>
 
         {/* Tombol Cepat: Cuaca & Navigasi Rute (Tepat di Bawah GPS & Kompas) */}
-        <div className="relative flex items-stretch gap-1 sm:gap-1.5 p-1 sm:p-1.5 rounded-2xl bg-white/90 dark:bg-slate-900/90 shadow-glass backdrop-blur-xl border border-slate-200/80 dark:border-slate-800 shadow-lg select-none">
+        <div className="relative flex flex-col sm:flex-row items-center sm:items-stretch gap-1 sm:gap-1.5 p-1 sm:p-1.5 rounded-2xl bg-white/90 dark:bg-slate-900/90 shadow-glass backdrop-blur-xl border border-slate-200/80 dark:border-slate-800 shadow-lg select-none">
           {/* Tombol Cuaca */}
           <button
             type="button"
             onClick={() => openStudioDomain('weather')}
-            className="relative flex flex-col items-center justify-between gap-1 w-11 sm:w-14 py-1.5 sm:py-2 px-1 rounded-xl bg-gradient-to-b from-sky-500/10 via-indigo-500/5 to-transparent hover:from-sky-500/20 hover:via-indigo-500/15 border border-sky-500/25 hover:border-sky-500/40 text-slate-800 dark:text-slate-100 transition-all hover:scale-[1.03] active:scale-95 group cursor-pointer shadow-xs"
+            className="relative flex flex-col items-center justify-between gap-1 w-10 sm:w-14 py-1.5 sm:py-2 px-1 rounded-xl bg-gradient-to-b from-sky-500/10 via-indigo-500/5 to-transparent hover:from-sky-500/20 hover:via-indigo-500/15 border border-sky-500/25 hover:border-sky-500/40 text-slate-800 dark:text-slate-100 transition-all hover:scale-[1.03] active:scale-95 group cursor-pointer shadow-xs"
             title="Buka Studio Cuaca, Presipitasi & Radar Doppler 16 Sumber"
             aria-label="Buka Studio Cuaca"
           >
@@ -6227,13 +6281,13 @@ export function MapsView() {
               </span>
             </div>
             <div className="text-center w-full">
-              <span className="text-[10px] font-bold block text-slate-800 dark:text-white leading-tight">Cuaca</span>
+              <span className="text-[9px] sm:text-[10px] font-bold block text-slate-800 dark:text-white leading-tight">Cuaca</span>
               <span className="hidden sm:block text-[8px] font-mono font-semibold text-sky-600 dark:text-sky-400 truncate">16 Sumber</span>
             </div>
           </button>
 
-          {/* Divider Vertikal Halus */}
-          <div className="w-px self-stretch bg-slate-200/80 dark:bg-slate-800 my-0.5" />
+          {/* Divider Responsif */}
+          <div className="h-px w-7 sm:h-auto sm:w-px sm:self-stretch bg-slate-200/80 dark:bg-slate-800 my-0.5" />
 
           {/* Tombol Navigasi Rute / Lintasan & Trafik Jalan */}
           <button
@@ -6244,11 +6298,8 @@ export function MapsView() {
               setShowRouteModal(false);
               setTrafficDrawerTab('corridors');
               setShowTrafficCorridors(willOpen);
-              if (willOpen && !userCoords && !isLocatingUser) {
-                handleFindUserLocation();
-              }
             }}
-            className="relative flex flex-col items-center justify-between gap-1 w-11 sm:w-14 py-1.5 sm:py-2 px-1 rounded-xl bg-gradient-to-b from-emerald-500/10 via-teal-500/5 to-transparent hover:from-emerald-500/20 hover:via-teal-500/15 border border-emerald-500/25 hover:border-emerald-500/40 text-slate-800 dark:text-slate-100 transition-all hover:scale-[1.03] active:scale-95 group cursor-pointer shadow-xs"
+            className="relative flex flex-col items-center justify-between gap-1 w-10 sm:w-14 py-1.5 sm:py-2 px-1 rounded-xl bg-gradient-to-b from-emerald-500/10 via-teal-500/5 to-transparent hover:from-emerald-500/20 hover:via-teal-500/15 border border-emerald-500/25 hover:border-emerald-500/40 text-slate-800 dark:text-slate-100 transition-all hover:scale-[1.03] active:scale-95 group cursor-pointer shadow-xs"
             title="Buka Panel Lintasan & Trafik Jalan"
             aria-label="Buka Lintasan & Trafik Jalan"
           >
@@ -6260,7 +6311,7 @@ export function MapsView() {
               </span>
             </div>
             <div className="text-center w-full">
-              <span className="text-[10px] font-bold block text-slate-800 dark:text-white leading-tight">Rute</span>
+              <span className="text-[9px] sm:text-[10px] font-bold block text-slate-800 dark:text-white leading-tight">Rute</span>
               <span className="hidden sm:block text-[8px] font-mono font-semibold text-emerald-600 dark:text-emerald-400 truncate">Navigasi</span>
             </div>
           </button>
@@ -6349,7 +6400,7 @@ export function MapsView() {
               id="maps-school-search-input"
               name="schoolSearch"
               type="text"
-              placeholder="Cari sekolah..."
+              placeholder="Cari lokasi atau sekolah..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               onFocus={() => setIsSearchFocused(true)}
@@ -6363,28 +6414,64 @@ export function MapsView() {
             )}
           </div>
 
-          {/* Search Results Dropdown */}
+          {/* Search Results Dropdown (Sekolah + Geocoding Lokasi) */}
           {isSearchFocused && searchQuery.trim().length >= 3 && (
-            <div className="absolute top-full left-0 mt-2 w-full rounded-2xl bg-white py-2 shadow-xl border border-slate-100 dark:bg-slate-900 dark:border-slate-800 overflow-hidden max-h-64 overflow-y-auto">
-              {searchResults.length > 0 ? (
-                searchResults.map((s) => (
-                  <button
-                    key={s[0]}
-                    onClick={() => handleSelectSchool(s)}
-                    className="flex w-full items-center gap-3 px-4 py-2.5 text-left hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors"
-                  >
-                    <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-slate-100 dark:bg-slate-800 text-slate-500">
-                      <MapPin className="h-4 w-4" />
-                    </div>
-                    <div className="min-w-0 flex-1">
-                      <p className="truncate text-sm font-bold text-ink-900 dark:text-white">{s[4]}</p>
-                      <p className="text-[10px] text-slate-500">Sekolah</p>
-                    </div>
-                  </button>
-                ))
-              ) : (
+            <div className="absolute top-full left-0 z-40 mt-2 w-full rounded-2xl bg-white py-2 shadow-xl border border-slate-100 dark:bg-slate-900 dark:border-slate-800 overflow-hidden max-h-72 overflow-y-auto">
+              {searchResults.length > 0 && (
+                <>
+                  <p className="px-4 py-1 text-[10px] font-bold uppercase tracking-wider text-slate-400">
+                    Sekolah Terdaftar
+                  </p>
+                  {searchResults.map((s) => (
+                    <button
+                      key={`sch-${s[0]}`}
+                      onClick={() => handleSelectSchool(s)}
+                      className="flex w-full items-center gap-3 px-4 py-2 text-left hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors"
+                    >
+                      <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-indigo-50 dark:bg-indigo-950/60 text-indigo-600 dark:text-indigo-400">
+                        <GraduationCap className="h-4 w-4" />
+                      </div>
+                      <div className="min-w-0 flex-1">
+                        <p className="truncate text-sm font-bold text-ink-900 dark:text-white">{s[4]}</p>
+                        <p className="text-[10px] text-slate-500">Sekolah</p>
+                      </div>
+                    </button>
+                  ))}
+                </>
+              )}
+              {placeSearchResults.length > 0 && (
+                <>
+                  <p className="px-4 pt-2 pb-1 text-[10px] font-bold uppercase tracking-wider text-slate-400">
+                    Lokasi &amp; Wilayah
+                  </p>
+                  {placeSearchResults.map((place) => (
+                    <button
+                      key={place.id}
+                      onClick={() => handleSelectPlace(place)}
+                      className="flex w-full items-center gap-3 px-4 py-2 text-left hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors"
+                    >
+                      <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-slate-100 dark:bg-slate-800 text-slate-500">
+                        <MapPin className="h-4 w-4" />
+                      </div>
+                      <div className="min-w-0 flex-1">
+                        <p className="truncate text-sm font-bold text-ink-900 dark:text-white">{place.label}</p>
+                        <p className="truncate text-[10px] text-slate-500">
+                          {place.shortDisplay}
+                          {place.distanceKm !== undefined ? ` • ${place.distanceKm} km` : ''}
+                        </p>
+                      </div>
+                    </button>
+                  ))}
+                </>
+              )}
+              {isSearchingPlaces && searchResults.length === 0 && placeSearchResults.length === 0 && (
+                <div className="px-4 py-3 text-center text-xs text-slate-500">
+                  Mencari lokasi &amp; sekolah...
+                </div>
+              )}
+              {!isSearchingPlaces && searchResults.length === 0 && placeSearchResults.length === 0 && (
                 <div className="px-4 py-3 text-center text-sm text-slate-500">
-                  Tidak ada sekolah yang cocok.
+                  Lokasi atau sekolah tidak ditemukan.
                 </div>
               )}
             </div>
@@ -6420,7 +6507,7 @@ export function MapsView() {
       </div>
 
       {/* Harmony Left Top Stack: Conditional Education Risk Card vs Expert GIS Toolbar */}
-      <div className="absolute top-20 left-4 z-30 flex flex-col items-start gap-2.5 pointer-events-none transition-all duration-200">
+      <div className="absolute top-[calc(4.75rem+env(safe-area-inset-top))] sm:top-20 left-3 sm:left-4 z-20 flex flex-col items-start gap-2.5 max-w-[calc(100vw-5.5rem)] sm:max-w-sm pointer-events-none transition-all duration-200">
         {uiExperienceMode === 'education' && !is3D ? (
           <div className="pointer-events-auto relative z-30">
             <SchoolRiskSynthesisCard
@@ -6447,14 +6534,14 @@ export function MapsView() {
                 selectedFeatureId={selectedFeatureId}
                 onSelectFeatureId={setSelectedFeatureId}
                 onAOISet={(aoi) => setActiveAOI(aoi)}
-                onOpenAttributeTable={() => setShowAttributeTable(true)}
+                onOpenAttributeTable={() => { closeMapDrawers(); setShowAttributeTable(true); }}
                 onIdentifyCoordinate={(coord) => {
                   setIdentifiedCoordinate(coord);
                   setShowIdentifyPanel(true);
                 }}
                 onOpenGeoprocess={() => setShowGeoprocessModal(true)}
                 onOpenLayerManager={() => {
-                  setShowPanel(false);
+                  closeMapDrawers();
                   setShowLayerManager(true);
                 }}
               />
@@ -6527,8 +6614,8 @@ export function MapsView() {
 
       {/* Realtime GPS Status Toast / Card */}
       {locationStatusToast && (
-        <div className={`absolute z-30 max-w-xs sm:max-w-md rounded-3xl bg-white/95 dark:bg-slate-900/95 p-4 shadow-2xl backdrop-blur-xl border border-slate-200/80 dark:border-slate-800 animate-in fade-in slide-in-from-bottom-3 duration-300 ${
-          showPanel || showLayerManager ? 'bottom-20 left-6 sm:left-24' : 'bottom-36 right-6'
+        <div className={`absolute z-30 rounded-3xl bg-white/95 dark:bg-slate-900/95 p-4 shadow-2xl backdrop-blur-xl border border-slate-200/80 dark:border-slate-800 animate-in fade-in slide-in-from-bottom-3 duration-300 left-3 right-3 bottom-[calc(8.75rem+env(safe-area-inset-bottom))] max-h-[38vh] overflow-y-auto sm:max-h-none sm:overflow-visible sm:w-full sm:max-w-md ${
+          showPanel || showLayerManager ? 'sm:bottom-20 sm:left-24 sm:right-auto' : 'sm:bottom-36 sm:left-auto sm:right-6'
         }`}>
           <div className="flex items-start gap-3">
             {locationStatusToast.type === 'success' ? (
@@ -6666,6 +6753,30 @@ export function MapsView() {
                     className="text-[10px] text-slate-500 hover:text-slate-700 dark:text-slate-400 dark:hover:text-slate-200 font-medium ml-auto"
                   >
                     Tutup
+                  </button>
+                </div>
+              )}
+
+              {locationStatusToast.type === 'error' && (
+                <div className="flex items-center gap-2 mt-2.5 pt-2 border-t border-slate-100 dark:border-slate-800 flex-wrap">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      flyCameraToCoords(activeSchoolLat, activeSchoolLng, 16);
+                      setLocationStatusToast(null);
+                    }}
+                    className="flex items-center gap-1.5 px-2.5 py-1 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white text-[10px] font-bold transition-all active:scale-95 shadow-sm"
+                  >
+                    <GraduationCap className="h-3 w-3" />
+                    <span>Pusatkan ke SMAN 1 Ngoro</span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={handleFindUserLocation}
+                    className="flex items-center gap-1.5 px-2.5 py-1 rounded-xl bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 text-[10px] font-bold transition-all active:scale-95"
+                  >
+                    <LocateFixed className="h-3 w-3" />
+                    <span>Coba Lagi</span>
                   </button>
                 </div>
               )}
@@ -9700,11 +9811,7 @@ export function MapsView() {
             exit={{ opacity: 0, scale: 0.92, y: 12 }}
             transition={{ duration: 0.2 }}
             onClick={() => {
-              setShowLayerManager(false);
-              setShowBasemapMenu(false);
-              setShowWindyMenu(false);
-              setShowTrafficCorridors(false);
-              setShowObservationCoverage(false);
+              closeMapDrawers();
               setShowPanel(true);
             }}
             className="absolute bottom-[calc(1rem+env(safe-area-inset-bottom))] sm:bottom-[calc(1.25rem+env(safe-area-inset-bottom))] right-3 sm:right-6 z-20 flex items-center gap-2.5 sm:gap-3 rounded-2xl bg-white/95 dark:bg-slate-900/95 px-3.5 sm:px-4 py-2.5 sm:py-3 shadow-2xl backdrop-blur-xl border border-slate-200/90 dark:border-slate-800 text-slate-800 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-800/90 transition-all hover:scale-[1.02] active:scale-95 group cursor-pointer shadow-brand-500/10"
@@ -9749,8 +9856,11 @@ export function MapsView() {
             animate={{ opacity: 1, scale: 1, y: 0 }}
             exit={{ opacity: 0, scale: 0.92, y: 12 }}
             transition={{ duration: 0.2 }}
-            onClick={() => setShowWindyMenu(true)}
-            className="absolute bottom-6 right-6 z-20 flex items-center gap-3 rounded-2xl bg-gradient-to-r from-sky-600 to-blue-600 text-white px-4 py-2.5 sm:py-3 shadow-2xl backdrop-blur-xl border border-sky-400/40 hover:from-sky-500 hover:to-blue-500 transition-all hover:scale-[1.02] active:scale-95 group cursor-pointer shadow-sky-500/20"
+            onClick={() => {
+              closeMapDrawers();
+              setShowWindyMenu(true);
+            }}
+            className="absolute bottom-[calc(0.85rem+env(safe-area-inset-bottom))] left-3 sm:bottom-6 sm:left-6 z-20 flex items-center gap-2.5 sm:gap-3 rounded-2xl bg-gradient-to-r from-sky-600 to-blue-600 text-white px-3.5 sm:px-4 py-2 sm:py-3 shadow-2xl backdrop-blur-xl border border-sky-400/40 hover:from-sky-500 hover:to-blue-500 transition-all hover:scale-[1.02] active:scale-95 group cursor-pointer shadow-sky-500/20"
             title="Buka Pengaturan Menu Peta Cuaca"
           >
             <div className="relative flex h-8 w-8 items-center justify-center rounded-xl bg-white/20 text-white shadow-xs">
@@ -10813,7 +10923,10 @@ export function MapsView() {
                     </label>
                     <Toggle 
                       checked={showTrafficCorridors} 
-                      onChange={(val) => setShowTrafficCorridors(val)} 
+                      onChange={(val) => {
+                        if (val) closeMapDrawers();
+                        setShowTrafficCorridors(val);
+                      }} 
                       activeClass="bg-purple-600" 
                     />
                   </div>
@@ -10825,7 +10938,10 @@ export function MapsView() {
                     </label>
                     <Toggle 
                       checked={showObservationCoverage} 
-                      onChange={(val) => setShowObservationCoverage(val)} 
+                      onChange={(val) => {
+                        if (val) closeMapDrawers();
+                        setShowObservationCoverage(val);
+                      }} 
                       activeClass="bg-emerald-600" 
                     />
                   </div>
@@ -11365,7 +11481,10 @@ export function MapsView() {
             {!showWindyMenu && (
               <button
                 type="button"
-                onClick={() => setShowWindyMenu(true)}
+                onClick={() => {
+                  closeMapDrawers();
+                  setShowWindyMenu(true);
+                }}
                 aria-label="Buka Menu Cuaca di Layar Penuh"
                 className="flex items-center gap-2 rounded-xl bg-white/95 dark:bg-slate-900/95 px-3 py-2.5 text-xs font-bold text-sky-700 dark:text-sky-300 shadow-lg border border-slate-200 dark:border-slate-700 hover:bg-sky-50 dark:hover:bg-slate-800 transition-colors"
               >

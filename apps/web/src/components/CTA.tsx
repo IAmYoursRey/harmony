@@ -1,8 +1,10 @@
 import { ArrowRight } from "lucide-react";
 import { Link } from "react-router-dom";
 import { Reveal } from "@/components/Reveal";
+import { useDemoStudentLogin } from "@/hooks/useDemoStudentLogin";
 
 export function CTA() {
+  const { isDemoLoading, handleInstantDemoLogin } = useDemoStudentLogin();
   return (
     <section className="relative py-20 sm:py-24">
       <div className="section-container">
@@ -22,13 +24,15 @@ export function CTA() {
               Jelajahi peta geospasial dan simulasi evakuasi Digital Twin pada denah SMAN 1 Ngoro.
             </p>
             <div className="mt-8 flex flex-col items-center justify-center gap-3 sm:flex-row">
-              <Link
-                to="/login"
-                className="group inline-flex items-center gap-2 rounded-full bg-white px-7 py-3.5 text-sm font-semibold text-brand-700 shadow-lg transition-colors hover:bg-brand-50"
+              <button
+                type="button"
+                onClick={handleInstantDemoLogin}
+                disabled={isDemoLoading}
+                className="group inline-flex items-center gap-2 rounded-full bg-white px-7 py-3.5 text-sm font-semibold text-brand-700 shadow-lg transition-colors hover:bg-brand-50 disabled:opacity-60"
               >
-                Demo SMAN 1
+                {isDemoLoading ? "Memuat Demo..." : "Demo SMAN 1"}
                 <ArrowRight className="h-4 w-4 transition-transform group-hover:translate-x-1" />
-              </Link>
+              </button>
               <Link
                 to="/app/maps"
                 className="inline-flex items-center gap-2 rounded-full border border-white/30 bg-white/10 px-7 py-3.5 text-sm font-semibold text-white backdrop-blur-sm transition-colors hover:bg-white/20"

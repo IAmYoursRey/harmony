@@ -253,6 +253,8 @@ export function LeaderboardView() {
                     <img
                       src={user.avatar}
                       alt={user.name}
+                      loading="lazy"
+                      decoding="async"
                       className="h-full w-full object-cover"
                     />
                   ) : (
@@ -374,6 +376,8 @@ function LeaderboardProfileModal({
                 <img
                   src={user.avatar}
                   alt={user.name}
+                  loading="lazy"
+                  decoding="async"
                   className="h-full w-full object-cover"
                 />
               ) : (

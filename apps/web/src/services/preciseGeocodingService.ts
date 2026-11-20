@@ -68,11 +68,62 @@ const INDONESIAN_REFERENCE_LOCATIONS: Array<{
 class PreciseGeocodingService {
   private cache: Map<string, { data: PreciseLocationInfo; timestamp: number }> = new Map();
   private searchCache: Map<string, { data: LocationSearchResult[]; timestamp: number }> = new Map();
-  private readonly CACHE_TTL_MS = 1000 * 60 * 15; // 15 menit
+  private inFlightReverse: Map<string, Promise<PreciseLocationInfo>> = new Map();
+  private inFlightSearch: Map<string, Promise<LocationSearchResult[]>> = new Map();
+  private nominatimCooldownUntil = 0;
+  private photonCooldownUntil = 0;
+  private readonly CACHE_TTL_MS = 1000 * 60 * 30; // 30 menit cache lokal
+  private readonly STORAGE_KEY = 'hm_geocode_rev_v1';
 
-  // Quantize coordinates to ~50m to avoid duplicate network requests
+  constructor() {
+    this.hydratePersistedCache();
+  }
+
+  private hydratePersistedCache(): void {
+    try {
+      if (typeof window === 'undefined' || !window.localStorage) return;
+      const raw = window.localStorage.getItem(this.STORAGE_KEY);
+      if (!raw) return;
+      const parsed = JSON.parse(raw);
+      if (!Array.isArray(parsed)) return;
+      const now = Date.now();
+      for (const entry of parsed) {
+        if (
+          entry &&
+          typeof entry.key === 'string' &&
+          entry.data &&
+          typeof entry.timestamp === 'number' &&
+          now - entry.timestamp < this.CACHE_TTL_MS
+        ) {
+          this.cache.set(entry.key, { data: entry.data, timestamp: entry.timestamp });
+        }
+      }
+    } catch {
+      // Ignore storage quota or private browsing errors.
+    }
+  }
+
+  private saveReverseCache(key: string, data: PreciseLocationInfo): void {
+    const entry = { data, timestamp: Date.now() };
+    this.cache.set(key, entry);
+    try {
+      if (typeof window === 'undefined' || !window.localStorage) return;
+      if (this.cache.size > 40) {
+        const oldestKey = this.cache.keys().next().value;
+        if (oldestKey) this.cache.delete(oldestKey);
+      }
+      const serializable = Array.from(this.cache.entries())
+        .slice(-40)
+        .map(([k, v]) => ({ key: k, data: v.data, timestamp: v.timestamp }));
+      window.localStorage.setItem(this.STORAGE_KEY, JSON.stringify(serializable));
+    } catch {
+      // Ignore storage write failures.
+    }
+  }
+
+  // Quantize coordinates to ~110m grid to reuse local administrative geocoding
   private getCacheKey(lat: number, lng: number): string {
-    return `${lat.toFixed(4)},${lng.toFixed(4)}`;
+    return `${lat.toFixed(3)},${lng.toFixed(3)}`;
   }
 
   // Capitalize title-case for Indonesian administrative names
@@ -141,13 +192,44 @@ class PreciseGeocodingService {
       return this.sortResultsByDistance(cached.data, userCoords);
     }
 
+    const existingSearch = this.inFlightSearch.get(cacheKey);
+    if (existingSearch) {
+      const resolved = await existingSearch;
+      const withDist = resolved.map((r) => ({
+        ...r,
+        distanceKm: userCoords
+          ? parseFloat(this.calculateHaversine(userCoords.lat, userCoords.lng, r.lat, r.lng).toFixed(1))
+          : r.distanceKm,
+      }));
+      return this.sortResultsByDistance(withDist, userCoords);
+    }
+
+    const pendingSearch = this.executeSearchLocations(trimmed, qLower, cacheKey);
+    this.inFlightSearch.set(cacheKey, pendingSearch);
+    try {
+      const baseResults = await pendingSearch;
+      const withDist = baseResults.map((r) => ({
+        ...r,
+        distanceKm: userCoords
+          ? parseFloat(this.calculateHaversine(userCoords.lat, userCoords.lng, r.lat, r.lng).toFixed(1))
+          : r.distanceKm,
+      }));
+      return this.sortResultsByDistance(withDist, userCoords);
+    } finally {
+      this.inFlightSearch.delete(cacheKey);
+    }
+  }
+
+  private async executeSearchLocations(
+    trimmed: string,
+    qLower: string,
+    cacheKey: string
+  ): Promise<LocationSearchResult[]> {
     const results: LocationSearchResult[] = [];
-    const qLower = trimmed.toLowerCase();
 
     // 2. Match Indonesian Reference Locations (instant offline lookup)
     INDONESIAN_REFERENCE_LOCATIONS.forEach((loc) => {
       if (loc.keywords.some((k) => k.includes(qLower) || qLower.includes(k))) {
-        const dist = userCoords ? this.calculateHaversine(userCoords.lat, userCoords.lng, loc.lat, loc.lng) : undefined;
         results.push({
           id: `ref-${loc.name}`,
           label: loc.name,
@@ -155,41 +237,122 @@ class PreciseGeocodingService {
           lat: loc.lat,
           lng: loc.lng,
           type: loc.type,
-          distanceKm: dist !== undefined ? parseFloat(dist.toFixed(1)) : undefined,
         });
       }
     });
 
-    // 3. OpenStreetMap Nominatim Live Search
+    // 3. Shared Proxy + Photon + Nominatim Search with 429 cooldown
     try {
       const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), 4000);
+      const timeoutId = setTimeout(() => controller.abort(), 5000);
 
-      const res = await fetch(
-        `https://nominatim.openstreetmap.org/search?format=jsonv2&q=${encodeURIComponent(trimmed)}&countrycodes=id&limit=8&addressdetails=1`,
-        {
-          headers: {
-            'User-Agent': 'HarmonyGeospatial/1.0 (contact@harmony.id)',
-            'Accept-Language': 'id,en;q=0.8',
-          },
-          signal: controller.signal,
+      let loadedFromProxy = false;
+      try {
+        const proxyRes = await fetch(
+          `/api/spatial/geocode/search?q=${encodeURIComponent(trimmed)}`,
+          { signal: controller.signal }
+        );
+        if (proxyRes.ok) {
+          const proxyJson = await proxyRes.json();
+          if (Array.isArray(proxyJson?.results)) {
+            loadedFromProxy = true;
+            proxyJson.results.forEach((item: any) => {
+              const lat = Number(item.lat);
+              const lng = Number(item.lng);
+              if (Number.isFinite(lat) && Number.isFinite(lng)) {
+                const isDuplicate = results.some(
+                  (r) => Math.abs(r.lat - lat) < 0.005 && Math.abs(r.lng - lng) < 0.005
+                );
+                if (!isDuplicate) {
+                  results.push({
+                    id: String(item.id || `proxy-${lat.toFixed(4)}-${lng.toFixed(4)}`),
+                    label: String(item.label || trimmed),
+                    shortDisplay: String(item.shortDisplay || item.label || trimmed),
+                    lat,
+                    lng,
+                    type: item.type || 'place',
+                  });
+                }
+              }
+            });
+          }
         }
-      );
+      } catch {
+        // Fall through to direct search fallback when backend proxy is unreachable.
+      }
+
+      if (!loadedFromProxy && Date.now() >= this.photonCooldownUntil) {
+        try {
+          const photonRes = await fetch(
+            `https://photon.komoot.io/api/?q=${encodeURIComponent(trimmed)}&limit=6`,
+            { signal: controller.signal }
+          );
+          if (photonRes.status === 429) {
+            this.photonCooldownUntil = Date.now() + 60 * 1000;
+          } else if (photonRes.ok) {
+            const pJson = await photonRes.json();
+            const features = Array.isArray(pJson?.features) ? pJson.features : [];
+            features.forEach((f: any, idx: number) => {
+              const coords = f?.geometry?.coordinates;
+              const props = f?.properties || {};
+              if (Array.isArray(coords) && coords.length >= 2) {
+                const lng = Number(coords[0]);
+                const lat = Number(coords[1]);
+                if (Number.isFinite(lat) && Number.isFinite(lng)) {
+                  const isDuplicate = results.some(
+                    (r) => Math.abs(r.lat - lat) < 0.005 && Math.abs(r.lng - lng) < 0.005
+                  );
+                  if (!isDuplicate) {
+                    const label = props.name || props.city || props.county || props.state || trimmed;
+                    const shortDisplay = [props.name, props.district || props.city, props.state]
+                      .filter(Boolean)
+                      .slice(0, 3)
+                      .join(', ');
+                    results.push({
+                      id: `photon-${props.osm_id || idx}-${lat.toFixed(4)}`,
+                      label,
+                      shortDisplay: shortDisplay || label,
+                      lat,
+                      lng,
+                      type: 'place',
+                    });
+                  }
+                }
+              }
+            });
+          }
+        } catch {
+          // Fall through to Nominatim direct search below if needed.
+        }
+      }
+
+      const res =
+        loadedFromProxy || results.length > 0 || Date.now() < this.nominatimCooldownUntil
+          ? null
+          : await fetch(
+              `https://nominatim.openstreetmap.org/search?format=jsonv2&q=${encodeURIComponent(trimmed)}&countrycodes=id&limit=8&addressdetails=1`,
+              {
+                headers: {
+                  'Accept-Language': 'id,en;q=0.8',
+                },
+                signal: controller.signal,
+              }
+            );
       clearTimeout(timeoutId);
 
-      if (res.ok) {
+      if (res && res.status === 429) {
+        this.nominatimCooldownUntil = Date.now() + 60 * 1000;
+      } else if (res && res.ok) {
         const data = await res.json();
         if (Array.isArray(data)) {
           data.forEach((item: any) => {
             const lat = parseFloat(item.lat);
             const lng = parseFloat(item.lon);
             if (Number.isFinite(lat) && Number.isFinite(lng)) {
-              // Avoid duplicates with reference locations
               const isDuplicate = results.some(
                 (r) => Math.abs(r.lat - lat) < 0.005 && Math.abs(r.lng - lng) < 0.005
               );
               if (!isDuplicate) {
-                const dist = userCoords ? this.calculateHaversine(userCoords.lat, userCoords.lng, lat, lng) : undefined;
                 const name = item.name || item.display_name.split(',')[0];
                 const parts = item.display_name.split(',').slice(0, 3).join(',');
                 const type: LocationSearchResult['type'] =
@@ -206,7 +369,6 @@ class PreciseGeocodingService {
                   lat,
                   lng,
                   type,
-                  distanceKm: dist !== undefined ? parseFloat(dist.toFixed(1)) : undefined,
                 });
               }
             }
@@ -214,11 +376,11 @@ class PreciseGeocodingService {
         }
       }
     } catch (err) {
-      console.warn('Nominatim search failed or timed out:', err);
+      console.warn('Geocode search failed or timed out:', err);
     }
 
     this.searchCache.set(cacheKey, { data: results, timestamp: Date.now() });
-    return this.sortResultsByDistance(results, userCoords);
+    return results;
   }
 
   private sortResultsByDistance(
@@ -246,24 +408,74 @@ class PreciseGeocodingService {
       };
     }
 
-    // 1. Primary: OpenStreetMap Nominatim with high-precision zoom level 18
+    const existingInFlight = this.inFlightReverse.get(cacheKey);
+    if (existingInFlight) {
+      const resolved = await existingInFlight;
+      return {
+        ...resolved,
+        accuracyM: accuracyM ?? resolved.accuracyM,
+      };
+    }
+
+    const pending = this.executeReverseGeocode(lat, lng, accuracyM, cacheKey);
+    this.inFlightReverse.set(cacheKey, pending);
+    try {
+      return await pending;
+    } finally {
+      this.inFlightReverse.delete(cacheKey);
+    }
+  }
+
+  private async executeReverseGeocode(
+    lat: number,
+    lng: number,
+    accuracyM: number | undefined,
+    cacheKey: string
+  ): Promise<PreciseLocationInfo> {
+    // 1. Primary: Backend Geo-Proxy (shared cache, 429 cooldown & BigDataCloud fallback)
     try {
       const controller = new AbortController();
       const timeoutId = setTimeout(() => controller.abort(), 4500);
-
-      const res = await fetch(
-        `https://nominatim.openstreetmap.org/reverse?format=jsonv2&lat=${lat}&lon=${lng}&zoom=18&addressdetails=1`,
-        {
-          headers: {
-            'User-Agent': 'HarmonyGeospatial/1.0 (contact@harmony.id)',
-            'Accept-Language': 'id,en;q=0.8',
-          },
-          signal: controller.signal,
-        }
+      const proxyRes = await fetch(
+        `/api/spatial/geocode/reverse?lat=${lat}&lng=${lng}`,
+        { signal: controller.signal }
       );
       clearTimeout(timeoutId);
+      if (proxyRes.ok) {
+        const proxyJson = await proxyRes.json();
+        if (proxyJson?.data && proxyJson.data.source !== 'unavailable') {
+          const proxyLocation: PreciseLocationInfo = {
+            ...proxyJson.data,
+            accuracyM,
+          };
+          this.saveReverseCache(cacheKey, proxyLocation);
+          return proxyLocation;
+        }
+      }
+    } catch {
+      // Fall through to direct providers if backend proxy is unavailable.
+    }
 
-      if (res.ok) {
+    // 2. Fallback: OpenStreetMap Nominatim (without forbidden browser User-Agent header)
+    if (Date.now() >= this.nominatimCooldownUntil) {
+      try {
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), 4500);
+
+        const res = await fetch(
+          `https://nominatim.openstreetmap.org/reverse?format=jsonv2&lat=${lat}&lon=${lng}&zoom=18&addressdetails=1`,
+          {
+            headers: {
+              'Accept-Language': 'id,en;q=0.8',
+            },
+            signal: controller.signal,
+          }
+        );
+        clearTimeout(timeoutId);
+
+        if (res.status === 429) {
+          this.nominatimCooldownUntil = Date.now() + 60 * 1000;
+        } else if (res.ok) {
         const data = await res.json();
         if (data && data.address) {
           const addr = data.address;
@@ -332,12 +544,13 @@ class PreciseGeocodingService {
             lng,
           };
 
-          this.cache.set(cacheKey, { data: result, timestamp: Date.now() });
+          this.saveReverseCache(cacheKey, result);
           return result;
         }
       }
     } catch (nominatimErr) {
       console.warn('Nominatim reverse geocode fallback triggered:', nominatimErr);
+    }
     }
 
     // 2. Secondary: BigDataCloud Client-side Reverse Geocoding
@@ -390,7 +603,7 @@ class PreciseGeocodingService {
           lng,
         };
 
-        this.cache.set(cacheKey, { data: result, timestamp: Date.now() });
+        this.saveReverseCache(cacheKey, result);
         return result;
       }
     } catch (bdcErr) {

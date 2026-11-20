@@ -15,6 +15,7 @@ import { useTheme } from "@/hooks/useTheme";
 import { ThemePicker } from "@/components/ThemePicker";
 import { useAuth } from "@/hooks/useAuth";
 import { useI18n } from "@/hooks/useI18n";
+import { isDemoNgoroUser } from "@/utils/demoSchool";
 
 interface TopbarProps {
   onOpenMobile: () => void;
@@ -218,6 +219,11 @@ export function Topbar({ onOpenMobile, title }: TopbarProps) {
           <span className="hidden text-sm font-semibold text-ink-800 dark:text-slate-200 sm:block">
             {displayName}
           </span>
+          {isDemoNgoroUser(currentUser) && (
+            <span className="inline-flex items-center rounded-full bg-amber-100 px-2 py-0.5 text-[10px] font-extrabold uppercase tracking-wide text-amber-800 dark:bg-amber-900/40 dark:text-amber-300">
+              Demo Account
+            </span>
+          )}
           <ChevronDown className="hidden h-4 w-4 text-ink-400 dark:text-slate-500 sm:block" />
         </button>
       ) : (

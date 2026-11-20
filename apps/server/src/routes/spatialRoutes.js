@@ -35,6 +35,8 @@ import {
   getLiveEarthquakesList,
   getFaultsMetadata,
   handleDirectCctvStream,
+  reverseGeocodeProxy,
+  searchGeocodeProxy,
 } from "../controllers/spatialController.js";
 
 const router = Router();
@@ -45,6 +47,8 @@ router.post("/aoi/analyze", analyzeAOI);
 router.post("/stac/search", searchSTACProxy);
 router.get("/health", getSpatialHealth);
 router.get("/weather/current", getCurrentWeatherProxy);
+router.get("/geocode/reverse", reverseGeocodeProxy);
+router.get("/geocode/search", searchGeocodeProxy);
 
 // Volcano, Faults & Earthquake Geological Endpoints
 router.get("/volcanoes", getVolcanoesList);

@@ -10,7 +10,7 @@ export interface AuthContextValue {
     token: string,
     role?: string,
   ) => Promise<any>;
-  finalizeLogin: (account: any) => Promise<void>;
+  finalizeLogin: (account: any) => Promise<UserProfile | null | void>;
   registerGoogle: (
     token: string,
     role?: string,

@@ -223,11 +223,34 @@ const findNavigationIntent = (query: string): NavigationAction | null => {
 export function FloatingAICopilot() {
   const [isOpen, setIsOpen] = useState<boolean>(false);
   const [isExpanded, setIsExpanded] = useState<boolean>(false);
+  const [hasMapOverlayOpen, setHasMapOverlayOpen] = useState<boolean>(false);
+  const overlaySourcesRef = useRef<Record<string, boolean>>({});
   const location = useLocation();
   const navigate = useNavigate();
   const { currentUser, currentProfile } = useAuth();
 
   const isMapsRoute = location.pathname.includes("/app/maps");
+
+  useEffect(() => {
+    const handleOverlayState = (event: Event) => {
+      const detail = (event as CustomEvent<{ source?: string; open?: boolean }>).detail;
+      const source = detail?.source || "maps";
+      overlaySourcesRef.current[source] = Boolean(detail?.open);
+      const anyOpen = Object.values(overlaySourcesRef.current).some(Boolean);
+      setHasMapOverlayOpen(anyOpen);
+    };
+    window.addEventListener("harmony:map-overlay-state", handleOverlayState);
+    return () => {
+      window.removeEventListener("harmony:map-overlay-state", handleOverlayState);
+    };
+  }, []);
+
+  useEffect(() => {
+    if (!isMapsRoute) {
+      overlaySourcesRef.current = {};
+      setHasMapOverlayOpen(false);
+    }
+  }, [isMapsRoute]);
   const isHiddenRoute =
     location.pathname.startsWith("/login") ||
     location.pathname.startsWith("/school-selection") ||
@@ -476,7 +499,7 @@ export function FloatingAICopilot() {
           isMapsRoute
             ? "bottom-[calc(5.5rem+env(safe-area-inset-bottom))] sm:bottom-[calc(6rem+env(safe-area-inset-bottom))]"
             : "bottom-[calc(1rem+env(safe-area-inset-bottom))] sm:bottom-[calc(1.5rem+env(safe-area-inset-bottom))]"
-        }`}
+        } ${isMapsRoute && hasMapOverlayOpen && !isOpen ? "hidden sm:block" : ""}`}
       >
         <button
           type="button"

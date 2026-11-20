@@ -40,5 +40,15 @@ export default defineConfig({
   build: {
     target: ['es2020', 'edge90', 'firefox90', 'chrome90', 'safari14'],
     cssTarget: ['chrome90', 'safari14', 'firefox90'],
+    rollupOptions: {
+      output: {
+        manualChunks: {
+          'vendor-react': ['react', 'react-dom', 'react-router-dom'],
+          'vendor-ol': ['ol'],
+          'vendor-charts': ['recharts'],
+          'vendor-icons': ['lucide-react'],
+        },
+      },
+    },
   },
 });

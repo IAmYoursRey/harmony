@@ -5,6 +5,7 @@ import { Logo } from "@/components/Logo";
 import { ThemePicker } from "@/components/ThemePicker";
 import { useI18n } from "@/hooks/useI18n";
 import { useAuth } from "@/hooks/useAuth";
+import { isDemoNgoroUser } from "@/utils/demoSchool";
 
 interface SidebarProps {
   active: string;
@@ -261,20 +262,27 @@ export function Sidebar({
                     <p className="truncate text-xs font-bold text-ink-900 dark:text-white">
                       {currentUser?.name || "Pengguna"}
                     </p>
-                    <div
-                      className={`mt-1 inline-flex items-center rounded-md px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-wider ${
-                        currentUser?.role === "developer"
-                          ? "bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400"
+                    <div className="mt-1 flex flex-wrap items-center gap-1">
+                      <span
+                        className={`inline-flex items-center rounded-md px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-wider ${
+                          currentUser?.role === "developer"
+                            ? "bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400"
+                            : currentUser?.role === "teacher"
+                              ? "bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400"
+                              : "bg-brand-100 text-brand-700 dark:bg-brand-900/30 dark:text-brand-400"
+                        }`}
+                      >
+                        {currentUser?.role === "developer"
+                          ? t("role.developer", "Developer")
                           : currentUser?.role === "teacher"
-                            ? "bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400"
-                            : "bg-brand-100 text-brand-700 dark:bg-brand-900/30 dark:text-brand-400"
-                      }`}
-                    >
-                      {currentUser?.role === "developer"
-                        ? t("role.developer", "Developer")
-                        : currentUser?.role === "teacher"
-                          ? t("role.teacher", "Teacher")
-                          : t("role.student", "Student")}
+                            ? t("role.teacher", "Teacher")
+                            : t("role.student", "Student")}
+                      </span>
+                      {isDemoNgoroUser(currentUser) && (
+                        <span className="inline-flex items-center rounded-md bg-amber-100 px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-wider text-amber-800 dark:bg-amber-900/40 dark:text-amber-300">
+                          Demo Account
+                        </span>
+                      )}
                     </div>
                   </div>
                 </div>

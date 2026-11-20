@@ -28,6 +28,23 @@ import {
 
 import { AuthContext } from "./coreAuth";
 
+function buildFallbackDemoProfile(account: UserAccount): UserProfile {
+  return {
+    userId: account.id,
+    gender: "other",
+    grade: "XI",
+    classSection: "1",
+    schoolId: SMAN1_NGORO_SCHOOL_ID,
+    schoolName: "SMAN 1 Ngoro",
+    province: "Jawa Timur",
+    regency: "Kabupaten Mojokerto",
+    topicScores: {},
+    totalPoints: 1200,
+    badges: [],
+    lastUpdated: new Date().toISOString(),
+  };
+}
+
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [currentUser, setCurrentUser] = useState<UserAccount | null>(null);
   const [currentProfile, setCurrentProfile] = useState<UserProfile | null>(
@@ -69,13 +86,18 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       }
       try {
         const data = await apiClient.get("/api/auth/me");
-        setCurrentUser(data.account);
         const prof = await getProfile();
-        setCurrentProfile(prof ?? null);
+        const resolvedProfile =
+          prof ??
+          (isDemoNgoroUser(data.account)
+            ? buildFallbackDemoProfile(data.account)
+            : null);
+        setCurrentProfile(resolvedProfile);
+        setCurrentUser(data.account);
         if (
           isDemoNgoroUser(data.account) ||
           data.account?.role === "developer" ||
-          prof?.schoolId === SMAN1_NGORO_SCHOOL_ID
+          resolvedProfile?.schoolId === SMAN1_NGORO_SCHOOL_ID
         ) {
           setSelection(SMAN_1_NGORO_FALLBACK);
           getSchoolById(SMAN1_NGORO_SCHOOL_ID).then((ngoro) => {
@@ -98,22 +120,25 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   };
 
   const finalizeLogin = async (account: UserAccount) => {
-    setCurrentUser(account);
     if (isDemoNgoroUser(account) || account.role === "developer") {
       setSelection(SMAN_1_NGORO_FALLBACK);
     }
     const prof = await getProfile();
-    setCurrentProfile(prof ?? null);
+    const resolvedProfile =
+      prof ?? (isDemoNgoroUser(account) ? buildFallbackDemoProfile(account) : null);
+    setCurrentProfile(resolvedProfile);
+    setCurrentUser(account);
     if (
       isDemoNgoroUser(account) ||
       account.role === "developer" ||
-      prof?.schoolId === SMAN1_NGORO_SCHOOL_ID
+      resolvedProfile?.schoolId === SMAN1_NGORO_SCHOOL_ID
     ) {
       setSelection(SMAN_1_NGORO_FALLBACK);
       getSchoolById(SMAN1_NGORO_SCHOOL_ID).then((ngoro) => {
         if (ngoro) setSelection(ngoro);
       });
     }
+    return resolvedProfile;
   };
 
   const registerGoogle = async (

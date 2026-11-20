@@ -344,7 +344,18 @@ export const getSpatialHealth = async (_req, res) => {
 };
 
 const weatherCache = new Map();
-const WEATHER_CACHE_TTL_MS = 120 * 1000; // 2 minutes server-side TTL
+const WEATHER_CACHE_TTL_MS = 120 * 1000; // 2 minutes server-side TTL with dedup and 429 cooldown
+const weatherInFlight = new Map();
+let weatherRateLimitUntil = 0;
+
+const geocodeReverseCache = new Map();
+const geocodeSearchCache = new Map();
+const GEOCODE_REVERSE_TTL_MS = 6 * 60 * 60 * 1000; // 6 hours for administrative lookup
+const GEOCODE_SEARCH_TTL_MS = 30 * 60 * 1000; // 30 minutes for search autocomplete
+const geocodeReverseInFlight = new Map();
+const geocodeSearchInFlight = new Map();
+let nominatimLastRequestAt = 0;
+let nominatimRateLimitUntil = 0;
 
 /**
  * Cached Weather Proxy for Harmony Maps
@@ -366,8 +377,8 @@ export const getCurrentWeatherProxy = async (req, res) => {
     return res.status(400).json({ error: "Invalid latitude (-90..90) or longitude (-180..180)" });
   }
 
-  const queryLat = lat;
-  const queryLng = lng;
+  const queryLat = lat.toFixed(2);
+  const queryLng = lng.toFixed(2);
   const cacheKey = `provider=open-meteo:model=best-match:vars=standard:lat=${queryLat}:lng=${queryLng}`;
   const now = Date.now();
 
@@ -380,61 +391,90 @@ export const getCurrentWeatherProxy = async (req, res) => {
     });
   }
 
+  if (now < weatherRateLimitUntil) {
+    if (cached) {
+      return res.json({
+        success: true,
+        source: "stale_cooldown_cache",
+        providerHealth: "COOLING_DOWN",
+        data: cached.data,
+      });
+    }
+    return res.status(503).json({
+      success: false,
+      error: "Layanan cuaca sedang jeda sementara setelah pembatasan rate upstream.",
+    });
+  }
+
   try {
-    const url = `https://api.open-meteo.com/v1/forecast?latitude=${queryLat}&longitude=${queryLng}&current=temperature_2m,relative_humidity_2m,apparent_temperature,precipitation,rain,weather_code,surface_pressure,wind_speed_10m,wind_direction_10m&timeformat=unixtime&timezone=auto`;
-    const controller = new AbortController();
-    const timeout = setTimeout(() => controller.abort(), 6000);
-    let json;
+    let weatherPromise = weatherInFlight.get(cacheKey);
+    if (!weatherPromise) {
+      weatherPromise = (async () => {
+        const url = `https://api.open-meteo.com/v1/forecast?latitude=${queryLat}&longitude=${queryLng}&current=temperature_2m,relative_humidity_2m,apparent_temperature,precipitation,rain,weather_code,surface_pressure,wind_speed_10m,wind_direction_10m&timeformat=unixtime&timezone=auto`;
+        const controller = new AbortController();
+        const timeout = setTimeout(() => controller.abort(), 6000);
+        let json;
 
-    try {
-      const upstream = await fetch(url, { signal: controller.signal });
-      if (!upstream.ok) {
-        throw new Error(`Upstream weather service returned HTTP ${upstream.status}`);
-      }
-      json = await upstream.json();
-    } finally {
-      clearTimeout(timeout);
+        try {
+          const upstream = await fetch(url, { signal: controller.signal });
+          if (upstream.status === 429) {
+            weatherRateLimitUntil = Date.now() + 60 * 1000;
+            throw new Error("Upstream weather service returned HTTP 429");
+          }
+          if (!upstream.ok) {
+            throw new Error(`Upstream weather service returned HTTP ${upstream.status}`);
+          }
+          json = await upstream.json();
+        } finally {
+          clearTimeout(timeout);
+        }
+
+        const current = json.current;
+        if (!validateProviderCurrent(current)) {
+          throw new Error("Current weather payload is incomplete or invalid");
+        }
+
+        if (![json.latitude, json.longitude].every(Number.isFinite) || Math.abs(json.latitude) > 90 || Math.abs(json.longitude) > 180 || Math.abs(json.latitude - queryLat) > 1 || Math.abs(json.longitude - queryLng) > 1) throw new Error('Weather response coordinates do not match requested location');
+        const expectedUnits = { temperature_2m: ['°c', 'celsius'], apparent_temperature: ['°c', 'celsius'], relative_humidity_2m: ['%'], surface_pressure: ['hpa'], wind_speed_10m: ['km/h'], wind_direction_10m: ['°', 'degrees'], precipitation: ['mm'], time: ['unixtime'] };
+        if (Object.entries(expectedUnits).some(([field, allowed]) => json.current_units?.[field] !== undefined && !allowed.includes(String(json.current_units[field]).trim().toLowerCase()))) throw new Error('Weather response units do not match query contract');
+        try { new Intl.DateTimeFormat('en', { timeZone: json.timezone || 'UTC' }); } catch { throw new Error('Invalid provider timezone'); }
+        let dataTimeUtc = null;
+        if (typeof current.time === "number" && !isNaN(current.time)) {
+          dataTimeUtc = new Date(current.time * 1000).toISOString();
+        } else if (typeof current.time === "string" && current.time.trim().length > 0) {
+          const parsed = new Date(current.time);
+          if (!isNaN(parsed.getTime())) {
+            dataTimeUtc = parsed.toISOString();
+          }
+        }
+
+        const fetchedAt = new Date().toISOString();
+        const dataIntervalSeconds = typeof current.interval === "number" ? current.interval : 900;
+        const providerTimezone = json.timezone || "Asia/Jakarta";
+
+        const weatherData = {
+          temperature: current.temperature_2m,
+          apparentTemp: current.apparent_temperature,
+          humidity: current.relative_humidity_2m,
+          pressure: current.surface_pressure,
+          windSpeedKmh: current.wind_speed_10m,
+          windDirectionDeg: current.wind_direction_10m,
+          precipitationMm: current.precipitation,
+          weatherCode: current.weather_code,
+          provider: "Open-Meteo", providerModel: "Open-Meteo Best Match (model selection by provider)",
+          dataTime: dataTimeUtc, observationTime: dataTimeUtc, fetchedAt, lastCheckedAt: fetchedAt,
+          dataIntervalSeconds, dataStepMinutes: Math.round(dataIntervalSeconds / 60), providerTimezone,
+        };
+
+        weatherCache.set(cacheKey, { data: weatherData, timestamp: Date.now() });
+        return weatherData;
+      })().finally(() => {
+        weatherInFlight.delete(cacheKey);
+      });
+      weatherInFlight.set(cacheKey, weatherPromise);
     }
 
-    const current = json.current;
-    if (!validateProviderCurrent(current)) {
-      throw new Error("Current weather payload is incomplete or invalid");
-    }
-
-    if (![json.latitude, json.longitude].every(Number.isFinite) || Math.abs(json.latitude) > 90 || Math.abs(json.longitude) > 180 || Math.abs(json.latitude - queryLat) > 1 || Math.abs(json.longitude - queryLng) > 1) throw new Error('Weather response coordinates do not match requested location');
-    const expectedUnits = { temperature_2m: ['°c', 'celsius'], apparent_temperature: ['°c', 'celsius'], relative_humidity_2m: ['%'], surface_pressure: ['hpa'], wind_speed_10m: ['km/h'], wind_direction_10m: ['°', 'degrees'], precipitation: ['mm'], time: ['unixtime'] };
-    if (Object.entries(expectedUnits).some(([field, allowed]) => json.current_units?.[field] !== undefined && !allowed.includes(String(json.current_units[field]).trim().toLowerCase()))) throw new Error('Weather response units do not match query contract');
-    try { new Intl.DateTimeFormat('en', { timeZone: json.timezone || 'UTC' }); } catch { throw new Error('Invalid provider timezone'); }
-    let dataTimeUtc = null;
-    if (typeof current.time === "number" && !isNaN(current.time)) {
-      dataTimeUtc = new Date(current.time * 1000).toISOString();
-    } else if (typeof current.time === "string" && current.time.trim().length > 0) {
-      const parsed = new Date(current.time);
-      if (!isNaN(parsed.getTime())) {
-        dataTimeUtc = parsed.toISOString();
-      }
-    }
-
-    const fetchedAt = new Date().toISOString();
-    const dataIntervalSeconds = typeof current.interval === "number" ? current.interval : 900;
-    const providerTimezone = json.timezone || "Asia/Jakarta";
-
-    const weatherData = {
-      temperature: current.temperature_2m,
-      apparentTemp: current.apparent_temperature,
-      humidity: current.relative_humidity_2m,
-      pressure: current.surface_pressure,
-      windSpeedKmh: current.wind_speed_10m,
-      windDirectionDeg: current.wind_direction_10m,
-      precipitationMm: current.precipitation,
-      weatherCode: current.weather_code,
-      provider: "Open-Meteo", providerModel: "Open-Meteo Best Match (model selection by provider)",
-      dataTime: dataTimeUtc, observationTime: dataTimeUtc, fetchedAt, lastCheckedAt: fetchedAt,
-      dataIntervalSeconds, dataStepMinutes: Math.round(dataIntervalSeconds / 60), providerTimezone,
-    };
-
-    weatherCache.set(cacheKey, { data: weatherData, timestamp: now });
-
+    const weatherData = await weatherPromise;
     return res.json({
       success: true,
       source: "live_upstream",
@@ -451,6 +491,347 @@ export const getCurrentWeatherProxy = async (req, res) => {
       });
     }
     return res.status(502).json({ success: false, error: "Upstream weather error: " + err.message });
+  }
+};
+
+function toTitleCaseId(str = "") {
+  return String(str)
+    .trim()
+    .split(/\s+/)
+    .filter(Boolean)
+    .map((w) => w.charAt(0).toUpperCase() + w.slice(1).toLowerCase())
+    .join(" ");
+}
+
+function normalizeNominatimReversePayload(data, lat, lng) {
+  const addr = data?.address || {};
+  const rawVillage =
+    addr.village ||
+    addr.suburb ||
+    addr.neighbourhood ||
+    addr.hamlet ||
+    addr.quarter ||
+    addr.residential;
+  const village = rawVillage
+    ? toTitleCaseId(rawVillage.replace(/^(desa|kelurahan)\s+/i, ""))
+    : "Wilayah Lokal";
+
+  const rawSubDistrict =
+    addr.municipality ||
+    addr.city_district ||
+    addr.subdistrict ||
+    addr.town ||
+    addr.district;
+  const subDistrict = rawSubDistrict
+    ? toTitleCaseId(rawSubDistrict.replace(/^kecamatan\s+/i, ""))
+    : "Kecamatan";
+
+  const rawCity =
+    addr.city ||
+    addr.county ||
+    addr.regency ||
+    addr.state_district;
+  let city = rawCity ? toTitleCaseId(rawCity) : "Indonesia";
+  if (rawCity && !city.startsWith("Kabupaten") && !city.startsWith("Kota")) {
+    city = `Kabupaten ${city}`;
+  }
+
+  const province = addr.state ? toTitleCaseId(addr.state) : "Jawa Timur";
+  const road = addr.road || addr.industrial || addr.commercial || addr.highway || undefined;
+  const postcode = addr.postcode || undefined;
+  const parts = [road, village !== "Wilayah Lokal" ? `Desa ${village}` : null, subDistrict !== "Kecamatan" ? `Kec. ${subDistrict}` : null, city, province].filter(Boolean);
+
+  return {
+    village,
+    subDistrict,
+    city,
+    province,
+    road,
+    postcode,
+    formattedAddress: data?.display_name || parts.join(", "),
+    shortDisplay: `${village}, Kec. ${subDistrict}, ${city}`,
+    lat,
+    lng,
+    source: "nominatim_proxy",
+    isError: false,
+  };
+}
+
+function normalizeBigDataCloudReversePayload(data, lat, lng) {
+  const admin = Array.isArray(data?.localityInfo?.administrative)
+    ? data.localityInfo.administrative
+    : [];
+  const byLevel = (lvl) => admin.find((a) => a.adminLevel === lvl)?.name;
+  const village = toTitleCaseId(data?.locality || byLevel(10) || byLevel(8) || "Wilayah Lokal");
+  const subDistrict = toTitleCaseId(byLevel(7) || byLevel(6) || "Kecamatan");
+  const rawCity = data?.city || byLevel(5) || "Indonesia";
+  let city = toTitleCaseId(rawCity);
+  if (rawCity !== "Indonesia" && !city.startsWith("Kabupaten") && !city.startsWith("Kota")) {
+    city = `Kabupaten ${city}`;
+  }
+  const province = toTitleCaseId(data?.principalSubdivision || byLevel(4) || "Jawa Timur");
+  const parts = [`Desa ${village}`, `Kec. ${subDistrict}`, city, province].filter(Boolean);
+  return {
+    village,
+    subDistrict,
+    city,
+    province,
+    road: undefined,
+    postcode: data?.postcode || undefined,
+    formattedAddress: parts.join(", "),
+    shortDisplay: `${village}, Kec. ${subDistrict}, ${city}`,
+    lat,
+    lng,
+    source: "bigdatacloud_proxy",
+    isError: false,
+  };
+}
+
+export const reverseGeocodeProxy = async (req, res) => {
+  const isStrictNum = (val) => typeof val === "string" && /^[-+]?\d+(\.\d+)?$/.test(val.trim());
+  if (!isStrictNum(req.query.lat) || !isStrictNum(req.query.lng)) {
+    return res.status(400).json({ success: false, error: "Invalid lat or lng parameter" });
+  }
+  const lat = Number(req.query.lat);
+  const lng = Number(req.query.lng);
+  if (!Number.isFinite(lat) || !Number.isFinite(lng) || lat < -90 || lat > 90 || lng < -180 || lng > 180) {
+    return res.status(400).json({ success: false, error: "Coordinates out of range" });
+  }
+
+  const cacheKey = `rev:${lat.toFixed(3)}:${lng.toFixed(3)}`;
+  const now = Date.now();
+  const cached = geocodeReverseCache.get(cacheKey);
+  if (cached && now - cached.timestamp < GEOCODE_REVERSE_TTL_MS) {
+    return res.json({ success: true, source: "server_cache", data: cached.data });
+  }
+
+  try {
+    let pending = geocodeReverseInFlight.get(cacheKey);
+    if (!pending) {
+      pending = (async () => {
+        let resolved = null;
+
+        if (Date.now() >= nominatimRateLimitUntil) {
+          const elapsedSinceNom = Date.now() - nominatimLastRequestAt;
+          if (elapsedSinceNom < 1100) {
+            await delay(1100 - elapsedSinceNom);
+          }
+          nominatimLastRequestAt = Date.now();
+          const nomCtrl = new AbortController();
+          const nomTimer = setTimeout(() => nomCtrl.abort(), 5000);
+          try {
+            const nomRes = await fetch(
+              `https://nominatim.openstreetmap.org/reverse?format=jsonv2&lat=${lat}&lon=${lng}&zoom=18&addressdetails=1`,
+              {
+                headers: {
+                  "User-Agent": "HarmonySpace/1.0 (https://harmony-web.vercel.app)",
+                  "Accept-Language": "id,en;q=0.8",
+                },
+                signal: nomCtrl.signal,
+              }
+            );
+            if (nomRes.status === 429) {
+              nominatimRateLimitUntil = Date.now() + 60 * 1000;
+            } else if (nomRes.ok) {
+              const nomJson = await nomRes.json();
+              if (nomJson && nomJson.address) {
+                resolved = normalizeNominatimReversePayload(nomJson, lat, lng);
+              }
+            }
+          } catch {
+            // Fall through to secondary geocoding provider.
+          } finally {
+            clearTimeout(nomTimer);
+          }
+        }
+
+        if (!resolved) {
+          const bdcCtrl = new AbortController();
+          const bdcTimer = setTimeout(() => bdcCtrl.abort(), 4500);
+          try {
+            const bdcRes = await fetch(
+              `https://api.bigdatacloud.net/data/reverse-geocode-client?latitude=${lat}&longitude=${lng}&localityLanguage=id`,
+              { signal: bdcCtrl.signal }
+            );
+            if (bdcRes.ok) {
+              const bdcJson = await bdcRes.json();
+              if (bdcJson && (bdcJson.locality || bdcJson.city || bdcJson.principalSubdivision)) {
+                resolved = normalizeBigDataCloudReversePayload(bdcJson, lat, lng);
+              }
+            }
+          } finally {
+            clearTimeout(bdcTimer);
+          }
+        }
+
+        if (!resolved) {
+          throw new Error("All upstream reverse geocoding providers failed");
+        }
+
+        geocodeReverseCache.set(cacheKey, { data: resolved, timestamp: Date.now() });
+        return resolved;
+      })().finally(() => {
+        geocodeReverseInFlight.delete(cacheKey);
+      });
+      geocodeReverseInFlight.set(cacheKey, pending);
+    }
+
+    const data = await pending;
+    return res.json({ success: true, source: data.source, data });
+  } catch (err) {
+    if (cached) {
+      return res.json({
+        success: true,
+        source: "stale_server_cache",
+        data: cached.data,
+      });
+    }
+    return res.status(502).json({ success: false, error: "Upstream reverse geocode error: " + err.message });
+  }
+};
+
+export const searchGeocodeProxy = async (req, res) => {
+  const q = String(req.query.q || "").trim();
+  if (q.length < 2) {
+    return res.json({ success: true, source: "empty", results: [] });
+  }
+
+  const cacheKey = `search:${q.toLowerCase()}`;
+  const now = Date.now();
+  const cached = geocodeSearchCache.get(cacheKey);
+  if (cached && now - cached.timestamp < GEOCODE_SEARCH_TTL_MS) {
+    return res.json({ success: true, source: "server_cache", results: cached.results });
+  }
+
+  try {
+    let pending = geocodeSearchInFlight.get(cacheKey);
+    if (!pending) {
+      pending = (async () => {
+        const collected = [];
+        let anyUpstreamSucceeded = false;
+
+        // Photon (OSM search with generous rate tolerance) prioritized first.
+        const photonCtrl = new AbortController();
+        const photonTimer = setTimeout(() => photonCtrl.abort(), 4500);
+        try {
+          const photonRes = await fetch(
+            `https://photon.komoot.io/api/?q=${encodeURIComponent(q)}&limit=8`,
+            { signal: photonCtrl.signal }
+          );
+          if (photonRes.ok) {
+            anyUpstreamSucceeded = true;
+            const photonJson = await photonRes.json();
+            const features = Array.isArray(photonJson?.features) ? photonJson.features : [];
+            features.forEach((f, idx) => {
+              const coords = f?.geometry?.coordinates;
+              const props = f?.properties || {};
+              if (Array.isArray(coords) && coords.length >= 2) {
+                const lng = Number(coords[0]);
+                const lat = Number(coords[1]);
+                if (Number.isFinite(lat) && Number.isFinite(lng)) {
+                  const label = props.name || props.city || props.county || props.state || q;
+                  const shortParts = [props.name, props.district || props.city || props.county, props.state, props.country]
+                    .filter(Boolean)
+                    .slice(0, 3)
+                    .join(", ");
+                  const osmVal = String(props.osm_value || "").toLowerCase();
+                  const type =
+                    osmVal === "city" || osmVal === "town"
+                      ? "city"
+                      : osmVal === "district" || osmVal === "suburb"
+                      ? "district"
+                      : "place";
+                  collected.push({
+                    id: `photon-${props.osm_id || idx}-${lat.toFixed(4)}`,
+                    label,
+                    shortDisplay: shortParts || label,
+                    lat,
+                    lng,
+                    type,
+                  });
+                }
+              }
+            });
+          }
+        } catch {
+          // Fall back to Nominatim below when Photon fails or times out.
+        } finally {
+          clearTimeout(photonTimer);
+        }
+
+        if (collected.length === 0 && Date.now() >= nominatimRateLimitUntil) {
+          const elapsedSinceNom = Date.now() - nominatimLastRequestAt;
+          if (elapsedSinceNom < 1100) {
+            await delay(1100 - elapsedSinceNom);
+          }
+          nominatimLastRequestAt = Date.now();
+          const nomCtrl = new AbortController();
+          const nomTimer = setTimeout(() => nomCtrl.abort(), 4500);
+          try {
+            const nomRes = await fetch(
+              `https://nominatim.openstreetmap.org/search?format=jsonv2&q=${encodeURIComponent(q)}&countrycodes=id&limit=8&addressdetails=1`,
+              {
+                headers: {
+                  "User-Agent": "HarmonySpace/1.0 (https://harmony-web.vercel.app)",
+                  "Accept-Language": "id,en;q=0.8",
+                },
+                signal: nomCtrl.signal,
+              }
+            );
+            if (nomRes.status === 429) {
+              nominatimRateLimitUntil = Date.now() + 60 * 1000;
+            } else if (nomRes.ok) {
+              anyUpstreamSucceeded = true;
+              const nomData = await nomRes.json();
+              if (Array.isArray(nomData)) {
+                nomData.forEach((item) => {
+                  const lat = parseFloat(item.lat);
+                  const lng = parseFloat(item.lon);
+                  if (Number.isFinite(lat) && Number.isFinite(lng)) {
+                    const label = item.name || String(item.display_name || "").split(",")[0] || q;
+                    const shortDisplay = String(item.display_name || label).split(",").slice(0, 3).join(",");
+                    const type =
+                      item.type === "city" || item.type === "town"
+                        ? "city"
+                        : item.type === "district" || item.type === "suburb"
+                        ? "district"
+                        : "place";
+                    collected.push({
+                      id: `osm-${item.place_id}`,
+                      label,
+                      shortDisplay,
+                      lat,
+                      lng,
+                      type,
+                    });
+                  }
+                });
+              }
+            }
+          } finally {
+            clearTimeout(nomTimer);
+          }
+        }
+
+        if (!anyUpstreamSucceeded && collected.length === 0) {
+          throw new Error("All upstream search geocoding providers failed");
+        }
+
+        geocodeSearchCache.set(cacheKey, { results: collected, timestamp: Date.now() });
+        return collected;
+      })().finally(() => {
+        geocodeSearchInFlight.delete(cacheKey);
+      });
+      geocodeSearchInFlight.set(cacheKey, pending);
+    }
+
+    const results = await pending;
+    return res.json({ success: true, source: "live_upstream", results });
+  } catch (err) {
+    if (cached) {
+      return res.json({ success: true, source: "stale_server_cache", results: cached.results });
+    }
+    return res.status(502).json({ success: false, error: "Upstream search error: " + err.message, results: [] });
   }
 };
 
@@ -2727,6 +3108,15 @@ export function __resetSpatialControllerCachesForTest() {
   liveVolcanoCache = { timestamp: 0, payload: null };
   liveEarthquakesCache = { timestamp: 0, payload: null };
   gpsProbesBuffer.length = 0;
+  weatherCache.clear();
+  weatherInFlight.clear();
+  weatherRateLimitUntil = 0;
+  geocodeReverseCache.clear();
+  geocodeSearchCache.clear();
+  geocodeReverseInFlight.clear();
+  geocodeSearchInFlight.clear();
+  nominatimLastRequestAt = 0;
+  nominatimRateLimitUntil = 0;
 }
 
 

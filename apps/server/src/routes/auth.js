@@ -116,6 +116,8 @@ router.post("/login", async (req, res) => {
             ? "Raihan Ansari"
             : "Aditya Pratama"),
         role: demoRole,
+        schoolId: SMAN1_NGORO_META.schoolId,
+        isDemo: true,
         googleId,
         picture: picture || "https://api.dicebear.com/7.x/avataaars/svg?seed=" + encodeURIComponent(email),
         createdAt: new Date().toISOString(),
@@ -178,7 +180,15 @@ router.post("/login", async (req, res) => {
     }
 
     const jwtToken = jwt.sign(
-      { id: account.id, role: account.role, name: account.name },
+      {
+        id: account.id,
+        email: account.email,
+        role: account.role,
+        name: account.name,
+        schoolId: account.schoolId || (isDemoAccount ? SMAN1_NGORO_META.schoolId : undefined),
+        grade: account.grade,
+        isDemo: Boolean(isDemoAccount || account.isDemo),
+      },
       SECRET,
       { expiresIn: "24h" }
     );
@@ -238,7 +248,15 @@ router.post("/register", async (req, res) => {
     await saveProfile(profile);
 
     const jwtToken = jwt.sign(
-      { id: account.id, role: account.role, name: account.name },
+      {
+        id: account.id,
+        email: account.email,
+        role: account.role,
+        name: account.name,
+        schoolId: account.schoolId,
+        grade: account.grade,
+        isDemo: Boolean(account.isDemo),
+      },
       SECRET,
       { expiresIn: "24h" }
     );
@@ -317,7 +335,15 @@ router.post("/register-google", async (req, res) => {
     await saveProfile(profile);
 
     const jwtToken = jwt.sign(
-      { id: account.id, role: account.role, name: account.name },
+      {
+        id: account.id,
+        email: account.email,
+        role: account.role,
+        name: account.name,
+        schoolId: account.schoolId,
+        grade: account.grade,
+        isDemo: Boolean(account.isDemo),
+      },
       SECRET,
       { expiresIn: "24h" }
     );
@@ -330,7 +356,24 @@ router.post("/register-google", async (req, res) => {
 
 router.get("/me", verifyToken, async (req, res) => {
   try {
-    const account = await getAccountById(req.user.id);
+    let account = await getAccountById(req.user.id);
+    if (
+      !account &&
+      (req.user?.isDemo ||
+        String(req.user?.id || "").startsWith("usr-demo-") ||
+        String(req.user?.id || "").startsWith("demo-"))
+    ) {
+      const role = req.user.role || "student";
+      account = {
+        id: req.user.id,
+        email: req.user.email || `${req.user.id}@demo.harmony.sch.id`,
+        name: req.user.name || "Demo Account",
+        role,
+        schoolId: req.user.schoolId || SMAN1_NGORO_META.schoolId,
+        grade: role === "teacher" || role === "developer" ? "-" : (req.user.grade || "XI"),
+        isDemo: true,
+      };
+    }
     if (!account) return res.status(404).json({ error: "User not found" });
     const { passwordHash: _, ...safeAccount } = account;
     res.json({ account: safeAccount });

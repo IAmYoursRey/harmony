@@ -15,11 +15,15 @@ const SMAN1_NGORO_SCHOOL_ID = "ffdcdf34-fc99-4209-913e-5a6042e957ad";
 
 function isFixedDemoUser(user, account) {
   const email = (account?.email || user?.email || "").toLowerCase();
-  return (
-    email === "raihanansari3345@gmail.com" ||
-    email.endsWith("@sman1ngoro.sch.id") ||
-    user?.id?.includes("sman1ngoro") ||
-    String(user?.id || "").startsWith("usr-demo-")
+  return Boolean(
+    user?.isDemo ||
+      account?.isDemo ||
+      user?.role === "developer" ||
+      email === "raihanansari3345@gmail.com" ||
+      email.endsWith("@sman1ngoro.sch.id") ||
+      user?.id?.includes("sman1ngoro") ||
+      String(user?.id || "").startsWith("usr-demo-") ||
+      String(user?.id || "").startsWith("demo-")
   );
 }
 

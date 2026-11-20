@@ -6,6 +6,7 @@ import { useState, useEffect } from "react";
 import { useAuth } from "@/hooks/useAuth";
 import { LogoSpinner } from "@/components/ui/LogoSpinner";
 import { AuthRequiredModal } from "@/components/dashboard/AuthRequiredModal";
+import { isDemoNgoroUser } from "@/utils/demoSchool";
 
 export function DashboardLayout() {
   const [mobileOpen, setMobileOpen] = useState(false);
@@ -63,6 +64,7 @@ export function DashboardLayout() {
     !isLoading &&
     currentUser &&
     currentUser.role !== "developer" &&
+    !isDemoNgoroUser(currentUser) &&
     (!currentProfile?.schoolId || currentProfile.schoolId === "unknown")
   ) {
     return <Navigate to="/school-selection" replace />;

@@ -454,6 +454,8 @@ export function StudentSessionLobby() {
                     <img
                       src={imgSrc}
                       alt={preset.label}
+                      loading="lazy"
+                      decoding="async"
                       className="w-14 h-14 object-contain"
                     />
                     <span className="text-xs font-bold text-slate-800 dark:text-slate-200">
@@ -522,6 +524,8 @@ export function StudentSessionLobby() {
                           <img
                             src={getDigitalTwinAssetUrl(spriteKey)}
                             alt={p.displayName}
+                            loading="lazy"
+                            decoding="async"
                             className="w-7 h-7 object-contain"
                           />
                         </div>

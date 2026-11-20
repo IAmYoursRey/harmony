@@ -64,6 +64,7 @@ export type MapBasemapType = 'osm' | 'satellite' | 'elevation' | 'thermal' | 'tr
 export interface CesiumGlobe3DProps {
   initialCenter?: { lat: number; lng: number };
   initialZoom?: number;
+  cameraFocusRequestId?: number;
   userCoords?: { lat: number; lng: number; accuracy?: number } | null;
   activeRouteCoords?: [number, number][];
   earthquakes?: ReadonlyArray<{ id?: string | number; lat: number; lng: number; mag?: number; depth?: number; place?: string; source?: string; time?: string | number; shakingDurationSec?: string; [key: string]: any }>;
@@ -113,6 +114,7 @@ const validPosition = (lat: unknown, lng: unknown) =>
 export function CesiumGlobe3D({
   initialCenter = { lat: -2.5, lng: 118 },
   initialZoom = 5,
+  cameraFocusRequestId = 0,
   userCoords,
   activeRouteCoords,
   earthquakes = EMPTY_DATA,
@@ -212,6 +214,17 @@ export function CesiumGlobe3D({
   const [isPlanetaryExplorerOpen, setIsPlanetaryExplorerOpen] = useState<boolean>(false);
   const [planetaryExplorerMode, setPlanetaryExplorerMode] = useState<'map' | 'globe3d' | 'surface'>('surface');
   const [planetaryExplorerBodyId, setPlanetaryExplorerBodyId] = useState<string>('earth');
+
+  useEffect(() => {
+    const anyCosmicOpen = Boolean(
+      isCosmicPanelOpen || isPlanetDrawerOpen || showCelestialPanel || isPlanetaryExplorerOpen
+    );
+    window.dispatchEvent(
+      new CustomEvent('harmony:map-overlay-state', {
+        detail: { source: 'cesium', open: anyCosmicOpen },
+      })
+    );
+  }, [isCosmicPanelOpen, isPlanetDrawerOpen, showCelestialPanel, isPlanetaryExplorerOpen]);
 
   // Sync props changes to local state
   useEffect(() => {
@@ -641,11 +654,17 @@ export function CesiumGlobe3D({
     }
   }, [status, weatherMapOverlay, rainviewerPath, rainviewerHost, rainviewerSatellitePath]);
 
-  // Initial Camera Fly-to
+  // Initial Camera Fly-to & explicit focus requests
   useEffect(() => {
     const viewer = viewerRef.current;
     const C = moduleRef.current;
     if (status !== 'READY' || !viewer || viewer.isDestroyed() || !C || !validPosition(initialCenter.lat, initialCenter.lng)) return;
+
+    if (cameraFocusRequestId > 0 && activeCelestialId !== 'earth') {
+      setIsTourActive(false);
+      setActiveCelestialId('earth');
+      cosmicEngineRef.current?.returnToEarth();
+    }
 
     const targetAltitude = initialZoom
       ? Math.max(1500, Math.min(20000000, 36000000 / Math.pow(2, Math.max(1, initialZoom - 1))))
@@ -660,7 +679,7 @@ export function CesiumGlobe3D({
       },
       duration: window.matchMedia('(prefers-reduced-motion: reduce)').matches ? 0 : 1.2,
     });
-  }, [status, initialCenter.lat, initialCenter.lng, initialZoom]);
+  }, [status, initialCenter.lat, initialCenter.lng, initialZoom, cameraFocusRequestId]);
 
   // Populate GIS Layer Entities (Earthquakes, Hotspots, Volcanoes, Sensors, Blank Spots, Equator, Schools, Routes, Traffic, Heatmap)
   useEffect(() => {
@@ -1534,7 +1553,7 @@ export function CesiumGlobe3D({
         <button
           type="button"
           onClick={() => setIsCosmicPanelOpen(true)}
-          className="pointer-events-auto absolute bottom-[5.75rem] right-6 z-20 flex items-center gap-3 rounded-2xl bg-white/95 dark:bg-slate-900/95 px-4 py-2.5 sm:py-3 shadow-2xl backdrop-blur-xl border border-slate-200/90 dark:border-slate-800 text-slate-800 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-800/90 transition-all hover:scale-[1.02] active:scale-95 group cursor-pointer shadow-brand-500/10"
+          className="pointer-events-auto absolute bottom-[calc(4.5rem+env(safe-area-inset-bottom))] left-3 sm:bottom-[5.75rem] sm:left-6 z-20 flex items-center gap-2.5 sm:gap-3 rounded-2xl bg-white/95 dark:bg-slate-900/95 px-3.5 sm:px-4 py-2 sm:py-3 shadow-2xl backdrop-blur-xl border border-slate-200/90 dark:border-slate-800 text-slate-800 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-800/90 transition-all hover:scale-[1.02] active:scale-95 group cursor-pointer shadow-brand-500/10"
           title="Klik untuk membuka Kontrol Tata Surya & Semesta Kosmik 3D"
         >
           <div className="relative flex h-8 w-8 items-center justify-center rounded-xl bg-indigo-50 dark:bg-indigo-950/60 border border-indigo-200/60 dark:border-indigo-800/60 text-indigo-600 dark:text-indigo-400 shadow-xs">

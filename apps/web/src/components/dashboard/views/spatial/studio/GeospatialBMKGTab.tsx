@@ -474,6 +474,8 @@ export const GeospatialBMKGTab: React.FC<GeospatialBMKGTabProps> = ({
                       src={activeSatellite.sampleImage}
                       onLoad={() => setSatelliteImageStatus('VIEW_LOADED')}
                       alt={activeSatellite.name}
+                      loading="lazy"
+                      decoding="async"
                       crossOrigin="anonymous"
                       referrerPolicy="no-referrer"
                       className="w-full h-auto max-h-[380px] object-contain rounded-xl"
