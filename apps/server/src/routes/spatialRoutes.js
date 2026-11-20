@@ -37,6 +37,8 @@ import {
   handleDirectCctvStream,
   reverseGeocodeProxy,
   searchGeocodeProxy,
+  getLatestGibsMetadata,
+  getElevationProxy,
 } from "../controllers/spatialController.js";
 
 const router = Router();
@@ -49,6 +51,8 @@ router.get("/health", getSpatialHealth);
 router.get("/weather/current", getCurrentWeatherProxy);
 router.get("/geocode/reverse", reverseGeocodeProxy);
 router.get("/geocode/search", searchGeocodeProxy);
+router.get("/gibs/latest", getLatestGibsMetadata);
+router.get("/elevation", getElevationProxy);
 
 // Volcano, Faults & Earthquake Geological Endpoints
 router.get("/volcanoes", getVolcanoesList);

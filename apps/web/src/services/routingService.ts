@@ -43,7 +43,7 @@ export interface RouteResult {
   steps: RouteStep[];
   routeMode: 'ROAD_NETWORK' | 'GEODESIC_REFERENCE';
   routeNote?: string;
-  
+
   // AI Environmental Hazard & Safety Analysis
   safetyLevel: 'Sangat Aman' | 'Cukup Aman' | 'Waspada' | 'Bahaya' | 'Belum Dinilai';
   safetyScore: number | null; // 0 - 100 or null when unevaluated
@@ -277,116 +277,146 @@ class RoutingService {
       const res = await fetch(url, { signal: abortController.signal });
       if (!res.ok) {
         throw new Error(`OSRM HTTP error ${res.status}`);
-      }
-      const data = await res.json();
-
-      if (data.code === 'Ok' && Array.isArray(data.routes) && data.routes.length > 0) {
-        const route = data.routes[0];
-        if (!route.geometry || !Array.isArray(route.geometry.coordinates) || route.geometry.coordinates.length < 2) {
-          throw new Error('Geometri rute OSRM tidak valid.');
-        }
-        if (
-          typeof route.distance !== 'number' ||
-          !Number.isFinite(route.distance) ||
-          route.distance < 0 ||
-          typeof route.duration !== 'number' ||
-          !Number.isFinite(route.duration) ||
-          route.duration < 0
-        ) {
-          throw new Error('Metrik jarak atau durasi OSRM tidak valid atau bernilai negatif.');
-        }
-
-        const coords: [number, number][] = route.geometry.coordinates;
-        const validCoords = coords.every(
-          (c) =>
-            Array.isArray(c) &&
-            c.length >= 2 &&
-            typeof c[0] === 'number' &&
-            Number.isFinite(c[0]) &&
-            typeof c[1] === 'number' &&
-            Number.isFinite(c[1]) &&
-            Math.abs(c[0]) <= 180 &&
-            Math.abs(c[1]) <= 90
-        );
-        if (!validCoords) {
-          throw new Error('Koordinat geometri OSRM mengandung nilai tidak terbatas atau di luar batas geografis.');
-        }
-
-        const distKm = parseFloat((route.distance / 1000).toFixed(1));
-        const durMin = Math.round(route.duration / 60);
-
-        const steps: RouteStep[] = [];
-        if (route.legs && route.legs[0]?.steps) {
-          route.legs[0].steps.forEach((s: any) => {
-            if (s.maneuver) {
-              const modifier = s.maneuver.modifier ? ` ke ${s.maneuver.modifier}` : '';
-              const type = s.maneuver.type === 'depart' ? 'Mulai perjalanan' : s.maneuver.type === 'arrive' ? 'Tiba di tujuan' : `Belok${modifier}`;
-              const roadName = s.name ? ` di ${s.name}` : '';
-              steps.push({
-                instruction: `${type}${roadName}`,
-                name: s.name || '',
-                distance: typeof s.distance === 'number' ? s.distance : 0,
-                duration: typeof s.duration === 'number' ? s.duration : 0,
-              });
+        const aborted = new AbortController();
+        const osrmServers = [
+          'https://router.project-osrm.org/route/v1/driving',
+          'https://routing.openstreetmap.de/routed-car/route/v1/driving',
+        ];
+        let res: Response | null = null;
+        let lastOsrmErr: Error | null = null;
+        for (const serverBase of osrmServers) {
+          const abortController = new AbortController();
+          timeoutId = setTimeout(() => abortController.abort(), 7000);
+          try {
+            const url = `${serverBase}/${originLng},${originLat};${destLng},${destLat}?overview=full&geometries=geojson&steps=true`;
+            const candidateRes = await fetch(url, { signal: abortController.signal });
+            if (candidateRes.ok) {
+              res = candidateRes;
+              break;
             }
-          });
+            lastOsrmErr = new Error(`OSRM HTTP error ${candidateRes.status}`);
+          } catch (err: any) {
+            lastOsrmErr = err instanceof Error ? err : new Error(String(err));
+          } finally {
+            if (timeoutId) {
+              clearTimeout(timeoutId);
+              timeoutId = null;
+            }
+          }
         }
-
-        let effectiveRain = weatherRain;
-        let effectiveWind = weatherWind;
-        let corridorWeather: any = null;
-
-        if (effectiveRain === undefined || effectiveWind === undefined) {
-          corridorWeather = await this.fetchCorridorWeather(coords, distKm, durMin);
-          if (effectiveRain === undefined) effectiveRain = corridorWeather?.maxRainMm ?? null;
-          if (effectiveWind === undefined) effectiveWind = corridorWeather?.maxWindKmh ?? null;
+        void aborted;
+        if (!res) {
+          throw lastOsrmErr || new Error('Seluruh server OSRM gagal merespons.');
         }
+        const data = await res.json();
 
-        const hazardAnalysis = this.evaluateHazards(coords, effectiveRain, effectiveWind);
-        if (corridorWeather && corridorWeather.summaryText && (!hazardAnalysis.weatherRiskSummary || hazardAnalysis.weatherRiskSummary.includes('tidak tersedia'))) {
-          hazardAnalysis.weatherRiskSummary = corridorWeather.summaryText;
+        if (data.code === 'Ok' && Array.isArray(data.routes) && data.routes.length > 0) {
+          const route = data.routes[0];
+          if (!route.geometry || !Array.isArray(route.geometry.coordinates) || route.geometry.coordinates.length < 2) {
+            throw new Error('Geometri rute OSRM tidak valid.');
+          }
+          if (
+            typeof route.distance !== 'number' ||
+            !Number.isFinite(route.distance) ||
+            route.distance < 0 ||
+            typeof route.duration !== 'number' ||
+            !Number.isFinite(route.duration) ||
+            route.duration < 0
+          ) {
+            throw new Error('Metrik jarak atau durasi OSRM tidak valid atau bernilai negatif.');
+          }
+
+          const coords: [number, number][] = route.geometry.coordinates;
+          const validCoords = coords.every(
+            (c) =>
+              Array.isArray(c) &&
+              c.length >= 2 &&
+              typeof c[0] === 'number' &&
+              Number.isFinite(c[0]) &&
+              typeof c[1] === 'number' &&
+              Number.isFinite(c[1]) &&
+              Math.abs(c[0]) <= 180 &&
+              Math.abs(c[1]) <= 90
+          );
+          if (!validCoords) {
+            throw new Error('Koordinat geometri OSRM mengandung nilai tidak terbatas atau di luar batas geografis.');
+          }
+
+          const distKm = parseFloat((route.distance / 1000).toFixed(1));
+          const durMin = Math.round(route.duration / 60);
+
+          const steps: RouteStep[] = [];
+          if (route.legs && route.legs[0]?.steps) {
+            route.legs[0].steps.forEach((s: any) => {
+              if (s.maneuver) {
+                const modifier = s.maneuver.modifier ? ` ke ${s.maneuver.modifier}` : '';
+                const type = s.maneuver.type === 'depart' ? 'Mulai perjalanan' : s.maneuver.type === 'arrive' ? 'Tiba di tujuan' : `Belok${modifier}`;
+                const roadName = s.name ? ` di ${s.name}` : '';
+                steps.push({
+                  instruction: `${type}${roadName}`,
+                  name: s.name || '',
+                  distance: typeof s.distance === 'number' ? s.distance : 0,
+                  duration: typeof s.duration === 'number' ? s.duration : 0,
+                });
+              }
+            });
+          }
+
+          let effectiveRain = weatherRain;
+          let effectiveWind = weatherWind;
+          let corridorWeather: any = null;
+
+          if (effectiveRain === undefined || effectiveWind === undefined) {
+            corridorWeather = await this.fetchCorridorWeather(coords, distKm, durMin);
+            if (effectiveRain === undefined) effectiveRain = corridorWeather?.maxRainMm ?? null;
+            if (effectiveWind === undefined) effectiveWind = corridorWeather?.maxWindKmh ?? null;
+          }
+
+          const hazardAnalysis = this.evaluateHazards(coords, effectiveRain, effectiveWind);
+          if (corridorWeather && corridorWeather.summaryText && (!hazardAnalysis.weatherRiskSummary || hazardAnalysis.weatherRiskSummary.includes('tidak tersedia'))) {
+            hazardAnalysis.weatherRiskSummary = corridorWeather.summaryText;
+          }
+
+          return {
+            origin: { lat: originLat, lng: originLng, label: origin.label || 'Lokasi Anda' },
+            destination: { lat: destLat, lng: destLng, label: destination.label || 'Tujuan' },
+            distanceKm: distKm,
+            durationMin: durMin,
+            durationText: durMin > 60 ? `${Math.floor(durMin / 60)} jam ${durMin % 60} menit` : `${durMin} menit`,
+            coordinates: coords,
+            steps: steps.slice(0, 8),
+            routeMode: 'ROAD_NETWORK',
+            routeNote: 'Rute jaringan jalan dari Open Source Routing Machine (OSRM). Analisis bahaya adalah estimasi lingkungan, bukan jaminan keselamatan jalan resmi.',
+            corridorWaypoints: corridorWeather?.waypoints,
+            timelineStages: corridorWeather?.timeline,
+            departureTimeText: corridorWeather?.departureTimeText,
+            arrivalTimeText: corridorWeather?.arrivalTimeText,
+            ...hazardAnalysis,
+          };
+        } else if (data.code === 'NoRoute') {
+          return await this.createDirectFallbackRoute(
+            origin,
+            destination,
+            weatherRain,
+            weatherWind,
+            'Tidak ditemukan rute jaringan jalan mengemudi antara kedua koordinat ini pada OSM.'
+          );
         }
-
-        return {
-          origin: { lat: originLat, lng: originLng, label: origin.label || 'Lokasi Anda' },
-          destination: { lat: destLat, lng: destLng, label: destination.label || 'Tujuan' },
-          distanceKm: distKm,
-          durationMin: durMin,
-          durationText: durMin > 60 ? `${Math.floor(durMin / 60)} jam ${durMin % 60} menit` : `${durMin} menit`,
-          coordinates: coords,
-          steps: steps.slice(0, 8),
-          routeMode: 'ROAD_NETWORK',
-          routeNote: 'Rute jaringan jalan dari Open Source Routing Machine (OSRM). Analisis bahaya adalah estimasi lingkungan, bukan jaminan keselamatan jalan resmi.',
-          corridorWaypoints: corridorWeather?.waypoints,
-          timelineStages: corridorWeather?.timeline,
-          departureTimeText: corridorWeather?.departureTimeText,
-          arrivalTimeText: corridorWeather?.arrivalTimeText,
-          ...hazardAnalysis,
-        };
-      } else if (data.code === 'NoRoute') {
-        return await this.createDirectFallbackRoute(
-          origin,
-          destination,
-          weatherRain,
-          weatherWind,
-          'Tidak ditemukan rute jaringan jalan mengemudi antara kedua koordinat ini pada OSM.'
-        );
+      } catch (err) {
+        console.warn('OSRM routing network fallback, using geodesic line', err);
+      } finally {
+        if (timeoutId) clearTimeout(timeoutId);
       }
-    } catch (err) {
-      console.warn('OSRM routing network fallback, using geodesic line', err);
-    } finally {
-      if (timeoutId) clearTimeout(timeoutId);
+
+      // Fallback: Interpolasi jalur langsung jika offline/network timeout
+      return await this.createDirectFallbackRoute(origin, destination, weatherRain, weatherWind);
     }
 
-    // Fallback: Interpolasi jalur langsung jika offline/network timeout
-    return await this.createDirectFallbackRoute(origin, destination, weatherRain, weatherWind);
-  }
-
   private evaluateHazards(
-    coords: [number, number][],
-    rainMm?: number | null,
-    windKmh?: number | null
-  ) {
+      coords: [number, number][],
+      rainMm?: number | null,
+      windKmh?: number | null
+    ) {
     const volcanoes = volcanoService.getAllMonitoredVolcanoes();
     let closestVolcanoDistance = Infinity;
     let closestVolcanoName = '';
@@ -407,7 +437,7 @@ class RoutingService {
     });
 
     const hasNegativeOrCorruptWeather = (typeof rainMm === 'number' && (rainMm < 0 || !Number.isFinite(rainMm))) ||
-                                        (typeof windKmh === 'number' && (windKmh < 0 || !Number.isFinite(windKmh)));
+      (typeof windKmh === 'number' && (windKmh < 0 || !Number.isFinite(windKmh)));
     const hasRain = typeof rainMm === 'number' && Number.isFinite(rainMm) && rainMm >= 0;
     const hasWind = typeof windKmh === 'number' && Number.isFinite(windKmh) && windKmh >= 0;
     const hasFullWeather = hasRain && hasWind && !hasNegativeOrCorruptWeather;

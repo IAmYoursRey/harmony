@@ -2,6 +2,8 @@
 // Geometri koridor telah disinkronkan 100% dengan jaringan jalan nyata OpenStreetMap / OSRM
 // Bebas pemotongan rumah / bangunan warga.
 
+import { createTimeoutSignal } from '../utils/browserCompat';
+
 export interface TrafficSegment {
   id: string;
   name: string;
@@ -445680,15 +445682,28 @@ export async function snapCorridorToActualRoad(corridor: TrafficCorridor): Promi
         if (!seg.path || seg.path.length < 2) return seg;
         const start = seg.path[0];
         const end = seg.path[seg.path.length - 1];
-        const url = 'https://router.project-osrm.org/route/v1/driving/' + start[0] + ',' + start[1] + ';' + end[0] + ',' + end[1] + '?overview=full&geometries=geojson';
-        const res = await fetch(url);
-        if (!res.ok) return seg;
-        const data = await res.json();
-        if (data.code === 'Ok' && data.routes && data.routes[0]) {
-          return {
-            ...seg,
-            path: data.routes[0].geometry.coordinates as [number, number][],
-          };
+        const osrmServers = [
+          'https://router.project-osrm.org/route/v1/driving/',
+          'https://routing.openstreetmap.de/routed-car/route/v1/driving/',
+        ];
+        for (const serverBase of osrmServers) {
+          const timeoutHandle = createTimeoutSignal(6000);
+          try {
+            const url = `${serverBase}${start[0]},${start[1]};${end[0]},${end[1]}?overview=full&geometries=geojson`;
+            const res = await fetch(url, { signal: timeoutHandle.signal });
+            if (!res.ok) continue;
+            const data = await res.json();
+            if (data.code === 'Ok' && data.routes && data.routes[0]) {
+              return {
+                ...seg,
+                path: data.routes[0].geometry.coordinates as [number, number][],
+              };
+            }
+          } catch {
+            // Try next OSRM failover server
+          } finally {
+            timeoutHandle.cleanup();
+          }
         }
         return seg;
       })

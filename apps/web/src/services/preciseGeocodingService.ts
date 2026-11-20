@@ -40,30 +40,30 @@ const INDONESIAN_REFERENCE_LOCATIONS: Array<{
   type: 'city' | 'district' | 'place';
   keywords: string[];
 }> = [
-  { name: 'Kecamatan Mojosari', shortDisplay: 'Mojosari, Mojokerto, Jawa Timur', lat: -7.5179, lng: 112.5581, type: 'district', keywords: ['mojosari', 'kecamatan mojosari', 'pasar mojosari', 'mojokerto'] },
-  { name: 'Kota Mojokerto', shortDisplay: 'Kota Mojokerto, Jawa Timur', lat: -7.4726, lng: 112.4385, type: 'city', keywords: ['mojokerto', 'kota mojokerto'] },
-  { name: 'Kecamatan Ngoro', shortDisplay: 'Ngoro Industri, Mojokerto, Jawa Timur', lat: -7.5701, lng: 112.5912, type: 'district', keywords: ['ngoro', 'kecamatan ngoro', 'ngoro industri'] },
-  { name: 'Kota Surabaya', shortDisplay: 'Surabaya, Jawa Timur', lat: -7.2575, lng: 112.7521, type: 'city', keywords: ['surabaya', 'kota surabaya'] },
-  { name: 'Kabupaten Sidoarjo', shortDisplay: 'Sidoarjo, Jawa Timur', lat: -7.4478, lng: 112.7183, type: 'city', keywords: ['sidoarjo', 'kabupaten sidoarjo'] },
-  { name: 'Kota Malang', shortDisplay: 'Malang, Jawa Timur', lat: -7.9666, lng: 112.6326, type: 'city', keywords: ['malang', 'kota malang'] },
-  { name: 'Kota Batu', shortDisplay: 'Batu, Jawa Timur', lat: -7.8671, lng: 112.5239, type: 'city', keywords: ['batu', 'kota batu'] },
-  { name: 'Kabupaten Jombang', shortDisplay: 'Jombang, Jawa Timur', lat: -7.5468, lng: 112.2331, type: 'city', keywords: ['jombang', 'kabupaten jombang'] },
-  { name: 'Kota Pasuruan', shortDisplay: 'Pasuruan, Jawa Timur', lat: -7.6453, lng: 112.9075, type: 'city', keywords: ['pasuruan', 'kota pasuruan'] },
-  { name: 'Kabupaten Gresik', shortDisplay: 'Gresik, Jawa Timur', lat: -7.1566, lng: 112.6555, type: 'city', keywords: ['gresik', 'kabupaten gresik'] },
-  { name: 'Kabupaten Lamongan', shortDisplay: 'Lamongan, Jawa Timur', lat: -7.1198, lng: 112.4158, type: 'city', keywords: ['lamongan', 'kabupaten lamongan'] },
-  { name: 'Kota Kediri', shortDisplay: 'Kediri, Jawa Timur', lat: -7.8480, lng: 112.0178, type: 'city', keywords: ['kediri', 'kota kediri'] },
-  { name: 'Kota Probolinggo', shortDisplay: 'Probolinggo, Jawa Timur', lat: -7.7543, lng: 113.2159, type: 'city', keywords: ['probolinggo', 'kota probolinggo'] },
-  { name: 'Kabupaten Banyuwangi', shortDisplay: 'Banyuwangi, Jawa Timur', lat: -8.2192, lng: 114.3692, type: 'city', keywords: ['banyuwangi', 'kabupaten banyuwangi'] },
-  { name: 'Kabupaten Jember', shortDisplay: 'Jember, Jawa Timur', lat: -8.1724, lng: 113.6995, type: 'city', keywords: ['jember', 'kabupaten jember'] },
-  { name: 'DKI Jakarta', shortDisplay: 'Jakarta, Indonesia', lat: -6.2088, lng: 106.8456, type: 'city', keywords: ['jakarta', 'dki jakarta'] },
-  { name: 'Kota Bandung', shortDisplay: 'Bandung, Jawa Barat', lat: -6.9175, lng: 107.6191, type: 'city', keywords: ['bandung', 'kota bandung'] },
-  { name: 'Kota Semarang', shortDisplay: 'Semarang, Jawa Tengah', lat: -6.9667, lng: 110.4167, type: 'city', keywords: ['semarang', 'kota semarang'] },
-  { name: 'Kota Surakarta (Solo)', shortDisplay: 'Solo, Jawa Tengah', lat: -7.5755, lng: 110.8243, type: 'city', keywords: ['solo', 'surakarta', 'kota solo'] },
-  { name: 'DI Yogyakarta', shortDisplay: 'Yogyakarta, Indonesia', lat: -7.7956, lng: 110.3695, type: 'city', keywords: ['jogja', 'yogyakarta', 'diy'] },
-  { name: 'Kota Denpasar', shortDisplay: 'Denpasar, Bali', lat: -8.6705, lng: 115.2126, type: 'city', keywords: ['denpasar', 'bali'] },
-  { name: 'Kota Medan', shortDisplay: 'Medan, Sumatera Utara', lat: 3.5952, lng: 98.6722, type: 'city', keywords: ['medan', 'kota medan'] },
-  { name: 'Kota Makassar', shortDisplay: 'Makassar, Sulawesi Selatan', lat: -5.1477, lng: 119.4327, type: 'city', keywords: ['makassar', 'kota makassar'] },
-];
+    { name: 'Kecamatan Mojosari', shortDisplay: 'Mojosari, Mojokerto, Jawa Timur', lat: -7.5179, lng: 112.5581, type: 'district', keywords: ['mojosari', 'kecamatan mojosari', 'pasar mojosari', 'mojokerto'] },
+    { name: 'Kota Mojokerto', shortDisplay: 'Kota Mojokerto, Jawa Timur', lat: -7.4726, lng: 112.4385, type: 'city', keywords: ['mojokerto', 'kota mojokerto'] },
+    { name: 'Kecamatan Ngoro', shortDisplay: 'Ngoro Industri, Mojokerto, Jawa Timur', lat: -7.5701, lng: 112.5912, type: 'district', keywords: ['ngoro', 'kecamatan ngoro', 'ngoro industri'] },
+    { name: 'Kota Surabaya', shortDisplay: 'Surabaya, Jawa Timur', lat: -7.2575, lng: 112.7521, type: 'city', keywords: ['surabaya', 'kota surabaya'] },
+    { name: 'Kabupaten Sidoarjo', shortDisplay: 'Sidoarjo, Jawa Timur', lat: -7.4478, lng: 112.7183, type: 'city', keywords: ['sidoarjo', 'kabupaten sidoarjo'] },
+    { name: 'Kota Malang', shortDisplay: 'Malang, Jawa Timur', lat: -7.9666, lng: 112.6326, type: 'city', keywords: ['malang', 'kota malang'] },
+    { name: 'Kota Batu', shortDisplay: 'Batu, Jawa Timur', lat: -7.8671, lng: 112.5239, type: 'city', keywords: ['batu', 'kota batu'] },
+    { name: 'Kabupaten Jombang', shortDisplay: 'Jombang, Jawa Timur', lat: -7.5468, lng: 112.2331, type: 'city', keywords: ['jombang', 'kabupaten jombang'] },
+    { name: 'Kota Pasuruan', shortDisplay: 'Pasuruan, Jawa Timur', lat: -7.6453, lng: 112.9075, type: 'city', keywords: ['pasuruan', 'kota pasuruan'] },
+    { name: 'Kabupaten Gresik', shortDisplay: 'Gresik, Jawa Timur', lat: -7.1566, lng: 112.6555, type: 'city', keywords: ['gresik', 'kabupaten gresik'] },
+    { name: 'Kabupaten Lamongan', shortDisplay: 'Lamongan, Jawa Timur', lat: -7.1198, lng: 112.4158, type: 'city', keywords: ['lamongan', 'kabupaten lamongan'] },
+    { name: 'Kota Kediri', shortDisplay: 'Kediri, Jawa Timur', lat: -7.8480, lng: 112.0178, type: 'city', keywords: ['kediri', 'kota kediri'] },
+    { name: 'Kota Probolinggo', shortDisplay: 'Probolinggo, Jawa Timur', lat: -7.7543, lng: 113.2159, type: 'city', keywords: ['probolinggo', 'kota probolinggo'] },
+    { name: 'Kabupaten Banyuwangi', shortDisplay: 'Banyuwangi, Jawa Timur', lat: -8.2192, lng: 114.3692, type: 'city', keywords: ['banyuwangi', 'kabupaten banyuwangi'] },
+    { name: 'Kabupaten Jember', shortDisplay: 'Jember, Jawa Timur', lat: -8.1724, lng: 113.6995, type: 'city', keywords: ['jember', 'kabupaten jember'] },
+    { name: 'DKI Jakarta', shortDisplay: 'Jakarta, Indonesia', lat: -6.2088, lng: 106.8456, type: 'city', keywords: ['jakarta', 'dki jakarta'] },
+    { name: 'Kota Bandung', shortDisplay: 'Bandung, Jawa Barat', lat: -6.9175, lng: 107.6191, type: 'city', keywords: ['bandung', 'kota bandung'] },
+    { name: 'Kota Semarang', shortDisplay: 'Semarang, Jawa Tengah', lat: -6.9667, lng: 110.4167, type: 'city', keywords: ['semarang', 'kota semarang'] },
+    { name: 'Kota Surakarta (Solo)', shortDisplay: 'Solo, Jawa Tengah', lat: -7.5755, lng: 110.8243, type: 'city', keywords: ['solo', 'surakarta', 'kota solo'] },
+    { name: 'DI Yogyakarta', shortDisplay: 'Yogyakarta, Indonesia', lat: -7.7956, lng: 110.3695, type: 'city', keywords: ['jogja', 'yogyakarta', 'diy'] },
+    { name: 'Kota Denpasar', shortDisplay: 'Denpasar, Bali', lat: -8.6705, lng: 115.2126, type: 'city', keywords: ['denpasar', 'bali'] },
+    { name: 'Kota Medan', shortDisplay: 'Medan, Sumatera Utara', lat: 3.5952, lng: 98.6722, type: 'city', keywords: ['medan', 'kota medan'] },
+    { name: 'Kota Makassar', shortDisplay: 'Makassar, Sulawesi Selatan', lat: -5.1477, lng: 119.4327, type: 'city', keywords: ['makassar', 'kota makassar'] },
+  ];
 
 class PreciseGeocodingService {
   private cache: Map<string, { data: PreciseLocationInfo; timestamp: number }> = new Map();
@@ -143,9 +143,9 @@ class PreciseGeocodingService {
     const a =
       Math.sin(dLat / 2) * Math.sin(dLat / 2) +
       Math.cos((lat1 * Math.PI) / 180) *
-        Math.cos((lat2 * Math.PI) / 180) *
-        Math.sin(dLon / 2) *
-        Math.sin(dLon / 2);
+      Math.cos((lat2 * Math.PI) / 180) *
+      Math.sin(dLon / 2) *
+      Math.sin(dLon / 2);
     const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
     return R * c;
   }
@@ -330,14 +330,14 @@ class PreciseGeocodingService {
         loadedFromProxy || results.length > 0 || Date.now() < this.nominatimCooldownUntil
           ? null
           : await fetch(
-              `https://nominatim.openstreetmap.org/search?format=jsonv2&q=${encodeURIComponent(trimmed)}&countrycodes=id&limit=8&addressdetails=1`,
-              {
-                headers: {
-                  'Accept-Language': 'id,en;q=0.8',
-                },
-                signal: controller.signal,
-              }
-            );
+            `https://nominatim.openstreetmap.org/search?format=jsonv2&q=${encodeURIComponent(trimmed)}&countrycodes=id&limit=8&addressdetails=1`,
+            {
+              headers: {
+                'Accept-Language': 'id,en;q=0.8',
+              },
+              signal: controller.signal,
+            }
+          );
       clearTimeout(timeoutId);
 
       if (res && res.status === 429) {
@@ -359,8 +359,8 @@ class PreciseGeocodingService {
                   item.type === 'city' || item.type === 'town'
                     ? 'city'
                     : item.type === 'district' || item.type === 'suburb'
-                    ? 'district'
-                    : 'place';
+                      ? 'district'
+                      : 'place';
 
                 results.push({
                   id: `osm-${item.place_id}`,
@@ -457,6 +457,59 @@ class PreciseGeocodingService {
     }
 
     // 2. Fallback: OpenStreetMap Nominatim (without forbidden browser User-Agent header)
+    // 2. Client Failover: ArcGIS World GeocodeServer (high reliability, no browser User-Agent issue)
+    try {
+      const arcRes = await fetch(
+        `https://geocode.arcgis.com/arcgis/rest/services/World/GeocodeServer/reverseGeocode?f=json&location=${lng},${lat}&langCode=ID`,
+        { signal: AbortSignal.timeout(4500) }
+      );
+      if (arcRes.ok) {
+        const arcJson = await arcRes.json();
+        const addr = arcJson?.address;
+        if (addr && !arcJson?.error && (addr.City || addr.Subregion || addr.Region || addr.LongLabel)) {
+          const rawVillage = addr.Neighborhood || addr.District || addr.City;
+          const village = rawVillage ? this.formatTitleCase(String(rawVillage).replace(/^(desa|kelurahan)\s+/i, '')) : undefined;
+          const rawSubDistrict =
+            addr.District && rawVillage && addr.District !== rawVillage
+              ? addr.District
+              : (addr.City && addr.City !== rawVillage ? addr.City : addr.District || addr.Subregion);
+          const subDistrict = rawSubDistrict ? this.formatTitleCase(String(rawSubDistrict).replace(/^kecamatan\s+/i, '')) : undefined;
+          let city = addr.Subregion || addr.City ? this.formatTitleCase(String(addr.Subregion || addr.City)) : undefined;
+          if (city && !city.startsWith('Kabupaten') && !city.startsWith('Kota')) {
+            city = `Kabupaten ${city}`;
+          }
+          const province = addr.Region ? this.formatTitleCase(String(addr.Region)) : 'Indonesia';
+          const road = addr.Address && !/^[-+]?\d+\.\d+/.test(String(addr.Address)) ? this.formatTitleCase(String(addr.Address)) : undefined;
+
+          const parts: string[] = [];
+          if (village) parts.push(`Desa ${village}`);
+          if (subDistrict && subDistrict !== village) parts.push(`Kec. ${subDistrict}`);
+          if (city) parts.push(city);
+
+          const arcResult: PreciseLocationInfo = {
+            village: village ? `Desa ${village}` : undefined,
+            subDistrict: subDistrict ? `Kecamatan ${subDistrict}` : undefined,
+            city,
+            province,
+            road,
+            postcode: addr.Postal || undefined,
+            country: 'Indonesia',
+            fullAddress: addr.LongLabel || parts.join(', '),
+            shortDisplay: parts.join(', ') || addr.LongLabel || `${lat.toFixed(4)}, ${lng.toFixed(4)}`,
+            accuracyM,
+            source: 'arcgis',
+            lat,
+            lng,
+          };
+          this.saveReverseCache(cacheKey, arcResult);
+          return arcResult;
+        }
+      }
+    } catch {
+      // Fall through to Nominatim / BigDataCloud when ArcGIS fails.
+    }
+
+    // 3. Fallback: OpenStreetMap Nominatim (without forbidden browser User-Agent header)
     if (Date.now() >= this.nominatimCooldownUntil) {
       try {
         const controller = new AbortController();
@@ -476,81 +529,81 @@ class PreciseGeocodingService {
         if (res.status === 429) {
           this.nominatimCooldownUntil = Date.now() + 60 * 1000;
         } else if (res.ok) {
-        const data = await res.json();
-        if (data && data.address) {
-          const addr = data.address;
+          const data = await res.json();
+          if (data && data.address) {
+            const addr = data.address;
 
-          // Village / Kelurahan / Dusun
-          const rawVillage =
-            addr.village ||
-            addr.suburb ||
-            addr.neighbourhood ||
-            addr.hamlet ||
-            addr.quarter ||
-            addr.residential;
-          const village = rawVillage
-            ? this.formatTitleCase(rawVillage.replace(/^(desa|kelurahan)\s+/i, ''))
-            : undefined;
+            // Village / Kelurahan / Dusun
+            const rawVillage =
+              addr.village ||
+              addr.suburb ||
+              addr.neighbourhood ||
+              addr.hamlet ||
+              addr.quarter ||
+              addr.residential;
+            const village = rawVillage
+              ? this.formatTitleCase(rawVillage.replace(/^(desa|kelurahan)\s+/i, ''))
+              : undefined;
 
-          // Sub-District / Kecamatan
-          const rawSubDistrict =
-            addr.municipality ||
-            addr.city_district ||
-            addr.subdistrict ||
-            addr.town ||
-            addr.district;
-          const subDistrict = rawSubDistrict
-            ? this.formatTitleCase(rawSubDistrict.replace(/^kecamatan\s+/i, ''))
-            : undefined;
+            // Sub-District / Kecamatan
+            const rawSubDistrict =
+              addr.municipality ||
+              addr.city_district ||
+              addr.subdistrict ||
+              addr.town ||
+              addr.district;
+            const subDistrict = rawSubDistrict
+              ? this.formatTitleCase(rawSubDistrict.replace(/^kecamatan\s+/i, ''))
+              : undefined;
 
-          // City / Kabupaten / Kota
-          const rawCity =
-            addr.city ||
-            addr.county ||
-            addr.regency ||
-            addr.state_district;
-          let city = rawCity ? this.formatTitleCase(rawCity) : undefined;
-          if (city && !city.startsWith('Kabupaten') && !city.startsWith('Kota')) {
-            city = `Kabupaten ${city}`;
+            // City / Kabupaten / Kota
+            const rawCity =
+              addr.city ||
+              addr.county ||
+              addr.regency ||
+              addr.state_district;
+            let city = rawCity ? this.formatTitleCase(rawCity) : undefined;
+            if (city && !city.startsWith('Kabupaten') && !city.startsWith('Kota')) {
+              city = `Kabupaten ${city}`;
+            }
+
+            // Province
+            const province = addr.state ? this.formatTitleCase(addr.state) : 'Jawa Timur';
+
+            // Road / Street
+            const road = addr.road || addr.industrial || addr.commercial || addr.highway;
+
+            // Short summary display
+            const parts: string[] = [];
+            if (village) parts.push(`Desa ${village}`);
+            if (subDistrict && subDistrict !== village) parts.push(`Kec. ${subDistrict}`);
+            if (city) parts.push(city);
+
+            const shortDisplay = parts.length > 0 ? parts.join(', ') : data.display_name.split(',').slice(0, 3).join(',');
+
+            const result: PreciseLocationInfo = {
+              village: village ? `Desa ${village}` : undefined,
+              subDistrict: subDistrict ? `Kecamatan ${subDistrict}` : undefined,
+              city,
+              province,
+              road: road ? this.formatTitleCase(road) : undefined,
+              postcode: addr.postcode,
+              country: 'Indonesia',
+              fullAddress: data.display_name,
+              shortDisplay,
+              accuracyM,
+              source: 'nominatim',
+              lat,
+              lng,
+            };
+
+            this.saveReverseCache(cacheKey, result);
+            return result;
           }
-
-          // Province
-          const province = addr.state ? this.formatTitleCase(addr.state) : 'Jawa Timur';
-
-          // Road / Street
-          const road = addr.road || addr.industrial || addr.commercial || addr.highway;
-
-          // Short summary display
-          const parts: string[] = [];
-          if (village) parts.push(`Desa ${village}`);
-          if (subDistrict && subDistrict !== village) parts.push(`Kec. ${subDistrict}`);
-          if (city) parts.push(city);
-
-          const shortDisplay = parts.length > 0 ? parts.join(', ') : data.display_name.split(',').slice(0, 3).join(',');
-
-          const result: PreciseLocationInfo = {
-            village: village ? `Desa ${village}` : undefined,
-            subDistrict: subDistrict ? `Kecamatan ${subDistrict}` : undefined,
-            city,
-            province,
-            road: road ? this.formatTitleCase(road) : undefined,
-            postcode: addr.postcode,
-            country: 'Indonesia',
-            fullAddress: data.display_name,
-            shortDisplay,
-            accuracyM,
-            source: 'nominatim',
-            lat,
-            lng,
-          };
-
-          this.saveReverseCache(cacheKey, result);
-          return result;
         }
+      } catch (nominatimErr) {
+        console.warn('Nominatim reverse geocode fallback triggered:', nominatimErr);
       }
-    } catch (nominatimErr) {
-      console.warn('Nominatim reverse geocode fallback triggered:', nominatimErr);
-    }
     }
 
     // 2. Secondary: BigDataCloud Client-side Reverse Geocoding

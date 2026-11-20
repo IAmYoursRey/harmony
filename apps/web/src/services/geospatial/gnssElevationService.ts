@@ -183,12 +183,29 @@ export class GnssElevationService {
       try {
         const controller = new AbortController();
         const timeoutId = setTimeout(() => controller.abort(), 6000);
+        try {
+          const proxyRes = await fetch(`/api/spatial/elevation?lat=${lat.toFixed(4)}&lng=${lng.toFixed(4)}`, {
+            signal: AbortSignal.timeout(5000),
+          });
+          if (proxyRes.ok) {
+            const pJson = await proxyRes.json();
+            const rawProxyElev = pJson?.results?.[0]?.elevation ?? pJson?.elevation?.[0];
+            if (typeof rawProxyElev === 'number' && Number.isFinite(rawProxyElev)) {
+              const val = Math.round(rawProxyElev * 10) / 10;
+              this.persistElevationEntry(key, val, Date.now() + 24 * 3600 * 1000);
+              return val;
+            }
+          }
+        } catch {
+          // Fall back to direct elevation APIs when proxy is unavailable
+        }
 
         const res = await fetch(`https://api.open-meteo.com/v1/elevation?latitude=${lat.toFixed(4)}&longitude=${lng.toFixed(4)}`, {
           signal: controller.signal,
-        });
-        clearTimeout(timeoutId);
-
+          if(this.rateLimitCooldownUntil <= Date.now()) {
+            const res = await fetch(`https://api.open-meteo.com/v1/elevation?latitude=${lat.toFixed(4)}&longitude=${lng.toFixed(4)}`, {
+              signal: AbortSignal.timeout(5000),
+            });
         if (res.ok) {
           const data = await res.json();
           if (Array.isArray(data?.elevation) && typeof data.elevation[0] === 'number') {
@@ -198,33 +215,55 @@ export class GnssElevationService {
           }
         } else if (res.status === 429) {
           this.rateLimitCooldownUntil = Date.now() + 60_000;
-          if (cached) return cached.elevation;
         }
-      } catch {
-        // Network fallback
-      } finally {
-        this.inFlightElevation.delete(key);
       }
-      return cached?.elevation ?? null;
-    })();
 
-    this.inFlightElevation.set(key, promise);
-    return promise;
-  }
+        const openElevRes = await fetch(`https://api.open-elevation.com/api/v1/lookup?locations=${lat.toFixed(4)},${lng.toFixed(4)}`, {
+        signal: AbortSignal.timeout(6000),
+      });
+      clearTimeout(timeoutId);
+
+      if (res.ok) {
+        const data = await res.json();
+        if (Array.isArray(data?.elevation) && typeof data.elevation[0] === 'number') {
+          const val = Math.round(data.elevation[0] * 10) / 10;
+          if (openElevRes.ok) {
+            const elevJson = await openElevRes.json();
+            const rawElev = elevJson?.results?.[0]?.elevation;
+            if (typeof rawElev === 'number' && Number.isFinite(rawElev)) {
+              const val = Math.round(rawElev * 10) / 10;
+              this.persistElevationEntry(key, val, Date.now() + 24 * 3600 * 1000);
+              return val;
+            }
+          } else if (res.status === 429) {
+            this.rateLimitCooldownUntil = Date.now() + 60_000;
+            if (cached) return cached.elevation;
+          }
+        } catch {
+          // Network fallback
+        } finally {
+          this.inFlightElevation.delete(key);
+        }
+        return cached?.elevation ?? null;
+      }) ();
+
+      this.inFlightElevation.set(key, promise);
+      return promise;
+    }
 
   /**
    * Prompts user for high-accuracy GPS permission, pinpoints position,
    * measures altitude and compiles an elevation report.
    */
   public buildElevationReport(params: {
-    lat: number;
-    lng: number;
-    accuracyM: number;
-    deviceAlt: number | null;
-    demAlt: number | null;
-    locationInfo?: PreciseLocationInfo;
-    elevationError?: string;
-  }): GnssElevationReport {
+      lat: number;
+      lng: number;
+      accuracyM: number;
+      deviceAlt: number | null;
+      demAlt: number | null;
+      locationInfo?: PreciseLocationInfo;
+      elevationError?: string;
+    }): GnssElevationReport {
     const { lat, lng, accuracyM, deviceAlt, demAlt, locationInfo, elevationError } = params;
     let finalAltitudeM: number | null;
     let altitudeSource: GnssElevationReport['altitudeSource'];
@@ -252,9 +291,9 @@ export class GnssElevationService {
     const topo = finalAltitudeM !== null
       ? this.getTopographyZone(finalAltitudeM)
       : {
-          zone: 'Data Elevasi Tidak Tersedia',
-          description: resolvedError || 'Elevasi medan tidak dapat dipastikan karena GPS tidak melaporkan ketinggian dan API DEM gagal dihubungi.',
-        };
+        zone: 'Data Elevasi Tidak Tersedia',
+        description: resolvedError || 'Elevasi medan tidak dapat dipastikan karena GPS tidak melaporkan ketinggian dan API DEM gagal dihubungi.',
+      };
     const pressure = finalAltitudeM !== null ? this.calculateBarometricPressure(finalAltitudeM) : null;
     const boilingPoint = finalAltitudeM !== null ? this.calculateBoilingPoint(finalAltitudeM) : null;
 
@@ -271,10 +310,10 @@ export class GnssElevationService {
     const sourceDisplay = altitudeSource === 'sensor_fusion'
       ? 'Fusi Sensor Barometrik & Model DEM SRTM'
       : altitudeSource === 'device_sensor'
-      ? 'Sensor GNSS Perangkat'
-      : altitudeSource === 'dem_srtm_model'
-      ? 'Model Digital Elevasi (DEMNAS/SRTM)'
-      : 'Tidak tersedia (Sensor & DEM Offline)';
+        ? 'Sensor GNSS Perangkat'
+        : altitudeSource === 'dem_srtm_model'
+          ? 'Model Digital Elevasi (DEMNAS/SRTM)'
+          : 'Tidak tersedia (Sensor & DEM Offline)';
 
     const reportLines = [
       '========================================',

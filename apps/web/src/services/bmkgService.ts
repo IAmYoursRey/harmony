@@ -468,6 +468,92 @@ export class BMKGService {
     }
   }
 
+  async getLivePrakiraanCuaca(
+    adm4 = '35.16.05.2008',
+    signal?: AbortSignal
+  ): Promise<
+    LiveFeedResult<{
+      adm4: string;
+      lokasi: { desa?: string; kecamatan?: string; kotkab?: string; provinsi?: string } | null;
+      slots: Array<{
+        localDatetime: string | null;
+        utcDatetime: string | null;
+        temperatureC: number | null;
+        humidityPct: number | null;
+        weatherDesc: string;
+        weatherCode: string | number | null;
+        windSpeedKmh: number | null;
+        windDir: string | null;
+        cloudCoverPct: number | null;
+        visibilityText: string | null;
+      }>;
+    } | null>
+  > {
+    try {
+      const body = await apiClient.get<any>(
+        `/api/bmkg/prakiraan-cuaca?adm4=${encodeURIComponent(adm4)}`,
+        { ttl: 0, signal }
+      );
+      if (body?.success === true && Array.isArray(body?.slots) && body.slots.length > 0) {
+        return {
+          status: 'LIVE',
+          provider: body.provider || 'BMKG API Terbuka (api.bmkg.go.id)',
+          fetchedAt: body.fetchedAt || new Date().toISOString(),
+          data: {
+            adm4: body.adm4 || adm4,
+            lokasi: body.lokasi || null,
+            slots: body.slots,
+          },
+          error: null,
+        };
+      }
+      throw new Error(body?.error || 'Respons prakiraan cuaca BMKG tidak valid.');
+    } catch (err: any) {
+      return {
+        status: 'ERROR',
+        provider: 'BMKG API Terbuka (api.bmkg.go.id)',
+        fetchedAt: null,
+        data: null,
+        error: err?.message || 'Gagal mengambil prakiraan cuaca BMKG live.',
+      };
+    }
+  }
+
+  async getLiveNowcastAlerts(signal?: AbortSignal): Promise<
+    LiveFeedResult<
+      Array<{
+        id: string;
+        title: string;
+        province: string;
+        description: string;
+        link: string;
+        pubDate: string | null;
+      }>
+    >
+  > {
+    try {
+      const body = await apiClient.get<any>('/api/bmkg/peringatan-dini', { ttl: 0, signal });
+      if (body?.success === true && Array.isArray(body?.items)) {
+        return {
+          status: 'LIVE',
+          provider: body.provider || 'BMKG Nowcast Resmi (bmkg.go.id)',
+          fetchedAt: body.fetchedAt || new Date().toISOString(),
+          data: body.items,
+          error: null,
+        };
+      }
+      throw new Error(body?.error || 'Respons nowcast BMKG tidak valid.');
+    } catch (err: any) {
+      return {
+        status: 'ERROR',
+        provider: 'BMKG Nowcast Resmi (bmkg.go.id)',
+        fetchedAt: null,
+        data: [],
+        error: err?.message || 'Gagal mengambil peringatan dini cuaca BMKG live.',
+      };
+    }
+  }
+
   async getSatelliteProducts(signal?: AbortSignal): Promise<BMKGSatelliteProduct[]> {
     try {
       const res = await this.fetchBody('/api/bmkg/satellite/products', signal);

@@ -387,10 +387,12 @@ class CctvService {
 
   resolveAlias(cameraId) {
     const ALIAS_MAP = {
+      'pelindung-05d5d4bd-05d6-4816-9cbf-e186c41ac638': 'pelindung-e5acec7b-fdde-428b-bb13-014a41fc52c1',
       'semarang-simpang-lima': 'pantausemar-310',
       'cctv-smg-simpang-lima': 'pantausemar-310',
-      'jogja-titik-nol-km': 'jogja-991',
-      'cctv-jogja-titik-nol': 'jogja-991',
+      'jogja-titik-nol-km': 'pantausemar-8393',
+      'cctv-jogja-titik-nol': 'pantausemar-8393',
+      'jogja-991': 'pantausemar-8393',
       'surabaya-joyoboyo': 'sits-sby-bundaran-waru-arah-tol-ptz',
       'cctv-sby-joyoboyo': 'sits-sby-bundaran-waru-arah-tol-ptz',
       'cctv-tol-cikatama-70': 'pantausemar-6601',
@@ -447,6 +449,32 @@ class CctvService {
     };
   }
 
+  rewriteHlsPlaylist(rawM3u8, baseUrl) {
+    return rawM3u8
+      .split('\n')
+      .map((line) => {
+        const trimmed = line.trim();
+        if (!trimmed) return line;
+        if (trimmed.startsWith('#')) {
+          return line.replace(/URI="([^"]+)"/g, (_m, uri) => {
+            try {
+              const abs = new URL(uri, baseUrl).href;
+              return `URI="/api/spatial/traffic/cctv-proxy?url=${encodeURIComponent(abs)}"`;
+            } catch {
+              return `URI="${uri}"`;
+            }
+          });
+        }
+        try {
+          const absUrl = new URL(trimmed, baseUrl).href;
+          return `/api/spatial/traffic/cctv-proxy?url=${encodeURIComponent(absUrl)}`;
+        } catch {
+          return line;
+        }
+      })
+      .join('\n');
+  }
+
   async fetchHlsPlaylistDirect(targetId) {
     const targetUrl = `${CCTV_NUSANTARA_BASE}/api/stream?id=${encodeURIComponent(targetId)}`;
     const controller = new AbortController();
@@ -479,18 +507,7 @@ class CctvService {
         };
       }
 
-      // Preserve /api/stream?t= relative paths since they are handled natively by /api/stream
-      const lines = rawM3u8.split('\n');
-      const rewritten = lines.map((line) => {
-        const trimmed = line.trim();
-        if (trimmed.startsWith('/api/stream?t=') || trimmed.startsWith('/api/stream')) {
-          return trimmed;
-        }
-        if (trimmed.startsWith('http://') || trimmed.startsWith('https://')) {
-          return `/api/spatial/traffic/cctv-proxy?url=${encodeURIComponent(trimmed)}`;
-        }
-        return line;
-      }).join('\n');
+      const rewritten = this.rewriteHlsPlaylist(rawM3u8, targetUrl);
 
       return {
         ok: true,
@@ -574,17 +591,7 @@ class CctvService {
       let finalBuffer = rawBuffer;
       if (isPlaylist) {
         const text = rawBuffer.toString('utf8');
-        const lines = text.split('\n');
-        const rewritten = lines.map((line) => {
-          const trimmed = line.trim();
-          if (trimmed.startsWith('/api/stream?t=') || trimmed.startsWith('/api/stream')) {
-            return trimmed;
-          }
-          if (trimmed.startsWith('http://') || trimmed.startsWith('https://')) {
-            return `/api/spatial/traffic/cctv-proxy?url=${encodeURIComponent(trimmed)}`;
-          }
-          return line;
-        }).join('\n');
+        const rewritten = this.rewriteHlsPlaylist(text, targetUrl);
         finalBuffer = Buffer.from(rewritten, 'utf8');
       }
 

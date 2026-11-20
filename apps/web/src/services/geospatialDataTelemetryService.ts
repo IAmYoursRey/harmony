@@ -179,7 +179,7 @@ class GeospatialDataTelemetryService {
     { id: 'nasa_firms', name: 'NASA FIRMS — Anomali termal satelit VIIRS/MODIS', category: 'Satellite Hotspot', url: '/api/spatial/hotspots?bbox=94,-11,141.5,6.5&source=VIIRS_SNPP_NRT&dayRange=1' },
     { id: 'usgs_earthquake', name: 'USGS — Gempa bumi global M2.5+ terkini', category: 'BMKG Radar/InaTEWS', url: 'https://earthquake.usgs.gov/earthquakes/feed/v1.0/summary/2.5_week.geojson' },
     { id: 'tomtom_traffic', name: 'TomTom Traffic Flow Proxy — Kecepatan ruas jalan', category: 'Traffic Flow', url: '/api/spatial/traffic/flow?lat=-6.200&lng=106.816' },
-    { id: 'elevation_dem', name: 'Open-Elevation DEM — Profil elevasi dan topografi', category: 'Elevation DEM', url: 'https://api.open-elevation.com/api/v1/lookup?locations=-7.25,112.75' },
+    { id: 'elevation_dem', name: 'Open-Meteo & Open-Elevation DEM — Profil elevasi proxy', category: 'Elevation DEM', url: '/api/spatial/elevation?lat=-7.25&lng=112.75' },
     { id: 'met_norway_fallback', name: 'MET Norway — Prakiraan fallback cuaca', category: 'Weather Model', url: 'https://api.met.no/weatherapi/locationforecast/2.0/compact?lat=-7.25&lon=112.75' },
     { id: 'open_meteo_model_bom', name: 'BoM ACCESS-G — Australia Bureau of Meteorology', category: 'Neighboring NWP', url: 'https://api.open-meteo.com/v1/forecast?latitude=-7.25&longitude=112.75&hourly=temperature_2m&forecast_days=14&models=bom_access_global&timeformat=unixtime&timezone=auto' },
     { id: 'open_meteo_model_cma', name: 'CMA GRAPES — China Meteorological Administration', category: 'Neighboring NWP', url: 'https://api.open-meteo.com/v1/forecast?latitude=-7.25&longitude=112.75&hourly=temperature_2m&forecast_days=14&models=cma_grapes_global&timeformat=unixtime&timezone=auto' },
@@ -661,6 +661,17 @@ class GeospatialDataTelemetryService {
     }
     if (id === 'ai_nwp' && data && data.data.isAiVerified !== true) {
       attempt.status = 'PARTIAL'; attempt.error = 'Hasil hanya perhitungan lokal; AI eksternal tidak berhasil atau tidak dikonfigurasi.';
+    }
+    if (id === 'open_meteo_model_bom' && attempt.status === 'FAILED' && attempt.httpStatus === 200) {
+      const aifsUrl = `https://api.open-meteo.com/v1/forecast?latitude=${Number(lat.toFixed(4))}&longitude=${Number(lng.toFixed(4))}&hourly=temperature_2m&forecast_days=10&models=ecmwf_aifs025_single&timeformat=unixtime&timezone=auto`;
+      const { attempt: aifsAttempt } = await fetchCheckedJson('open_meteo_model_aifs_failover', aifsUrl, d => {
+        const v = validateOpenMeteoModelPayload(d, lat, lng, 'ecmwf_aifs025_single');
+        return v.valid ? null : (v.error || 'Model ECMWF AIFS failover tidak valid.');
+      }, { cache: 'no-store' });
+      if (aifsAttempt.status === 'SUCCESS') {
+        attempt.status = 'PARTIAL';
+        attempt.error = 'Cakupan BoM ACCESS-G kosong di koordinat tropis; failover ECMWF AIFS 0.25° aktif ONLINE.';
+      }
     }
     this.applyAttempt(attempt);
     ep.responseSnippet = data ? JSON.stringify(data).slice(0, 160) : undefined;

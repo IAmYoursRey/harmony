@@ -480,12 +480,19 @@ let noaaCache = {
   ensoOni: { data: null, timestamp: 0 },
 };
 
+let bmkgPublicCache = {
+  prakiraan: new Map(),
+  nowcast: { data: null, timestamp: 0 },
+};
+
 const NOAA_CACHE_TTL_MS = 10 * 60 * 1000;
 
 export function __resetBmkgNoaaCacheForTest() {
   noaaCache.metar.clear();
   noaaCache.kpIndex = { data: null, timestamp: 0 };
   noaaCache.ensoOni = { data: null, timestamp: 0 };
+  bmkgPublicCache.prakiraan.clear();
+  bmkgPublicCache.nowcast = { data: null, timestamp: 0 };
 }
 
 router.get("/aviation/metar", async (req, res) => {
@@ -783,6 +790,160 @@ router.get("/climate/enso-oni", async (req, res) => {
       fetchedAt: null,
       data: null,
       error: `Gagal mengambil data ENSO ONI live (${err?.message || "Fetch error"}).`,
+    });
+  }
+});
+
+// Live BMKG Public Weather Forecast by ADM4 kode wilayah
+router.get("/prakiraan-cuaca", async (req, res) => {
+  const adm4Raw = String(req.query.adm4 || "35.16.05.2008").trim();
+  if (!/^\d{2}\.\d{2}\.\d{2}\.\d{4}$/.test(adm4Raw)) {
+    return res.status(400).json({
+      success: false,
+      dataStatus: "ERROR",
+      error: "Parameter adm4 tidak valid. Gunakan format XX.XX.XX.XXXX.",
+    });
+  }
+
+  const now = Date.now();
+  const cached = bmkgPublicCache.prakiraan.get(adm4Raw);
+  if (cached && now - cached.timestamp < NOAA_CACHE_TTL_MS) {
+    return res.json({ ...cached.payload, cached: true });
+  }
+
+  const upstreamUrl = `https://api.bmkg.go.id/publik/prakiraan-cuaca?adm4=${encodeURIComponent(adm4Raw)}`;
+  try {
+    const response = await fetch(upstreamUrl, {
+      headers: { "Accept": "application/json", "User-Agent": "Harmony-Spatial-Engine/2.0" },
+      signal: AbortSignal.timeout(8000),
+    });
+    if (!response.ok) {
+      throw new Error(`HTTP_${response.status}`);
+    }
+    const json = await response.json();
+    const rawPeriods = Array.isArray(json?.data?.[0]?.cuaca) ? json.data[0].cuaca : [];
+    const slots = rawPeriods
+      .flat()
+      .filter((s) => s && typeof s === "object")
+      .map((s) => ({
+        localDatetime: s.local_datetime || null,
+        utcDatetime: s.utc_datetime || s.datetime || null,
+        temperatureC: typeof s.t === "number" ? s.t : Number.isFinite(Number(s.t)) ? Number(s.t) : null,
+        humidityPct: typeof s.hu === "number" ? s.hu : Number.isFinite(Number(s.hu)) ? Number(s.hu) : null,
+        weatherDesc: s.weather_desc || s.weather_desc_en || "Tidak diketahui",
+        weatherCode: s.weather ?? null,
+        windSpeedKmh: typeof s.ws === "number" ? s.ws : Number.isFinite(Number(s.ws)) ? Number(s.ws) : null,
+        windDir: s.wd || null,
+        cloudCoverPct: typeof s.tcc === "number" ? s.tcc : Number.isFinite(Number(s.tcc)) ? Number(s.tcc) : null,
+        visibilityText: s.vs_text || null,
+      }));
+
+    if (slots.length === 0) {
+      throw new Error("EMPTY_BMKG_PRAKIRAAN");
+    }
+
+    const lokasi = json.lokasi || json.data?.[0]?.lokasi || null;
+    const payload = {
+      success: true,
+      dataStatus: "LIVE",
+      cached: false,
+      provider: "BMKG API Terbuka (api.bmkg.go.id)",
+      adm4: adm4Raw,
+      lokasi,
+      count: slots.length,
+      slots,
+      fetchedAt: new Date(now).toISOString(),
+    };
+    bmkgPublicCache.prakiraan.set(adm4Raw, { payload, timestamp: now });
+    return res.json(payload);
+  } catch (err) {
+    return res.status(502).json({
+      success: false,
+      dataStatus: "ERROR",
+      provider: "BMKG API Terbuka (api.bmkg.go.id)",
+      adm4: adm4Raw,
+      slots: [],
+      error: `Gagal mengambil prakiraan cuaca BMKG live (${err?.message || "Fetch error"}).`,
+    });
+  }
+});
+
+function cleanBmkgRssText(raw = "") {
+  return String(raw)
+    .replace(/<!\[CDATA\[([\s\S]*?)\]\]>/g, "$1")
+    .replace(/<[^>]+>/g, " ")
+    .replace(/&amp;/g, "&")
+    .replace(/&lt;/g, "<")
+    .replace(/&gt;/g, ">")
+    .replace(/&quot;/g, '"')
+    .replace(/&#39;/g, "'")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+// Live BMKG Peringatan Dini Cuaca (Nowcast RSS)
+router.get("/peringatan-dini", async (_req, res) => {
+  const now = Date.now();
+  if (bmkgPublicCache.nowcast.data && now - bmkgPublicCache.nowcast.timestamp < NOAA_CACHE_TTL_MS) {
+    return res.json({ ...bmkgPublicCache.nowcast.data, cached: true });
+  }
+
+  const upstreamUrl = "https://www.bmkg.go.id/alerts/nowcast/id";
+  try {
+    const response = await fetch(upstreamUrl, {
+      headers: {
+        "Accept": "application/rss+xml, application/xml, text/xml, */*",
+        "User-Agent": "Harmony-Spatial-Engine/2.0",
+      },
+      signal: AbortSignal.timeout(8000),
+    });
+    if (!response.ok) {
+      throw new Error(`HTTP_${response.status}`);
+    }
+    const xml = await response.text();
+    if (!xml || (!xml.includes("<rss") && !xml.includes("<channel>"))) {
+      throw new Error("INVALID_BMKG_NOWCAST_XML");
+    }
+
+    const itemMatches = [...xml.matchAll(/<item>([\s\S]*?)<\/item>/gi)];
+    const items = itemMatches.map((m, idx) => {
+      const block = m[1];
+      const title = cleanBmkgRssText(block.match(/<title>([\s\S]*?)<\/title>/i)?.[1] || "");
+      const link = cleanBmkgRssText(block.match(/<link>([\s\S]*?)<\/link>/i)?.[1] || "");
+      const description = cleanBmkgRssText(block.match(/<description>([\s\S]*?)<\/description>/i)?.[1] || "");
+      const pubDate = cleanBmkgRssText(block.match(/<pubDate>([\s\S]*?)<\/pubDate>/i)?.[1] || "");
+      const author = cleanBmkgRssText(block.match(/<author>([\s\S]*?)<\/author>/i)?.[1] || "");
+      const provinceMatch = title.match(/(?:di|Provinsi)\s+([A-Za-z\s]+)$/i);
+      const province = provinceMatch ? provinceMatch[1].trim() : (author || "Indonesia");
+      return {
+        id: `bmkg-nowcast-${idx + 1}`,
+        title: title || "Peringatan Dini Cuaca BMKG",
+        province,
+        description,
+        link: link || "https://www.bmkg.go.id/cuaca/peringatan-dini-cuaca.bmkg",
+        pubDate: pubDate || null,
+      };
+    });
+
+    const payload = {
+      success: true,
+      dataStatus: "LIVE",
+      cached: false,
+      provider: "BMKG Nowcast Resmi (bmkg.go.id/alerts/nowcast/id)",
+      count: items.length,
+      items,
+      fetchedAt: new Date(now).toISOString(),
+    };
+    bmkgPublicCache.nowcast = { data: payload, timestamp: now };
+    return res.json(payload);
+  } catch (err) {
+    return res.status(502).json({
+      success: false,
+      dataStatus: "ERROR",
+      provider: "BMKG Nowcast Resmi (bmkg.go.id/alerts/nowcast/id)",
+      count: 0,
+      items: [],
+      error: `Gagal mengambil peringatan dini cuaca BMKG live (${err?.message || "Fetch error"}).`,
     });
   }
 });

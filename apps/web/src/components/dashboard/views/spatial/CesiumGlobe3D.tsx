@@ -88,6 +88,7 @@ export interface CesiumGlobe3DProps {
   rainviewerPath?: string;
   rainviewerHost?: string;
   rainviewerSatellitePath?: string;
+  gibsAvailableTime?: string | null;
   globeType?: 'globe' | 'perspective' | 'cesium';
   onSelectSensor?: (sensor: EarthSensorNode) => void;
   quakeSnapshot?: EarthquakeSnapshot | null;
@@ -138,6 +139,7 @@ export function CesiumGlobe3D({
   rainviewerPath = '',
   rainviewerHost = 'https://tilecache.rainviewer.com',
   rainviewerSatellitePath = '',
+  gibsAvailableTime = null,
   globeType = 'globe',
   onSelectSensor,
   quakeSnapshot,
@@ -630,18 +632,31 @@ export function CesiumGlobe3D({
       weatherRadarLayerRef.current = null;
     }
 
-    const isSat = weatherMapOverlay === 'satellite';
-    const hasPath = Boolean(rainviewerPath || (isSat && rainviewerSatellitePath));
+    const isSat = weatherMapOverlay === 'satellite' || weatherMapOverlay === 'bmkg_sat';
+    const hasSatTile = isSat && Boolean(gibsAvailableTime || rainviewerSatellitePath);
+    const hasRadarTile = !isSat && Boolean(rainviewerPath);
 
-    if (weatherMapOverlay !== 'none' && hasPath) {
+    if (weatherMapOverlay !== 'none' && (hasSatTile || hasRadarTile)) {
       try {
-        const activePath = isSat && rainviewerSatellitePath ? rainviewerSatellitePath : rainviewerPath;
-        const host = rainviewerHost || 'https://tilecache.rainviewer.com';
-        const colorScheme = isSat ? '0' : '2';
+        let tileUrl = '';
+        let maximumLevel = 7;
+        let credit = 'RainViewer Realtime Weather Radar';
+
+        if (isSat && gibsAvailableTime) {
+          tileUrl = `https://gibs.earthdata.nasa.gov/wmts/epsg3857/best/Himawari_AHI_Band13_Clean_Infrared/default/${gibsAvailableTime}/GoogleMapsCompatible_Level6/{z}/{y}/{x}.png`;
+          maximumLevel = 6;
+          credit = 'NASA GIBS / JMA Himawari-9 Band 13 IR';
+        } else {
+          const activePath = isSat && rainviewerSatellitePath ? rainviewerSatellitePath : rainviewerPath;
+          const host = rainviewerHost || 'https://tilecache.rainviewer.com';
+          const colorScheme = isSat ? '0' : '2';
+          tileUrl = `${host}${activePath}/256/{z}/{x}/{y}/${colorScheme}/1_1.png`;
+        }
+
         const radarProvider = new C.UrlTemplateImageryProvider({
-          url: `${host}${activePath}/256/{z}/{x}/{y}/${colorScheme}/1_1.png`,
-          maximumLevel: 7,
-          credit: 'RainViewer Realtime Weather Radar',
+          url: tileUrl,
+          maximumLevel,
+          credit,
         });
         radarProvider.errorEvent?.addEventListener(() => {});
         const layer = viewer.imageryLayers.addImageryProvider(radarProvider);
@@ -649,10 +664,10 @@ export function CesiumGlobe3D({
         weatherRadarLayerRef.current = layer;
         viewer.scene.requestRender();
       } catch (err) {
-        console.warn('Gagal memuat layer radar cuaca di Cesium 3D:', err);
+        console.warn('Gagal memuat layer radar/satelit cuaca di Cesium 3D:', err);
       }
     }
-  }, [status, weatherMapOverlay, rainviewerPath, rainviewerHost, rainviewerSatellitePath]);
+  }, [status, weatherMapOverlay, rainviewerPath, rainviewerHost, rainviewerSatellitePath, gibsAvailableTime]);
 
   // Initial Camera Fly-to & explicit focus requests
   useEffect(() => {

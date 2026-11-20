@@ -37,6 +37,20 @@ const HEALTH_TARGETS: HealthTarget[] = [
     method: 'GET',
     timeoutMs: 4000,
   },
+  {
+    id: 'bmkg_prakiraan_public',
+    name: 'BMKG API Terbuka — Prakiraan Cuaca ADM4 Live',
+    url: '/api/bmkg/prakiraan-cuaca?adm4=35.16.05.2008',
+    method: 'GET',
+    timeoutMs: 5000,
+  },
+  {
+    id: 'nasa_gibs_himawari',
+    name: 'NASA GIBS — Citra Satelit Himawari-9 IR',
+    url: '/api/spatial/gibs/latest',
+    method: 'GET',
+    timeoutMs: 5000,
+  },
 ];
 
 class APIHealthService {

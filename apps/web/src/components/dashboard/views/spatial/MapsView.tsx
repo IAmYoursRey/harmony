@@ -5364,33 +5364,84 @@ export function MapsView() {
     gibsController.current = controller;
     const reqGen = ((gibsController as any)._activeGen = ((gibsController as any)._activeGen || 0) + 1);
 
-    const timeoutId = setTimeout(() => controller.abort('timeout'), 10000);
+    const timeoutId = setTimeout(() => controller.abort('timeout'), 8000);
 
-    fetch('https://gibs.earthdata.nasa.gov/wmts/epsg3857/best/1.0.0/WMTSCapabilities.xml', {
-      signal: controller.signal,
-    })
+    const probeDirectDates = async (): Promise<string | null> => {
+      const todayMs = Date.now();
+      for (const offsetDays of [0, 1, 2]) {
+        const candidateDate = new Date(todayMs - offsetDays * 86400 * 1000).toISOString().slice(0, 10);
+        const probeUrl = `https://gibs.earthdata.nasa.gov/wmts/epsg3857/best/Himawari_AHI_Band13_Clean_Infrared/default/${candidateDate}/GoogleMapsCompatible_Level6/2/3/2.png`;
+        try {
+          const probeRes = await fetch(probeUrl, { signal: controller.signal });
+          if (probeRes.ok && probeRes.headers.get('content-type')?.includes('image')) {
+            return candidateDate;
+          }
+        } catch {
+          if (controller.signal.aborted) return null;
+        }
+      }
+      return null;
+    };
+
+    fetch('/api/spatial/gibs/latest', { signal: controller.signal })
       .then(async (res) => {
         if (controller.signal.aborted || (gibsController as any)._activeGen !== reqGen) return;
-        if (!res.ok) throw new Error(`GIBS HTTP ${res.status}`);
-        const xml = await res.text();
-        if (controller.signal.aborted || (gibsController as any)._activeGen !== reqGen) return;
-        const layerMatch = xml.match(/<Layer[\s>][\s\S]*?<\/Layer>/g) || [];
-        const layer = layerMatch.find((x) => x.includes('<ows:Identifier>Himawari_AHI_Band13_Clean_Infrared</ows:Identifier>'));
-        if (!layer) throw new Error('Himawari layer not found in GIBS capabilities');
-        const defaultTime = layer.match(/<Default>(.*?)<\/Default>/)?.[1];
-        if (defaultTime && !isNaN(Date.parse(defaultTime))) {
+        if (res.ok) {
+          const rawText = await res.text();
           if (controller.signal.aborted || (gibsController as any)._activeGen !== reqGen) return;
-          const frameMs = new Date(defaultTime).getTime();
-          const frameAgeHours = (Date.now() - frameMs) / (3600 * 1000);
-          setGibsAvailableTime(defaultTime);
-          setGibsFrameTime(frameMs / 1000);
-          setGibsMetadataStale(frameAgeHours > 24);
-        } else {
-          throw new Error('Default time not found in GIBS capabilities');
+
+          let resolvedTime: string | null = null;
+          let parsedJson: any = null;
+          if (rawText.trim().startsWith('{')) {
+            try {
+              parsedJson = JSON.parse(rawText);
+            } catch {
+              parsedJson = null;
+            }
+          }
+
+          if (parsedJson?.success && typeof parsedJson.availableTime === 'string' && !isNaN(Date.parse(parsedJson.availableTime))) {
+            resolvedTime = parsedJson.availableTime;
+          } else if (rawText.includes('Himawari_AHI_Band13_Clean_Infrared')) {
+            const layerMatch = rawText.match(/<Layer[\s>][\s\S]*?<\/Layer>/g) || [];
+            const layer = layerMatch.find((x) => x.includes('<ows:Identifier>Himawari_AHI_Band13_Clean_Infrared</ows:Identifier>'));
+            const defaultTime = layer?.match(/<Default>(.*?)<\/Default>/)?.[1];
+            if (defaultTime && !isNaN(Date.parse(defaultTime))) {
+              resolvedTime = defaultTime;
+            }
+          }
+
+          if (resolvedTime) {
+            const frameMs = new Date(resolvedTime).getTime();
+            const frameAgeHours = (Date.now() - frameMs) / (3600 * 1000);
+            setGibsAvailableTime(resolvedTime);
+            setGibsFrameTime(frameMs / 1000);
+            setGibsMetadataStale(frameAgeHours > 48);
+            return;
+          }
         }
+        const probedDate = await probeDirectDates();
+        if (controller.signal.aborted || (gibsController as any)._activeGen !== reqGen) return;
+        if (probedDate) {
+          const frameMs = new Date(probedDate).getTime();
+          setGibsAvailableTime(probedDate);
+          setGibsFrameTime(frameMs / 1000);
+          setGibsMetadataStale(false);
+          return;
+        }
+        throw new Error(`GIBS probe failed (HTTP ${res.status})`);
       })
-      .catch((err) => {
+      .catch(async (err) => {
+        if (controller.signal.aborted || (gibsController as any)._activeGen !== reqGen) return;
+        const probedDate = await probeDirectDates();
         if ((gibsController as any)._activeGen !== reqGen) return;
+        if (probedDate) {
+          const frameMs = new Date(probedDate).getTime();
+          setGibsAvailableTime(probedDate);
+          setGibsFrameTime(frameMs / 1000);
+          setGibsMetadataStale(false);
+          return;
+        }
         const isTimeout = controller.signal.aborted && (controller.signal.reason === 'timeout' || err?.name === 'TimeoutError');
         if (!controller.signal.aborted || isTimeout) {
           setGibsMetadataStale(true);
@@ -5697,6 +5748,7 @@ export function MapsView() {
               rainviewerPath={rainviewerPath}
               rainviewerHost={rainviewerHost}
               rainviewerSatellitePath={rainviewerSatellitePath}
+              gibsAvailableTime={gibsAvailableTime}
               onSelectSensor={setSelectedSensorForInspection}
               quakeSnapshot={quakeSnapshot}
               hotspotSnapshot={hotspotSnapshot}

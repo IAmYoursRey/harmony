@@ -102,6 +102,8 @@ export const GeospatialBMKGTab: React.FC<GeospatialBMKGTabProps> = ({
   const [aviationMetar, setAviationMetar] = useState<LiveFeedResult<AviationMetarRecord[]> | null>(null);
   const [geomagneticKp, setGeomagneticKp] = useState<LiveFeedResult<GeomagneticKpRecord | null> | null>(null);
   const [ensoOni, setEnsoOni] = useState<LiveFeedResult<EnsoOniRecord | null> | null>(null);
+  const [liveNowcast, setLiveNowcast] = useState<LiveFeedResult<Array<{ id: string; title: string; province: string; description: string; link: string; pubDate: string | null }>> | null>(null);
+  const [livePrakiraan, setLivePrakiraan] = useState<LiveFeedResult<{ adm4: string; lokasi: { desa?: string; kecamatan?: string; kotkab?: string; provinsi?: string } | null; slots: Array<{ localDatetime: string | null; utcDatetime: string | null; temperatureC: number | null; humidityPct: number | null; weatherDesc: string; weatherCode: string | number | null; windSpeedKmh: number | null; windDir: string | null; cloudCoverPct: number | null; visibilityText: string | null }> } | null> | null>(null);
   const [bmkgQuakeError, setBmkgQuakeError] = useState<string | null>(null);
   const [usgsQuakeError, setUsgsQuakeError] = useState<string | null>(null);
 
@@ -165,6 +167,8 @@ export const GeospatialBMKGTab: React.FC<GeospatialBMKGTabProps> = ({
         metarRes,
         kpRes,
         oniRes,
+        nowcastRes,
+        prakiraanRes,
       ] = await Promise.all([
         bmkgService.getAutoGempa(controller.signal),
         bmkgService.getGempaTerkini(controller.signal),
@@ -177,6 +181,8 @@ export const GeospatialBMKGTab: React.FC<GeospatialBMKGTabProps> = ({
         bmkgService.getLiveAviationMetar(['WARR', 'WIII', 'WADD'], controller.signal),
         bmkgService.getLiveGeomagneticKp(controller.signal),
         bmkgService.getLiveEnsoOni(controller.signal),
+        bmkgService.getLiveNowcastAlerts(controller.signal),
+        bmkgService.getLivePrakiraanCuaca('35.16.05.2008', controller.signal),
       ]);
 
       if (currentGen !== reqGenRef.current) return;
@@ -201,6 +207,8 @@ export const GeospatialBMKGTab: React.FC<GeospatialBMKGTabProps> = ({
       setAviationMetar(metarRes);
       setGeomagneticKp(kpRes);
       setEnsoOni(oniRes);
+      setLiveNowcast(nowcastRes);
+      setLivePrakiraan(prakiraanRes);
 
       setSatellites(satRes.length > 0 ? satRes : [
         {
@@ -342,6 +350,78 @@ export const GeospatialBMKGTab: React.FC<GeospatialBMKGTabProps> = ({
       {/* MODULE 1: WEATHER & NOWCASTING */}
       {subModule === 'weather_nowcast' && (
         <div className="space-y-4">
+          {/* Live BMKG API Terbuka Forecast & Official Nowcast RSS */}
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+            <div className="p-4 rounded-2xl bg-white dark:bg-slate-800/60 border border-slate-200/80 dark:border-slate-700/80 space-y-3">
+              <div className="flex items-center justify-between gap-2 flex-wrap">
+                <h3 className="text-xs font-bold uppercase tracking-wider text-slate-700 dark:text-slate-300 flex items-center gap-2">
+                  <AlertTriangle className="w-4 h-4 text-rose-500" />
+                  <span>Nowcast Resmi BMKG (RSS Live)</span>
+                </h3>
+                <span className={`text-[10px] font-bold px-2 py-0.5 rounded-md border ${liveNowcast?.status === 'LIVE' ? 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-500/20' : 'bg-rose-500/10 text-rose-600 dark:text-rose-400 border-rose-500/20'}`}>
+                  {liveNowcast?.status === 'LIVE' ? `LIVE (${liveNowcast.data.length} Buletin)` : 'ERROR'}
+                </span>
+              </div>
+              {liveNowcast?.status === 'ERROR' ? (
+                <p className="text-xs text-rose-500">{liveNowcast.error || 'Feed Nowcast RSS BMKG gagal diakses.'}</p>
+              ) : liveNowcast?.data && liveNowcast.data.length > 0 ? (
+                <div className="space-y-2 max-h-48 overflow-y-auto pr-1">
+                  {liveNowcast.data.slice(0, 4).map((item) => (
+                    <a
+                      key={item.id}
+                      href={item.link}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="block p-2.5 rounded-xl bg-slate-50 dark:bg-slate-900/60 border border-slate-200/70 dark:border-slate-700/70 hover:border-indigo-400 transition-colors"
+                    >
+                      <div className="flex items-center justify-between gap-2">
+                        <span className="text-[11px] font-bold text-slate-900 dark:text-white truncate">{item.title}</span>
+                        <ExternalLink className="w-3 h-3 text-slate-400 shrink-0" />
+                      </div>
+                      {item.description && (
+                        <p className="text-[10px] text-slate-500 line-clamp-2 mt-1">{item.description}</p>
+                      )}
+                    </a>
+                  ))}
+                </div>
+              ) : (
+                <p className="text-xs text-emerald-600 dark:text-emerald-400">Tidak ada peringatan dini nowcast ekstrem yang dirilis saat ini di feed BMKG RSS.</p>
+              )}
+            </div>
+
+            <div className="p-4 rounded-2xl bg-white dark:bg-slate-800/60 border border-slate-200/80 dark:border-slate-700/80 space-y-3">
+              <div className="flex items-center justify-between gap-2 flex-wrap">
+                <h3 className="text-xs font-bold uppercase tracking-wider text-slate-700 dark:text-slate-300 flex items-center gap-2">
+                  <Compass className="w-4 h-4 text-sky-500" />
+                  <span>Prakiraan Cuaca BMKG ADM4 Live</span>
+                </h3>
+                <span className={`text-[10px] font-bold px-2 py-0.5 rounded-md border ${livePrakiraan?.status === 'LIVE' ? 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-500/20' : 'bg-rose-500/10 text-rose-600 dark:text-rose-400 border-rose-500/20'}`}>
+                  {livePrakiraan?.status === 'LIVE' ? `ADM4 ${livePrakiraan.data?.adm4 || '35.16.05.2008'}` : 'ERROR'}
+                </span>
+              </div>
+              {livePrakiraan?.status === 'ERROR' || !livePrakiraan?.data ? (
+                <p className="text-xs text-rose-500">{livePrakiraan?.error || 'Feed BMKG API Terbuka gagal merespons.'}</p>
+              ) : (
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+                  {livePrakiraan.data.slots.slice(0, 4).map((slot, idx) => (
+                    <div key={`${slot.utcDatetime || idx}`} className="p-2.5 rounded-xl bg-slate-50 dark:bg-slate-900/60 border border-slate-200/70 dark:border-slate-700/70 space-y-1">
+                      <div className="text-[10px] font-mono text-slate-400 truncate">
+                        {slot.localDatetime ? slot.localDatetime.slice(11, 16) + ' WIB' : `Slot +${idx * 3}j`}
+                      </div>
+                      <div className="text-sm font-black text-slate-900 dark:text-white">
+                        {slot.temperatureC !== null ? `${slot.temperatureC}°C` : '—'}
+                      </div>
+                      <div className="text-[10px] font-semibold text-indigo-600 dark:text-indigo-400 truncate">{slot.weatherDesc}</div>
+                      <div className="text-[9px] text-slate-500">
+                        RH {slot.humidityPct ?? '—'}% · {slot.windSpeedKmh ?? '—'} km/j
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          </div>
+
           <div className="p-4 rounded-2xl bg-white dark:bg-slate-800/60 border border-slate-200/80 dark:border-slate-700/80">
             <div className="flex items-center justify-between mb-3 flex-wrap gap-2">
               <h3 className="text-xs font-bold uppercase tracking-wider text-slate-700 dark:text-slate-300 flex items-center gap-2">
