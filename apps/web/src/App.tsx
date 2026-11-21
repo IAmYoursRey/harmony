@@ -36,6 +36,11 @@ const GeospatialStudioView = lazy(() =>
     default: m.GeospatialStudioView,
   })),
 );
+const FieldTelemetryView = lazy(() =>
+  import("@/components/dashboard/views/telemetry/FieldTelemetryView").then((m) => ({
+    default: m.FieldTelemetryView,
+  })),
+);
 const DigitalTwinView = lazy(() =>
   import("@/components/dashboard/views/spatial/DigitalTwinView").then((m) => ({
     default: m.DigitalTwinView,
@@ -174,6 +179,14 @@ export default function App() {
             element={
               <Suspense fallback={<PageSkeleton />}>
                 <GeospatialStudioView />
+              </Suspense>
+            }
+          />
+          <Route
+            path="field-telemetry"
+            element={
+              <Suspense fallback={<PageSkeleton />}>
+                <FieldTelemetryView />
               </Suspense>
             }
           />

@@ -270,44 +270,35 @@ class RoutingService {
 
     let timeoutId: ReturnType<typeof setTimeout> | null = null;
     try {
-      const abortController = new AbortController();
-      timeoutId = setTimeout(() => abortController.abort(), 8000);
-
-      const url = `https://router.project-osrm.org/route/v1/driving/${originLng},${originLat};${destLng},${destLat}?overview=full&geometries=geojson&steps=true`;
-      const res = await fetch(url, { signal: abortController.signal });
-      if (!res.ok) {
-        throw new Error(`OSRM HTTP error ${res.status}`);
-        const aborted = new AbortController();
-        const osrmServers = [
-          'https://router.project-osrm.org/route/v1/driving',
-          'https://routing.openstreetmap.de/routed-car/route/v1/driving',
-        ];
-        let res: Response | null = null;
-        let lastOsrmErr: Error | null = null;
-        for (const serverBase of osrmServers) {
-          const abortController = new AbortController();
-          timeoutId = setTimeout(() => abortController.abort(), 7000);
-          try {
-            const url = `${serverBase}/${originLng},${originLat};${destLng},${destLat}?overview=full&geometries=geojson&steps=true`;
-            const candidateRes = await fetch(url, { signal: abortController.signal });
-            if (candidateRes.ok) {
-              res = candidateRes;
-              break;
-            }
-            lastOsrmErr = new Error(`OSRM HTTP error ${candidateRes.status}`);
-          } catch (err: any) {
-            lastOsrmErr = err instanceof Error ? err : new Error(String(err));
-          } finally {
-            if (timeoutId) {
-              clearTimeout(timeoutId);
-              timeoutId = null;
-            }
+      const osrmServers = [
+        'https://router.project-osrm.org/route/v1/driving',
+        'https://routing.openstreetmap.de/routed-car/route/v1/driving',
+      ];
+      let res: Response | null = null;
+      let lastOsrmErr: Error | null = null;
+      for (const serverBase of osrmServers) {
+        const abortController = new AbortController();
+        timeoutId = setTimeout(() => abortController.abort(), 7000);
+        try {
+          const url = `${serverBase}/${originLng},${originLat};${destLng},${destLat}?overview=full&geometries=geojson&steps=true`;
+          const candidateRes = await fetch(url, { signal: abortController.signal });
+          if (candidateRes.ok) {
+            res = candidateRes;
+            break;
+          }
+          lastOsrmErr = new Error(`OSRM HTTP error ${candidateRes.status}`);
+        } catch (err: any) {
+          lastOsrmErr = err instanceof Error ? err : new Error(String(err));
+        } finally {
+          if (timeoutId) {
+            clearTimeout(timeoutId);
+            timeoutId = null;
           }
         }
-        void aborted;
-        if (!res) {
-          throw lastOsrmErr || new Error('Seluruh server OSRM gagal merespons.');
-        }
+      }
+      if (!res) {
+        throw lastOsrmErr || new Error('Seluruh server OSRM gagal merespons.');
+      }
         const data = await res.json();
 
         if (data.code === 'Ok' && Array.isArray(data.routes) && data.routes.length > 0) {

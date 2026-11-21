@@ -23,6 +23,13 @@ import quizHistoryRoutes from "./routes/quizHistory.js";
 import spatialRoutes from "./routes/spatialRoutes.js";
 import eventsRoutes from "./routes/events.js";
 import bmkgRoutes from "./routes/bmkgRoutes.js";
+import telemetryRoutes from "./routes/telemetryRoutes.js";
+import {
+  handleTelemetryData,
+  handleTelemetryCommand,
+  handleTelemetrySync,
+  handleTelemetryWeather,
+} from "./controllers/telemetryController.js";
 import { handleDirectCctvStream } from "./controllers/spatialController.js";
 
 const app = express();
@@ -71,6 +78,13 @@ app.use("/api/quiz-history", quizHistoryRoutes);
 app.use("/api/spatial", spatialRoutes);
 app.use("/api/events", eventsRoutes);
 app.use("/api/bmkg", bmkgRoutes);
+app.use("/api/telemetry", telemetryRoutes);
+
+// Hardware-compatible root aliases for deployed ESP32/LoRa gateways
+app.all("/api/data", handleTelemetryData);
+app.all("/api/perintah", handleTelemetryCommand);
+app.all("/api/sinkron", handleTelemetrySync);
+app.all("/api/cuaca", handleTelemetryWeather);
 
 // Direct Live CCTV HLS Playlist & Fragment Stream Gateway
 app.all("/api/stream", handleDirectCctvStream);

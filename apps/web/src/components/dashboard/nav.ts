@@ -14,6 +14,7 @@ import {
   ShieldCheck,
   Trophy,
   Satellite,
+  Sprout,
   TrendingUp,
   type LucideIcon,
 } from "lucide-react";
@@ -57,6 +58,7 @@ export function resolveNavLabel(
 export const navItems: NavItem[] = [
   { id: "maps", label: "Peta Utama", icon: Map },
   { id: "geospatial", label: "Studio Geospasial", icon: Satellite },
+  { id: "field-telemetry", label: "Telemetri Lahan", icon: Sprout },
   {
     id: "dev-dashboard",
     label: "Kelola Akun",

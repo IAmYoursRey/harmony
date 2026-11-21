@@ -96,7 +96,12 @@ export function Topbar({ onOpenMobile, title }: TopbarProps) {
               if (!normalizedQuery) return;
               const match = matchedNavItems[0];
               if (match) {
-                if (!currentUser && match.id !== "maps") {
+                if (
+                  !currentUser &&
+                  match.id !== "maps" &&
+                  match.id !== "geospatial" &&
+                  match.id !== "field-telemetry"
+                ) {
                   navigate(`/app/maps?authRequired=${match.id}`);
                 } else {
                   navigate(
@@ -119,7 +124,12 @@ export function Topbar({ onOpenMobile, title }: TopbarProps) {
                     key={item.id}
                     type="button"
                     onClick={() => {
-                      if (!currentUser && item.id !== "maps") {
+                      if (
+                        !currentUser &&
+                        item.id !== "maps" &&
+                        item.id !== "geospatial" &&
+                        item.id !== "field-telemetry"
+                      ) {
                         navigate(`/app/maps?authRequired=${item.id}`);
                       } else {
                         navigate(

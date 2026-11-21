@@ -58,11 +58,14 @@ export const getOverpassData = async (req, res) => {
   }
 
   const cacheId = `geojson_overpass_${layer}_${bbox}`;
+  const forceFresh = req.query.fresh === "true" || req.query.force === "true";
 
   try {
-    const cachedData = await getSpatialCache(cacheId);
-    if (cachedData) {
-      return res.json(cachedData);
+    if (!forceFresh) {
+      const cachedData = await getSpatialCache(cacheId);
+      if (cachedData) {
+        return res.json(cachedData);
+      }
     }
 
     let queryBody = "";
@@ -663,26 +666,25 @@ export const reverseGeocodeProxy = async (req, res) => {
       pending = (async () => {
         let resolved = null;
 
-        if (Date.now() >= nominatimRateLimitUntil) {
-          // Primary: ArcGIS World GeocodeServer (high availability, no strict 1 req/s block)
-          const arcCtrl = new AbortController();
-          const arcTimer = setTimeout(() => arcCtrl.abort(), 5000);
-          try {
-            const arcRes = await fetch(
-              `https://geocode.arcgis.com/arcgis/rest/services/World/GeocodeServer/reverseGeocode?f=json&location=${lng},${lat}&langCode=ID`,
-              { signal: arcCtrl.signal }
-            );
-            if (arcRes.ok) {
-              const arcJson = await arcRes.json();
-              if (arcJson?.address && !arcJson?.error && (arcJson.address.City || arcJson.address.Subregion || arcJson.address.Region || arcJson.address.LongLabel)) {
-                resolved = normalizeArcGisReversePayload(arcJson, lat, lng);
-              }
+        // Primary: ArcGIS World GeocodeServer (high availability, no strict 1 req/s block)
+        const arcCtrl = new AbortController();
+        const arcTimer = setTimeout(() => arcCtrl.abort(), 5000);
+        try {
+          const arcRes = await fetch(
+            `https://geocode.arcgis.com/arcgis/rest/services/World/GeocodeServer/reverseGeocode?f=json&location=${lng},${lat}&langCode=ID`,
+            { signal: arcCtrl.signal }
+          );
+          if (arcRes.ok) {
+            const arcJson = await arcRes.json();
+            if (arcJson?.address && !arcJson?.error && (arcJson.address.City || arcJson.address.Subregion || arcJson.address.Region || arcJson.address.LongLabel)) {
+              resolved = normalizeArcGisReversePayload(arcJson, lat, lng);
             }
-          } catch {
-            // Fall through to BigDataCloud and Nominatim
-          } finally {
-            clearTimeout(arcTimer);
           }
+        } catch {
+          // Fall through to BigDataCloud and Nominatim
+        } finally {
+          clearTimeout(arcTimer);
+        }
 
           // Secondary: BigDataCloud
           if (!resolved) {
@@ -743,31 +745,12 @@ export const reverseGeocodeProxy = async (req, res) => {
           }
 
           if (!resolved) {
-            const bdcCtrl = new AbortController();
-            const bdcTimer = setTimeout(() => bdcCtrl.abort(), 4500);
-            try {
-              const bdcRes = await fetch(
-                `https://api.bigdatacloud.net/data/reverse-geocode-client?latitude=${lat}&longitude=${lng}&localityLanguage=id`,
-                { signal: bdcCtrl.signal }
-              );
-              if (bdcRes.ok) {
-                const bdcJson = await bdcRes.json();
-                if (bdcJson && (bdcJson.locality || bdcJson.city || bdcJson.principalSubdivision)) {
-                  resolved = normalizeBigDataCloudReversePayload(bdcJson, lat, lng);
-                }
-              }
-            } finally {
-              clearTimeout(bdcTimer);
-            }
-          }
-
-          if (!resolved) {
             throw new Error("All upstream reverse geocoding providers failed");
           }
 
           geocodeReverseCache.set(cacheKey, { data: resolved, timestamp: Date.now() });
           return resolved;
-        }) ().finally(() => {
+        })().finally(() => {
           geocodeReverseInFlight.delete(cacheKey);
         });
         geocodeReverseInFlight.set(cacheKey, pending);
@@ -1761,11 +1744,10 @@ export const reverseGeocodeProxy = async (req, res) => {
       }
 
       if (fulfilledCount === 0) {
-        if (req.query.allowCacheFallback === 'true') {
-          const shouldUseCacheFallback =
-            req.query.allowCacheFallback === 'true' ||
-            (!bounds && scope !== 'aoi' && req.query.allowCacheFallback !== 'false');
-          if (shouldUseCacheFallback) {
+        const shouldUseCacheFallback =
+          req.query.allowCacheFallback === 'true' ||
+          (!bounds && scope !== 'aoi' && req.query.allowCacheFallback !== 'false');
+        if (shouldUseCacheFallback) {
             const fallback = await getLatestHotspotSnapshot({ scope, dayRange: parseInt(dayRange, 10) }).catch(() => null);
             if (fallback && fallback.isBaseline === false) {
               return res.status(200).json({
@@ -3133,10 +3115,8 @@ export const reverseGeocodeProxy = async (req, res) => {
           success: true,
           dataStatus: 'LIVE',
           cached: true,
-          liveFeedSource: 'Smithsonian Institution / USGS GVP Weekly Volcanic Activity RSS',
           liveFeedSource: liveVolcanoCache.payload.liveFeedSource || 'Smithsonian Institution / USGS GVP Weekly Volcanic Activity RSS',
           pvmbgStatus: 'UNAVAILABLE_NO_PUBLIC_JSON_API',
-          pvmbgNote: 'Portal MAGMA ESDM menyajikan antarmuka web HTML tanpa endpoint JSON publik terbuka; laporan resmi PVMBG disinkronkan melalui buletin mingguan Smithsonian GVP/USGS.',
           pvmbgNote: 'Portal MAGMA ESDM menyajikan antarmuka web HTML tanpa endpoint JSON publik terbuka; laporan resmi PVMBG disinkronkan melalui buletin mingguan Smithsonian GVP/USGS atau failover NASA EONET.',
           feedPublishedAt: liveVolcanoCache.payload.feedPublishedAt,
           fetchedAt: liveVolcanoCache.payload.fetchedAt,
@@ -3160,7 +3140,6 @@ export const reverseGeocodeProxy = async (req, res) => {
             'User-Agent': 'HarmonyGeospatialApp/2.0 (Educational)',
             'Accept': 'application/rss+xml, application/xml, text/xml',
           },
-          signal: AbortSignal.timeout(10000),
           signal: AbortSignal.timeout(9000),
         });
 
@@ -3199,10 +3178,6 @@ export const reverseGeocodeProxy = async (req, res) => {
           fetchedAt,
           allRecords: parsed.records,
           indonesiaRecords,
-          sourceAttempts: [
-            { source: 'Smithsonian GVP Weekly RSS', url: gvpUrl, status: 'OK', httpStatus: response.status, count: parsed.records.length, error: null },
-            { source: 'PVMBG MAGMA ESDM JSON', url: 'https://magma.esdm.go.id/v1/gunung-api/laporan', status: 'UNAVAILABLE', httpStatus: null, count: 0, error: 'HTML portal only (no public JSON API)' },
-          ],
           sourceAttempts,
         };
 
@@ -3213,7 +3188,6 @@ export const reverseGeocodeProxy = async (req, res) => {
           success: true,
           dataStatus: 'LIVE',
           cached: false,
-          liveFeedSource: 'Smithsonian Institution / USGS GVP Weekly Volcanic Activity RSS',
           liveFeedSource: payload.liveFeedSource,
           pvmbgStatus: 'UNAVAILABLE_NO_PUBLIC_JSON_API',
           pvmbgNote: 'Portal MAGMA ESDM menyajikan antarmuka web HTML tanpa endpoint JSON publik terbuka; laporan resmi PVMBG disinkronkan melalui buletin mingguan Smithsonian GVP/USGS.',
@@ -3224,7 +3198,6 @@ export const reverseGeocodeProxy = async (req, res) => {
           sourceAttempts: payload.sourceAttempts,
           data: outData,
         });
-      } catch (error) {
       } catch (gvpErr) {
         sourceAttempts.unshift({
           source: 'Smithsonian GVP Weekly RSS',
@@ -3300,24 +3273,12 @@ export const reverseGeocodeProxy = async (req, res) => {
         return res.status(502).json({
           success: false,
           dataStatus: 'ERROR',
-          liveFeedSource: 'Smithsonian Institution / USGS GVP Weekly Volcanic Activity RSS',
           liveFeedSource: 'Smithsonian Institution / USGS GVP Weekly Volcanic Activity RSS & NASA EONET',
           pvmbgStatus: 'UNAVAILABLE_NO_PUBLIC_JSON_API',
           feedPublishedAt: null,
           fetchedAt: new Date().toISOString(),
           count: 0,
           data: [],
-          sourceAttempts: [
-            {
-              source: 'Smithsonian GVP Weekly RSS',
-              url: gvpUrl,
-              status: 'ERROR',
-              httpStatus: null,
-              count: 0,
-              error: error?.name === 'TimeoutError' || error?.name === 'AbortError' ? 'TIMEOUT' : (error?.message || 'FETCH_FAILED'),
-            },
-          ],
-          error: `Gagal mengambil laporan aktivitas gunung api live dari Smithsonian GVP/USGS (${error?.message || 'Fetch error'}).`,
           sourceAttempts,
           error: `Gagal mengambil laporan aktivitas gunung api live dari Smithsonian GVP dan NASA EONET (${eonetErr?.message || 'Fetch error'}).`,
         });

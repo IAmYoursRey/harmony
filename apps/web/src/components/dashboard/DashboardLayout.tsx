@@ -56,7 +56,13 @@ export function DashboardLayout() {
   }, [authRequiredParam, currentUser, setSearchParams]);
 
   // If unauthenticated and accessing a protected education feature, redirect to maps with auth prompt
-  if (!isLoading && !currentUser && activeId !== "maps" && activeId !== "geospatial") {
+  if (
+    !isLoading &&
+    !currentUser &&
+    activeId !== "maps" &&
+    activeId !== "geospatial" &&
+    activeId !== "field-telemetry"
+  ) {
     return <Navigate to={`/app/maps?authRequired=${activeId}`} replace />;
   }
 

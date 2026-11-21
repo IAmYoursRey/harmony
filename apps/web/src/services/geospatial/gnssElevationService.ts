@@ -7,6 +7,7 @@
 
 import { preciseGeocodingService, PreciseLocationInfo } from '../preciseGeocodingService';
 import { geospatialAnalysisService } from '../geospatialAnalysisService';
+import { createTimeoutSignal } from '../../utils/browserCompat';
 
 export interface GnssElevationReport {
   lat: number;
@@ -181,11 +182,10 @@ export class GnssElevationService {
 
     const promise = (async () => {
       try {
-        const controller = new AbortController();
-        const timeoutId = setTimeout(() => controller.abort(), 6000);
+        const proxyTimeout = createTimeoutSignal(5000);
         try {
           const proxyRes = await fetch(`/api/spatial/elevation?lat=${lat.toFixed(4)}&lng=${lng.toFixed(4)}`, {
-            signal: AbortSignal.timeout(5000),
+            signal: proxyTimeout.signal,
           });
           if (proxyRes.ok) {
             const pJson = await proxyRes.json();
@@ -198,35 +198,38 @@ export class GnssElevationService {
           }
         } catch {
           // Fall back to direct elevation APIs when proxy is unavailable
+        } finally {
+          proxyTimeout.cleanup();
         }
 
-        const res = await fetch(`https://api.open-meteo.com/v1/elevation?latitude=${lat.toFixed(4)}&longitude=${lng.toFixed(4)}`, {
-          signal: controller.signal,
-          if(this.rateLimitCooldownUntil <= Date.now()) {
+        if (this.rateLimitCooldownUntil <= Date.now()) {
+          const meteoTimeout = createTimeoutSignal(5000);
+          try {
             const res = await fetch(`https://api.open-meteo.com/v1/elevation?latitude=${lat.toFixed(4)}&longitude=${lng.toFixed(4)}`, {
-              signal: AbortSignal.timeout(5000),
+              signal: meteoTimeout.signal,
             });
-        if (res.ok) {
-          const data = await res.json();
-          if (Array.isArray(data?.elevation) && typeof data.elevation[0] === 'number') {
-            const val = Math.round(data.elevation[0] * 10) / 10;
-            this.persistElevationEntry(key, val, Date.now() + 24 * 3600 * 1000);
-            return val;
+            if (res.ok) {
+              const data = await res.json();
+              if (Array.isArray(data?.elevation) && typeof data.elevation[0] === 'number') {
+                const val = Math.round(data.elevation[0] * 10) / 10;
+                this.persistElevationEntry(key, val, Date.now() + 24 * 3600 * 1000);
+                return val;
+              }
+            } else if (res.status === 429) {
+              this.rateLimitCooldownUntil = Date.now() + 60_000;
+            }
+          } catch {
+            // Proceed to open-elevation fallback
+          } finally {
+            meteoTimeout.cleanup();
           }
-        } else if (res.status === 429) {
-          this.rateLimitCooldownUntil = Date.now() + 60_000;
         }
-      }
 
-        const openElevRes = await fetch(`https://api.open-elevation.com/api/v1/lookup?locations=${lat.toFixed(4)},${lng.toFixed(4)}`, {
-        signal: AbortSignal.timeout(6000),
-      });
-      clearTimeout(timeoutId);
-
-      if (res.ok) {
-        const data = await res.json();
-        if (Array.isArray(data?.elevation) && typeof data.elevation[0] === 'number') {
-          const val = Math.round(data.elevation[0] * 10) / 10;
+        const openElevTimeout = createTimeoutSignal(6000);
+        try {
+          const openElevRes = await fetch(`https://api.open-elevation.com/api/v1/lookup?locations=${lat.toFixed(4)},${lng.toFixed(4)}`, {
+            signal: openElevTimeout.signal,
+          });
           if (openElevRes.ok) {
             const elevJson = await openElevRes.json();
             const rawElev = elevJson?.results?.[0]?.elevation;
@@ -235,21 +238,23 @@ export class GnssElevationService {
               this.persistElevationEntry(key, val, Date.now() + 24 * 3600 * 1000);
               return val;
             }
-          } else if (res.status === 429) {
+          } else if (openElevRes.status === 429) {
             this.rateLimitCooldownUntil = Date.now() + 60_000;
-            if (cached) return cached.elevation;
           }
         } catch {
           // Network fallback
         } finally {
-          this.inFlightElevation.delete(key);
+          openElevTimeout.cleanup();
         }
-        return cached?.elevation ?? null;
-      }) ();
+      } finally {
+        this.inFlightElevation.delete(key);
+      }
+      return cached?.elevation ?? null;
+    })();
 
-      this.inFlightElevation.set(key, promise);
-      return promise;
-    }
+    this.inFlightElevation.set(key, promise);
+    return promise;
+  }
 
   /**
    * Prompts user for high-accuracy GPS permission, pinpoints position,

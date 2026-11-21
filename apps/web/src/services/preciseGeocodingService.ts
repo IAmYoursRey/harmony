@@ -4,6 +4,8 @@
  * Supports OpenStreetMap Nominatim, BigDataCloud, and local TopoJSON/GeoJSON fallback.
  */
 
+import { createTimeoutSignal } from '../utils/browserCompat';
+
 export interface PreciseLocationInfo {
   village?: string;       // Nama Desa / Kelurahan (e.g. "Desa Lolawang", "Kelurahan Sedati")
   subDistrict?: string;   // Nama Kecamatan (e.g. "Kecamatan Ngoro")
@@ -15,7 +17,7 @@ export interface PreciseLocationInfo {
   fullAddress: string;    // Alamat lengkap terformat
   shortDisplay: string;   // Ringkasan: "Desa Lolawang, Kec. Ngoro, Kab. Mojokerto"
   accuracyM?: number;     // Akurasi satelit GPS dalam meter
-  source: 'nominatim' | 'bigdatacloud' | 'vector_topojson' | 'unavailable';
+  source: 'nominatim' | 'bigdatacloud' | 'arcgis' | 'vector_topojson' | 'unavailable';
   isError?: boolean;
   errorMessage?: string;
   lat: number;
@@ -204,7 +206,7 @@ class PreciseGeocodingService {
       return this.sortResultsByDistance(withDist, userCoords);
     }
 
-    const pendingSearch = this.executeSearchLocations(trimmed, qLower, cacheKey);
+    const pendingSearch = this.executeSearchLocations(trimmed, cacheKey, cacheKey);
     this.inFlightSearch.set(cacheKey, pendingSearch);
     try {
       const baseResults = await pendingSearch;
@@ -456,12 +458,12 @@ class PreciseGeocodingService {
       // Fall through to direct providers if backend proxy is unavailable.
     }
 
-    // 2. Fallback: OpenStreetMap Nominatim (without forbidden browser User-Agent header)
     // 2. Client Failover: ArcGIS World GeocodeServer (high reliability, no browser User-Agent issue)
+    const arcTimeout = createTimeoutSignal(4500);
     try {
       const arcRes = await fetch(
         `https://geocode.arcgis.com/arcgis/rest/services/World/GeocodeServer/reverseGeocode?f=json&location=${lng},${lat}&langCode=ID`,
-        { signal: AbortSignal.timeout(4500) }
+        { signal: arcTimeout.signal }
       );
       if (arcRes.ok) {
         const arcJson = await arcRes.json();
@@ -507,6 +509,8 @@ class PreciseGeocodingService {
       }
     } catch {
       // Fall through to Nominatim / BigDataCloud when ArcGIS fails.
+    } finally {
+      arcTimeout.cleanup();
     }
 
     // 3. Fallback: OpenStreetMap Nominatim (without forbidden browser User-Agent header)

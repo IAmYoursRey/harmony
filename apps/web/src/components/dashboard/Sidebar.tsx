@@ -1,4 +1,4 @@
-import { X, LogOut, Map, LogIn, Satellite } from "lucide-react";
+import { X, LogOut, Map, LogIn, Satellite, Sprout } from "lucide-react";
 import { Link } from "react-router-dom";
 import { filterVisibleNavItems, navItems, resolveNavLabel } from "@/components/dashboard/nav";
 import { Logo } from "@/components/Logo";
@@ -31,9 +31,13 @@ export function Sidebar({
 
   const mapsItem = visibleNavItems.find((item) => item.id === "maps");
   const geospatialItem = visibleNavItems.find((item) => item.id === "geospatial");
-  const regularNavItems = visibleNavItems.filter((item) => item.id !== "maps" && item.id !== "geospatial");
+  const telemetryItem = visibleNavItems.find((item) => item.id === "field-telemetry");
+  const regularNavItems = visibleNavItems.filter(
+    (item) => item.id !== "maps" && item.id !== "geospatial" && item.id !== "field-telemetry",
+  );
   const isMapsActive = active === "maps";
   const isGeospatialActive = active === "geospatial";
+  const isTelemetryActive = active === "field-telemetry";
 
   return (
     <>
@@ -176,6 +180,53 @@ export function Sidebar({
                       }`}
                     >
                       Prakiraan Cuaca &amp; Wilayah
+                    </p>
+                  </div>
+                </Link>
+              )}
+
+              {telemetryItem && (
+                <Link
+                  to="/app/field-telemetry"
+                  onClick={onSelect}
+                  className={`mt-2 group press-bounce relative flex items-center gap-3 overflow-hidden rounded-2xl p-3 transition-all duration-300 ${
+                    isTelemetryActive
+                      ? "bg-gradient-to-r from-emerald-600 via-emerald-700 to-teal-700 text-white shadow-glass shadow-emerald-500/25 ring-2 ring-emerald-400/50"
+                      : "border border-emerald-200/60 bg-gradient-to-br from-emerald-50/60 via-white to-teal-50/40 text-ink-900 shadow-sm hover:border-emerald-300 hover:shadow-md hover:-translate-y-0.5 dark:border-emerald-900/50 dark:bg-slate-800/80 dark:text-white dark:hover:border-emerald-700 dark:hover:bg-slate-800"
+                  }`}
+                >
+                  <div
+                    className={`flex h-11 w-11 shrink-0 items-center justify-center rounded-xl transition-all duration-300 ${
+                      isTelemetryActive
+                        ? "bg-white/20 text-white shadow-inner"
+                        : "bg-gradient-to-br from-emerald-500 to-teal-600 text-white shadow-md shadow-emerald-500/25 group-hover:scale-105"
+                    }`}
+                  >
+                    <Sprout className="h-5 w-5" strokeWidth={2.2} />
+                  </div>
+                  <div className="min-w-0 flex-1">
+                    <div className="flex items-center justify-between gap-1.5">
+                      <span className="font-display text-sm font-extrabold tracking-tight truncate">
+                        {resolveNavLabel(telemetryItem, currentUser?.role, t)}
+                      </span>
+                      <span
+                        className={`shrink-0 rounded-md px-1.5 py-0.5 text-[9px] font-bold ${
+                          isTelemetryActive
+                            ? "bg-white/20 text-white"
+                            : "bg-emerald-500/15 text-emerald-700 dark:bg-emerald-400/20 dark:text-emerald-300"
+                        }`}
+                      >
+                        Beta
+                      </span>
+                    </div>
+                    <p
+                      className={`mt-0.5 truncate text-[11px] font-medium ${
+                        isTelemetryActive
+                          ? "text-emerald-100"
+                          : "text-ink-500 dark:text-slate-400"
+                      }`}
+                    >
+                      IoT Tanah, FFMC &amp; Tanam
                     </p>
                   </div>
                 </Link>

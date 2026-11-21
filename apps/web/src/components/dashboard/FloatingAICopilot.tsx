@@ -86,6 +86,18 @@ const findNavigationIntent = (query: string): NavigationAction | null => {
   }
 
   if (
+    lower.includes("telemetri") ||
+    lower.includes("sensor tanah") ||
+    lower.includes("ffmc") ||
+    lower.includes("kelembapan tanah") ||
+    lower.includes("lahan")
+  ) {
+    return {
+      label: "Telemetri Lahan",
+      path: "/app/field-telemetry",
+    };
+  }
+  if (
     lower.includes("geospatial") ||
     lower.includes("studio") ||
     lower.includes("citra satelit") ||
