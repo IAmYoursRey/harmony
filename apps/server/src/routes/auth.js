@@ -15,7 +15,7 @@ import { verifyToken } from "../middleware/authMiddleware.js";
 import dotenv from "dotenv";
 import { OAuth2Client } from "google-auth-library";
 
-dotenv.config({ path: [".env.local", ".env"] });
+dotenv.config({ path: [".env.local", ".env"], quiet: true });
 const router = express.Router();
 const isProductionRuntime = () =>
   process.env.VERCEL === "1" || process.env.NODE_ENV === "production";

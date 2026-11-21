@@ -6,8 +6,13 @@ import { fileURLToPath } from "url";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
-dotenv.config({ path: [path.join(__dirname, "../.env.local"), path.join(__dirname, "../.env")] });
+dotenv.config({ path: [path.join(__dirname, "../.env.local"), path.join(__dirname, "../.env")], quiet: true });
 
+import {
+  getPgHealthStatus,
+  isPgQuotaOrUnavailableError,
+  normalizePgConnectionString,
+} from "./repositories/repository.js";
 import authRoutes from "./routes/auth.js";
 import profileRoutes from "./routes/profile.js";
 import aiRoutes from "./routes/ai.js";
@@ -94,22 +99,29 @@ app.get("/api/debug", async (req, res) => {
   const hasDb = !!dbUrl;
   let dbResult = "skipped";
   if (hasDb) {
+    let debugPool = null;
     try {
       const { Pool } = await import("pg");
-      const pool = new Pool({
-        connectionString: dbUrl,
-        ssl: { rejectUnauthorized: false },
+      const conn = normalizePgConnectionString(dbUrl);
+      debugPool = new Pool({
+        connectionString: conn.connectionString,
+        ...(conn.ssl !== undefined ? { ssl: conn.ssl } : {}),
+        max: 1,
         connectionTimeoutMillis: 3000,
         queryTimeout: 3000,
       });
       const start = Date.now();
-      const result = await Promise.race([
-        pool.query("SELECT 1 as val"),
+      await Promise.race([
+        debugPool.query("SELECT 1 as val"),
         new Promise((_, r) => setTimeout(() => r(new Error("timeout")), 4000)),
       ]);
       dbResult = `success in ${Date.now() - start}ms`;
     } catch (e) {
       dbResult = `error: ${e.message}`;
+    } finally {
+      if (debugPool) {
+        await debugPool.end().catch(() => {});
+      }
     }
   }
   res.json({
@@ -119,6 +131,7 @@ app.get("/api/debug", async (req, res) => {
     hasDb,
     dbResult,
     hasPostgresUrl: !!process.env.POSTGRES_URL,
+    pgHealth: getPgHealthStatus(),
   });
 });
 
@@ -127,10 +140,19 @@ app.all("/api/*", (req, res) => {
 });
 
 app.use((err, req, res, next) => {
-  console.error("[SERVER ERROR]", err.message);
-  res.status(503).json({
+  if (isPgQuotaOrUnavailableError(err)) {
+    return res.status(503).json({
+      error: "Database PostgreSQL sementara tidak tersedia atau melewati batas kuota.",
+      code: "DB_QUOTA_EXCEEDED",
+    });
+  }
+  const status = err?.status || err?.statusCode || 503;
+  console.error("[SERVER ERROR]", err?.message || err);
+  res.status(status).json({
     error:
-      "Service temporarily unavailable. Please verify backend configurations.",
+      status >= 500
+        ? "Service temporarily unavailable. Please verify backend configurations."
+        : (err?.message || "Permintaan tidak valid"),
   });
 });
 

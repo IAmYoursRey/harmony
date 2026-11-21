@@ -1,7 +1,7 @@
 import jwt from "jsonwebtoken";
 import dotenv from "dotenv";
 import { getAccountById } from "../repositories/repository.js";
-dotenv.config({ path: [".env.local", ".env"] });
+dotenv.config({ path: [".env.local", ".env"], quiet: true });
 
 const SECRET = process.env.JWT_SECRET || "default_jwt_secret_for_development";
 if (!process.env.JWT_SECRET) {

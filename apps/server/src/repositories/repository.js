@@ -5,7 +5,7 @@ import pg from "pg";
 import dotenv from "dotenv";
 import { put } from "@vercel/blob";
 
-dotenv.config({ path: [".env.local", ".env"] });
+dotenv.config({ path: [".env.local", ".env"], quiet: true });
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const isProductionRuntime = () =>
   process.env.VERCEL === "1" || process.env.NODE_ENV === "production";
@@ -40,17 +40,93 @@ dns.setDefaultResultOrder("ipv4first");
 
 const dbUrl = process.env.DATABASE_URL || process.env.POSTGRES_URL;
 
-export const pool = dbUrl
+export function normalizePgConnectionString(rawUrl) {
+  if (!rawUrl || typeof rawUrl !== "string") {
+    return { connectionString: rawUrl, ssl: { rejectUnauthorized: false } };
+  }
+  try {
+    const parsed = new URL(rawUrl);
+    const sslMode = parsed.searchParams.get("sslmode")?.toLowerCase();
+    if (sslMode === "disable") {
+      return { connectionString: rawUrl, ssl: false };
+    }
+    if (sslMode === "verify-full") {
+      return { connectionString: rawUrl, ssl: undefined };
+    }
+    // Neon default ?sslmode=require triggers pg-connection-string v3 SECURITY WARNING; pass explicit TLS object instead
+    if (sslMode === "prefer" || sslMode === "require" || sslMode === "verify-ca") {
+      parsed.searchParams.delete("sslmode");
+      return {
+        connectionString: parsed.toString(),
+        ssl: { rejectUnauthorized: false },
+      };
+    }
+    return { connectionString: rawUrl, ssl: { rejectUnauthorized: false } };
+  } catch {
+    return { connectionString: rawUrl, ssl: { rejectUnauthorized: false } };
+  }
+}
+
+const pgConnConfig = dbUrl ? normalizePgConnectionString(dbUrl) : null;
+
+export const pool = pgConnConfig
   ? new pg.Pool({
-      connectionString: dbUrl,
-      ssl: { rejectUnauthorized: false },
-      max: 10,
-      idleTimeoutMillis: 15000,
-      connectionTimeoutMillis: 15000,
+      connectionString: pgConnConfig.connectionString,
+      ...(pgConnConfig.ssl !== undefined ? { ssl: pgConnConfig.ssl } : {}),
+      max: isProductionRuntime() ? 3 : 10,
+      idleTimeoutMillis: 10000,
+      connectionTimeoutMillis: 10000,
       queryTimeout: 25000,
       allowExitOnIdle: true,
     })
   : null;
+
+if (pool) {
+  pool.on("error", (err) => {
+    if (isPgQuotaOrUnavailableError(err)) {
+      markPgDegraded(err);
+    } else {
+      console.warn("[PG POOL IDLE ERROR]", err?.message || err);
+    }
+  });
+
+  const rawPoolQuery = pool.query.bind(pool);
+  pool.query = function guardedPoolQuery(...args) {
+    const maybeCallback =
+      args.length > 0 && typeof args[args.length - 1] === "function"
+        ? args[args.length - 1]
+        : null;
+
+    if (isPgDegraded()) {
+      const err = new Error(
+        pgDegradedReason || "PostgreSQL is in quota/outage cooldown window.",
+      );
+      err.code = pgDegradedCode || "53000";
+      err.isPgCircuitOpen = true;
+      if (maybeCallback) {
+        queueMicrotask(() => maybeCallback(err));
+        return undefined;
+      }
+      return Promise.reject(err);
+    }
+
+    if (maybeCallback) {
+      return rawPoolQuery(...args.slice(0, -1), (err, result) => {
+        if (err && isPgQuotaOrUnavailableError(err)) {
+          markPgDegraded(err);
+        }
+        maybeCallback(err, result);
+      });
+    }
+
+    return Promise.resolve(rawPoolQuery(...args)).catch((err) => {
+      if (isPgQuotaOrUnavailableError(err)) {
+        markPgDegraded(err);
+      }
+      throw err;
+    });
+  };
+}
 
 let activePool = pool;
 const PG_DEGRADED_COOLDOWN_MS = 5 * 60 * 1000;

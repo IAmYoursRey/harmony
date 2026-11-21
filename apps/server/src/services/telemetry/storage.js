@@ -1,4 +1,8 @@
-import { pool } from "../../repositories/repository.js";
+import {
+  pool,
+  isPgDegraded,
+  isPgQuotaOrUnavailableError,
+} from "../../repositories/repository.js";
 
 // Lifecycle of "ambil_sampel" commands: menunggu -> diambil -> diteruskan -> selesai | kedaluwarsa.
 export const BATAS_DETIK = 20;
@@ -8,9 +12,13 @@ const KODE_PROVINSI_WIT = new Set(["81", "82", "91", "92", "93", "94", "95", "96
 
 let _forceMemoryStorage = false;
 let _db = null;
+let _dbIsSql = false;
+let _memFallback = null;
 
 export function __resetTelemetryStorageForTest({ useMemory = true } = {}) {
   _db = null;
+  _dbIsSql = false;
+  _memFallback = null;
   _forceMemoryStorage = Boolean(useMemory);
 }
 
@@ -519,17 +527,22 @@ export function buatMemori() {
 }
 
 export async function penyimpanan() {
-  if (_db) return _db;
-  if (pool && !_forceMemoryStorage) {
-    try {
-      _db = await buatSql(createPoolSqlTag(pool));
-      return _db;
-    } catch (err) {
+  if (_forceMemoryStorage || !pool || isPgDegraded()) {
+    if (!_memFallback) _memFallback = buatMemori();
+    return _memFallback;
+  }
+  if (_db && _dbIsSql) return _db;
+  try {
+    _db = await buatSql(createPoolSqlTag(pool));
+    _dbIsSql = true;
+    return _db;
+  } catch (err) {
+    if (!isPgQuotaOrUnavailableError(err)) {
       console.warn("[TelemetryStorage] PostgreSQL initialization failed, using in-memory store:", err?.message || err);
     }
+    if (!_memFallback) _memFallback = buatMemori();
+    return _memFallback;
   }
-  _db = buatMemori();
-  return _db;
 }
 
 export function bacaBody(req) {

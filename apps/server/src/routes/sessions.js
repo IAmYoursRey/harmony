@@ -1,16 +1,17 @@
 import express from "express";
 import { v4 as uuidv4 } from "uuid";
-import { pool, timeoutQuery } from "../repositories/repository.js";
+import { pool, timeoutQuery, isPgDegraded, isPgQuotaOrUnavailableError } from "../repositories/repository.js";
 import { verifyToken } from "../middleware/authMiddleware.js";
 import { initGameSession, endGameSession } from "../game/gameManager.js";
 import { getIO } from "../sockets/socket.js";
 import { buildSman1NgoroPdfDigitalTwin } from "../data/sman1NgoroPdfMapBuilder.js";
 
 const router = express.Router();
+const shouldUseMemorySessions = () => !pool || isPgDegraded();
 
 let schemaPromise = null;
 async function ensureMultiplayerSchema() {
-  if (!pool) return;
+  if (shouldUseMemorySessions()) return;
   if (!schemaPromise) {
     schemaPromise = (async () => {
       try {
@@ -28,6 +29,9 @@ async function ensureMultiplayerSchema() {
         );
       } catch (err) {
         schemaPromise = null;
+        if (isPgQuotaOrUnavailableError(err)) {
+          return;
+        }
         throw err;
       }
     })();
@@ -143,7 +147,7 @@ router.post("/", verifyToken, async (req, res) => {
   const safeStyle = avatarStyle === "boy" ? "boy" : "girl";
   const safeColor = typeof avatarColor === "string" ? avatarColor : "#3b82f6";
 
-  if (!pool) {
+  if (shouldUseMemorySessions()) {
     const code = generateJoinCode();
     const record = {
       id,
@@ -263,7 +267,7 @@ router.get("/public", verifyToken, async (req, res) => {
   await ensureMultiplayerSchema();
   const { mapId } = req.query;
 
-  if (!pool) {
+  if (shouldUseMemorySessions()) {
     const twoHoursAgo = Date.now() - 2 * 3600 * 1000;
     const rooms = [...memorySessions.values()]
       .filter(
@@ -351,7 +355,7 @@ router.get("/:idOrCode", verifyToken, async (req, res) => {
   await ensureMultiplayerSchema();
   const { idOrCode } = req.params;
 
-  if (!pool) {
+  if (shouldUseMemorySessions()) {
     const found =
       memorySessions.get(idOrCode) ||
       [...memorySessions.values()].find(
@@ -420,7 +424,7 @@ router.post("/:id/join", verifyToken, async (req, res) => {
       ? req.body.avatarColor
       : "#3b82f6";
 
-  if (!pool) {
+  if (shouldUseMemorySessions()) {
     const s = memorySessions.get(id);
     if (!s) return res.status(404).json({ error: "Room tidak ditemukan" });
     if (s.status === "ENDED") {
@@ -581,7 +585,7 @@ router.post("/:id/ready", verifyToken, async (req, res) => {
       : null;
 
   if (trimmedName) {
-    if (!pool) {
+    if (shouldUseMemorySessions()) {
       const s = memorySessions.get(id);
       for (const [pStudentId, p] of s?.participants || []) {
         if (
@@ -613,7 +617,7 @@ router.post("/:id/ready", verifyToken, async (req, res) => {
     }
   }
 
-  if (!pool) {
+  if (shouldUseMemorySessions()) {
     const s = memorySessions.get(id);
     const p = s?.participants.get(studentId);
     if (p) {
@@ -658,7 +662,7 @@ router.post("/:id/start", verifyToken, async (req, res) => {
   await ensureMultiplayerSchema();
   const { id } = req.params;
 
-  if (!pool) {
+  if (shouldUseMemorySessions()) {
     const s = memorySessions.get(id);
     if (!s) return res.status(404).json({ error: "Room tidak ditemukan" });
     if (s.createdBy !== req.user.id && !["teacher", "dev", "developer"].includes(req.user.role)) {
@@ -721,7 +725,7 @@ router.post("/:id/restart", verifyToken, async (req, res) => {
   await ensureMultiplayerSchema();
   const { id } = req.params;
 
-  if (!pool) {
+  if (shouldUseMemorySessions()) {
     const s = memorySessions.get(id);
     if (!s) return res.status(404).json({ error: "Room tidak ditemukan" });
     s.status = "LOBBY";
@@ -784,7 +788,7 @@ router.post("/:id/leave", verifyToken, async (req, res) => {
   const { id } = req.params;
   const studentId = req.user.id;
 
-  if (!pool) {
+  if (shouldUseMemorySessions()) {
     const s = memorySessions.get(id);
     if (s) {
       s.participants.delete(studentId);
@@ -829,7 +833,7 @@ router.post("/:id/leave", verifyToken, async (req, res) => {
 router.post("/:id/end", verifyToken, async (req, res) => {
   const { id } = req.params;
 
-  if (!pool) {
+  if (shouldUseMemorySessions()) {
     const s = memorySessions.get(id);
     if (!s) return res.status(404).json({ error: "Room tidak ditemukan" });
     s.status = "ENDED";
@@ -870,7 +874,7 @@ router.get("/:id/participants", verifyToken, async (req, res) => {
   await ensureMultiplayerSchema();
   const { id } = req.params;
 
-  if (!pool) {
+  if (shouldUseMemorySessions()) {
     const s = memorySessions.get(id);
     if (!s) return res.status(404).json({ error: "Room tidak ditemukan" });
     const list = [...s.participants.values()];
@@ -968,7 +972,7 @@ router.post("/:id/sync", verifyToken, async (req, res) => {
     sprinting: Boolean(sprinting),
   };
 
-  if (!pool) {
+  if (shouldUseMemorySessions()) {
     const s = memorySessions.get(id);
     if (!s) return res.status(404).json({ error: "Room tidak ditemukan" });
     let p = s.participants.get(studentId);
