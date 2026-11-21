@@ -120,6 +120,57 @@ function createSampleBmkgPayload(adm4 = "35.16.05.2010", desa = "Ngoro") {
   };
 }
 
+function createSampleOpenMeteoPayload() {
+  const nowJakarta = new Intl.DateTimeFormat("sv-SE", {
+    timeZone: "Asia/Jakarta",
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+  }).format(new Date());
+
+  const time = [];
+  const temperature_2m = [];
+  const relative_humidity_2m = [];
+  const wind_speed_10m = [];
+  const wind_direction_10m = [];
+  const precipitation = [];
+  const cloud_cover = [];
+  const weather_code = [];
+
+  for (let dayOffset = 0; dayOffset < 3; dayOffset += 1) {
+    const dt = new Date(Date.parse(`${nowJakarta}T00:00:00+07:00`) + dayOffset * 86400000);
+    const tgl = new Intl.DateTimeFormat("en-CA", { timeZone: "Asia/Jakarta" }).format(dt);
+    for (let hour = 0; hour < 24; hour += 1) {
+      const hh = String(hour).padStart(2, "0");
+      time.push(`${tgl}T${hh}:00`);
+      temperature_2m.push(hour >= 10 && hour <= 15 ? 32.5 : 26.2);
+      relative_humidity_2m.push(hour >= 10 && hour <= 15 ? 55 : 82);
+      wind_speed_10m.push(12.4);
+      wind_direction_10m.push(135);
+      precipitation.push(dayOffset === 1 && hour === 15 ? 1.5 : 0);
+      cloud_cover.push(35);
+      weather_code.push(dayOffset === 1 && hour === 15 ? 61 : 2);
+    }
+  }
+
+  return {
+    latitude: -6.25,
+    longitude: 107.0,
+    timezone: "Asia/Jakarta",
+    utc_offset_seconds: 25200,
+    hourly: {
+      time,
+      temperature_2m,
+      relative_humidity_2m,
+      wind_speed_10m,
+      wind_direction_10m,
+      precipitation,
+      cloud_cover,
+      weather_code,
+    },
+  };
+}
+
 async function startTestServer() {
   const app = express();
   app.use(express.json());
@@ -359,7 +410,90 @@ test("Telemetry Express endpoints support gateway auth, 4-stage ambil_sampel, mu
   }
 });
 
-test("Harmony Sidebar, Router, Auth Guard, I18n, and Copilot wiring include Telemetri Lahan (Beta) with zero TERRA brand leakage", () => {
+test("Empty BMKG slots automatically fall back to Open-Meteo with resolved region metadata, and remain honest offline if both fail", async () => {
+  __resetTelemetryStorageForTest({ useMemory: true });
+  __clearTelemetryControllerCachesForTest();
+  __clearRegionCacheForTest();
+
+  const emptyBmkgMargajaya = {
+    lokasi: {
+      adm4: "32.75.04.1002",
+      desa: "Margajaya",
+      kecamatan: "Bekasi Selatan",
+      kotkab: "Kota Bekasi",
+      provinsi: "Jawa Barat",
+      lat: -6.2445,
+      lon: 106.9959,
+    },
+    data: [
+      {
+        lokasi: {
+          adm4: "32.75.04.1002",
+          desa: "Margajaya",
+          kecamatan: "Bekasi Selatan",
+          kotkab: "Kota Bekasi",
+          provinsi: "Jawa Barat",
+          lat: -6.2445,
+          lon: 106.9959,
+        },
+        cuaca: [],
+      },
+    ],
+  };
+
+  const { server, baseUrl } = await startTestServer();
+  try {
+    // 1. BMKG returns empty cuaca: [] -> automatically uses Open-Meteo while preserving Margajaya metadata
+    __setBmkgFetcherForTest(async (url) => {
+      const s = String(url);
+      if (s.includes("api.bmkg.go.id")) {
+        return new Response(JSON.stringify(emptyBmkgMargajaya), { status: 200, headers: { "Content-Type": "application/json" } });
+      }
+      if (s.includes("api.open-meteo.com")) {
+        return new Response(JSON.stringify(createSampleOpenMeteoPayload()), { status: 200, headers: { "Content-Type": "application/json" } });
+      }
+      return new Response("{}", { status: 404 });
+    });
+
+    const fallbackRes = await fetch(`${baseUrl}/api/telemetry/cuaca?adm4=32.75.04.1002&segar=1`);
+    assert.equal(fallbackRes.status, 200);
+    const fallbackJson = await fallbackRes.json();
+    assert.equal(fallbackJson.bmkg.sumber_ok, true);
+    assert.equal(fallbackJson.bmkg.cadangan, true);
+    assert.match(fallbackJson.bmkg.sumber, /Open-Meteo/);
+    assert.equal(fallbackJson.bmkg.lokasi.desa, "Margajaya");
+    assert.equal(fallbackJson.bmkg.lokasi.kecamatan, "Bekasi Selatan");
+    assert.equal(typeof fallbackJson.ffmc.nilai, "number");
+    assert.equal(fallbackJson.ffmc.proyeksi.length, 3);
+    assert.equal(fallbackJson.kompas_dan_angin.titik_label, "Desa Margajaya, Kec. Bekasi Selatan");
+
+    // 2. Both BMKG empty slots and Open-Meteo down -> stays honestly OFFLINE but still keeps resolved desa & kecamatan
+    __resetTelemetryStorageForTest({ useMemory: true });
+    __setBmkgFetcherForTest(async (url) => {
+      const s = String(url);
+      if (s.includes("api.bmkg.go.id")) {
+        return new Response(JSON.stringify(emptyBmkgMargajaya), { status: 200, headers: { "Content-Type": "application/json" } });
+      }
+      return new Response("Service Unavailable", { status: 503 });
+    });
+
+    const bothDownRes = await fetch(`${baseUrl}/api/telemetry/cuaca?adm4=32.75.04.1002&segar=1`);
+    assert.equal(bothDownRes.status, 200);
+    const bothDownJson = await bothDownRes.json();
+    assert.equal(bothDownJson.bmkg.sumber_ok, false);
+    assert.equal(bothDownJson.bmkg.saat_ini.suhu, null);
+    assert.equal(bothDownJson.ffmc.nilai, null);
+    assert.equal(bothDownJson.ffmc.status_kebakaran.status, "OFFLINE");
+    assert.equal(bothDownJson.bmkg.lokasi.desa, "Margajaya");
+    assert.equal(bothDownJson.bmkg.lokasi.kecamatan, "Bekasi Selatan");
+    assert.equal(bothDownJson.kompas_dan_angin.titik_label, "Desa Margajaya, Kec. Bekasi Selatan");
+  } finally {
+    __setBmkgFetcherForTest(null);
+    await new Promise((resolve) => server.close(resolve));
+  }
+});
+
+test("Harmony Sidebar, Router, Auth Guard, I18n, and Copilot wiring include Telemetri Lahan (Beta) and NASA FIRMS Hotspots with zero TERRA brand leakage", () => {
   const readUtf8 = (rel) => fs.readFileSync(path.join(ROOT_DIR, rel), "utf8");
 
   const navSrc = readUtf8("apps/web/src/components/dashboard/nav.ts");
@@ -369,6 +503,7 @@ test("Harmony Sidebar, Router, Auth Guard, I18n, and Copilot wiring include Tele
   const topbarSrc = readUtf8("apps/web/src/components/dashboard/Topbar.tsx");
   const i18nSrc = readUtf8("apps/web/src/context/I18nContext.tsx");
   const copilotSrc = readUtf8("apps/web/src/components/dashboard/FloatingAICopilot.tsx");
+  const fieldTelemetrySrc = readUtf8("apps/web/src/components/dashboard/views/telemetry/FieldTelemetryView.tsx");
 
   assert.match(navSrc, /id:\s*"field-telemetry"/);
   assert.match(sidebarSrc, /to="\/app\/field-telemetry"/);
@@ -379,6 +514,9 @@ test("Harmony Sidebar, Router, Auth Guard, I18n, and Copilot wiring include Tele
   assert.match(i18nSrc, /"nav\.field-telemetry":\s*"Telemetri Lahan"/);
   assert.match(i18nSrc, /"nav\.field-telemetry":\s*"Field Telemetry"/);
   assert.match(copilotSrc, /\/app\/field-telemetry/);
+  assert.match(fieldTelemetrySrc, /GeospatialHotspotsTab/);
+  assert.match(fieldTelemetrySrc, /id:\s*"hotspots"/);
+  assert.match(fieldTelemetrySrc, /Titik Panas Satelit/);
 
   // Enforce zero residual external branding in newly created telemetry UI/server files
   const newFiles = [

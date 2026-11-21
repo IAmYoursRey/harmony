@@ -187,6 +187,7 @@ export interface BmkgSummary {
   cadangan?: boolean;
   pesan_galat?: string;
   catatan_cache?: string;
+  catatan_sumber?: string;
   sumber: string;
   diambil_pada: string;
   lokasi: {

@@ -91,9 +91,20 @@ function defaultAmbang() {
   return { kering: 30, cukup: 60, suhuMin: 20, suhuMax: 35 };
 }
 
-function cadanganBMKGOffline(adm4, alasan = "Gagal terhubung ke api.bmkg.go.id") {
-  const desa = DAFTAR_DESA_NGORO.find((d) => d.adm4 === adm4);
-  const namaDesa = desa ? desa.nama.replace(/, Kec\. Ngoro$/, "").replace(/^Desa /, "") : `Wilayah ${adm4}`;
+function cadanganBMKGOffline(adm4, alasan = "Gagal terhubung ke api.bmkg.go.id", lokasiHint = null) {
+  const desaNgoro = DAFTAR_DESA_NGORO.find((d) => d.adm4 === adm4);
+  const validStr = (v) => {
+    const s = String(v ?? "").trim();
+    return s && s !== "-" ? s : "";
+  };
+  const namaDesa =
+    validStr(lokasiHint?.desa) ||
+    (desaNgoro ? desaNgoro.nama.replace(/, Kec\. Ngoro$/, "").replace(/^Desa /, "") : `Wilayah ${adm4}`);
+  const kecamatan = validStr(lokasiHint?.kecamatan) || (desaNgoro ? "Ngoro" : "-");
+  const kotkab = validStr(lokasiHint?.kotkab) || (desaNgoro ? "Mojokerto" : "-");
+  const provinsi = validStr(lokasiHint?.provinsi) || (desaNgoro ? "Jawa Timur" : "-");
+  const lat = Number.isFinite(Number(lokasiHint?.lat)) && lokasiHint?.lat !== null ? Number(lokasiHint.lat) : null;
+  const lon = Number.isFinite(Number(lokasiHint?.lon)) && lokasiHint?.lon !== null ? Number(lokasiHint.lon) : null;
   const tgl = tanggalWIB();
   return {
     sumber_ok: false,
@@ -104,11 +115,11 @@ function cadanganBMKGOffline(adm4, alasan = "Gagal terhubung ke api.bmkg.go.id")
     lokasi: {
       adm4,
       desa: namaDesa,
-      kecamatan: desa ? "Ngoro" : "-",
-      kotkab: desa ? "Mojokerto" : "-",
-      provinsi: desa ? "Jawa Timur" : "-",
-      lat: null,
-      lon: null,
+      kecamatan,
+      kotkab,
+      provinsi,
+      lat,
+      lon,
     },
     saat_ini: {
       waktu_lokal: `${tgl} --:--`,
@@ -143,7 +154,7 @@ function cadanganBMKGOffline(adm4, alasan = "Gagal terhubung ke api.bmkg.go.id")
   };
 }
 
-async function muatBMKGDenganCache(db, adm4, paksaSegar = false) {
+async function muatBMKGDenganCache(db, adm4, paksaSegar = false, lokasiHint = null) {
   const kunci = `cuaca_cache:${adm4}`;
   const cache = await bacaJsonMeta(db, kunci, null);
   const fetcher = _customBmkgFetcher || fetch;
@@ -156,7 +167,7 @@ async function muatBMKGDenganCache(db, adm4, paksaSegar = false) {
   }
 
   try {
-    const segar = await ambilPrakiraanBMKG(adm4, fetcher);
+    const segar = await ambilPrakiraanBMKG(adm4, fetcher, lokasiHint);
     await simpanJsonMeta(db, kunci, segar);
     return segar;
   } catch (e) {
@@ -166,7 +177,8 @@ async function muatBMKGDenganCache(db, adm4, paksaSegar = false) {
         catatan_cache: `Memakai cache BMKG terakhir (${e.message})`,
       };
     }
-    return cadanganBMKGOffline(adm4, e.message);
+    const mergedHint = { ...(lokasiHint || {}), ...(e?.lokasi || {}) };
+    return cadanganBMKGOffline(adm4, e.message, mergedHint);
   }
 }
 
@@ -475,8 +487,12 @@ async function bangunRingkasanCuaca(db, opsi = {}, req = null) {
   const infoLokasi = await selesaikanLokasiInfo(db, req, opsi, alatTarget);
   const adm4 = infoLokasi.adm4Aktif;
   const pakaiLegacyMeta = adm4 === ADM4_BAKU;
+  const lokasiHint =
+    infoLokasi.titikRujukan ||
+    (infoLokasi.lokasiPengguna?.adm4 === adm4 ? infoLokasi.lokasiPengguna : null) ||
+    (infoLokasi.lokasiAlat?.adm4 === adm4 ? infoLokasi.lokasiAlat : null);
 
-  const bmkg = await muatBMKGDenganCache(db, adm4, Boolean(opsi.segar));
+  const bmkg = await muatBMKGDenganCache(db, adm4, Boolean(opsi.segar), lokasiHint);
   const riwayatHujanMeta = await bacaMetaLokasiCakupan(db, `lapor_hujan:${adm4}`, pakaiLegacyMeta ? "lapor_hujan" : null, []);
   const riwayatHujan = Array.isArray(riwayatHujanMeta.nilai) ? riwayatHujanMeta.nilai : [];
 
@@ -635,6 +651,14 @@ async function bangunRingkasanCuaca(db, opsi = {}, req = null) {
     tzOffsetDariWilayah({ adm4, lon: bmkg?.lokasi?.lon ?? cuacaLon })
   );
 
+  const namaDesaLabel = /^(Wilayah|Desa|Kel\.?)\s/i.test(bmkg.lokasi.desa)
+    ? bmkg.lokasi.desa
+    : `Desa ${bmkg.lokasi.desa}`;
+  const titikLabel =
+    bmkg.lokasi.kecamatan && bmkg.lokasi.kecamatan !== "-"
+      ? `${namaDesaLabel}, Kec. ${bmkg.lokasi.kecamatan}`
+      : namaDesaLabel;
+
   return {
     ok: true,
     waktu_server: new Date().toISOString(),
@@ -657,7 +681,7 @@ async function bangunRingkasanCuaca(db, opsi = {}, req = null) {
     },
     bmkg,
     kompas_dan_angin: {
-      titik_label: `Desa ${bmkg.lokasi.desa}, Kec. ${bmkg.lokasi.kecamatan}`,
+      titik_label: titikLabel,
       titik_lat: cuacaLat,
       titik_lon: cuacaLon,
       alat_lat: alatLat,
@@ -883,9 +907,13 @@ export async function handleTelemetryWeather(req, res) {
         await simpanJsonMeta(db, `wilayah_adm4:${targetAlat.alatId}`, { adm4 });
         await simpanJsonMeta(db, "wilayah_adm4", { adm4 });
         const hasil = await bangunRingkasanCuaca(db, { adm4, mode: "manual", alat: targetAlat.alatId, segar: true }, req);
+        const kecSuffix =
+          hasil.bmkg.lokasi.kecamatan && hasil.bmkg.lokasi.kecamatan !== "-"
+            ? `, Kec. ${hasil.bmkg.lokasi.kecamatan}`
+            : "";
         return res.json({
           ...hasil,
-          pesan: `Wilayah BMKG diatur ke ${hasil.bmkg.lokasi.desa}, Kec. ${hasil.bmkg.lokasi.kecamatan}.`,
+          pesan: `Wilayah BMKG diatur ke ${hasil.bmkg.lokasi.desa}${kecSuffix}.`,
         });
       }
 

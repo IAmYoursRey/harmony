@@ -249,38 +249,88 @@ export function hitungWaktuTanam({
   };
 }
 
-export function normalisasiDataBMKG(json, adm4) {
-  const item = Array.isArray(json?.data) && json.data.length ? json.data[0] : null;
-  if (!item) throw new Error("Format data BMKG tidak sesuai atau kode wilayah tidak ditemukan");
+function nilaiTeksLokasiValid(val) {
+  const s = String(val ?? "").trim();
+  return s && s !== "-" ? s : "";
+}
 
-  const lok = item.lokasi || json.lokasi || {};
-  const daftarSlot = (item.cuaca || [])
-    .flat()
-    .map((s) => {
-      const lokal = String(s.local_datetime || "");
-      const [tanggal = "", jamFull = ""] = lokal.split(" ");
-      return {
-        waktu_lokal: lokal,
-        tanggal,
-        jam: jamFull.slice(0, 5),
-        utc_datetime: s.utc_datetime || s.datetime || "",
-        suhu: Number(s.t),
-        rh: Number(s.hu),
-        angin_km_jam: Number(s.ws),
-        arah_angin: s.wd || "-",
-        arah_angin_derajat: Number.isFinite(Number(s.wd_deg)) ? Math.round(Number(s.wd_deg)) : null,
-        arah_angin_menuju: s.wd_to || null,
-        hujan_mm: Number(s.tp || 0),
-        tutupan_awan: Number(s.tcc || 0),
-        kode_cuaca: Number(s.weather || 0),
-        cuaca: s.weather_desc || "-",
-        ikon_url: s.image ? String(s.image).replace(/ /g, "%20") : "",
-      };
-    })
-    .filter((s) => s.tanggal && Number.isFinite(s.suhu));
+function angkaKoordinatSah(val) {
+  if (val === null || val === undefined || val === "") return null;
+  const n = Number(val);
+  return Number.isFinite(n) ? n : null;
+}
 
-  if (!daftarSlot.length) throw new Error("Slot prakiraan BMKG kosong");
+export function gabungkanLokasi(adm4, ...kandidat) {
+  const ngoro = DAFTAR_DESA_NGORO.find((d) => d.adm4 === adm4);
+  const ngoroFallback = ngoro
+    ? {
+        desa: ngoro.nama.replace(/, Kec\. Ngoro$/, "").replace(/^Desa /, ""),
+        kecamatan: "Ngoro",
+        kotkab: "Mojokerto",
+        provinsi: "Jawa Timur",
+      }
+    : adm4 === ADM4_BAKU
+      ? { desa: "Ngoro", kecamatan: "Ngoro", kotkab: "Mojokerto", provinsi: "Jawa Timur" }
+      : null;
 
+  let adm4Hasil = "";
+  let desa = "";
+  let kecamatan = "";
+  let kotkab = "";
+  let provinsi = "";
+  let lat = null;
+  let lon = null;
+
+  for (const k of kandidat) {
+    if (!k || typeof k !== "object") continue;
+    if (!adm4Hasil) adm4Hasil = nilaiTeksLokasiValid(k.adm4);
+    if (!desa) desa = nilaiTeksLokasiValid(k.desa);
+    if (!kecamatan) kecamatan = nilaiTeksLokasiValid(k.kecamatan);
+    if (!kotkab) kotkab = nilaiTeksLokasiValid(k.kotkab);
+    if (!provinsi) provinsi = nilaiTeksLokasiValid(k.provinsi);
+    if (lat === null) lat = angkaKoordinatSah(k.lat);
+    if (lon === null) lon = angkaKoordinatSah(k.lon);
+  }
+
+  return {
+    adm4: adm4Hasil || adm4,
+    desa: desa || ngoroFallback?.desa || `Wilayah ${adm4}`,
+    kecamatan: kecamatan || ngoroFallback?.kecamatan || "-",
+    kotkab: kotkab || ngoroFallback?.kotkab || "-",
+    provinsi: provinsi || ngoroFallback?.provinsi || "-",
+    lat,
+    lon,
+  };
+}
+
+const CODES_ANGIN_16 = ["N", "NNE", "NE", "ENE", "E", "ESE", "SE", "SSE", "S", "SSW", "SW", "WSW", "W", "WNW", "NW", "NNW"];
+
+function deskripsiCuacaWMO(code) {
+  const c = Number(code);
+  if (c === 0) return "Cerah";
+  if (c === 1 || c === 2) return "Cerah Berawan";
+  if (c === 3) return "Berawan";
+  if (c === 45 || c === 48) return "Berkabut";
+  if (c >= 51 && c <= 57) return "Gerimis";
+  if (c === 61 || c === 66 || c === 80) return "Hujan Ringan";
+  if (c === 63 || c === 81) return "Hujan Sedang";
+  if (c === 65 || c === 67 || c === 82) return "Hujan Lebat";
+  if ((c >= 71 && c <= 77) || c === 85 || c === 86) return "Hujan Es";
+  if (c >= 95 && c <= 99) return "Hujan Petir";
+  return "Berawan";
+}
+
+function derajatKeKodeAnginBMKG(degRaw) {
+  if (degRaw === null || degRaw === undefined || !Number.isFinite(Number(degRaw))) {
+    return { dari: "-", menuju: null, derajat: null };
+  }
+  const deg = ((Number(degRaw) % 360) + 360) % 360;
+  const idx = Math.round(deg / 22.5) % 16;
+  const revIdx = (idx + 8) % 16;
+  return { dari: CODES_ANGIN_16[idx], menuju: CODES_ANGIN_16[revIdx], derajat: Math.round(deg) };
+}
+
+function bangunRingkasanDariSlot(daftarSlot, lokasi, meta = {}) {
   const sekarangIso = tanggalWIB();
   const sekarangWibStr = new Intl.DateTimeFormat("sv-SE", {
     timeZone: "Asia/Jakarta",
@@ -347,18 +397,11 @@ export function normalisasiDataBMKG(json, adm4) {
 
   return {
     sumber_ok: true,
-    cadangan: false,
-    sumber: "BMKG (api.bmkg.go.id)",
+    cadangan: Boolean(meta.cadangan),
+    ...(meta.catatan_sumber ? { catatan_sumber: meta.catatan_sumber } : {}),
+    sumber: meta.sumber || "BMKG (api.bmkg.go.id)",
     diambil_pada: new Date().toISOString(),
-    lokasi: {
-      adm4: lok.adm4 || adm4,
-      desa: lok.desa || "Ngoro",
-      kecamatan: lok.kecamatan || "Ngoro",
-      kotkab: lok.kotkab || "Mojokerto",
-      provinsi: lok.provinsi || "Jawa Timur",
-      lat: Number.isFinite(Number(lok.lat)) ? Number(lok.lat) : null,
-      lon: Number.isFinite(Number(lok.lon)) ? Number(lok.lon) : null,
-    },
+    lokasi,
     saat_ini: saatIni,
     hari_ini: hariIniData,
     harian: harian.slice(0, 3),
@@ -366,16 +409,181 @@ export function normalisasiDataBMKG(json, adm4) {
   };
 }
 
-export async function ambilPrakiraanBMKG(adm4 = ADM4_BAKU, fetcher = fetch) {
-  const url = `https://api.bmkg.go.id/publik/prakiraan-cuaca?adm4=${encodeURIComponent(adm4)}`;
+export function normalisasiDataBMKG(json, adm4, lokasiHint = null) {
+  const item = Array.isArray(json?.data) && json.data.length ? json.data[0] : null;
+  const lokRaw = item?.lokasi || json?.lokasi || null;
+  const lokasi = gabungkanLokasi(adm4, lokRaw, lokasiHint);
+
+  if (!item) {
+    const err = new Error("Format data BMKG tidak sesuai atau kode wilayah tidak ditemukan");
+    err.lokasi = lokasi;
+    throw err;
+  }
+
+  const daftarSlot = (item.cuaca || [])
+    .flat()
+    .map((s) => {
+      const lokal = String(s.local_datetime || "");
+      const [tanggal = "", jamFull = ""] = lokal.split(" ");
+      return {
+        waktu_lokal: lokal,
+        tanggal,
+        jam: jamFull.slice(0, 5),
+        utc_datetime: s.utc_datetime || s.datetime || "",
+        suhu: Number(s.t),
+        rh: Number(s.hu),
+        angin_km_jam: Number(s.ws),
+        arah_angin: s.wd || "-",
+        arah_angin_derajat: Number.isFinite(Number(s.wd_deg)) ? Math.round(Number(s.wd_deg)) : null,
+        arah_angin_menuju: s.wd_to || null,
+        hujan_mm: Number(s.tp || 0),
+        tutupan_awan: Number(s.tcc || 0),
+        kode_cuaca: Number(s.weather || 0),
+        cuaca: s.weather_desc || "-",
+        ikon_url: s.image ? String(s.image).replace(/ /g, "%20") : "",
+      };
+    })
+    .filter((s) => s.tanggal && Number.isFinite(s.suhu));
+
+  if (!daftarSlot.length) {
+    const err = new Error("Slot prakiraan BMKG kosong");
+    err.lokasi = lokasi;
+    throw err;
+  }
+
+  return bangunRingkasanDariSlot(daftarSlot, lokasi, {
+    cadangan: false,
+    sumber: "BMKG (api.bmkg.go.id)",
+  });
+}
+
+export function normalisasiDataOpenMeteo(json, adm4, lokasiHint = null, metaTambahan = {}) {
+  const hourly = json?.hourly || {};
+  const times = Array.isArray(hourly.time) ? hourly.time : [];
+  const temps = Array.isArray(hourly.temperature_2m) ? hourly.temperature_2m : [];
+  const rhs = Array.isArray(hourly.relative_humidity_2m) ? hourly.relative_humidity_2m : [];
+  const winds = Array.isArray(hourly.wind_speed_10m) ? hourly.wind_speed_10m : [];
+  const windDirs = Array.isArray(hourly.wind_direction_10m) ? hourly.wind_direction_10m : [];
+  const precips = Array.isArray(hourly.precipitation) ? hourly.precipitation : [];
+  const clouds = Array.isArray(hourly.cloud_cover) ? hourly.cloud_cover : [];
+  const codes = Array.isArray(hourly.weather_code) ? hourly.weather_code : [];
+
+  const lokasi = gabungkanLokasi(adm4, lokasiHint, {
+    lat: angkaKoordinatSah(json?.latitude),
+    lon: angkaKoordinatSah(json?.longitude),
+  });
+
+  const daftarSlot = [];
+  for (let i = 0; i < times.length; i += 1) {
+    const rawTime = String(times[i] || "");
+    const [tanggal = "", jamPart = ""] = rawTime.split("T");
+    const jam = jamPart.slice(0, 5);
+    const hourNum = Number(jam.split(":")[0]);
+    if (!tanggal || !Number.isFinite(hourNum) || hourNum % 3 !== 0) continue;
+
+    const suhu = Number(temps[i]);
+    if (!Number.isFinite(suhu)) continue;
+
+    // Aggregate 3-hour precipitation bucket from hourly Open-Meteo steps
+    let hujan3Jam = 0;
+    for (let k = i; k < Math.min(i + 3, precips.length); k += 1) {
+      const p = Number(precips[k]);
+      if (Number.isFinite(p) && p > 0) hujan3Jam += p;
+    }
+
+    const anginInfo = derajatKeKodeAnginBMKG(windDirs[i]);
+    const rhVal = Number.isFinite(Number(rhs[i])) ? Math.round(Number(rhs[i])) : 70;
+    const anginVal = Number.isFinite(Number(winds[i])) ? Math.round(Number(winds[i]) * 10) / 10 : 5;
+    const kodeWmo = Number.isFinite(Number(codes[i])) ? Number(codes[i]) : 3;
+    const waktuLokal = `${tanggal} ${jam}:00`;
+    const utcMs = Date.parse(`${tanggal}T${jam}:00+07:00`);
+
+    daftarSlot.push({
+      waktu_lokal: waktuLokal,
+      tanggal,
+      jam,
+      utc_datetime: Number.isFinite(utcMs) ? new Date(utcMs).toISOString().replace("T", " ").slice(0, 19) : "",
+      suhu: Math.round(suhu * 10) / 10,
+      rh: rhVal,
+      angin_km_jam: anginVal,
+      arah_angin: anginInfo.dari,
+      arah_angin_derajat: anginInfo.derajat,
+      arah_angin_menuju: anginInfo.menuju,
+      hujan_mm: Math.round(hujan3Jam * 10) / 10,
+      tutupan_awan: Number.isFinite(Number(clouds[i])) ? Math.round(Number(clouds[i])) : 0,
+      kode_cuaca: kodeWmo,
+      cuaca: deskripsiCuacaWMO(kodeWmo),
+      ikon_url: "",
+    });
+  }
+
+  if (!daftarSlot.length) {
+    const err = new Error("Slot prakiraan Open-Meteo kosong");
+    err.lokasi = lokasi;
+    throw err;
+  }
+
+  return bangunRingkasanDariSlot(daftarSlot, lokasi, {
+    cadangan: true,
+    sumber: metaTambahan.sumber || "Open-Meteo (Cadangan — slot BMKG kosong)",
+    catatan_sumber:
+      metaTambahan.catatan_sumber ||
+      "Slot prakiraan api.bmkg.go.id sedang kosong; menampilkan prakiraan cuaca riil Open-Meteo pada koordinat wilayah ini.",
+  });
+}
+
+export async function ambilPrakiraanOpenMeteo(lat, lon, adm4 = ADM4_BAKU, lokasiHint = null, fetcher = fetch, metaTambahan = {}) {
+  const latNum = angkaKoordinatSah(lat);
+  const lonNum = angkaKoordinatSah(lon);
+  if (latNum === null || lonNum === null) {
+    throw new Error("Koordinat wilayah belum tersedia untuk fallback cuaca Open-Meteo");
+  }
+  const url =
+    `https://api.open-meteo.com/v1/forecast?latitude=${encodeURIComponent(latNum)}&longitude=${encodeURIComponent(lonNum)}` +
+    "&hourly=temperature_2m,relative_humidity_2m,wind_speed_10m,wind_direction_10m,precipitation,cloud_cover,weather_code" +
+    "&wind_speed_unit=kmh&timezone=Asia%2FJakarta&forecast_days=3";
   const r = await fetcher(url, {
     headers: { Accept: "application/json", "User-Agent": "Harmony-FieldTelemetry/1.0" },
     signal: AbortSignal.timeout(8000),
   });
   if (!r.ok) {
-    throw new Error(`BMKG merespons HTTP ${r.status}`);
+    throw new Error(`Open-Meteo merespons HTTP ${r.status}`);
   }
   const json = await r.json();
-  return normalisasiDataBMKG(json, adm4);
+  return normalisasiDataOpenMeteo(json, adm4, lokasiHint, metaTambahan);
+}
+
+export async function ambilPrakiraanBMKG(adm4 = ADM4_BAKU, fetcher = fetch, lokasiHint = null) {
+  const url = `https://api.bmkg.go.id/publik/prakiraan-cuaca?adm4=${encodeURIComponent(adm4)}`;
+  try {
+    const r = await fetcher(url, {
+      headers: { Accept: "application/json", "User-Agent": "Harmony-FieldTelemetry/1.0" },
+      signal: AbortSignal.timeout(8000),
+    });
+    if (!r.ok) {
+      throw new Error(`BMKG merespons HTTP ${r.status}`);
+    }
+    const json = await r.json();
+    return normalisasiDataBMKG(json, adm4, lokasiHint);
+  } catch (bmkgErr) {
+    const lokasiTerpadu = gabungkanLokasi(adm4, bmkgErr?.lokasi, lokasiHint);
+    if (lokasiTerpadu.lat !== null && lokasiTerpadu.lon !== null) {
+      try {
+        const bmkgKosong = /kosong|format data/i.test(bmkgErr.message || "");
+        return await ambilPrakiraanOpenMeteo(lokasiTerpadu.lat, lokasiTerpadu.lon, adm4, lokasiTerpadu, fetcher, {
+          sumber: bmkgKosong ? "Open-Meteo (Cadangan — slot BMKG kosong)" : `Open-Meteo (Cadangan — BMKG tidak merespons)`,
+          catatan_sumber: bmkgKosong
+            ? "Slot prakiraan api.bmkg.go.id sedang kosong; menampilkan prakiraan cuaca riil Open-Meteo pada koordinat wilayah ini."
+            : `Sumber api.bmkg.go.id sedang bermasalah (${bmkgErr.message}); menampilkan prakiraan cuaca riil Open-Meteo pada koordinat wilayah ini.`,
+        });
+      } catch (omErr) {
+        const err = new Error(`${bmkgErr.message}; cadangan Open-Meteo gagal (${omErr.message})`);
+        err.lokasi = lokasiTerpadu;
+        throw err;
+      }
+    }
+    bmkgErr.lokasi = lokasiTerpadu;
+    throw bmkgErr;
+  }
 }
 

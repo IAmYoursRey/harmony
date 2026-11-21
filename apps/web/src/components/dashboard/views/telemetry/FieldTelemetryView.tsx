@@ -1,18 +1,22 @@
-import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import React, { lazy, Suspense, useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import {
   Activity,
   AlertTriangle,
   Battery,
   CheckCircle2,
+  ChevronRight,
   CloudRain,
   Compass,
   Cpu,
   Droplets,
+  ExternalLink,
   Flame,
   MapPin,
   Moon,
   Radio,
   RefreshCw,
+  Satellite,
   Send,
   Sprout,
   Sun,
@@ -20,6 +24,7 @@ import {
   Trash2,
   Wifi,
   WifiOff,
+  Wind,
   Zap,
 } from "lucide-react";
 import {
@@ -52,7 +57,79 @@ import { FieldCompassCard } from "./FieldCompassCard";
 import { FfmcGaugeChart } from "./FfmcGaugeChart";
 import { ExpansionArchitecturePanel } from "./ExpansionArchitecturePanel";
 
-type TelemetryTab = "ringkasan" | "cuaca" | "wilayah" | "modul";
+const GeospatialHotspotsTab = lazy(() =>
+  import("../spatial/studio/GeospatialHotspotsTab").then((m) => ({
+    default: m.GeospatialHotspotsTab,
+  }))
+);
+
+type TelemetryTab = "ringkasan" | "cuaca" | "hotspots" | "wilayah" | "modul";
+const VALID_TABS: ReadonlySet<TelemetryTab> = new Set(["ringkasan", "cuaca", "hotspots", "wilayah", "modul"]);
+
+const FIRE_BADGE_TONES: Record<string, string> = {
+  bahaya: "border-rose-500/40 bg-rose-500/15 text-rose-700 dark:text-rose-300",
+  siaga: "border-amber-500/40 bg-amber-500/15 text-amber-700 dark:text-amber-300",
+  waspada: "border-yellow-500/40 bg-yellow-500/15 text-yellow-700 dark:text-yellow-300",
+  aman: "border-emerald-500/40 bg-emerald-500/15 text-emerald-700 dark:text-emerald-300",
+  offline: "border-slate-400/40 bg-slate-500/15 text-slate-600 dark:text-slate-300",
+};
+
+interface FireSatelliteShortcutProps {
+  weatherData: TelemetryWeatherResponse;
+  regionLabel: string;
+  onOpenHotspots: () => void;
+}
+
+const FireSatelliteShortcutCard: React.FC<FireSatelliteShortcutProps> = ({
+  weatherData,
+  regionLabel,
+  onOpenHotspots,
+}) => {
+  const status = weatherData.ffmc.status_kebakaran;
+  const angin = weatherData.kompas_dan_angin.angin;
+  const badgeTone = FIRE_BADGE_TONES[status.nada] || FIRE_BADGE_TONES.offline;
+  const speedText =
+    angin.kecepatan_km_jam !== null && Number.isFinite(angin.kecepatan_km_jam)
+      ? `${angin.kecepatan_km_jam} km/j`
+      : "--";
+
+  return (
+    <div className="flex flex-col justify-between gap-4 rounded-3xl border border-rose-500/25 bg-gradient-to-r from-rose-500/10 via-amber-500/10 to-orange-500/10 p-4 shadow-sm sm:flex-row sm:items-center">
+      <div className="flex items-start gap-3">
+        <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-gradient-to-tr from-rose-600 to-amber-500 text-white shadow-md shadow-rose-500/25">
+          <Satellite className="h-5 w-5" />
+        </div>
+        <div className="space-y-1">
+          <div className="flex flex-wrap items-center gap-2">
+            <h3 className="text-xs font-extrabold text-slate-900 sm:text-sm dark:text-white">
+              Pemantauan Titik Panas Satelit (NASA FIRMS NRT)
+            </h3>
+            <span className={`inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-[10px] font-extrabold uppercase ${badgeTone}`}>
+              {status.status}
+              {weatherData.ffmc.nilai !== null ? ` · FFMC ${weatherData.ffmc.nilai.toFixed(1)}` : ""}
+            </span>
+          </div>
+          <p className="text-xs leading-relaxed text-slate-600 dark:text-slate-300">
+            Verifikasi tanda peringatan kebakaran darat di <span className="font-bold text-slate-800 dark:text-white">{regionLabel}</span> dengan deteksi anomali termal satelit VIIRS 375m & MODIS 1km serta rujukan SiPongi KLHK
+            {!angin.tenang && angin.kecepatan_km_jam !== null
+              ? ` (angin saat ini dari ${angin.dari_nama} → ${angin.menuju_nama}, ${speedText}).`
+              : "."}
+          </p>
+        </div>
+      </div>
+
+      <button
+        type="button"
+        onClick={onOpenHotspots}
+        className="inline-flex min-h-[40px] shrink-0 items-center justify-center gap-2 rounded-2xl bg-rose-600 px-4 py-2 text-xs font-extrabold text-white shadow-sm transition hover:bg-rose-700"
+      >
+        <Flame className="h-3.5 w-3.5" />
+        <span>Buka Titik Panas Satelit</span>
+        <ChevronRight className="h-3.5 w-3.5" />
+      </button>
+    </div>
+  );
+};
 
 const COMMAND_STEPS = [
   { key: "menunggu", label: "Antrean" },
@@ -62,7 +139,29 @@ const COMMAND_STEPS = [
 ] as const;
 
 export const FieldTelemetryView: React.FC = () => {
-  const [activeTab, setActiveTab] = useState<TelemetryTab>("ringkasan");
+  const navigate = useNavigate();
+  const [searchParams, setSearchParams] = useSearchParams();
+  const [activeTab, setActiveTabState] = useState<TelemetryTab>(() => {
+    const tabParam = searchParams.get("tab") as TelemetryTab | null;
+    return tabParam && VALID_TABS.has(tabParam) ? tabParam : "ringkasan";
+  });
+
+  const setActiveTab = useCallback(
+    (tab: TelemetryTab) => {
+      setActiveTabState(tab);
+      setSearchParams(
+        (prev) => {
+          const next = new URLSearchParams(prev);
+          if (tab === "ringkasan") next.delete("tab");
+          else next.set("tab", tab);
+          return next;
+        },
+        { replace: true }
+      );
+    },
+    [setSearchParams]
+  );
+
   const [telemetryData, setTelemetryData] = useState<TelemetryDataResponse | null>(null);
   const [weatherData, setWeatherData] = useState<TelemetryWeatherResponse | null>(null);
   const [loading, setLoading] = useState<boolean>(true);
@@ -462,6 +561,21 @@ export const FieldTelemetryView: React.FC = () => {
   const primaryStation = telemetryData?.stasiun?.[0] || null;
   const hasHardwareData = Boolean(currentReading);
 
+  const activeRegionLabel = useMemo(() => {
+    if (!weatherData?.bmkg.lokasi) return "Lokasi Lahan";
+    const { desa, kecamatan } = weatherData.bmkg.lokasi;
+    if (!kecamatan || kecamatan === "-") return desa;
+    return `${desa}, Kec. ${kecamatan}`;
+  }, [weatherData]);
+
+  const hotspotCoords = useMemo(
+    () => ({
+      lat: weatherData?.kompas_dan_angin.titik_lat ?? weatherData?.bmkg.lokasi.lat ?? -7.541,
+      lng: weatherData?.kompas_dan_angin.titik_lon ?? weatherData?.bmkg.lokasi.lon ?? 112.607,
+    }),
+    [weatherData]
+  );
+
   return (
     <div className="mx-auto max-w-7xl space-y-5 px-3 pb-12 pt-3 sm:px-6">
       {/* Header Banner */}
@@ -487,11 +601,23 @@ export const FieldTelemetryView: React.FC = () => {
               Telemetri Lahan & Peringatan Dini Kebakaran
             </h1>
             <p className="max-w-3xl text-xs leading-relaxed text-slate-300 sm:text-sm">
-              Pemantauan kelembapan tanah, mikroklimat BMKG desa (<span className="font-bold text-white">{weatherData ? `${weatherData.bmkg.lokasi.desa}, Kec. ${weatherData.bmkg.lokasi.kecamatan}` : "Memuat..."}</span>), indeks kekeringan Van Wagner FFMC, serta indikasi kesiapan tanam berbasis data rill.
+              Pemantauan kelembapan tanah, mikroklimat wilayah (<span className="font-bold text-white">{weatherData ? activeRegionLabel : "Memuat..."}</span>), indeks kekeringan Van Wagner FFMC, serta deteksi titik panas satelit NASA FIRMS NRT berbasis data riil.
             </p>
           </div>
 
           <div className="flex flex-wrap items-center gap-2 self-start lg:self-center">
+            <button
+              type="button"
+              onClick={() => setActiveTab("hotspots")}
+              className={`inline-flex min-h-[40px] items-center gap-2 rounded-2xl border px-4 py-2 text-xs font-bold transition ${
+                activeTab === "hotspots"
+                  ? "border-rose-400 bg-rose-600 text-white shadow-lg shadow-rose-500/25"
+                  : "border-rose-400/40 bg-rose-500/20 text-rose-100 backdrop-blur hover:bg-rose-500/30"
+              }`}
+            >
+              <Flame className="h-3.5 w-3.5" />
+              Titik Panas Satelit
+            </button>
             <button
               type="button"
               onClick={() => void loadAll({ forceFreshBmkg: true })}
@@ -563,18 +689,33 @@ export const FieldTelemetryView: React.FC = () => {
         </div>
       )}
 
+      {weatherData && weatherData.bmkg.sumber_ok && weatherData.bmkg.cadangan && weatherData.bmkg.catatan_sumber && (
+        <div className="flex items-start gap-2.5 rounded-2xl border border-sky-300/80 bg-sky-50/90 px-4 py-3 text-xs text-sky-900 dark:border-sky-800/70 dark:bg-sky-950/40 dark:text-sky-200">
+          <Wind className="mt-0.5 h-4 w-4 shrink-0 text-sky-600 dark:text-sky-400" />
+          <div>
+            <p className="font-bold">Menggunakan Prakiraan Cuaca Cadangan ({weatherData.bmkg.sumber})</p>
+            <p className="mt-0.5 opacity-90">{weatherData.bmkg.catatan_sumber}</p>
+          </div>
+        </div>
+      )}
+
       {/* Navigation Tabs */}
       <div className="flex items-center gap-1.5 overflow-x-auto rounded-2xl border border-slate-200/80 bg-white/90 p-1.5 shadow-sm no-scrollbar dark:border-slate-800 dark:bg-slate-900/90">
         {(
           [
-            { id: "ringkasan", label: "Sensor & Kendali Node", icon: Activity },
-            { id: "cuaca", label: "FFMC, Kompas & Tanam", icon: Flame },
-            { id: "wilayah", label: "Wilayah & GPS Alat", icon: MapPin },
-            { id: "modul", label: "Modul & Ekspansi", icon: Cpu },
+            { id: "ringkasan", label: "Sensor & Kendali Node", icon: Activity, badge: null },
+            { id: "cuaca", label: "FFMC, Kompas & Tanam", icon: Flame, badge: null },
+            { id: "hotspots", label: "Titik Panas Satelit", icon: Satellite, badge: "NRT" },
+            { id: "wilayah", label: "Wilayah & GPS Alat", icon: MapPin, badge: null },
+            { id: "modul", label: "Modul & Ekspansi", icon: Cpu, badge: null },
           ] as const
         ).map((tab) => {
           const Icon = tab.icon;
           const active = activeTab === tab.id;
+          const activeClasses =
+            tab.id === "hotspots"
+              ? "bg-rose-600 text-white shadow-sm"
+              : "bg-emerald-600 text-white shadow-sm";
           return (
             <button
               key={tab.id}
@@ -582,12 +723,23 @@ export const FieldTelemetryView: React.FC = () => {
               onClick={() => setActiveTab(tab.id)}
               className={`inline-flex min-h-[40px] shrink-0 items-center gap-2 rounded-xl px-3.5 py-2 text-xs font-bold transition ${
                 active
-                  ? "bg-emerald-600 text-white shadow-sm"
+                  ? activeClasses
                   : "text-slate-600 hover:bg-slate-100 hover:text-slate-900 dark:text-slate-300 dark:hover:bg-slate-800"
               }`}
             >
               <Icon className="h-4 w-4" />
-              {tab.label}
+              <span>{tab.label}</span>
+              {tab.badge && (
+                <span
+                  className={`rounded-full px-1.5 py-0.5 text-[9px] font-extrabold uppercase tracking-wider ${
+                    active
+                      ? "bg-white/20 text-white"
+                      : "bg-rose-500/15 text-rose-700 dark:text-rose-300"
+                  }`}
+                >
+                  {tab.badge}
+                </span>
+              )}
             </button>
           );
         })}
@@ -666,6 +818,14 @@ export const FieldTelemetryView: React.FC = () => {
               </p>
             </div>
           </div>
+
+          {weatherData && (
+            <FireSatelliteShortcutCard
+              weatherData={weatherData}
+              regionLabel={activeRegionLabel}
+              onOpenHotspots={() => setActiveTab("hotspots")}
+            />
+          )}
 
           {/* Command & Delivery Schedule Controls */}
           <div className="grid grid-cols-1 gap-5 lg:grid-cols-12">
@@ -868,6 +1028,12 @@ export const FieldTelemetryView: React.FC = () => {
             </div>
           </div>
 
+          <FireSatelliteShortcutCard
+            weatherData={weatherData}
+            regionLabel={activeRegionLabel}
+            onOpenHotspots={() => setActiveTab("hotspots")}
+          />
+
           {/* Rain report & Planting readiness */}
           <div className="grid grid-cols-1 gap-5 lg:grid-cols-12">
             <div className="space-y-4 rounded-3xl border border-slate-200/80 bg-white/95 p-5 shadow-sm lg:col-span-5 dark:border-slate-800 dark:bg-slate-900/90">
@@ -1011,7 +1177,72 @@ export const FieldTelemetryView: React.FC = () => {
         </div>
       )}
 
-      {/* TAB 3: WILAYAH BMKG & LOKASI ALAT */}
+      {/* TAB 3: TITIK PANAS SATELIT (NASA FIRMS NRT) */}
+      {activeTab === "hotspots" && (
+        <div className="space-y-5">
+          <div className="flex flex-col justify-between gap-3 rounded-3xl border border-slate-200/80 bg-white/95 p-4 shadow-sm sm:flex-row sm:items-center dark:border-slate-800 dark:bg-slate-900/90">
+            <div className="flex flex-wrap items-center gap-3 text-xs">
+              <div className="flex items-center gap-2">
+                <MapPin className="h-4 w-4 text-rose-500" />
+                <div>
+                  <p className="text-[10px] font-bold uppercase tracking-wider text-slate-400">
+                    Korelasi Peringatan Dini Lahan
+                  </p>
+                  <p className="font-extrabold text-slate-900 dark:text-white">
+                    {activeRegionLabel} ({hotspotCoords.lat.toFixed(4)}°, {hotspotCoords.lng.toFixed(4)}°)
+                  </p>
+                </div>
+              </div>
+
+              {weatherData && (
+                <>
+                  <span
+                    className={`inline-flex items-center gap-1 rounded-full border px-2.5 py-1 text-[11px] font-extrabold uppercase ${
+                      FIRE_BADGE_TONES[weatherData.ffmc.status_kebakaran.nada] || FIRE_BADGE_TONES.offline
+                    }`}
+                  >
+                    FFMC: {weatherData.ffmc.nilai !== null ? weatherData.ffmc.nilai.toFixed(1) : "--"} ·{" "}
+                    {weatherData.ffmc.status_kebakaran.status}
+                  </span>
+                  <span className="inline-flex items-center gap-1.5 rounded-full border border-slate-200 bg-slate-50 px-2.5 py-1 text-[11px] font-semibold text-slate-700 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-200">
+                    <Wind className="h-3.5 w-3.5 text-teal-500" />
+                    {weatherData.kompas_dan_angin.angin.tenang
+                      ? "Angin Tenang"
+                      : weatherData.kompas_dan_angin.angin.kecepatan_km_jam !== null
+                        ? `${weatherData.kompas_dan_angin.angin.dari_kode_id} → ${weatherData.kompas_dan_angin.angin.menuju_kode_id} (${weatherData.kompas_dan_angin.angin.kecepatan_km_jam} km/j)`
+                        : "Angin --"}
+                  </span>
+                </>
+              )}
+            </div>
+
+            <button
+              type="button"
+              onClick={() => navigate("/app/maps")}
+              className="inline-flex min-h-[38px] shrink-0 items-center justify-center gap-1.5 rounded-xl border border-slate-200 bg-slate-100 px-3.5 py-1.5 text-xs font-bold text-slate-700 transition hover:bg-slate-200 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-200 dark:hover:bg-slate-700"
+            >
+              <ExternalLink className="h-3.5 w-3.5" />
+              Peta Utama WebGIS
+            </button>
+          </div>
+
+          <Suspense
+            fallback={
+              <div className="rounded-3xl border border-slate-200/80 bg-white/95 p-8 text-center text-xs font-semibold text-slate-500 dark:border-slate-800 dark:bg-slate-900/90 dark:text-slate-400">
+                Memuat modul Titik Panas Satelit NASA FIRMS NRT...
+              </div>
+            }
+          >
+            <GeospatialHotspotsTab
+              lat={hotspotCoords.lat}
+              lng={hotspotCoords.lng}
+              regionName={activeRegionLabel}
+            />
+          </Suspense>
+        </div>
+      )}
+
+      {/* TAB 4: WILAYAH BMKG & LOKASI ALAT */}
       {activeTab === "wilayah" && weatherData && (
         <div className="grid grid-cols-1 gap-5 lg:grid-cols-12">
           <div className="space-y-4 rounded-3xl border border-slate-200/80 bg-white/95 p-5 shadow-sm lg:col-span-6 dark:border-slate-800 dark:bg-slate-900/90">
@@ -1045,7 +1276,10 @@ export const FieldTelemetryView: React.FC = () => {
             <div className="rounded-2xl border border-slate-200/80 bg-slate-50/80 p-3.5 text-xs dark:border-slate-800 dark:bg-slate-800/40">
               <p className="text-slate-500 dark:text-slate-400">Wilayah Prakiraan BMKG Aktif:</p>
               <p className="mt-1 text-sm font-extrabold text-slate-900 dark:text-white">
-                {weatherData.bmkg.lokasi.desa}, Kec. {weatherData.bmkg.lokasi.kecamatan}, {weatherData.bmkg.lokasi.kotkab}
+                {activeRegionLabel}
+                {weatherData.bmkg.lokasi.kotkab && weatherData.bmkg.lokasi.kotkab !== "-"
+                  ? `, ${weatherData.bmkg.lokasi.kotkab}`
+                  : ""}
               </p>
               <p className="mt-1 text-[11px] text-slate-500 dark:text-slate-400">
                 Kode ADM4: <span className="font-mono font-bold">{weatherData.wilayah.adm4}</span> · Sumber: {weatherData.wilayah.sumber_aktif}
