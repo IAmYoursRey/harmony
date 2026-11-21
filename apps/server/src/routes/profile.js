@@ -6,6 +6,7 @@ import {
   getAccountById,
   getProfileByUserId,
   saveProfile,
+  isPgQuotaOrUnavailableError,
 } from "../repositories/repository.js";
 import { verifyToken } from "../middleware/authMiddleware.js";
 import { getBaseSchools } from "./schools.js";
@@ -28,73 +29,97 @@ function isFixedDemoUser(user, account) {
 }
 
 router.get("/", verifyToken, async (req, res) => {
-  const [existingProfile, account] = await Promise.all([
-    getProfileByUserId(req.user.id),
-    getAccountById(req.user.id),
-  ]);
-  const isNgoroUser = isFixedDemoUser(req.user, account);
-  let profile = existingProfile;
+  try {
+    const [existingProfile, account] = await Promise.all([
+      getProfileByUserId(req.user.id),
+      getAccountById(req.user.id),
+    ]);
+    const isNgoroUser = isFixedDemoUser(req.user, account);
+    let profile = existingProfile;
 
-  if (!profile) {
-    profile = {
-      userId: req.user.id,
-      name: account?.name || req.user.name || "Pengguna SMAN 1 Ngoro",
-      role: account?.role || req.user.role || "student",
-      gender: "other",
-      grade: "X",
-      section: "1",
-      classSection: "1",
-      schoolId: isNgoroUser ? SMAN1_NGORO_SCHOOL_ID : null,
-      schoolName: isNgoroUser ? "SMAN 1 Ngoro" : null,
-      province: isNgoroUser ? "Jawa Timur" : null,
-      regency: isNgoroUser ? "Kabupaten Mojokerto" : null,
-      xp: 1200,
-      level: 2,
-      achievements: [],
-      joinedAt: new Date().toISOString(),
-      lastUpdated: new Date().toISOString(),
-    };
-    await saveProfile(profile);
-  } else if (isNgoroUser && profile.schoolId !== SMAN1_NGORO_SCHOOL_ID) {
-    profile.schoolId = SMAN1_NGORO_SCHOOL_ID;
-    profile.schoolName = "SMAN 1 Ngoro";
-    profile.province = "Jawa Timur";
-    profile.regency = "Kabupaten Mojokerto";
-    await saveProfile(profile);
+    if (!profile) {
+      const normalizedRole =
+        account?.role || (req.user.role === "dev" ? "developer" : req.user.role) || "student";
+      profile = {
+        userId: req.user.id,
+        name: account?.name || req.user.name || "Pengguna SMAN 1 Ngoro",
+        role: normalizedRole,
+        gender: "other",
+        grade: normalizedRole === "teacher" || normalizedRole === "developer" ? "-" : "X",
+        section: "1",
+        classSection: "1",
+        schoolId: isNgoroUser ? SMAN1_NGORO_SCHOOL_ID : null,
+        schoolName: isNgoroUser ? "SMAN 1 Ngoro" : null,
+        province: isNgoroUser ? "Jawa Timur" : null,
+        regency: isNgoroUser ? "Kabupaten Mojokerto" : null,
+        xp: 1200,
+        level: 2,
+        achievements: [],
+        joinedAt: new Date().toISOString(),
+        lastUpdated: new Date().toISOString(),
+      };
+      await saveProfile(profile);
+    } else if (isNgoroUser && profile.schoolId !== SMAN1_NGORO_SCHOOL_ID) {
+      profile.schoolId = SMAN1_NGORO_SCHOOL_ID;
+      profile.schoolName = "SMAN 1 Ngoro";
+      profile.province = "Jawa Timur";
+      profile.regency = "Kabupaten Mojokerto";
+      await saveProfile(profile);
+    }
+    res.json({ profile });
+  } catch (err) {
+    console.error("[PROFILE ERROR] GET /:", err);
+    if (isPgQuotaOrUnavailableError(err)) {
+      return res.status(503).json({
+        error: "Database utama sedang melampaui kuota (kode 53000).",
+        code: "DB_QUOTA_EXCEEDED",
+      });
+    }
+    res.status(500).json({ error: "Failed to load profile" });
   }
-  res.json({ profile });
 });
 
 router.post("/", verifyToken, async (req, res) => {
-  const [existing, account] = await Promise.all([
-    getProfileByUserId(req.user.id),
-    getAccountById(req.user.id),
-  ]);
+  try {
+    const [existing, account] = await Promise.all([
+      getProfileByUserId(req.user.id),
+      getAccountById(req.user.id),
+    ]);
 
-  const { schoolId, ...safeBody } = req.body || {};
+    const { schoolId, ...safeBody } = req.body || {};
 
-  if (safeBody.avatar && safeBody.avatar.startsWith("data:image")) {
-    safeBody.avatar = await uploadBase64(safeBody.avatar, `avatar_${req.user.id}_${Date.now()}`);
+    if (safeBody.avatar && safeBody.avatar.startsWith("data:image")) {
+      safeBody.avatar = await uploadBase64(safeBody.avatar, `avatar_${req.user.id}_${Date.now()}`);
+    }
+
+    const lockedMeta = isFixedDemoUser(req.user, account)
+      ? {
+          schoolId: SMAN1_NGORO_SCHOOL_ID,
+          schoolName: "SMAN 1 Ngoro",
+          province: "Jawa Timur",
+          regency: "Kabupaten Mojokerto",
+        }
+      : {};
+
+    const updated = {
+      ...(existing || {}),
+      ...safeBody,
+      ...lockedMeta,
+      userId: req.user.id,
+      lastUpdated: new Date().toISOString(),
+    };
+    await saveProfile(updated);
+    return res.json({ profile: updated });
+  } catch (err) {
+    console.error("[PROFILE ERROR] POST /:", err);
+    if (isPgQuotaOrUnavailableError(err)) {
+      return res.status(503).json({
+        error: "Database utama sedang melampaui kuota (kode 53000).",
+        code: "DB_QUOTA_EXCEEDED",
+      });
+    }
+    res.status(500).json({ error: "Failed to update profile" });
   }
-
-  const lockedMeta = isFixedDemoUser(req.user, account)
-    ? {
-        schoolId: SMAN1_NGORO_SCHOOL_ID,
-        schoolName: "SMAN 1 Ngoro",
-        province: "Jawa Timur",
-        regency: "Kabupaten Mojokerto",
-      }
-    : {};
-
-  const updated = {
-    ...(existing || {}),
-    ...safeBody,
-    ...lockedMeta,
-    userId: req.user.id,
-    lastUpdated: new Date().toISOString(),
-  };
-  await saveProfile(updated);
-  return res.json({ profile: updated });
 });
 
 router.get("/all", verifyToken, async (req, res) => {

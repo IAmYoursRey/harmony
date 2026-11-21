@@ -8,6 +8,8 @@ import {
   getAccountById,
   getAccountByEmail,
   getProfileByUserId,
+  isPgDegraded,
+  isPgQuotaOrUnavailableError,
 } from "../repositories/repository.js";
 import { verifyToken } from "../middleware/authMiddleware.js";
 import dotenv from "dotenv";
@@ -15,6 +17,8 @@ import { OAuth2Client } from "google-auth-library";
 
 dotenv.config({ path: [".env.local", ".env"] });
 const router = express.Router();
+const isProductionRuntime = () =>
+  process.env.VERCEL === "1" || process.env.NODE_ENV === "production";
 const SECRET = process.env.JWT_SECRET || "default_jwt_secret_for_development";
 const GOOGLE_CLIENT_ID = process.env.GOOGLE_CLIENT_ID || "YOUR_GOOGLE_CLIENT_ID";
 const googleClient = new OAuth2Client(GOOGLE_CLIENT_ID);
@@ -35,6 +39,21 @@ function isFixedDemoEmail(email) {
   return lower === "raihanansari3345@gmail.com" || lower.endsWith("@sman1ngoro.sch.id");
 }
 
+const DB_QUOTA_LOGIN_MSG =
+  "Database utama (PostgreSQL) sedang melampaui kuota (kode 53000). Akun non-demo belum dapat diverifikasi; gunakan tombol Akun Demo atau perbarui kuota/koneksi database di Vercel.";
+const DB_QUOTA_REGISTER_MSG =
+  "Kuota database PostgreSQL penuh (kode 53000), pendaftaran akun permanen sementara tidak tersedia. Silakan gunakan Akun Demo atau perbarui koneksi database di Vercel.";
+const DB_FALLBACK_NOTICE =
+  "Database PostgreSQL sedang melampaui kuota; sesi berjalan dalam mode cadangan sementara.";
+
+function buildFallbackMeta() {
+  if (!isPgDegraded()) return {};
+  return {
+    storageMode: "fallback",
+    dbNotice: DB_FALLBACK_NOTICE,
+  };
+}
+
 router.post("/login", async (req, res) => {
   try {
     const { token, role, email: credEmail, password } = req.body || {};
@@ -42,6 +61,12 @@ router.post("/login", async (req, res) => {
     if (credEmail && password) {
       const account = await getAccountByEmail(credEmail);
       if (!account) {
+        if (isPgDegraded()) {
+          return res.status(503).json({
+            error: DB_QUOTA_LOGIN_MSG,
+            code: "DB_QUOTA_EXCEEDED",
+          });
+        }
         return res.status(401).json({ error: "Akun tidak ditemukan atau password salah" });
       }
 
@@ -53,12 +78,25 @@ router.post("/login", async (req, res) => {
       }
 
       const jwtToken = jwt.sign(
-        { id: account.id, role: account.role, name: account.name },
+        {
+          id: account.id,
+          email: account.email,
+          role: account.role,
+          name: account.name,
+          schoolId: account.schoolId,
+          grade: account.grade,
+          isDemo: Boolean(account.isDemo),
+        },
         SECRET,
         { expiresIn: "24h" }
       );
       const { passwordHash: _, ...safeAccount } = account;
-      return res.json({ status: "registered", token: jwtToken, account: safeAccount });
+      return res.json({
+        status: "registered",
+        token: jwtToken,
+        account: safeAccount,
+        ...buildFallbackMeta(),
+      });
     }
 
     if (!token) {
@@ -146,6 +184,12 @@ router.post("/login", async (req, res) => {
     }
 
     if (!account) {
+      if (isPgDegraded()) {
+        return res.status(503).json({
+          error: DB_QUOTA_LOGIN_MSG,
+          code: "DB_QUOTA_EXCEEDED",
+        });
+      }
       return res.status(200).json({
         status: "not_registered",
         email,
@@ -193,9 +237,20 @@ router.post("/login", async (req, res) => {
       { expiresIn: "24h" }
     );
     const { passwordHash: _, ...safeAccount } = account;
-    res.json({ status: "registered", token: jwtToken, account: safeAccount });
+    res.json({
+      status: "registered",
+      token: jwtToken,
+      account: safeAccount,
+      ...buildFallbackMeta(),
+    });
   } catch (err) {
     console.error("[AUTH ERROR]", err);
+    if (isPgQuotaOrUnavailableError(err)) {
+      return res.status(503).json({
+        error: DB_QUOTA_LOGIN_MSG,
+        code: "DB_QUOTA_EXCEEDED",
+      });
+    }
     res.status(500).json({ error: "Server error during login" });
   }
 });
@@ -208,6 +263,13 @@ router.post("/register", async (req, res) => {
     }
 
     const db = await readDB();
+    if (isProductionRuntime() && isPgDegraded()) {
+      return res.status(503).json({
+        error: DB_QUOTA_REGISTER_MSG,
+        code: "DB_QUOTA_EXCEEDED",
+      });
+    }
+
     const existing = db.accounts.find((a) => a.email.toLowerCase() === email.toLowerCase());
     if (existing) {
       return res.status(400).json({ error: "Email sudah terdaftar" });
@@ -225,7 +287,6 @@ router.post("/register", async (req, res) => {
       passwordHash,
       createdAt: new Date().toISOString(),
     };
-    db.accounts.push(account);
 
     const profile = {
       userId: id,
@@ -242,9 +303,15 @@ router.post("/register", async (req, res) => {
       joinedAt: new Date().toISOString(),
       lastUpdated: new Date().toISOString(),
     };
-    db.profiles.push(profile);
 
     await saveAccount(account);
+    if (isProductionRuntime() && isPgDegraded()) {
+      db.accounts = (db.accounts || []).filter((a) => a.id !== account.id);
+      return res.status(503).json({
+        error: DB_QUOTA_REGISTER_MSG,
+        code: "DB_QUOTA_EXCEEDED",
+      });
+    }
     await saveProfile(profile);
 
     const jwtToken = jwt.sign(
@@ -264,6 +331,12 @@ router.post("/register", async (req, res) => {
     return res.status(201).json({ success: true, token: jwtToken, account: safeAccount });
   } catch (error) {
     console.error("[AUTH ERROR] /register:", error);
+    if (isPgQuotaOrUnavailableError(error)) {
+      return res.status(503).json({
+        error: DB_QUOTA_REGISTER_MSG,
+        code: "DB_QUOTA_EXCEEDED",
+      });
+    }
     res.status(500).json({ error: "Internal server error during registration" });
   }
 });
@@ -295,6 +368,13 @@ router.post("/register-google", async (req, res) => {
     if (!email) return res.status(400).json({ error: "Google token does not contain email" });
 
     const db = await readDB();
+    if (isProductionRuntime() && isPgDegraded()) {
+      return res.status(503).json({
+        error: DB_QUOTA_REGISTER_MSG,
+        code: "DB_QUOTA_EXCEEDED",
+      });
+    }
+
     let account = db.accounts.find((a) => a.email.toLowerCase() === email.toLowerCase());
 
     if (account) {
@@ -312,7 +392,6 @@ router.post("/register-google", async (req, res) => {
       picture,
       createdAt: new Date().toISOString(),
     };
-    db.accounts.push(account);
 
     const profile = {
       userId: id,
@@ -329,9 +408,15 @@ router.post("/register-google", async (req, res) => {
       joinedAt: new Date().toISOString(),
       lastUpdated: new Date().toISOString(),
     };
-    db.profiles.push(profile);
 
     await saveAccount(account);
+    if (isProductionRuntime() && isPgDegraded()) {
+      db.accounts = (db.accounts || []).filter((a) => a.id !== account.id);
+      return res.status(503).json({
+        error: DB_QUOTA_REGISTER_MSG,
+        code: "DB_QUOTA_EXCEEDED",
+      });
+    }
     await saveProfile(profile);
 
     const jwtToken = jwt.sign(
@@ -349,36 +434,51 @@ router.post("/register-google", async (req, res) => {
     );
     res.json({ token: jwtToken, account });
   } catch (error) {
-    console.error("[AUTH ERROR] /login:", error);
-    res.status(500).json({ error: "Internal server error during login" });
+    console.error("[AUTH ERROR] /register-google:", error);
+    if (isPgQuotaOrUnavailableError(error)) {
+      return res.status(503).json({
+        error: DB_QUOTA_REGISTER_MSG,
+        code: "DB_QUOTA_EXCEEDED",
+      });
+    }
+    res.status(500).json({ error: "Internal server error during registration" });
   }
 });
 
 router.get("/me", verifyToken, async (req, res) => {
   try {
     let account = await getAccountById(req.user.id);
-    if (
-      !account &&
-      (req.user?.isDemo ||
+    const isDemoSession = Boolean(
+      req.user?.isDemo ||
         String(req.user?.id || "").startsWith("usr-demo-") ||
-        String(req.user?.id || "").startsWith("demo-"))
-    ) {
-      const role = req.user.role || "student";
+        String(req.user?.id || "").startsWith("demo-"),
+    );
+    if (!account && (isDemoSession || isPgDegraded())) {
+      const normalizedRole = req.user.role === "dev" ? "developer" : (req.user.role || "student");
       account = {
         id: req.user.id,
         email: req.user.email || `${req.user.id}@demo.harmony.sch.id`,
-        name: req.user.name || "Demo Account",
-        role,
+        name: req.user.name || (isDemoSession ? "Demo Account" : "Pengguna"),
+        role: normalizedRole,
         schoolId: req.user.schoolId || SMAN1_NGORO_META.schoolId,
-        grade: role === "teacher" || role === "developer" ? "-" : (req.user.grade || "XI"),
-        isDemo: true,
+        grade:
+          normalizedRole === "teacher" || normalizedRole === "developer"
+            ? "-"
+            : (req.user.grade || "XI"),
+        isDemo: isDemoSession,
       };
     }
     if (!account) return res.status(404).json({ error: "User not found" });
     const { passwordHash: _, ...safeAccount } = account;
-    res.json({ account: safeAccount });
+    res.json({ account: safeAccount, ...buildFallbackMeta() });
   } catch (error) {
     console.error("[AUTH ERROR] /me:", error);
+    if (isPgQuotaOrUnavailableError(error)) {
+      return res.status(503).json({
+        error: DB_QUOTA_LOGIN_MSG,
+        code: "DB_QUOTA_EXCEEDED",
+      });
+    }
     res.status(500).json({ error: "Internal server error" });
   }
 });

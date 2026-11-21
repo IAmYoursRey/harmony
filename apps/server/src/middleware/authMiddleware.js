@@ -16,25 +16,30 @@ export async function verifyToken(req, res, next) {
   }
 
   const token = authHeader.split(" ")[1];
+  let decoded;
   try {
-    const decoded = jwt.verify(token, SECRET);
+    decoded = jwt.verify(token, SECRET);
+  } catch (err) {
+    return res.status(403).json({ error: "Invalid or expired token" });
+  }
 
+  try {
     const account = await getAccountById(decoded.id);
     if (account) {
       decoded.role = account.role;
       decoded.email = account.email;
     }
-    
-    // Normalize 'developer' to 'dev' for backend compatibility
-    if (decoded.role === "developer") {
-      decoded.role = "dev";
-    }
-    
-    req.user = decoded; // { id, role }
-    next();
-  } catch (err) {
-    return res.status(403).json({ error: "Invalid or expired token" });
+  } catch {
+    // Keep signed JWT claims if database lookup fails due to quota or transient outage
   }
+
+  // Normalize 'developer' to 'dev' for backend compatibility
+  if (decoded.role === "developer") {
+    decoded.role = "dev";
+  }
+
+  req.user = decoded; // { id, role }
+  next();
 }
 
 export async function verifyOptionalToken(req, res, next) {

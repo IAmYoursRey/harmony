@@ -7,28 +7,30 @@ import { put } from "@vercel/blob";
 
 dotenv.config({ path: [".env.local", ".env"] });
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
-const isVercel =
+const isProductionRuntime = () =>
   process.env.VERCEL === "1" || process.env.NODE_ENV === "production";
 const sourceDbPath = path.join(__dirname, "..", "database", "data", "database.json");
 
-const DEFAULT_DB = {
-  accounts: [],
-  profiles: [],
-  digitalTwins: {},
-  surveys: [],
-  gridMaps: {},
-  simulations: {},
-  dtRooms: {},
-  dtResults: [],
-  schools: [],
-  classes: [],
-  schoolDisasterAnalysis: {},
-  quizHistories: [],
-  spatialCache: {},
-  events: [],
-  weatherIntervals: [],
-  spatialJobs: {},
-};
+function createEmptyDb() {
+  return {
+    accounts: [],
+    profiles: [],
+    digitalTwins: {},
+    surveys: [],
+    gridMaps: {},
+    simulations: {},
+    dtRooms: {},
+    dtResults: [],
+    schools: [],
+    classes: [],
+    schoolDisasterAnalysis: {},
+    quizHistories: [],
+    spatialCache: {},
+    events: [],
+    weatherIntervals: [],
+    spatialJobs: {},
+  };
+}
 
 let inMemoryCache = null;
 
@@ -50,6 +52,76 @@ export const pool = dbUrl
     })
   : null;
 
+let activePool = pool;
+const PG_DEGRADED_COOLDOWN_MS = 5 * 60 * 1000;
+let pgDegradedUntil = 0;
+let pgDegradedCode = null;
+let pgDegradedReason = null;
+let pgDegradedLoggedAt = 0;
+
+export function isPgQuotaOrUnavailableError(err) {
+  if (!err) return false;
+  const code = String(err.code || err.errno || "").toUpperCase();
+  if (/^(53\d{3}|08\d{3}|57P0[1-3])$/.test(code)) return true;
+  if (["ECONNREFUSED", "ETIMEDOUT", "ENOTFOUND", "EHOSTUNREACH", "ECONNRESET", "ENETUNREACH"].includes(code)) {
+    return true;
+  }
+  const msg = String(err.message || err);
+  return /exceeded the quota|quota exceeded|compute time|too many connections|PostgreSQL timeout|Connection terminated|ECONNREFUSED|ENOTFOUND|ETIMEDOUT/i.test(
+    msg,
+  );
+}
+
+export function isPgDegraded() {
+  if (pgDegradedUntil > 0 && Date.now() >= pgDegradedUntil) {
+    pgDegradedUntil = 0;
+    pgDegradedCode = null;
+    pgDegradedReason = null;
+  }
+  return Date.now() < pgDegradedUntil;
+}
+
+export function getPgHealthStatus() {
+  const degraded = isPgDegraded();
+  return {
+    configured: Boolean(activePool),
+    degraded,
+    code: degraded ? pgDegradedCode : null,
+    reason: degraded ? pgDegradedReason : null,
+    retryAfterMs: degraded ? Math.max(0, pgDegradedUntil - Date.now()) : 0,
+  };
+}
+
+function markPgDegraded(err) {
+  const now = Date.now();
+  const code = String(err?.code || err?.errno || "PG_UNAVAILABLE");
+  const reason = err?.message || "PostgreSQL unavailable";
+  pgDegradedUntil = now + PG_DEGRADED_COOLDOWN_MS;
+  pgDegradedCode = code;
+  pgDegradedReason = reason;
+  if (now - pgDegradedLoggedAt > 30000) {
+    pgDegradedLoggedAt = now;
+    console.warn(
+      `[DB CIRCUIT BREAKER] PostgreSQL unavailable (${code}: ${reason}). Activating 5m fallback mode.`,
+    );
+  }
+}
+
+export function loadLocalFallbackDB() {
+  if (inMemoryCache) return inMemoryCache;
+  if (fs.existsSync(sourceDbPath)) {
+    try {
+      const parsed = JSON.parse(fs.readFileSync(sourceDbPath, "utf-8"));
+      inMemoryCache = { ...createEmptyDb(), ...parsed };
+      return inMemoryCache;
+    } catch (e) {
+      console.warn("[DB] Failed to parse bundled database.json fallback:", e?.message || e);
+    }
+  }
+  inMemoryCache = createEmptyDb();
+  return inMemoryCache;
+}
+
 export const timeoutQuery = (queryPromise, ms = 25000) => {
   return Promise.race([
     queryPromise,
@@ -64,13 +136,30 @@ export const timeoutQuery = (queryPromise, ms = 25000) => {
 
 let pgInitialized = false;
 let pgInitPromise = null;
+
+export function __setPgPoolForTest(mockPool) {
+  activePool = mockPool ?? pool;
+}
+
+export function __resetPgStateForTest({ keepPool = false } = {}) {
+  if (!keepPool) activePool = pool;
+  pgInitialized = false;
+  pgInitPromise = null;
+  pgDegradedUntil = 0;
+  pgDegradedCode = null;
+  pgDegradedReason = null;
+  pgDegradedLoggedAt = 0;
+  inMemoryCache = null;
+  memoryJobCache.clear();
+}
+
 async function initPg() {
-  if (!pool || pgInitialized) return;
+  if (!activePool || pgInitialized || isPgDegraded()) return;
   if (pgInitPromise) return pgInitPromise;
   pgInitPromise = (async () => {
     try {
     await timeoutQuery(
-      pool.query(`
+      activePool.query(`
       CREATE TABLE IF NOT EXISTS accounts ( id VARCHAR(255) PRIMARY KEY, data JSONB NOT NULL );
       CREATE TABLE IF NOT EXISTS profiles ( user_id VARCHAR(255) PRIMARY KEY, data JSONB NOT NULL );
       CREATE TABLE IF NOT EXISTS schools ( id VARCHAR(255) PRIMARY KEY, data JSONB NOT NULL );
@@ -387,7 +476,11 @@ async function initPg() {
     );
     pgInitialized = true;
     } catch (err) {
-      console.error("Failed to initialize PostgreSQL tables:", err);
+      if (isPgQuotaOrUnavailableError(err)) {
+        markPgDegraded(err);
+      } else {
+        console.error("Failed to initialize PostgreSQL tables:", err);
+      }
       throw err;
     } finally {
       pgInitPromise = null;
@@ -422,57 +515,57 @@ export async function uploadBase64(base64Str, filename) {
 }
 
 export async function readDB() {
-  if (pool) {
+  if (activePool && !isPgDegraded()) {
     try {
       await initPg();
-      const db = { ...DEFAULT_DB };
+      const db = createEmptyDb();
 
       const accountsRes = await timeoutQuery(
-        pool.query("SELECT data FROM accounts"),
+        activePool.query("SELECT data FROM accounts"),
       );
       const profilesRes = await timeoutQuery(
-        pool.query("SELECT data FROM profiles"),
+        activePool.query("SELECT data FROM profiles"),
       );
       const schoolsRes = await timeoutQuery(
-        pool.query("SELECT data FROM schools"),
+        activePool.query("SELECT data FROM schools"),
       );
       const classesRes = await timeoutQuery(
-        pool.query("SELECT data FROM classes"),
+        activePool.query("SELECT data FROM classes"),
       );
       const twinsRes = await timeoutQuery(
-        pool.query("SELECT data, school_id FROM digital_twins"),
+        activePool.query("SELECT data, school_id FROM digital_twins"),
       );
       const gridsRes = await timeoutQuery(
-        pool.query("SELECT data, id FROM grid_maps"),
+        activePool.query("SELECT data, id FROM grid_maps"),
       );
       const simsRes = await timeoutQuery(
-        pool.query("SELECT data, id FROM simulations"),
+        activePool.query("SELECT data, id FROM simulations"),
       );
       const roomsRes = await timeoutQuery(
-        pool.query("SELECT data, id FROM dt_rooms"),
+        activePool.query("SELECT data, id FROM dt_rooms"),
       );
       const resultsRes = await timeoutQuery(
-        pool.query("SELECT data FROM dt_results"),
+        activePool.query("SELECT data FROM dt_results"),
       );
       const surveysRes = await timeoutQuery(
-        pool.query("SELECT data FROM surveys"),
+        activePool.query("SELECT data FROM surveys"),
       );
       const analysisRes = await timeoutQuery(
-        pool.query("SELECT data, school_id FROM school_disaster_analysis"),
+        activePool.query("SELECT data, school_id FROM school_disaster_analysis"),
       );
       const spatialRes = await timeoutQuery(
-        pool.query("SELECT id, data FROM spatial_cache"),
+        activePool.query("SELECT id, data FROM spatial_cache"),
       );
 
       try {
-        const eventsRes = await timeoutQuery(pool.query("SELECT data FROM events"));
+        const eventsRes = await timeoutQuery(activePool.query("SELECT data FROM events"));
         db.events = eventsRes.rows.map((r) => r.data);
       } catch (_e) {
         db.events = [];
       }
 
       try {
-        const qhRes = await timeoutQuery(pool.query("SELECT data FROM quiz_histories"));
+        const qhRes = await timeoutQuery(activePool.query("SELECT data FROM quiz_histories"));
         db.quizHistories = qhRes.rows.map((r) => r.data);
       } catch (_e) {
         db.quizHistories = [];
@@ -496,65 +589,67 @@ export async function readDB() {
 
       return db;
     } catch (e) {
-      console.error("Vercel DB Read Error (falling back to memory/local):", e);
-      if (isVercel) throw new Error("Database connection failed in production");
+      if (isPgQuotaOrUnavailableError(e)) {
+        markPgDegraded(e);
+      } else {
+        console.error("Vercel DB Read Error:", e);
+        if (isProductionRuntime() && !fs.existsSync(sourceDbPath)) {
+          throw new Error("Database connection failed in production");
+        }
+      }
     }
-  } else if (isVercel) {
+  } else if (!activePool && isProductionRuntime() && !fs.existsSync(sourceDbPath)) {
     throw new Error(
       "CRITICAL: DATABASE_URL is missing. database.json fallback is disabled in production.",
     );
   }
 
-  if (inMemoryCache) return inMemoryCache;
-
-  if (fs.existsSync(sourceDbPath)) {
-    try {
-      return {
-        ...DEFAULT_DB,
-        ...JSON.parse(fs.readFileSync(sourceDbPath, "utf-8")),
-      };
-    } catch (e) {
-      return DEFAULT_DB;
-    }
-  }
-  return DEFAULT_DB;
+  return loadLocalFallbackDB();
 }
 
 export async function getAccountById(id) {
   if (!id) return null;
-  if (pool) {
+  if (activePool && !isPgDegraded()) {
     try {
       await initPg();
       const res = await timeoutQuery(
-        pool.query("SELECT data FROM accounts WHERE id = $1 LIMIT 1", [id]),
+        activePool.query("SELECT data FROM accounts WHERE id = $1 LIMIT 1", [id]),
       );
       return res.rows[0]?.data || null;
     } catch (e) {
-      if (isVercel) throw e;
+      if (isPgQuotaOrUnavailableError(e)) {
+        markPgDegraded(e);
+      } else if (isProductionRuntime()) {
+        throw e;
+      }
     }
   }
-  const db = await readDB();
+  const db = loadLocalFallbackDB();
   return (db.accounts || []).find((a) => a.id === id) || null;
 }
 
 export async function getAccountByEmail(email) {
   if (!email) return null;
   const target = String(email).toLowerCase();
-  if (pool) {
+  if (activePool && !isPgDegraded()) {
     try {
       await initPg();
       const res = await timeoutQuery(
-        pool.query(
+        activePool.query(
           "SELECT data FROM accounts WHERE lower(data->>'email') = $1 LIMIT 1",
           [target],
         ),
       );
       return res.rows[0]?.data || null;
     } catch (e) {
-      if (isVercel) throw e;
+      if (isPgQuotaOrUnavailableError(e)) {
+        markPgDegraded(e);
+      } else if (isProductionRuntime()) {
+        throw e;
+      }
     }
   }
-  const db = await readDB();
+  const db = loadLocalFallbackDB();
   return (
     (db.accounts || []).find((a) => a.email?.toLowerCase() === target) || null
   );
@@ -562,91 +657,128 @@ export async function getAccountByEmail(email) {
 
 export async function getProfileByUserId(userId) {
   if (!userId) return null;
-  if (pool) {
+  if (activePool && !isPgDegraded()) {
     try {
       await initPg();
       const res = await timeoutQuery(
-        pool.query("SELECT data FROM profiles WHERE user_id = $1 LIMIT 1", [
+        activePool.query("SELECT data FROM profiles WHERE user_id = $1 LIMIT 1", [
           userId,
         ]),
       );
       return res.rows[0]?.data || null;
     } catch (e) {
-      if (isVercel) throw e;
+      if (isPgQuotaOrUnavailableError(e)) {
+        markPgDegraded(e);
+      } else if (isProductionRuntime()) {
+        throw e;
+      }
     }
   }
-  const db = await readDB();
+  const db = loadLocalFallbackDB();
   return (db.profiles || []).find((p) => p.userId === userId) || null;
 }
 
 export async function saveAccount(account) {
-  if (inMemoryCache) {
-    if (!inMemoryCache.accounts) inMemoryCache.accounts = [];
-    const idx = inMemoryCache.accounts.findIndex((a) => a.id === account.id);
-    if (idx >= 0) inMemoryCache.accounts[idx] = account;
-    else inMemoryCache.accounts.push(account);
-  }
-  if (pool) {
-    await initPg();
-    await timeoutQuery(
-      pool.query(
-        `INSERT INTO accounts (id, data) VALUES ($1, $2) ON CONFLICT (id) DO UPDATE SET data = EXCLUDED.data`,
-        [account.id, JSON.stringify(account)],
-      ),
-    );
-    return true;
+  const mem = loadLocalFallbackDB();
+  if (!mem.accounts) mem.accounts = [];
+  const idx = mem.accounts.findIndex((a) => a.id === account.id);
+  if (idx >= 0) mem.accounts[idx] = account;
+  else mem.accounts.push(account);
+
+  if (activePool && !isPgDegraded()) {
+    try {
+      await initPg();
+      await timeoutQuery(
+        activePool.query(
+          `INSERT INTO accounts (id, data) VALUES ($1, $2) ON CONFLICT (id) DO UPDATE SET data = EXCLUDED.data`,
+          [account.id, JSON.stringify(account)],
+        ),
+      );
+      return true;
+    } catch (e) {
+      if (isPgQuotaOrUnavailableError(e)) {
+        markPgDegraded(e);
+        return true;
+      }
+      if (isProductionRuntime()) throw e;
+    }
   }
   return true;
 }
 
 export async function saveProfile(profile) {
-  if (inMemoryCache) {
-    if (!inMemoryCache.profiles) inMemoryCache.profiles = [];
-    const idx = inMemoryCache.profiles.findIndex((p) => p.userId === profile.userId);
-    if (idx >= 0) inMemoryCache.profiles[idx] = profile;
-    else inMemoryCache.profiles.push(profile);
-  }
-  if (pool) {
-    await initPg();
-    await timeoutQuery(
-      pool.query(
-        `INSERT INTO profiles (user_id, data) VALUES ($1, $2) ON CONFLICT (user_id) DO UPDATE SET data = EXCLUDED.data`,
-        [profile.userId, JSON.stringify(profile)],
-      ),
-    );
-    return true;
+  const mem = loadLocalFallbackDB();
+  if (!mem.profiles) mem.profiles = [];
+  const idx = mem.profiles.findIndex((p) => p.userId === profile.userId);
+  if (idx >= 0) mem.profiles[idx] = profile;
+  else mem.profiles.push(profile);
+
+  if (activePool && !isPgDegraded()) {
+    try {
+      await initPg();
+      await timeoutQuery(
+        activePool.query(
+          `INSERT INTO profiles (user_id, data) VALUES ($1, $2) ON CONFLICT (user_id) DO UPDATE SET data = EXCLUDED.data`,
+          [profile.userId, JSON.stringify(profile)],
+        ),
+      );
+      return true;
+    } catch (e) {
+      if (isPgQuotaOrUnavailableError(e)) {
+        markPgDegraded(e);
+        return true;
+      }
+      if (isProductionRuntime()) throw e;
+    }
   }
   return true;
 }
 
 export async function saveEvent(event) {
-  if (inMemoryCache) {
-    if (!inMemoryCache.events) inMemoryCache.events = [];
-    const idx = inMemoryCache.events.findIndex((e) => e.id === event.id);
-    if (idx >= 0) inMemoryCache.events[idx] = event;
-    else inMemoryCache.events.push(event);
-  }
-  if (pool) {
-    await initPg();
-    await timeoutQuery(
-      pool.query(
-        `INSERT INTO events (id, data) VALUES ($1, $2) ON CONFLICT (id) DO UPDATE SET data = EXCLUDED.data`,
-        [event.id, JSON.stringify(event)],
-      ),
-    );
-    return true;
+  const mem = loadLocalFallbackDB();
+  if (!mem.events) mem.events = [];
+  const idx = mem.events.findIndex((e) => e.id === event.id);
+  if (idx >= 0) mem.events[idx] = event;
+  else mem.events.push(event);
+
+  if (activePool && !isPgDegraded()) {
+    try {
+      await initPg();
+      await timeoutQuery(
+        activePool.query(
+          `INSERT INTO events (id, data) VALUES ($1, $2) ON CONFLICT (id) DO UPDATE SET data = EXCLUDED.data`,
+          [event.id, JSON.stringify(event)],
+        ),
+      );
+      return true;
+    } catch (e) {
+      if (isPgQuotaOrUnavailableError(e)) {
+        markPgDegraded(e);
+        return true;
+      }
+      if (isProductionRuntime()) throw e;
+    }
   }
   return true;
 }
 
 export async function removeEvent(id) {
-  if (inMemoryCache && inMemoryCache.events) {
-    inMemoryCache.events = inMemoryCache.events.filter((e) => e.id !== id);
+  const mem = loadLocalFallbackDB();
+  if (mem.events) {
+    mem.events = mem.events.filter((e) => e.id !== id);
   }
-  if (pool) {
-    await initPg();
-    await timeoutQuery(pool.query(`DELETE FROM events WHERE id = $1`, [id]));
-    return true;
+  if (activePool && !isPgDegraded()) {
+    try {
+      await initPg();
+      await timeoutQuery(activePool.query(`DELETE FROM events WHERE id = $1`, [id]));
+      return true;
+    } catch (e) {
+      if (isPgQuotaOrUnavailableError(e)) {
+        markPgDegraded(e);
+        return true;
+      }
+      if (isProductionRuntime()) throw e;
+    }
   }
   return true;
 }
@@ -655,22 +787,29 @@ export async function saveWeatherInterval(record) {
   if (!record.id) {
     record.id = `wt-${record.locationKey || 'loc'}-${record.timeframe || '1d'}-${Date.now()}`;
   }
-  if (inMemoryCache) {
-    if (!inMemoryCache.weatherIntervals) inMemoryCache.weatherIntervals = [];
-    inMemoryCache.weatherIntervals.unshift(record);
-    if (inMemoryCache.weatherIntervals.length > 500) {
-      inMemoryCache.weatherIntervals = inMemoryCache.weatherIntervals.slice(0, 500);
-    }
+  const mem = loadLocalFallbackDB();
+  if (!mem.weatherIntervals) mem.weatherIntervals = [];
+  mem.weatherIntervals.unshift(record);
+  if (mem.weatherIntervals.length > 500) {
+    mem.weatherIntervals = mem.weatherIntervals.slice(0, 500);
   }
-  if (pool) {
-    await initPg();
-    await timeoutQuery(
-      pool.query(
-        `INSERT INTO weather_training_intervals (id, data) VALUES ($1, $2) ON CONFLICT (id) DO UPDATE SET data = EXCLUDED.data`,
-        [record.id, JSON.stringify(record)],
-      ),
-    );
-    return true;
+  if (activePool && !isPgDegraded()) {
+    try {
+      await initPg();
+      await timeoutQuery(
+        activePool.query(
+          `INSERT INTO weather_training_intervals (id, data) VALUES ($1, $2) ON CONFLICT (id) DO UPDATE SET data = EXCLUDED.data`,
+          [record.id, JSON.stringify(record)],
+        ),
+      );
+      return true;
+    } catch (e) {
+      if (isPgQuotaOrUnavailableError(e)) {
+        markPgDegraded(e);
+        return true;
+      }
+      if (isProductionRuntime()) throw e;
+    }
   }
   return true;
 }
@@ -689,25 +828,27 @@ function normalizeKeyVariants(key) {
 
 export async function getWeatherIntervals(locationKey, limit = 50) {
   const variants = normalizeKeyVariants(locationKey);
-  if (pool) {
-    await initPg();
+  if (activePool && !isPgDegraded()) {
     try {
+      await initPg();
       let queryText = `SELECT data FROM weather_training_intervals ORDER BY created_at DESC LIMIT $1`;
       let queryParams = [limit];
       if (locationKey) {
         queryText = `SELECT data FROM weather_training_intervals WHERE (data->>'locationKey') = ANY($1) ORDER BY created_at DESC LIMIT $2`;
         queryParams = [variants, limit];
       }
-      const res = await timeoutQuery(pool.query(queryText, queryParams));
+      const res = await timeoutQuery(activePool.query(queryText, queryParams));
       if (res && res.rows) {
         return res.rows.map((r) => r.data);
       }
     } catch (e) {
+      if (isPgQuotaOrUnavailableError(e)) markPgDegraded(e);
       console.warn("Could not query weather_training_intervals from pool:", e);
     }
   }
-  if (inMemoryCache && inMemoryCache.weatherIntervals) {
-    return inMemoryCache.weatherIntervals
+  const mem = loadLocalFallbackDB();
+  if (mem.weatherIntervals) {
+    return mem.weatherIntervals
       .filter((d) => {
         if (!locationKey) return true;
         if (variants.includes(d.locationKey)) return true;
@@ -719,10 +860,10 @@ export async function getWeatherIntervals(locationKey, limit = 50) {
 }
 
 export async function writeDB(db, tablesToUpdate = null) {
-  const fullDb = { ...DEFAULT_DB, ...db };
+  const fullDb = { ...createEmptyDb(), ...db };
   inMemoryCache = fullDb;
 
-  if (pool) {
+  if (activePool && !isPgDegraded()) {
     try {
       await initPg();
       const providedKeys = Object.keys(db);
@@ -770,7 +911,7 @@ export async function writeDB(db, tablesToUpdate = null) {
         if (!array || !array.length || !shouldUpdate(tableName, keyName)) return;
         for (const item of array) {
           tasks.push(() =>
-            pool.query(
+            activePool.query(
               `INSERT INTO ${tableName} (id, data) VALUES ($1, $2) ON CONFLICT (id) DO UPDATE SET data = EXCLUDED.data`,
               [item[idField], JSON.stringify(item)],
             )
@@ -782,7 +923,7 @@ export async function writeDB(db, tablesToUpdate = null) {
         if (!array || !array.length || !shouldUpdate("profiles", "profiles")) return;
         for (const item of array) {
           tasks.push(() =>
-            pool.query(
+            activePool.query(
               `INSERT INTO profiles (user_id, data) VALUES ($1, $2) ON CONFLICT (user_id) DO UPDATE SET data = EXCLUDED.data`,
               [item.userId, JSON.stringify(item)],
             )
@@ -794,7 +935,7 @@ export async function writeDB(db, tablesToUpdate = null) {
         if (!obj || !shouldUpdate(tableName, keyName)) return;
         for (const [key, value] of Object.entries(obj)) {
           tasks.push(() =>
-            pool.query(
+            activePool.query(
               `INSERT INTO ${tableName} (id, data) VALUES ($1, $2) ON CONFLICT (id) DO UPDATE SET data = EXCLUDED.data`,
               [key, JSON.stringify(value)],
             )
@@ -806,7 +947,7 @@ export async function writeDB(db, tablesToUpdate = null) {
         if (!obj || !shouldUpdate("digital_twins", "digitalTwins")) return;
         for (const [key, value] of Object.entries(obj)) {
           tasks.push(() =>
-            pool.query(
+            activePool.query(
               `INSERT INTO digital_twins (school_id, data) VALUES ($1, $2) ON CONFLICT (school_id) DO UPDATE SET data = EXCLUDED.data`,
               [key, JSON.stringify(value)],
             )
@@ -818,7 +959,7 @@ export async function writeDB(db, tablesToUpdate = null) {
         if (!obj || !shouldUpdate("school_disaster_analysis", "schoolDisasterAnalysis")) return;
         for (const [key, value] of Object.entries(obj)) {
           tasks.push(() =>
-            pool.query(
+            activePool.query(
               `INSERT INTO school_disaster_analysis (school_id, data) VALUES ($1, $2) ON CONFLICT (school_id) DO UPDATE SET data = EXCLUDED.data`,
               [key, JSON.stringify(value)],
             )
@@ -850,13 +991,21 @@ export async function writeDB(db, tablesToUpdate = null) {
 
       return true;
     } catch (e) {
-      console.error("Vercel DB Write Error (falling back to memory/local):", e);
-      if (isVercel) throw new Error("Database write failed in production");
+      if (isPgQuotaOrUnavailableError(e)) {
+        markPgDegraded(e);
+      } else {
+        console.error("Vercel DB Write Error:", e);
+        if (isProductionRuntime()) throw new Error("Database write failed in production");
+      }
     }
-  } else if (isVercel) {
+  } else if (!activePool && isProductionRuntime() && !fs.existsSync(sourceDbPath)) {
     throw new Error(
       "CRITICAL: DATABASE_URL is missing. database.json fallback is disabled in production.",
     );
+  }
+
+  if (isProductionRuntime()) {
+    return true;
   }
 
   try {
@@ -869,54 +1018,60 @@ export async function writeDB(db, tablesToUpdate = null) {
 }
 
 export async function getSpatialCache(id) {
-  if (pool) {
+  if (activePool && !isPgDegraded()) {
     try {
       const res = await timeoutQuery(
-        pool.query("SELECT data FROM spatial_cache WHERE id = $1", [id])
+        activePool.query("SELECT data FROM spatial_cache WHERE id = $1", [id])
       );
       if (res.rows.length > 0) return res.rows[0].data;
       return null;
     } catch (e) {
-      console.error("PG getSpatialCache error:", e);
-      return null;
+      if (isPgQuotaOrUnavailableError(e)) markPgDegraded(e);
+      else console.error("PG getSpatialCache error:", e);
     }
   }
-  
-  if (!inMemoryCache) {
-    await readDB();
-  }
-  return inMemoryCache?.spatialCache?.[id] || null;
+
+  const mem = loadLocalFallbackDB();
+  return mem?.spatialCache?.[id] || null;
 }
 
 export async function setSpatialCache(id, data) {
-  if (pool) {
+  const mem = loadLocalFallbackDB();
+  if (!mem.spatialCache) mem.spatialCache = {};
+  mem.spatialCache[id] = data;
+
+  if (activePool && !isPgDegraded()) {
     try {
       await timeoutQuery(
-        pool.query(
+        activePool.query(
           "INSERT INTO spatial_cache (id, data) VALUES ($1, $2) ON CONFLICT (id) DO UPDATE SET data = EXCLUDED.data",
           [id, JSON.stringify(data)]
         )
       );
       return true;
     } catch (e) {
+      if (isPgQuotaOrUnavailableError(e)) {
+        markPgDegraded(e);
+        return true;
+      }
       console.error("PG setSpatialCache error:", e);
       return false;
     }
   }
 
-  if (!inMemoryCache) await readDB();
-  if (inMemoryCache) {
-    if (!inMemoryCache.spatialCache) inMemoryCache.spatialCache = {};
-    inMemoryCache.spatialCache[id] = data;
-    await writeDB({});
+  if (!isProductionRuntime()) {
+    try {
+      fs.writeFileSync(sourceDbPath, JSON.stringify(mem, null, 2));
+    } catch {
+      // Non-fatal in test/readonly sandboxes
+    }
   }
   return true;
 }
 
 // Spatial PostGIS Queries
 export async function querySpatialFeaturesInAOI(aoiPolygonGeoJSON, datasetId = null) {
-  if (!pool) return [];
-  await initPg();
+  if (!activePool || isPgDegraded()) return [];
 
   const geomParam = JSON.stringify(aoiPolygonGeoJSON);
   let query = `
@@ -939,24 +1094,26 @@ export async function querySpatialFeaturesInAOI(aoiPolygonGeoJSON, datasetId = n
   query += " LIMIT 500";
 
   try {
-    const res = await timeoutQuery(pool.query(query, params));
+    await initPg();
+    const res = await timeoutQuery(activePool.query(query, params));
     return res.rows;
   } catch (err) {
-    console.error("querySpatialFeaturesInAOI error:", err.message);
+    if (isPgQuotaOrUnavailableError(err)) markPgDegraded(err);
+    else console.error("querySpatialFeaturesInAOI error:", err.message);
     return [];
   }
 }
 
 export async function identifyNearPoint(lat, lng, radiusMeters = 5000) {
-  if (!pool) return { features: [], sensors: [], hazards: [] };
-  await initPg();
+  if (!activePool || isPgDegraded()) return { features: [], sensors: [], hazards: [] };
 
   try {
+    await initPg();
     const pointQuery = "ST_SetSRID(ST_MakePoint($1, $2), 4326)::geography";
 
     // 1. Intersecting Hazard Zones
     const hazardRes = await timeoutQuery(
-      pool.query(
+      activePool.query(
         `SELECT id, hazard_type, name, risk_level, source_agency,
                 ST_AsGeoJSON(geom)::json AS geometry
          FROM hazard_zones
@@ -967,7 +1124,7 @@ export async function identifyNearPoint(lat, lng, radiusMeters = 5000) {
 
     // 2. Nearest Sensors
     const sensorRes = await timeoutQuery(
-      pool.query(
+      activePool.query(
         `SELECT id, code, name, family, platform, provider, status,
                 ST_Distance(geom::geography, ${pointQuery}) / 1000.0 AS distance_km,
                 ST_AsGeoJSON(geom)::json AS geometry
@@ -981,7 +1138,7 @@ export async function identifyNearPoint(lat, lng, radiusMeters = 5000) {
 
     // 3. Spatial Features
     const featRes = await timeoutQuery(
-      pool.query(
+      activePool.query(
         `SELECT id, dataset_id, properties,
                 ST_Distance(geom::geography, ${pointQuery}) / 1000.0 AS distance_km,
                 ST_AsGeoJSON(geom)::json AS geometry
@@ -999,21 +1156,22 @@ export async function identifyNearPoint(lat, lng, radiusMeters = 5000) {
       features: featRes.rows,
     };
   } catch (err) {
-    console.error("identifyNearPoint error:", err.message);
+    if (isPgQuotaOrUnavailableError(err)) markPgDegraded(err);
+    else console.error("identifyNearPoint error:", err.message);
     return { features: [], sensors: [], hazards: [] };
   }
 }
 
 export async function saveSpatialFeature(datasetId, properties, geojsonGeometry) {
-  if (!pool) return null;
-  await initPg();
+  if (!activePool || isPgDegraded()) return null;
 
   const id = properties.id || `feat-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`;
   const geomJson = JSON.stringify(geojsonGeometry);
 
   try {
+    await initPg();
     await timeoutQuery(
-      pool.query(
+      activePool.query(
         `INSERT INTO spatial_features (id, dataset_id, properties, geom)
          VALUES ($1, $2, $3, ST_SetSRID(ST_GeomFromGeoJSON($4), 4326))
          ON CONFLICT (id) DO UPDATE SET properties = EXCLUDED.properties, geom = EXCLUDED.geom`,
@@ -1022,7 +1180,8 @@ export async function saveSpatialFeature(datasetId, properties, geojsonGeometry)
     );
     return id;
   } catch (err) {
-    console.error("saveSpatialFeature error:", err.message);
+    if (isPgQuotaOrUnavailableError(err)) markPgDegraded(err);
+    else console.error("saveSpatialFeature error:", err.message);
     return null;
   }
 }
@@ -1031,10 +1190,10 @@ const memoryJobCache = new Map();
 
 export async function saveSpatialJob(job) {
   memoryJobCache.set(job.id, job);
-  if (pool) {
+  if (activePool && !isPgDegraded()) {
     try {
       await timeoutQuery(
-        pool.query(
+        activePool.query(
           `CREATE TABLE IF NOT EXISTS spatial_jobs (
              id VARCHAR(255) PRIMARY KEY,
              data JSONB NOT NULL,
@@ -1043,7 +1202,7 @@ export async function saveSpatialJob(job) {
         )
       );
       await timeoutQuery(
-        pool.query(
+        activePool.query(
           `INSERT INTO spatial_jobs (id, data, created_at)
            VALUES ($1, $2, NOW())
            ON CONFLICT (id) DO UPDATE SET data = $2`,
@@ -1051,16 +1210,19 @@ export async function saveSpatialJob(job) {
         )
       );
     } catch (e) {
-      console.warn("Could not save spatial job to PostgreSQL:", e.message);
+      if (isPgQuotaOrUnavailableError(e)) markPgDegraded(e);
+      else console.warn("Could not save spatial job to PostgreSQL:", e.message);
     }
   }
-  try {
-    const db = await readDB();
-    db.spatialJobs = db.spatialJobs || {};
-    db.spatialJobs[job.id] = job;
-    await writeDB(db, ["spatialJobs"]);
-  } catch (e) {
-    console.warn("Could not persist spatial job to local DB file:", e.message);
+  const mem = loadLocalFallbackDB();
+  mem.spatialJobs = mem.spatialJobs || {};
+  mem.spatialJobs[job.id] = job;
+  if (!isProductionRuntime()) {
+    try {
+      fs.writeFileSync(sourceDbPath, JSON.stringify(mem, null, 2));
+    } catch {
+      // Non-fatal in test/readonly sandboxes
+    }
   }
   return job;
 }
@@ -1069,22 +1231,23 @@ export async function getSpatialJobById(id) {
   if (memoryJobCache.has(id)) {
     return memoryJobCache.get(id);
   }
-  if (pool) {
+  if (activePool && !isPgDegraded()) {
     try {
       await initPg();
       const res = await timeoutQuery(
-        pool.query("SELECT data FROM spatial_jobs WHERE id = $1", [id])
+        activePool.query("SELECT data FROM spatial_jobs WHERE id = $1", [id])
       );
       if (res.rows.length > 0) {
         memoryJobCache.set(id, res.rows[0].data);
         return res.rows[0].data;
       }
-    } catch {}
+    } catch (e) {
+      if (isPgQuotaOrUnavailableError(e)) markPgDegraded(e);
+    }
   }
   try {
-    const db = await readDB();
-    db.spatialJobs = db.spatialJobs || {};
-    const found = db.spatialJobs[id] || null;
+    const mem = loadLocalFallbackDB();
+    const found = mem.spatialJobs?.[id] || null;
     if (found) memoryJobCache.set(id, found);
     return found;
   } catch {
@@ -1094,22 +1257,26 @@ export async function getSpatialJobById(id) {
 
 export async function deleteSpatialJobById(id) {
   memoryJobCache.delete(id);
-  if (pool) {
+  if (activePool && !isPgDegraded()) {
     try {
       await initPg();
       await timeoutQuery(
-        pool.query("DELETE FROM spatial_jobs WHERE id = $1", [id])
+        activePool.query("DELETE FROM spatial_jobs WHERE id = $1", [id])
       );
-    } catch {}
+    } catch (e) {
+      if (isPgQuotaOrUnavailableError(e)) markPgDegraded(e);
+    }
   }
   try {
-    const db = await readDB();
-    db.spatialJobs = db.spatialJobs || {};
-    if (db.spatialJobs[id]) {
-      delete db.spatialJobs[id];
-      await writeDB(db);
-      return true;
+    const mem = loadLocalFallbackDB();
+    if (mem.spatialJobs && mem.spatialJobs[id]) {
+      delete mem.spatialJobs[id];
+      if (!isProductionRuntime()) {
+        fs.writeFileSync(sourceDbPath, JSON.stringify(mem, null, 2));
+      }
     }
-  } catch {}
+  } catch {
+    // Ignore cleanup errors
+  }
   return true;
 }
