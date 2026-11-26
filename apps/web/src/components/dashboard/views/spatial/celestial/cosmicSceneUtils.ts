@@ -1280,3 +1280,132 @@ export function createAsteroidBelt(innerRadius: number = 65.0, outerRadius: numb
   return asteroidBelt;
 }
 
+/**
+ * Fresnel-based atmospheric scattering shell for Earth and planets.
+ */
+export function createAtmosphericRimMaterial(
+  hexColor: string = '#38bdf8',
+  intensity: number = 1.15,
+  power: number = 3.4
+): THREE.ShaderMaterial {
+  return new THREE.ShaderMaterial({
+    uniforms: {
+      uColor: { value: new THREE.Color(hexColor) },
+      uIntensity: { value: intensity },
+      uPower: { value: power },
+    },
+    vertexShader: `
+      varying vec3 vNormal;
+      varying vec3 vViewDir;
+      void main() {
+        vec4 mvPosition = modelViewMatrix * vec4(position, 1.0);
+        vNormal = normalize(normalMatrix * normal);
+        vViewDir = normalize(-mvPosition.xyz);
+        gl_Position = projectionMatrix * mvPosition;
+      }
+    `,
+    fragmentShader: `
+      uniform vec3 uColor;
+      uniform float uIntensity;
+      uniform float uPower;
+      varying vec3 vNormal;
+      varying vec3 vViewDir;
+      void main() {
+        float ndotv = clamp(dot(normalize(vNormal), normalize(vViewDir)), 0.0, 1.0);
+        float rim = pow(1.0 - ndotv, uPower);
+        float alpha = clamp(rim * uIntensity, 0.0, 0.92);
+        gl_FragColor = vec4(uColor * (0.85 + 0.35 * rim), alpha);
+      }
+    `,
+    transparent: true,
+    blending: THREE.AdditiveBlending,
+    depthWrite: false,
+    side: THREE.FrontSide,
+  });
+}
+
+/**
+ * Animated solar photosphere shader with plasma granulation and limb brightening.
+ */
+export function createSolarSurfaceMaterial(baseTexture: THREE.Texture | null): THREE.ShaderMaterial {
+  return new THREE.ShaderMaterial({
+    uniforms: {
+      uMap: { value: baseTexture },
+      uTime: { value: 0 },
+    },
+    vertexShader: `
+      varying vec2 vUv;
+      varying vec3 vNormal;
+      varying vec3 vViewDir;
+      void main() {
+        vUv = uv;
+        vec4 mvPosition = modelViewMatrix * vec4(position, 1.0);
+        vNormal = normalize(normalMatrix * normal);
+        vViewDir = normalize(-mvPosition.xyz);
+        gl_Position = projectionMatrix * mvPosition;
+      }
+    `,
+    fragmentShader: `
+      uniform sampler2D uMap;
+      uniform float uTime;
+      varying vec2 vUv;
+      varying vec3 vNormal;
+      varying vec3 vViewDir;
+
+      void main() {
+        vec2 driftUv = vUv + vec2(uTime * 0.004, sin(vUv.x * 12.56 + uTime * 0.5) * 0.003);
+        vec3 baseCol = texture2D(uMap, fract(driftUv)).rgb;
+        float plasma = 0.5 + 0.5 * sin(vUv.x * 38.0 + uTime * 1.4) * cos(vUv.y * 26.0 - uTime * 1.1);
+        float ndotv = clamp(dot(normalize(vNormal), normalize(vViewDir)), 0.0, 1.0);
+        float limb = pow(1.0 - ndotv, 2.2);
+        vec3 glowCol = baseCol * (0.96 + plasma * 0.14) + vec3(1.0, 0.58, 0.16) * (limb * 0.42);
+        gl_FragColor = vec4(glowCol, 1.0);
+      }
+    `,
+  });
+}
+
+/**
+ * Soft additive solar corona envelope rendered on the back faces around the photosphere.
+ */
+export function createSolarCoronaMaterial(
+  hexColor: string = '#f59e0b',
+  intensity: number = 0.72
+): THREE.ShaderMaterial {
+  return new THREE.ShaderMaterial({
+    uniforms: {
+      uColor: { value: new THREE.Color(hexColor) },
+      uIntensity: { value: intensity },
+      uTime: { value: 0 },
+    },
+    vertexShader: `
+      varying vec3 vNormal;
+      varying vec3 vViewDir;
+      void main() {
+        vec4 mvPosition = modelViewMatrix * vec4(position, 1.0);
+        vNormal = normalize(normalMatrix * normal);
+        vViewDir = normalize(-mvPosition.xyz);
+        gl_Position = projectionMatrix * mvPosition;
+      }
+    `,
+    fragmentShader: `
+      uniform vec3 uColor;
+      uniform float uIntensity;
+      uniform float uTime;
+      varying vec3 vNormal;
+      varying vec3 vViewDir;
+      void main() {
+        float alignment = max(dot(normalize(-vNormal), normalize(vViewDir)), 0.0);
+        float halo = pow(alignment, 3.0);
+        float pulse = 0.92 + 0.08 * sin(uTime * 1.7);
+        gl_FragColor = vec4(uColor * (1.0 + halo * 0.4), halo * uIntensity * pulse);
+      }
+    `,
+    transparent: true,
+    blending: THREE.AdditiveBlending,
+    depthWrite: false,
+    side: THREE.BackSide,
+  });
+}
+
+

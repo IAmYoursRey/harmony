@@ -47,6 +47,8 @@ export default defineConfig({
           'vendor-ol': ['ol'],
           'vendor-charts': ['recharts'],
           'vendor-icons': ['lucide-react'],
+          'vendor-three': ['three'],
+          'vendor-motion': ['framer-motion'],
         },
       },
     },

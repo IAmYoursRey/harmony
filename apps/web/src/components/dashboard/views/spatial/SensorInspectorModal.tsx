@@ -162,7 +162,7 @@ export function SensorInspectorModal({
                   <AlertTriangle className={`h-3.5 w-3.5 ${sensor.status === 'ALERT' ? 'animate-pulse' : ''}`} />
                 )}
                 <span>
-                  ● {sensor.status === 'UNCHECKED' ? 'KATALOG — BELUM TERHUBUNG' : sensor.status === 'OFFLINE' ? 'OFFLINE' : sensor.status}
+                  ● {sensor.status === 'UNCHECKED' ? 'KATALOG — BELUM TERHUBUNG' : String(sensor.status)}
                 </span>
               </span>
               <span className="text-slate-300 dark:text-slate-700">•</span>

@@ -598,10 +598,10 @@ export const FieldTelemetryView: React.FC = () => {
             </div>
 
             <h1 className="font-display text-xl font-black tracking-tight text-white sm:text-2xl">
-              Telemetri Lahan & Peringatan Dini Kebakaran
+              Telemetri Lahan &amp; Titik Panas
             </h1>
             <p className="max-w-3xl text-xs leading-relaxed text-slate-300 sm:text-sm">
-              Pemantauan kelembapan tanah, mikroklimat wilayah (<span className="font-bold text-white">{weatherData ? activeRegionLabel : "Memuat..."}</span>), indeks kekeringan Van Wagner FFMC, serta deteksi titik panas satelit NASA FIRMS NRT berbasis data riil.
+              Pantau suhu, kekeringan lahan, dan titik api satelit real-time untuk wilayah <span className="font-bold text-white">{weatherData ? activeRegionLabel : "Memuat..."}</span>.
             </p>
           </div>
 
@@ -752,9 +752,9 @@ export const FieldTelemetryView: React.FC = () => {
             <div className="flex items-start gap-2.5 rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-xs text-slate-700 dark:border-slate-800 dark:bg-slate-800/50 dark:text-slate-300">
               <Radio className="mt-0.5 h-4 w-4 shrink-0 text-emerald-600 dark:text-emerald-400" />
               <div>
-                <p className="font-bold">Menunggu sinkronisasi stasiun lapangan ESP32 (/api/sinkron)</p>
+                <p className="font-bold">Menunggu alat sensor lapangan terhubung</p>
                 <p className="mt-0.5 text-slate-500 dark:text-slate-400">
-                  Belum ada paket telemetri fisik masuk pada sesi ini. Nilai sensor ditampilkan kosong (--) tanpa angka simulasi palsu. Data cuaca BMKG & FFMC di tab sebelah tetap berjalan normal dari server BMKG.
+                  Nilai sensor tampil kosong (--) sampai alat mengirim data fisik. Cuaca BMKG dan peta titik api tetap aktif di tab sebelah.
                 </p>
               </div>
             </div>

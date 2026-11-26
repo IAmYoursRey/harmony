@@ -197,7 +197,7 @@ export const GeospatialBMKGTab: React.FC<GeospatialBMKGTabProps> = ({
 
       if (quakeSnap?.records) {
         setUsgsQuakes(quakeSnap.records.filter((r) => r.source === 'USGS' || !r.source.includes('BMKG')));
-        if (quakeSnap.status === 'UNAVAILABLE' || quakeSnap.status === 'ERROR') {
+        if (quakeSnap.status === 'UNAVAILABLE') {
           setUsgsQuakeError(quakeSnap.reason || 'Feed USGS M2.5+ gagal merespons.');
         }
       } else {

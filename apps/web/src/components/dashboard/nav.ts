@@ -100,3 +100,110 @@ export const navItems: NavItem[] = [
   },
   { id: "profile", label: "Profil", icon: User },
 ];
+
+export interface PersonaNavGroup {
+  id: string;
+  title: string;
+  badge?: string;
+  collapsible?: boolean;
+  defaultCollapsed?: boolean;
+  items: NavItem[];
+}
+
+function pickNavItems(ids: string[]): NavItem[] {
+  const byId = new globalThis.Map<string, NavItem>(navItems.map((item) => [item.id, item]));
+  return ids.map((id) => byId.get(id)).filter((item): item is NavItem => Boolean(item));
+}
+
+// Separate navigation hierarchy into 4 focused workspaces so public, students, teachers, and experts see only relevant workflows first
+export function getPersonaNavGroups(role?: UserNavRole | string | null): PersonaNavGroup[] {
+  if (!role) {
+    return [
+      {
+        id: "public-siaga",
+        title: "Layanan Siaga Publik",
+        badge: "Terbuka",
+        items: pickNavItems(["maps", "geospatial"]),
+      },
+      {
+        id: "public-advanced",
+        title: "Instrumen Pemantauan Lanjut",
+        collapsible: true,
+        defaultCollapsed: true,
+        items: pickNavItems(["field-telemetry"]),
+      },
+    ];
+  }
+
+  if (role === "student") {
+    return [
+      {
+        id: "student-learning",
+        title: "Alur Belajar & Simulasi",
+        badge: "Murid",
+        items: pickNavItems(["dashboard", "student-game", "digital-twin", "simulation", "ai-learning"]),
+      },
+      {
+        id: "student-explore",
+        title: "Peta Sekolah & Pencapaian",
+        items: pickNavItems(["maps", "gss", "events", "survey", "profile"]),
+      },
+      {
+        id: "student-advanced",
+        title: "Eksplorasi Sains Lanjut",
+        collapsible: true,
+        defaultCollapsed: true,
+        items: pickNavItems(["geospatial", "field-telemetry"]),
+      },
+    ];
+  }
+
+  if (role === "teacher") {
+    return [
+      {
+        id: "teacher-core",
+        title: "Ruang Mengajar",
+        badge: "Guru",
+        items: pickNavItems(["teacher", "digital-twin", "events", "ai-learning"]),
+      },
+      {
+        id: "teacher-spab",
+        title: "Kesiapsiagaan Sekolah",
+        items: pickNavItems(["resilience", "gss", "survey", "dashboard", "maps"]),
+      },
+      {
+        id: "teacher-research",
+        title: "Instrumen Riset & Geografi",
+        collapsible: true,
+        defaultCollapsed: true,
+        items: pickNavItems(["geospatial", "field-telemetry", "learning-gain", "profile"]),
+      },
+    ];
+  }
+
+  return [
+    {
+      id: "expert-analytics",
+      title: "Analitik Geospasial & Riset",
+      badge: "Ahli",
+      items: pickNavItems(["maps", "geospatial", "field-telemetry", "learning-gain"]),
+    },
+    {
+      id: "expert-system",
+      title: "Sistem & Manajemen SPAB",
+      items: pickNavItems([
+        "dev-dashboard",
+        "teacher",
+        "digital-twin",
+        "resilience",
+        "gss",
+        "dashboard",
+        "ai-learning",
+        "simulation",
+        "survey",
+        "events",
+        "profile",
+      ]),
+    },
+  ];
+}

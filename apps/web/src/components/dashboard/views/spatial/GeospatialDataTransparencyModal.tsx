@@ -805,7 +805,7 @@ export const GeospatialDataTransparencyModal: React.FC<GeospatialDataTransparenc
                     <span>Status Validasi</span>
                   </div>
                   <div className="text-base font-bold text-emerald-600 dark:text-emerald-400">
-                    {accuracyScorecard ? `${accuracyScorecard.overallConfidenceScore.toFixed(1)}% Terverifikasi` : 'Lolos Uji Konsistensi'}
+                    {accuracyScorecard && accuracyScorecard.overallConfidenceScore !== null ? `${accuracyScorecard.overallConfidenceScore.toFixed(1)}% Terverifikasi` : 'Lolos Uji Konsistensi'}
                   </div>
                   <div className="text-[10px] text-slate-400 mt-0.5">
                     {accuracyScorecard ? `${accuracyScorecard.consistencyChecks.filter(c => c.passed).length}/${accuracyScorecard.consistencyChecks.length} uji fisika lolos verifikasi` : 'Pemeriksaan konsistensi & batas fisik'}
@@ -1197,7 +1197,7 @@ export const GeospatialDataTransparencyModal: React.FC<GeospatialDataTransparenc
               {/* NWP Equations Highlight */}
               {weatherData?.aiNwpVerification && (() => {
                 const eqs = weatherData.aiNwpVerification.equationsStatus || [];
-                const validEqCount = eqs.filter((eq) => eq.status === 'VALID' || eq.status === 'OK').length;
+                const validEqCount = eqs.filter((eq) => eq.status === 'VALID').length;
                 const allValid = eqs.length > 0 && validEqCount === eqs.length;
                 return (
                 <div className="p-4 rounded-2xl bg-gradient-to-r from-purple-950/40 via-indigo-950/30 to-slate-900/60 border border-purple-500/30">
@@ -1213,7 +1213,7 @@ export const GeospatialDataTransparencyModal: React.FC<GeospatialDataTransparenc
 
                   <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5 text-xs">
                     {eqs.map((eq) => {
-                      const isOk = eq.status === 'VALID' || eq.status === 'OK';
+                      const isOk = eq.status === 'VALID';
                       const isWarn = eq.status === 'WARNING';
                       return (
                       <div key={eq.id} className="p-2.5 rounded-xl bg-slate-900/80 border border-slate-800">

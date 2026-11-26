@@ -2637,6 +2637,27 @@ export class Phase3Engine {
       }
     }
 
+    if (
+      (this.activeDisasterPhase?.isSevereShaking ||
+        this.activeDisasterPhase?.isTsunamiWaveArrival ||
+        (this.activeDisasterPhase?.ambientShakeIntensity ?? 0) >= 0.7) &&
+      this.player.alive
+    ) {
+      const pulse = 0.12 + Math.sin(this.simTimeMs * 0.008) * 0.05;
+      const peakGrad = ctx.createRadialGradient(
+        cssW * 0.5,
+        cssH * 0.5,
+        Math.min(cssW, cssH) * 0.34,
+        cssW * 0.5,
+        cssH * 0.5,
+        Math.max(cssW, cssH) * 0.72,
+      );
+      peakGrad.addColorStop(0, "rgba(0,0,0,0)");
+      peakGrad.addColorStop(1, `rgba(234, 88, 12, ${pulse.toFixed(3)})`);
+      ctx.fillStyle = peakGrad;
+      ctx.fillRect(0, 0, cssW, cssH);
+    }
+
     if (this.state === "PAUSED") {
       ctx.fillStyle = "rgba(0,0,0,0.5)";
       ctx.fillRect(0, 0, cssW, cssH);

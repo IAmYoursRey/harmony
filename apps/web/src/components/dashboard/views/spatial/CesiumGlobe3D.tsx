@@ -320,7 +320,7 @@ export function CesiumGlobe3D({
 
         viewerRef.current = viewer;
         viewer.useBrowserRecommendedResolution = false;
-        viewer.resolutionScale = perfProfile.cesiumResolutionScale;
+        viewer.resolutionScale = Math.min(window.devicePixelRatio || 1, perfProfile.effectiveMode === 'high' ? 2.0 : 1.35);
         if (viewer.canvas) {
           viewer.canvas.style.imageRendering = 'auto';
           viewer.canvas.style.touchAction = 'none';
@@ -332,7 +332,7 @@ export function CesiumGlobe3D({
 
         disposePerfSubscription = hardwarePerformanceService.subscribe((profile) => {
           if (cancelled || viewer.isDestroyed()) return;
-          viewer.resolutionScale = profile.cesiumResolutionScale;
+          viewer.resolutionScale = Math.min(window.devicePixelRatio || 1, profile.effectiveMode === 'high' ? 2.0 : 1.35);
           viewer.scene.globe.maximumScreenSpaceError = profile.cesiumScreenSpaceError;
           if (viewer.scene.postProcessStages?.fxaa) {
             viewer.scene.postProcessStages.fxaa.enabled = profile.effectiveMode === 'high';
@@ -363,21 +363,36 @@ export function CesiumGlobe3D({
         viewer.clock.shouldAnimate = true;
 
         // Realistic solar lighting & atmospheric scattering (Dynamic based on camera zoom)
-        viewer.scene.fog.enabled = false;
+        const enableAtmosphereFx = perfProfile.effectiveMode !== 'lite';
+        viewer.scene.fog.enabled = enableAtmosphereFx;
+        viewer.scene.fog.density = 0.00014;
         viewer.scene.highDynamicRange = false;
         viewer.scene.backgroundColor = C.Color.BLACK;
         viewer.scene.globe.baseColor = new C.Color(0.04, 0.12, 0.28, 1.0);
-        viewer.scene.globe.enableLighting = false; // Initialized false for crystal-clear map reading
+        viewer.scene.globe.enableLighting = false;
         viewer.scene.globe.depthTestAgainstTerrain = true;
-        viewer.scene.globe.showGroundAtmosphere = false;
-        viewer.scene.globe.atmosphereLightIntensity = 1.0;
+        viewer.scene.globe.showGroundAtmosphere = enableAtmosphereFx;
+        viewer.scene.globe.dynamicAtmosphereLighting = enableAtmosphereFx;
+        viewer.scene.globe.dynamicAtmosphereLightingFromSun = enableAtmosphereFx;
+        viewer.scene.globe.atmosphereLightIntensity = enableAtmosphereFx ? 18.0 : 1.0;
         viewer.scene.globe.maximumScreenSpaceError = perfProfile.cesiumScreenSpaceError;
         if (viewer.scene.skyAtmosphere) {
-          viewer.scene.skyAtmosphere.show = false;
+          viewer.scene.skyAtmosphere.show = enableAtmosphereFx;
+          viewer.scene.skyAtmosphere.atmosphereLightIntensity = enableAtmosphereFx ? 18.0 : 1.0;
         }
 
-        // Apply initial imagery layer
+        // Apply initial imagery layer & immediately frame Earth over initialCenter
         applyImageryProvider(viewer, C, activeBasemap);
+        if (validPosition(initialCenter.lat, initialCenter.lng)) {
+          viewer.camera.setView({
+            destination: C.Cartesian3.fromDegrees(initialCenter.lng, initialCenter.lat, 4_800_000),
+            orientation: {
+              heading: 0,
+              pitch: C.Math.toRadians(-89.5),
+              roll: 0,
+            },
+          });
+        }
 
         // GIS Data source for Earthpins, Disasters, Traffic, and Sensors
         const data = new C.CustomDataSource('Harmony — data spasial');
@@ -395,13 +410,17 @@ export function CesiumGlobe3D({
         (window as any).__cesiumViewer = viewer;
         (window as any).__cosmicEngine = cosmicEngine;
 
-        // Dynamically toggle GIS data source visibility (hide ground pins in deep space)
+        // Dynamically toggle GIS data source visibility & orbital day/night terminator by altitude
         disposeCamera = viewer.camera.changed.addEventListener(() => {
           if (cancelled || viewer.isDestroyed() || !dataRef.current) return;
           const height = viewer.camera.positionCartographic?.height ?? 1e7;
           const isViewingEarthSurface = height < 25_000_000 && (!cosmicEngine.lockedTargetId || cosmicEngine.lockedTargetId === 'earth');
           if (dataRef.current.show !== isViewingEarthSurface) {
             dataRef.current.show = isViewingEarthSurface;
+          }
+          const shouldEnableTerminator = height > 220_000 && hardwarePerformanceService.getProfile().effectiveMode !== 'lite';
+          if (viewer.scene.globe.enableLighting !== shouldEnableTerminator) {
+            viewer.scene.globe.enableLighting = shouldEnableTerminator;
           }
         });
 

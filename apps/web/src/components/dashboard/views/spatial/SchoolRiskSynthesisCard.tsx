@@ -34,7 +34,9 @@ export function SchoolRiskSynthesisCard({
 }: SchoolRiskSynthesisCardProps) {
   const [synthesis, setSynthesis] = useState<any>(null);
   const [loading, setLoading] = useState<boolean>(true);
-  const [isMinimized, setIsMinimized] = useState<boolean>(false);
+  const [isMinimized, setIsMinimized] = useState<boolean>(() =>
+    typeof window !== "undefined" ? window.innerWidth < 640 : false
+  );
 
   useEffect(() => {
     let isMounted = true;
@@ -62,11 +64,13 @@ export function SchoolRiskSynthesisCard({
   }, [schoolId, lat, lng, schoolName]);
 
   const gm = synthesis?.seismicSynthesis;
-  const leadTime = gm?.leadTimeSec ?? 14;
-  const pgaG = gm?.pgaG ?? 0.25;
-  const intensity = gm?.humanDescription?.intensity ?? "Guncangan Sedang";
-  const actionRule = gm?.humanDescription?.actionRule ?? "Jaga ketenangan, jauhi kaca dan benda gantung.";
+  const leadTime = gm?.leadTimeSec;
+  const pgaG = gm?.pgaG;
+  const intensity = gm?.humanDescription?.intensity ?? "Kondisi Stabil";
+  const actionRule = gm?.humanDescription?.actionRule ?? "Jauhi kaca dan ikuti jalur evakuasi bila terasa getaran.";
   const statusLevel = synthesis?.overallStatus ?? "AMAN";
+  const hasActiveEvent = Boolean(gm && statusLevel !== "AMAN");
+  const displaySchoolName = schoolName?.trim() || "Sekolah Terpilih";
   const isDanger = statusLevel.includes("BAHAYA");
   const isWarning = statusLevel.includes("WASPADA");
 
@@ -110,7 +114,7 @@ export function SchoolRiskSynthesisCard({
               </span>
             </div>
             <h3 className="truncate text-sm font-extrabold text-slate-900 dark:text-white">
-              {schoolName}
+              {displaySchoolName}
             </h3>
           </div>
         </div>
@@ -133,64 +137,62 @@ export function SchoolRiskSynthesisCard({
             </div>
           ) : (
             <>
-              {/* Metrik Inti Bahasa Manusiawi */}
-              <div className="grid grid-cols-2 gap-2">
-                <div className="rounded-xl border border-slate-100 bg-slate-50/80 p-2.5 dark:border-slate-800 dark:bg-slate-800/50">
-                  <span className="flex items-center gap-1 text-[10px] font-semibold text-slate-500 dark:text-slate-400">
-                    <Clock className="h-3 w-3 text-indigo-500" />
-                    Waktu Peringatan Dini
-                  </span>
-                  <div className="mt-1 flex items-baseline gap-1">
-                    <span className="text-xl font-extrabold text-indigo-600 dark:text-indigo-400">
-                      {leadTime}
+              {hasActiveEvent ? (
+                <div className="grid grid-cols-2 gap-2">
+                  <div className="rounded-xl border border-slate-100 bg-slate-50/80 p-2.5 dark:border-slate-800 dark:bg-slate-800/50">
+                    <span className="flex items-center gap-1 text-[10px] font-semibold text-slate-500 dark:text-slate-400">
+                      <Clock className="h-3 w-3 text-indigo-500" />
+                      Estimasi Waktu
                     </span>
-                    <span className="text-xs font-semibold text-slate-600 dark:text-slate-400">
-                      detik tersisa
-                    </span>
+                    <div className="mt-1 flex items-baseline gap-1">
+                      <span className="text-xl font-extrabold text-indigo-600 dark:text-indigo-400">
+                        {leadTime ?? "--"}
+                      </span>
+                      <span className="text-xs font-semibold text-slate-600 dark:text-slate-400">
+                        detik
+                      </span>
+                    </div>
                   </div>
-                  <p className="mt-0.5 text-[9px] text-slate-500 dark:text-slate-400">
-                    Sebelum gelombang S merusak tiba di sekolah
-                  </p>
-                </div>
 
-                <div className="rounded-xl border border-slate-100 bg-slate-50/80 p-2.5 dark:border-slate-800 dark:bg-slate-800/50">
-                  <span className="flex items-center gap-1 text-[10px] font-semibold text-slate-500 dark:text-slate-400">
-                    <Activity className="h-3 w-3 text-amber-500" />
-                    Potensi Guncangan
-                  </span>
-                  <div className="mt-1 flex items-baseline gap-1">
-                    <span className="text-xl font-extrabold text-slate-900 dark:text-white">
-                      {pgaG}g
+                  <div className="rounded-xl border border-slate-100 bg-slate-50/80 p-2.5 dark:border-slate-800 dark:bg-slate-800/50">
+                    <span className="flex items-center gap-1 text-[10px] font-semibold text-slate-500 dark:text-slate-400">
+                      <Activity className="h-3 w-3 text-amber-500" />
+                      Skala Getaran
                     </span>
-                    <span className="text-[10px] font-bold text-amber-600 dark:text-amber-400">
-                      (MMI {gm?.mmiEstimate ?? 6})
-                    </span>
+                    <div className="mt-1 flex items-baseline gap-1">
+                      <span className="text-xl font-extrabold text-slate-900 dark:text-white">
+                        {pgaG != null ? `${pgaG}g` : "--"}
+                      </span>
+                      <span className="text-[10px] font-bold text-amber-600 dark:text-amber-400">
+                        MMI {gm?.mmiEstimate ?? "-"}
+                      </span>
+                    </div>
+                    <p className="mt-0.5 truncate text-[9px] text-slate-500 dark:text-slate-400">
+                      {intensity}
+                    </p>
                   </div>
-                  <p className="mt-0.5 truncate text-[9px] text-slate-500 dark:text-slate-400">
-                    {intensity}
-                  </p>
                 </div>
-              </div>
+              ) : (
+                <p className="text-xs text-slate-600 dark:text-slate-300 leading-relaxed">
+                  Status wilayah aman. Tidak ada guncangan signifikan terdeteksi saat ini.
+                </p>
+              )}
 
-              {/* Aturan Aksi Nyata Guru/Siswa */}
-              <div className="rounded-xl border border-indigo-100 bg-indigo-50/70 p-3 text-left dark:border-indigo-900/40 dark:bg-indigo-950/40">
-                <span className="flex items-center gap-1.5 text-[10px] font-extrabold uppercase tracking-wide text-indigo-800 dark:text-indigo-300">
-                  <Info className="h-3.5 w-3.5" />
-                  Instruksi Keselamatan Terpenting:
-                </span>
-                <p className="mt-1 text-xs font-semibold text-slate-800 dark:text-slate-200">
+              {/* Aturan Aksi Ringkas */}
+              <div className="rounded-xl border border-indigo-100 bg-indigo-50/70 p-2.5 text-left dark:border-indigo-900/40 dark:bg-indigo-950/40">
+                <p className="text-xs font-semibold text-slate-800 dark:text-slate-200">
                   {actionRule}
                 </p>
               </div>
 
-              {/* Tombol Aksi Simulasi */}
+              {/* Tombol Aksi */}
               <div className="pt-1 flex flex-col gap-2">
                 <button
                   onClick={onOpenScenarioModal}
                   className="flex w-full items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-indigo-600 via-indigo-700 to-brand-600 px-4 py-2.5 text-xs font-extrabold text-white shadow-md shadow-indigo-500/20 transition-all hover:opacity-95 hover:shadow-lg active:scale-[0.98]"
                 >
                   <Brain className="h-4 w-4" />
-                  Latihan Keputusan Evakuasi AI (10 Detik)
+                  Latihan Evakuasi 10 Detik
                   <ChevronRight className="h-3.5 w-3.5" />
                 </button>
 
@@ -200,7 +202,7 @@ export function SchoolRiskSynthesisCard({
                     className="flex w-full items-center justify-center gap-1.5 rounded-xl border border-slate-200 px-3 py-1.5 text-[10px] font-bold text-slate-600 transition-colors hover:bg-slate-50 dark:border-slate-800 dark:text-slate-300 dark:hover:bg-slate-800"
                   >
                     <Maximize2 className="h-3 w-3" />
-                    Buka Mode Studio GIS Lengkap (Untuk Guru & Ahli)
+                    Buka Mode Analitik GIS
                   </button>
                 )}
               </div>

@@ -25,21 +25,22 @@ This workspace enforces strict adherence to the **6-Phase Master Skill Lifecycle
 │                   │ budget tokens, structure handoffs│                                  │
 ├───────────────────┼──────────────────────────────────┼──────────────────────────────────┤
 │ Phase 3           │ ARCHITECTURE & BRAINSTORMING     │ • brainstorming                  │
-│ The Strategy      │ Explore trade-offs, model graph, │ • architecture-review            │
-│                   │ define component boundaries.     │ • frontend-design                │
-│                   │ Non-templated UI & brand tokens. │ • brand-guidelines, theme-factory│
-│                   │ Spatial canvas composition.      │ • canvas-design                  │
+│ The Strategy      │ Explore trade-offs, model graph, │ • architecture-review / architect│
+│                   │ define component boundaries.     │ • frontend-design, taste-skill   │
+│                   │ Non-templated UI & brand tokens. │ • anti-ui-slop, tailwind-design  │
+│                   │ Spatial canvas composition.      │ • canvas-design, theme-factory   │
 ├───────────────────┼──────────────────────────────────┼──────────────────────────────────┤
-│ Phase 4           │ IMPLEMENTATION & DEBUGGING       │ • clean-code                     │
-│ The Hands         │ Idiomatic code, no AI narration, │ • systematic-debugging           │
-│                   │ hypothesis-driven root cause.    │ • web-artifacts-builder          │
-│                   │ Multi-component Web apps, docs.  │ • docx, pdf, pptx, xlsx          │
-│                   │ Generative visual art & MCP.     │ • algorithmic-art, mcp-builder   │
+│ Phase 4           │ IMPLEMENTATION & DEBUGGING       │ • clean-code, humanizer          │
+│ The Hands         │ Idiomatic code, smooth 60fps UI, │ • react-best-practices, optimize │
+│                   │ React perf & custom 3D shaders.  │ • react-component-performance    │
+│                   │ WebGL, GLSL, R3F & Multi-App.    │ • premium-3d-website, threejs-   │
+│                   │ Docs & Generative Visual Art.    │   shaders, shader-programming-   │
+│                   │                                  │   glsl, systematic-debugging     │
 ├───────────────────┼──────────────────────────────────┼──────────────────────────────────┤
 │ Phase 5           │ GUARDRAILS & QUALITY GATE        │ • anti-hallucination-guardrails  │
 │ The Shield        │ Neurosymbolic assertions (tsc,   │ • code-review-excellence         │
-│                   │ tests), Triad review & steering. │ • webapp-testing (Playwright)    │
-│                   │ Stakeholder comms & coauthoring. │ • internal-comms, doc-coauthoring│
+│                   │ tests), a11y & security audit.   │ • accessibility-audit, security  │
+│                   │ E2E Playwright & comms.          │ • webapp-testing, writing-guides │
 └───────────────────┴──────────────────────────────────┴──────────────────────────────────┘
 ```
 
@@ -170,4 +171,14 @@ MATHEMATICAL VALIDATION (Monotonicity assertions, collision & clearance checks)
 1. Every conversation turn must actively evaluate which phase and skills are relevant to the user request.
 2. Before modifying code, inspect relevant target lines with `view_file`.
 3. After every change, execute verification commands and confirm zero regressions.
+
+---
+
+## 🧭 4-Persona User Experience & Progressive Disclosure Architecture
+All navigation, dashboards, and map/studio controls in Harmony must separate experiences by user intent:
+1. **Publik / Warga Umum (`!currentUser`)**: Only see public disaster alerts, safe routes (`/app/maps`), BMKG weather summary (`/app/geospatial`), and an optional collapsed panel for advanced instruments (`field-telemetry`) — never show 11 locked school menus.
+2. **Murid (`role === "student"`)**: Guided 3-step learning flow (`GeoBot -> Latihan Soal & Simulasi Evakuasi -> Skor Harmony`), plus classroom live sessions (`Ruang Sesi`), keeping complex engineering/telemetry panels tucked into a collapsible drawer.
+3. **Guru / Sekolah (`role === "teacher"`)**: Teaching workspace prioritized first (`Dasbor Guru`, `Simulasi Denah`, `Ketahanan Sekolah`, `Skor Harmony`), with research/GIS instrumentation grouped cleanly in a 1-click collapsible research drawer.
+4. **Ahli / Peneliti / Pengembang (`role === "developer"`)**: Full-depth analytical WebGIS mode (`MapGISToolbar`, `AttributeTable`, `Geoprocessing`), grouped 4-pillar `Studio Geospasial`, `Telemetri Lahan & FIRMS`, `Validasi Empiris`, and system administration.
+
 

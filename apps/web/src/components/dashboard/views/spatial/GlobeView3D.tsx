@@ -43,6 +43,7 @@ import {
   VolumeX
 } from 'lucide-react';
 import { CosmicSolarSystemEngine } from './celestial/CosmicSolarSystemEngine';
+import { createAtmosphericRimMaterial } from './celestial/cosmicSceneUtils';
 import { CelestialInfoPanel } from './celestial/CelestialInfoPanel';
 import { PlanetarySurfaceExplorerModal } from './celestial/PlanetarySurfaceExplorerModal';
 import { cosmicAudio } from './celestial/cosmicAudioSynth';
@@ -56,6 +57,37 @@ import { ActiveFireHotspot, hotspotFireService, HotspotSnapshot } from '@/servic
 import { INITIAL_TRAFFIC_CORRIDORS, TrafficCorridor } from '@/services/trafficTelemetryService';
 import { bmkgService } from '@/services/bmkgService';
 import { hardwarePerformanceService } from '@/services/hardwarePerformanceService';
+
+// Isolated 1Hz clock component so HUD ticks never trigger full WebGL parent re-renders.
+const GlobeUtcClock = React.memo(function GlobeUtcClock({
+  lastRefreshedAt,
+  basemapMode,
+}: {
+  lastRefreshedAt: string;
+  basemapMode: string;
+}) {
+  const [utcTime, setUtcTime] = useState<string>(() => new Date().toUTCString().slice(17, 25) + ' UTC');
+
+  useEffect(() => {
+    const interval = setInterval(() => {
+      setUtcTime(new Date().toUTCString().slice(17, 25) + ' UTC');
+    }, 1000);
+    return () => clearInterval(interval);
+  }, []);
+
+  return (
+    <div className="px-3.5 py-2 rounded-2xl bg-slate-900/90 backdrop-blur-xl border border-white/10 shadow-2xl text-right">
+      <div className="text-xs font-black text-sky-300 font-mono tracking-wider">
+        {utcTime || '00:00:00 UTC'}
+      </div>
+      <div className="text-[10px] text-slate-400 font-mono">
+        {lastRefreshedAt
+          ? `SYNC: ${lastRefreshedAt}`
+          : `BASEMAP: ${basemapMode === 'esri_satellite' ? 'ESRI SAT 4K' : basemapMode === 'dark' ? 'NASA NIGHT' : 'OSM TOPO'}`}
+      </div>
+    </div>
+  );
+});
 
 export interface GlobeMarker {
   id?: string | number;
@@ -695,7 +727,6 @@ export function GlobeView3D({
   const [sensorMode, setSensorMode] = useState<SensorOpticsMode>('normal');
   const [basemapMode, setBasemapMode] = useState<BasemapMode>('esri_satellite');
   const [centerCoords, setCenterCoords] = useState<{ lat: number; lng: number }>({ lat: -2.5, lng: 118.0 });
-  const [utcTime, setUtcTime] = useState<string>('');
 
   // Layer Visibility
   const [layerFires, setLayerFires] = useState(true);
@@ -708,17 +739,6 @@ export function GlobeView3D({
   const [layerTectonic, setLayerTectonic] = useState(showTectonicPlates);
   const [layerEarthSensors, setLayerEarthSensors] = useState(showEarthSensors);
   const [layerBoundaries, setLayerBoundaries] = useState(true);
-
-  // UTC Master Clock
-  useEffect(() => {
-    const updateUtc = () => {
-      const d = new Date();
-      setUtcTime(d.toUTCString().slice(17, 25) + ' UTC');
-    };
-    updateUtc();
-    const interval = setInterval(updateUtc, 1000);
-    return () => clearInterval(interval);
-  }, []);
 
   // Update center coordinate readout on globe rotation
   const getCenterCoords = useCallback((): { lat: number; lng: number } => {
@@ -772,8 +792,12 @@ export function GlobeView3D({
       : Math.max(1.6, framingRadius * 2.8);
 
     const startZoom = zoomRef.current;
+    const currentPos = cosmicEngineRef.current?.getCelestialWorldPosition(activeCelestialIdRef.current);
+    const targetPos = cosmicEngineRef.current?.getCelestialWorldPosition(bodyId);
+    const travelDist =
+      currentPos && targetPos ? currentPos.distanceTo(targetPos) : Math.abs(targetDistance - startZoom);
     const startTime = performance.now();
-    const duration = 850;
+    const duration = Math.round(Math.min(2000, Math.max(850, 750 + Math.log10(1 + travelDist) * 480)));
 
     celestialTransitionRef.current = {
       startTarget: cameraTargetRef.current.clone(),
@@ -784,9 +808,10 @@ export function GlobeView3D({
     const step = (now: number) => {
       const elapsed = now - startTime;
       const progress = Math.min(1, elapsed / duration);
-      const ease = progress < 0.5 
-        ? 4 * progress * progress * progress 
-        : 1 - Math.pow(-2 * progress + 2, 3) / 2;
+      const ease =
+        progress < 0.5
+          ? 16 * progress * progress * progress * progress * progress
+          : 1 - Math.pow(-2 * progress + 2, 5) / 2;
 
       const curZoom = startZoom + (targetDistance - startZoom) * ease;
       zoomRef.current = curZoom;
@@ -1163,8 +1188,8 @@ export function GlobeView3D({
 
     const globeMaterial = new THREE.MeshPhongMaterial({
       map: globeTexture,
-      specular: new THREE.Color(0x224477),
-      shininess: 8,
+      specular: new THREE.Color(0x38bdf8),
+      shininess: 14,
     });
 
     const globe = new THREE.Mesh(geometry, globeMaterial);
@@ -1233,15 +1258,9 @@ export function GlobeView3D({
     globe.add(boundariesGroup);
     boundariesGroupRef.current = boundariesGroup;
 
-    // Atmospheric Glow Outer Shell
-    const atmGeo = new THREE.SphereGeometry(radius * 1.018, 36, 36);
-    const atmMat = new THREE.MeshPhongMaterial({
-      color: 0x38bdf8,
-      transparent: true,
-      opacity: 0.16,
-      side: THREE.FrontSide,
-      depthWrite: false,
-    });
+    // Atmospheric Glow Outer Shell (Fresnel Scattering Shader)
+    const atmGeo = new THREE.SphereGeometry(radius * 1.022, 48, 48);
+    const atmMat = createAtmosphericRimMaterial('#38bdf8', 1.15, 3.6);
     const atmosphere = new THREE.Mesh(atmGeo, atmMat);
     cosmicEngine.earthSystemGroup.add(atmosphere);
     atmosphereRef.current = atmosphere;
@@ -1324,31 +1343,42 @@ export function GlobeView3D({
     ro.observe(mount);
 
     // ================= ANIMATION LOOP ================= //
+    const liveTargetScratch = new THREE.Vector3();
+    const desiredCamScratch = new THREE.Vector3();
+    const tempWorldPos = new THREE.Vector3();
+    let prevFramePerf = performance.now();
+
     const animate = () => {
       if (renderer.getContext()?.isContextLost()) {
         return;
       }
       frameRef.current = requestAnimationFrame(animate);
 
+      const nowPerf = performance.now();
+      const frameDelta = Math.min(0.05, Math.max(0.001, (nowPerf - prevFramePerf) / 1000));
+      prevFramePerf = nowPerf;
+      const dtScale = frameDelta * 60;
+
       // 1. Update Cosmic Solar System (Milky Way galaxy, planets, Sun, and orbits)
       if (cosmicEngineRef.current) {
         cosmicEngineRef.current.isPaused = isOrbitPausedRef.current;
         cosmicEngineRef.current.speedMultiplier = orbitSpeedRef.current;
-        cosmicEngineRef.current.update(0.016);
+        cosmicEngineRef.current.update(frameDelta);
       }
 
       // 2. Smooth Camera Tracking & Rigid Lock-Follow of Active Celestial Body
       const liveTargetPos = cosmicEngineRef.current
-        ? cosmicEngineRef.current.getCelestialWorldPosition(activeCelestialIdRef.current)
-        : new THREE.Vector3(0, 0, 0);
+        ? cosmicEngineRef.current.getCelestialWorldPosition(activeCelestialIdRef.current, liveTargetScratch)
+        : liveTargetScratch.set(0, 0, 0);
 
       const trans = celestialTransitionRef.current;
       if (trans) {
-        const elapsed = performance.now() - trans.startTime;
+        const elapsed = nowPerf - trans.startTime;
         const progress = Math.min(1.0, elapsed / trans.duration);
-        const ease = progress < 0.5
-          ? 4 * progress * progress * progress
-          : 1 - Math.pow(-2 * progress + 2, 3) / 2;
+        const ease =
+          progress < 0.5
+            ? 16 * progress * progress * progress * progress * progress
+            : 1 - Math.pow(-2 * progress + 2, 5) / 2;
 
         cameraTargetRef.current.lerpVectors(trans.startTarget, liveTargetPos, ease);
 
@@ -1370,8 +1400,12 @@ export function GlobeView3D({
       const offsetZ = currentDist * Math.cos(yaw) * Math.cos(pitch);
 
       if (trans) {
-        const desiredCamPos = cameraTargetRef.current.clone().add(new THREE.Vector3(offsetX, offsetY, offsetZ));
-        camera.position.lerp(desiredCamPos, 0.15);
+        desiredCamScratch.set(
+          cameraTargetRef.current.x + offsetX,
+          cameraTargetRef.current.y + offsetY,
+          cameraTargetRef.current.z + offsetZ
+        );
+        camera.position.lerp(desiredCamScratch, 1 - Math.exp(-9.0 * frameDelta));
       } else {
         camera.position.set(
           cameraTargetRef.current.x + offsetX,
@@ -1383,24 +1417,25 @@ export function GlobeView3D({
 
       // Globe Axial Rotation
       if (autoRotateRef.current && !isInteracting.current && activeCelestialIdRef.current === 'earth') {
-        globe.rotation.y += 0.0018;
+        globe.rotation.y += 0.0018 * dtScale;
         const nowMs = Date.now();
         if (nowMs - lastCenterUpdate.current > 250) {
           lastCenterUpdate.current = nowMs;
           setCenterCoords(getCenterCoords());
         }
       } else if (!isInteracting.current && activeCelestialIdRef.current === 'earth') {
-        rotationVelocity.current.x *= 0.90;
-        rotationVelocity.current.y *= 0.90;
-        globe.rotation.x += rotationVelocity.current.x;
-        globe.rotation.y += rotationVelocity.current.y;
+        const rotDecay = Math.pow(0.9, dtScale);
+        rotationVelocity.current.x *= rotDecay;
+        rotationVelocity.current.y *= rotDecay;
+        globe.rotation.x += rotationVelocity.current.x * dtScale;
+        globe.rotation.y += rotationVelocity.current.y * dtScale;
       }
 
       globe.rotation.x = Math.max(-Math.PI / 2.3, Math.min(Math.PI / 2.3, globe.rotation.x));
       atmosphere.rotation.copy(globe.rotation);
 
       if (cloudsRef.current) {
-        cloudsRef.current.rotation.y += 0.0006;
+        cloudsRef.current.rotation.y += 0.0006 * dtScale;
       }
 
       // Wind Flow Vectors
@@ -1440,7 +1475,6 @@ export function GlobeView3D({
       // Dynamic Marker Scaling & Horizon Culling
       if (camera) {
         const camPos = camera.position;
-        const tempWorldPos = new THREE.Vector3();
 
         const cullAndScale = (group: THREE.Group | null) => {
           if (!group) return;
@@ -2361,14 +2395,7 @@ export function GlobeView3D({
             <span className="hidden sm:inline">{isRefreshing ? 'Memuat...' : 'Sync'}</span>
           </button>
 
-          <div className="px-3.5 py-2 rounded-2xl bg-slate-900/90 backdrop-blur-xl border border-white/10 shadow-2xl text-right">
-            <div className="text-xs font-black text-sky-300 font-mono tracking-wider">
-              {utcTime || '00:00:00 UTC'}
-            </div>
-            <div className="text-[10px] text-slate-400 font-mono">
-              {lastRefreshedAt ? `SYNC: ${lastRefreshedAt}` : `BASEMAP: ${basemapMode === 'esri_satellite' ? 'ESRI SAT 4K' : basemapMode === 'dark' ? 'NASA NIGHT' : 'OSM TOPO'}`}
-            </div>
-          </div>
+          <GlobeUtcClock lastRefreshedAt={lastRefreshedAt} basemapMode={basemapMode} />
         </div>
       </div>
 

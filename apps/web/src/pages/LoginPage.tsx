@@ -25,7 +25,15 @@ type AuthStatus =
 export default function LoginPage() {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
-  const redirectUrl = searchParams.get("redirect") || "/app/dashboard";
+  const explicitRedirect = searchParams.get("redirect");
+  const roleHint = searchParams.get("role");
+  const resolveTargetRoute = (role?: string | null) => {
+    if (explicitRedirect) return explicitRedirect;
+    if (role === "teacher") return "/app/teacher";
+    if (role === "developer") return "/app/maps?mode=expert";
+    return "/app/dashboard";
+  };
+  const redirectUrl = resolveTargetRoute(roleHint);
   const { show } = useToast();
   const { login, finalizeLogin, registerGoogle, currentUser } = useAuth();
   const { setSelection } = useSchool();
@@ -34,6 +42,7 @@ export default function LoginPage() {
   const [googleData, setGoogleData] = useState<any>(null);
   const [loading, setLoading] = useState(false);
   const [loadingText, setLoadingText] = useState("");
+  const manualRedirectRef = useRef(false);
   const [loadingProvinces, setLoadingProvinces] = useState(false);
   const [loadingCities, setLoadingCities] = useState(false);
   const [loadingSchools, setLoadingSchools] = useState(false);
@@ -90,10 +99,10 @@ export default function LoginPage() {
   }, [schools, regLevel]);
 
   useEffect(() => {
-    if (currentUser && authStatus === "initial") {
-      navigate(redirectUrl);
+    if (currentUser && authStatus === "initial" && !manualRedirectRef.current) {
+      navigate(resolveTargetRoute(currentUser.role), { replace: true });
     }
-  }, [currentUser, navigate, authStatus, redirectUrl]);
+  }, [currentUser, navigate, authStatus]);
 
   const handleGoogleSuccess = async (credentialResponse: any) => {
     if (!credentialResponse.credential) {
@@ -144,10 +153,11 @@ export default function LoginPage() {
     try {
       const result = await login(JSON.stringify(demoPayload));
       if (result.success && result.account) {
+        manualRedirectRef.current = true;
         setSelection(SMAN_1_NGORO_FALLBACK);
         await finalizeLogin(result.account);
-        show(`Masuk sebagai ${result.account.name} (SMAN 1 Ngoro)`, "success");
-        navigate(redirectUrl);
+        show(`Masuk sebagai ${result.account.name} · SMAN 1 Ngoro`, "success");
+        navigate(resolveTargetRoute(result.account.role), { replace: true });
       } else if (result.status === "not_registered") {
         setGoogleData({
           token: JSON.stringify(demoPayload),
@@ -181,7 +191,7 @@ export default function LoginPage() {
         await finalizeLogin(googleData.account);
         setLoadingText("Membuka aplikasi...");
         show("Selamat datang kembali!", "success");
-        navigate(redirectUrl);
+        navigate(resolveTargetRoute(googleData.account.role));
       } catch (err: any) {
         show(err?.message || "Gagal masuk ke sistem. Silakan coba lagi.", "error");
         setLoading(false);
@@ -210,7 +220,7 @@ export default function LoginPage() {
       if (result.success) {
         setLoadingText("Menyiapkan dasbor...");
         show("Pendaftaran berhasil!", "success");
-        navigate(redirectUrl);
+        navigate(resolveTargetRoute(regRole));
       } else {
         show(result.error ?? "Gagal mendaftar", "error");
         setLoading(false);
@@ -320,10 +330,10 @@ export default function LoginPage() {
                         <div className="flex items-center justify-between text-xs text-slate-600 dark:text-slate-300">
                           <span className="font-semibold flex items-center gap-1.5 text-brand-700 dark:text-brand-300">
                             <User className="h-3.5 w-3.5" />
-                            Nama Demo (Opsional)
+                            Nama Tampilan Demo
                           </span>
                           <span className="text-[10px] text-slate-400 dark:text-slate-500">
-                            Acak otomatis jika kosong
+                            Acak otomatis bila kosong
                           </span>
                         </div>
                         <div className="relative">
@@ -355,7 +365,7 @@ export default function LoginPage() {
                         className="w-full flex items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-brand-600 to-indigo-600 hover:from-brand-700 hover:to-indigo-700 px-4 py-3 text-sm font-bold text-white shadow-md shadow-brand-500/20 transition-all hover:shadow-lg active:scale-[0.99]"
                       >
                         <GraduationCap className="h-4.5 w-4.5" />
-                        <span>Demo Siswa</span>
+                        <span>Demo Murid</span>
                         <Sparkles className="h-4 w-4 text-amber-300 animate-pulse" />
                       </button>
 
@@ -374,9 +384,17 @@ export default function LoginPage() {
                           className="flex items-center justify-center gap-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-white/80 dark:bg-slate-800/80 px-3 py-2.5 text-xs font-semibold text-ink-800 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors"
                         >
                           <Shield className="h-4 w-4 text-emerald-600 dark:text-emerald-400" />
-                          <span>Demo Pengembang</span>
+                          <span>Demo Ahli</span>
                         </button>
                       </div>
+
+                      <Link
+                        to="/app/maps"
+                        className="w-full flex items-center justify-center gap-2 rounded-xl border border-sky-200/80 bg-sky-50/70 px-3 py-2 text-xs font-semibold text-sky-700 transition-colors hover:bg-sky-100/80 dark:border-sky-800/60 dark:bg-sky-950/30 dark:text-sky-300"
+                      >
+                        <MapPin className="h-3.5 w-3.5" />
+                        <span>Lanjut Tanpa Masuk sebagai Warga Publik</span>
+                      </Link>
 
                       <p className="text-[11px] text-center text-slate-500 dark:text-slate-400 leading-tight pt-1">
                         Setiap akun demo dibuat unik agar <strong className="text-brand-600 dark:text-brand-400">tidak saling bertabrakan</strong> saat sesi bersama.

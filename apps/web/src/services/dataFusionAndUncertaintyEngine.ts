@@ -515,7 +515,7 @@ class DataFusionAndUncertaintyEngine {
       matchingWeather.current &&
       typeof rawTemp === 'number' &&
       Number.isFinite(rawTemp) &&
-      matchingWeather.dataStatus !== 'UNAVAILABLE'
+      String(matchingWeather.dataStatus) !== 'UNAVAILABLE'
     );
 
     let composition: ObservationBreakdown;
@@ -572,7 +572,7 @@ class DataFusionAndUncertaintyEngine {
 
     if (!isLiveConnected || !matchingWeather?.current) {
       const errMsg = isCurrentSelection
-        ? (matchingWeather?.errorMessage || 'Telemetri cuaca live tidak tersedia atau mengalami error pada koordinat saat ini.')
+        ? ((matchingWeather as { errorMessage?: string } | null)?.errorMessage || 'Telemetri cuaca live tidak tersedia atau mengalami error pada koordinat saat ini.')
         : `Belum ada pengambilan data telemetri langsung untuk lokasi preset "${targetLocationName}".`;
 
       return {

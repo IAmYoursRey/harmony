@@ -15,7 +15,7 @@ export interface SpatialFeatureAttribute {
     source: string;
     acquisitionTime: string;
     crs: string;
-    qualityRating: 'A (Terverifikasi)' | 'B (Model Dinormalisasi)' | 'C (Estimasi Lapangan)';
+    qualityRating: 'A (Terverifikasi)' | 'B (Model Dinormalisasi)' | 'C (Estimasi Lapangan)' | 'Katalog Referensi & Proyeksi WGS84/UTM';
   };
 }
 

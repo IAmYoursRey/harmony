@@ -24,32 +24,36 @@ const pillars = [
 
 const featureCards = [
   {
-    icon: Brain,
-    title: "AI Learning Engine",
-    description: "Latihan materi bencana sesuai tingkat pemahaman siswa.",
-    to: "/app/ai-learning",
-    accent: "from-brand-500 to-brand-700",
+    icon: Map,
+    badge: "Warga & Publik",
+    title: "Peta Siaga Terbuka",
+    description: "Pantau gempa, cuaca, dan rute aman tanpa login.",
+    to: "/app/maps",
+    accent: "from-sky-500 to-blue-600",
   },
   {
-    icon: Map,
-    title: "GeoSpatial Risk Mapping",
-    description: "Pemetaan bahaya langsung pada koordinat sekitar sekolah.",
-    to: "/app/geo-risk-map",
-    accent: "from-brand-500 to-brand-600",
+    icon: GraduationCap,
+    badge: "Murid",
+    title: "Belajar & Simulasi 3D",
+    description: "Latihan evakuasi sekolah, kuis, dan tanya GeoBot.",
+    to: "/login?role=student&redirect=/app/dashboard",
+    accent: "from-brand-500 to-indigo-600",
   },
   {
     icon: Boxes,
-    title: "Harmony Twin School",
-    description: "Simulasi evakuasi interaktif di atas denah sekolah nyata.",
-    to: "/app/digital-twin",
-    accent: "from-brand-500 to-brand-600",
+    badge: "Guru & Sekolah",
+    title: "Kendali Kelas & SPAB",
+    description: "Susun denah sekolah dan pantau kesiapan kelas.",
+    to: "/login?role=teacher&redirect=/app/teacher",
+    accent: "from-amber-500 to-orange-600",
   },
   {
-    icon: Gauge,
-    title: "Smart Readiness Index",
-    description: "Pengukuran skor kesiapsiagaan siswa dan satuan pendidikan.",
-    to: "/app/gss",
-    accent: "from-brand-500 to-brand-600",
+    icon: Satellite,
+    badge: "Ahli & Peneliti",
+    title: "Studio Geospasial & IoT",
+    description: "Analisis WebGIS, citra satelit, dan telemetri lahan.",
+    to: "/app/geospatial",
+    accent: "from-emerald-500 to-teal-600",
   },
 ];
 
@@ -200,45 +204,56 @@ export function Hero() {
           </motion.div>
         </div>
 
-        {/* 4 Feature Cards */}
+        {/* 4 Persona Entry Cards */}
         <motion.div
-          initial={{ opacity: 0, y: 30 }}
+          initial={{ opacity: 0, y: 24 }}
           animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.6, delay: 0.5 }}
-          className="mt-16 grid gap-5 sm:grid-cols-2 lg:grid-cols-4"
+          transition={{ duration: 0.55, delay: 0.35 }}
+          className="mt-16 space-y-4"
         >
-          {featureCards.map((c) => (
-            <Link
-              key={c.title}
-              to={c.to}
-              className="group glass relative overflow-hidden rounded-2xl p-5 transition-all duration-300 hover:-translate-y-1.5 hover:shadow-glass-lg"
-            >
-              <div
-                className={`pointer-events-none absolute -right-10 -top-10 h-32 w-32 rounded-full bg-gradient-to-br ${c.accent} opacity-0 blur-3xl transition-opacity duration-500 group-hover:opacity-20`}
-              />
-              <div
-                className={`inline-flex h-12 w-12 items-center justify-center rounded-xl bg-gradient-to-br ${c.accent} text-white shadow-glass transition-transform duration-300 group-hover:scale-110 group-hover:rotate-3`}
-              >
-                <c.icon className="h-6 w-6" strokeWidth={2} />
-              </div>
-              <h3 className="mt-4 font-display text-base font-bold text-ink-900 dark:text-white">
-                {c.title === "AI Learning Engine"
-                  ? "Mesin Pembelajaran AI"
-                  : c.title === "GeoSpatial Risk Mapping"
-                    ? "Pemetaan Risiko Geo"
-                    : c.title === "Harmony Twin School"
-                      ? "Harmony Twin Sekolah"
-                      : "Indeks Kesiapan Pintar"}
-              </h3>
-              <p className="mt-2 text-sm leading-relaxed text-ink-600 dark:text-slate-300">
-                {c.description}
+          <div className="flex flex-col justify-between gap-2 sm:flex-row sm:items-end">
+            <div>
+              <h2 className="font-display text-lg font-extrabold tracking-tight text-ink-900 dark:text-white sm:text-xl">
+                Pilih Ruang Kerja Sesuai Kebutuhan
+              </h2>
+              <p className="text-xs text-ink-500 dark:text-slate-400 sm:text-sm">
+                Tampilan dan fitur disusun bertahap agar nyaman dipakai warga, murid, guru, maupun peneliti.
               </p>
-              <div className="mt-3 flex items-center gap-1.5 text-xs font-semibold text-brand-600 opacity-100 sm:opacity-0 transition-all sm:group-hover:opacity-100 dark:text-brand-400">
-                Buka{" "}
-                <ArrowRight className="h-3.5 w-3.5 transition-transform group-hover:translate-x-1" />
-              </div>
-            </Link>
-          ))}
+            </div>
+          </div>
+
+          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+            {featureCards.map((c) => (
+              <Link
+                key={c.title}
+                to={c.to}
+                className="group glass relative flex flex-col justify-between overflow-hidden rounded-2xl p-5 transition-all duration-300 hover:-translate-y-1 hover:shadow-glass-lg"
+              >
+                <div>
+                  <div className="flex items-center justify-between gap-2">
+                    <div
+                      className={`inline-flex h-11 w-11 items-center justify-center rounded-xl bg-gradient-to-br ${c.accent} text-white shadow-glass transition-transform duration-300 group-hover:scale-105`}
+                    >
+                      <c.icon className="h-5 w-5" strokeWidth={2} />
+                    </div>
+                    <span className="rounded-full border border-slate-200/80 bg-white/80 px-2.5 py-0.5 text-[11px] font-bold text-ink-700 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-200">
+                      {c.badge}
+                    </span>
+                  </div>
+                  <h3 className="mt-4 font-display text-base font-bold text-ink-900 dark:text-white">
+                    {c.title}
+                  </h3>
+                  <p className="mt-1.5 text-sm leading-relaxed text-ink-600 dark:text-slate-300">
+                    {c.description}
+                  </p>
+                </div>
+                <div className="mt-4 flex items-center gap-1.5 text-xs font-bold text-brand-600 dark:text-brand-400">
+                  <span>Buka Ruang Kerja</span>
+                  <ArrowRight className="h-3.5 w-3.5 transition-transform group-hover:translate-x-1" />
+                </div>
+              </Link>
+            ))}
+          </div>
         </motion.div>
       </div>
     </section>

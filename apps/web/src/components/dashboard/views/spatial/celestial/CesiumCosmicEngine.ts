@@ -548,12 +548,13 @@ export class CesiumCosmicEngine {
     if (!this.cachedDirectionalLight) {
       this.cachedDirectionalLight = new C.DirectionalLight({
         direction: sunRay,
-        color: new C.Color(0.92, 0.90, 0.86, 1.0),
-        intensity: 0.75, // Moderate, natural sunlight ("sedang saja, tidak silau")
+        color: new C.Color(0.98, 0.96, 0.92, 1.0),
+        intensity: 2.1,
       });
       scene.light = this.cachedDirectionalLight;
     } else {
       this.cachedDirectionalLight.direction = sunRay;
+      this.cachedDirectionalLight.intensity = 2.1;
       if (scene.light !== this.cachedDirectionalLight) {
         scene.light = this.cachedDirectionalLight;
       }
@@ -684,7 +685,7 @@ export class CesiumCosmicEngine {
           },
         }),
         faceForward: true,
-        flat: true,
+        flat: id === 'sun',
       }),
       asynchronous: false,
     });
@@ -749,13 +750,13 @@ export class CesiumCosmicEngine {
         distanceDisplayCondition: new C.DistanceDisplayCondition(sunRadius * 2.5, 5e10),
       },
       label: {
-        text: 'Matahari (Sun)',
+        text: 'Matahari',
         font: 'bold 13px Inter, sans-serif',
         fillColor: C.Color.WHITE,
         outlineColor: C.Color.BLACK,
         outlineWidth: 3,
         style: C.LabelStyle.FILL_AND_OUTLINE,
-        pixelOffset: new C.Cartesian2(0, -32),
+        pixelOffset: new C.Cartesian2(0, -34),
         scaleByDistance: new C.NearFarScalar(sunRadius * 2.0, 0.0, sunRadius * 20.0, 1.0),
       },
       viewFrom: new C.Cartesian3(0.0, -sunRadius * 2.8, sunRadius * 0.9),
@@ -882,13 +883,13 @@ export class CesiumCosmicEngine {
             distanceDisplayCondition: new C.DistanceDisplayCondition(25000000, 5e10),
           },
           label: {
-            text: `${data.name} (${data.englishName})`,
+            text: data.name,
             font: 'bold 12px Inter, sans-serif',
             fillColor: C.Color.WHITE,
             outlineColor: C.Color.BLACK,
             outlineWidth: 2.5,
             style: C.LabelStyle.FILL_AND_OUTLINE,
-            pixelOffset: new C.Cartesian2(0, -24),
+            pixelOffset: new C.Cartesian2(0, 22),
             distanceDisplayCondition: new C.DistanceDisplayCondition(25000000, 5e10),
           },
           properties: {
@@ -921,14 +922,17 @@ export class CesiumCosmicEngine {
           distanceDisplayCondition: new C.DistanceDisplayCondition(radiusMeters * 3.5, 5e10),
         },
         label: {
-          text: `${data.name} (${data.englishName})`,
+          text: data.name,
           font: 'bold 12px Inter, sans-serif',
           fillColor: C.Color.WHITE,
           outlineColor: C.Color.BLACK,
           outlineWidth: 2.5,
           style: C.LabelStyle.FILL_AND_OUTLINE,
-          pixelOffset: new C.Cartesian2(0, -24),
+          pixelOffset: new C.Cartesian2(cfg.id === 'mercury' ? -22 : 0, cfg.id === 'mars' ? -28 : -24),
           scaleByDistance: new C.NearFarScalar(radiusMeters * 3.0, 0.0, radiusMeters * 25.0, 1.0),
+          distanceDisplayCondition: (cfg.id === 'mercury' || cfg.id === 'venus')
+            ? new C.DistanceDisplayCondition(radiusMeters * 3.0, 9.5e8)
+            : new C.DistanceDisplayCondition(radiusMeters * 3.0, 5e10),
         },
         viewFrom: new C.Cartesian3(0.0, -radiusMeters * 3.2, radiusMeters * 1.0),
         properties: {
@@ -1068,7 +1072,7 @@ export class CesiumCosmicEngine {
         distanceDisplayCondition: new C.DistanceDisplayCondition(moonRadius * 3.5, 5e10),
       },
       label: {
-        text: 'Bulan (Moon)',
+        text: 'Bulan',
         font: 'bold 11px Inter, sans-serif',
         fillColor: C.Color.WHITE,
         outlineColor: C.Color.BLACK,
@@ -1076,6 +1080,7 @@ export class CesiumCosmicEngine {
         style: C.LabelStyle.FILL_AND_OUTLINE,
         pixelOffset: new C.Cartesian2(0, -22),
         scaleByDistance: new C.NearFarScalar(moonRadius * 3.0, 0.0, moonRadius * 20.0, 1.0),
+        distanceDisplayCondition: new C.DistanceDisplayCondition(moonRadius * 3.0, 2.5e8),
       },
       viewFrom: new C.Cartesian3(0.0, -moonRadius * 3.2, moonRadius * 1.0),
       properties: {
@@ -1540,27 +1545,21 @@ export class CesiumCosmicEngine {
       if (isExploringEarthSurface !== this.lastIsExploringEarthSurface) {
         this.lastIsExploringEarthSurface = isExploringEarthSurface;
         if (isExploringEarthSurface) {
-          // Map Exploration Mode: Disable harsh glare, bloom, specular wash & atmosphere fog
+          // Map Exploration Mode: Clear imagery while preserving subtle sky atmosphere rim
           if (scene.globe.enableLighting) {
             scene.globe.enableLighting = false;
-          }
-          if (scene.globe.showGroundAtmosphere) {
-            scene.globe.showGroundAtmosphere = false;
           }
           if (scene.postProcessStages?.bloom?.enabled) {
             scene.postProcessStages.bloom.enabled = false;
           }
-          if (scene.skyAtmosphere && scene.skyAtmosphere.show) {
-            scene.skyAtmosphere.show = false;
+          if (scene.skyAtmosphere && !scene.skyAtmosphere.show) {
+            scene.skyAtmosphere.show = true;
           }
-          scene.globe.atmosphereLightIntensity = 0.0;
+          scene.globe.atmosphereLightIntensity = 12.0;
         } else {
-          // Deep Space Celestial Mode: Balanced, natural solar lighting ("sedang saja, tidak silau")
+          // Deep Space Celestial Mode: Balanced directional solar illumination
           if (!scene.globe.enableLighting) {
             scene.globe.enableLighting = true;
-          }
-          if (scene.globe.showGroundAtmosphere) {
-            scene.globe.showGroundAtmosphere = false;
           }
           if (scene.postProcessStages?.bloom?.enabled) {
             scene.postProcessStages.bloom.enabled = false;
@@ -1568,11 +1567,11 @@ export class CesiumCosmicEngine {
           if (scene.skyAtmosphere && !scene.skyAtmosphere.show) {
             scene.skyAtmosphere.show = true;
             try {
-              scene.skyAtmosphere.brightnessShift = -0.10;
-              scene.skyAtmosphere.saturationShift = 0.15;
+              scene.skyAtmosphere.brightnessShift = -0.05;
+              scene.skyAtmosphere.saturationShift = 0.2;
             } catch {}
           }
-          scene.globe.atmosphereLightIntensity = 0.25;
+          scene.globe.atmosphereLightIntensity = 18.0;
         }
       }
 
@@ -1591,12 +1590,13 @@ export class CesiumCosmicEngine {
         if (!this.cachedDirectionalLight) {
           this.cachedDirectionalLight = new C.DirectionalLight({
             direction: sunRay,
-            color: new C.Color(0.92, 0.90, 0.86, 1.0),
-            intensity: 0.75,
+            color: new C.Color(0.98, 0.96, 0.92, 1.0),
+            intensity: 2.1,
           });
           scene.light = this.cachedDirectionalLight;
         } else {
           this.cachedDirectionalLight.direction = sunRay;
+          this.cachedDirectionalLight.intensity = 2.1;
           if (scene.light !== this.cachedDirectionalLight) {
             scene.light = this.cachedDirectionalLight;
           }

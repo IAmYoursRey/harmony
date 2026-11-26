@@ -9,7 +9,10 @@ import {
   getSaturnRingTexture, 
   createMilkyWayGalaxy, 
   createOrbitLine,
-  createAsteroidBelt
+  createAsteroidBelt,
+  createAtmosphericRimMaterial,
+  createSolarSurfaceMaterial,
+  createSolarCoronaMaterial
 } from './cosmicSceneUtils';
 
 export interface CelestialItem {
@@ -40,6 +43,9 @@ export class CosmicSolarSystemEngine {
   private moonMesh: THREE.Mesh | null = null;
   private moonAngle: number = 0;
   private earthAngle: number = 0;
+  private solarSurfaceMat: THREE.ShaderMaterial | null = null;
+  private solarCoronaMats: THREE.ShaderMaterial[] = [];
+  private elapsedTime: number = 0;
 
   constructor() {
     this.rootGroup = new THREE.Group();
@@ -74,9 +80,8 @@ export class CosmicSolarSystemEngine {
     // A. Sun at Origin
     const sunData = PLANETARY_CATALOG['sun'];
     const sunGeo = new THREE.SphereGeometry(sunData.visual.bodyRadius, 64, 64);
-    const sunMat = new THREE.MeshBasicMaterial({
-      map: getCelestialTexture('sun'),
-    });
+    const sunMat = createSolarSurfaceMaterial(getCelestialTexture('sun'));
+    this.solarSurfaceMat = sunMat;
     const sunMesh = new THREE.Mesh(sunGeo, sunMat);
     sunMesh.name = 'celestial_sun';
     sunMesh.userData = { celestialId: 'sun', data: sunData };
@@ -84,24 +89,16 @@ export class CosmicSolarSystemEngine {
     this.clickableMeshes.push(sunMesh);
 
     // Inner Radiant Corona Layer
-    const coronaGeo = new THREE.SphereGeometry(sunData.visual.bodyRadius * 1.25, 36, 36);
-    const coronaMat = new THREE.MeshBasicMaterial({
-      color: 0xfef08a,
-      transparent: true,
-      opacity: 0.35,
-      side: THREE.BackSide,
-    });
+    const coronaGeo = new THREE.SphereGeometry(sunData.visual.bodyRadius * 1.28, 40, 40);
+    const coronaMat = createSolarCoronaMaterial('#fef08a', 0.58);
+    this.solarCoronaMats.push(coronaMat);
     const coronaMesh = new THREE.Mesh(coronaGeo, coronaMat);
     sunMesh.add(coronaMesh);
 
     // Outer Diffuse Solar Aura
-    const auraGeo = new THREE.SphereGeometry(sunData.visual.bodyRadius * 1.85, 32, 32);
-    const auraMat = new THREE.MeshBasicMaterial({
-      color: 0xf59e0b,
-      transparent: true,
-      opacity: 0.16,
-      side: THREE.BackSide,
-    });
+    const auraGeo = new THREE.SphereGeometry(sunData.visual.bodyRadius * 1.9, 36, 36);
+    const auraMat = createSolarCoronaMaterial('#f59e0b', 0.34);
+    this.solarCoronaMats.push(auraMat);
     const auraMesh = new THREE.Mesh(auraGeo, auraMat);
     sunMesh.add(auraMesh);
 
@@ -131,15 +128,35 @@ export class CosmicSolarSystemEngine {
 
       // Planet Mesh (high tessellation for photorealistic surface features)
       const geo = new THREE.SphereGeometry(bodyRadius, 64, 64);
+      const planetTex = getCelestialTexture(id);
+      const isGasGiant = id === 'jupiter' || id === 'saturn' || id === 'uranus' || id === 'neptune';
       const mat = new THREE.MeshStandardMaterial({
-        map: getCelestialTexture(id),
-        roughness: 0.85,
-        metalness: 0.1,
+        map: planetTex,
+        bumpMap: planetTex,
+        bumpScale: isGasGiant ? 0.015 : 0.045,
+        roughness: isGasGiant ? 0.72 : 0.88,
+        metalness: 0.08,
       });
 
       const mesh = new THREE.Mesh(geo, mat);
       mesh.name = `celestial_${id}`;
       mesh.userData = { celestialId: id, data };
+
+      if (id !== 'mercury') {
+        const atmoColorMap: Record<string, string> = {
+          venus: '#fbbf24',
+          mars: '#f97316',
+          jupiter: '#fed7aa',
+          saturn: '#fde68a',
+          uranus: '#67e8f9',
+          neptune: '#60a5fa',
+        };
+        const atmoShell = new THREE.Mesh(
+          new THREE.SphereGeometry(bodyRadius * 1.032, 40, 40),
+          createAtmosphericRimMaterial(atmoColorMap[id] || data.visual.accentColor, isGasGiant ? 0.72 : 0.85, 3.8)
+        );
+        mesh.add(atmoShell);
+      }
 
       // Initial orbital offset angle (spaced out so they don't start in a straight line)
       const initialAngle = (index * 1.05) + 0.4;
@@ -280,19 +297,30 @@ export class CosmicSolarSystemEngine {
    * Update all celestial orbital revolutions, rotations, and galactic drift
    */
   public update(delta: number = 0.016): void {
+    const safeDelta = Math.min(0.1, Math.max(0.0, delta));
+    const dtScale = safeDelta * 60;
+    this.elapsedTime += safeDelta;
+
+    if (this.solarSurfaceMat) {
+      this.solarSurfaceMat.uniforms.uTime.value = this.elapsedTime;
+    }
+    for (const cMat of this.solarCoronaMats) {
+      cMat.uniforms.uTime.value = this.elapsedTime;
+    }
+
     // 1. Slow majestic rotation of the Milky Way Galaxy
     if (this.galaxyGroup) {
-      this.galaxyGroup.rotation.y += 0.00015;
+      this.galaxyGroup.rotation.y += 0.00015 * dtScale;
     }
 
     // 1b. Keplerian rotation of the Main Asteroid Belt
     if (this.asteroidBelt && !this.isPaused) {
-      this.asteroidBelt.rotation.y += 0.00035 * this.speedMultiplier;
+      this.asteroidBelt.rotation.y += 0.00035 * this.speedMultiplier * dtScale;
     }
 
     if (this.isPaused) return;
 
-    const effectiveSpeed = 0.04 * this.speedMultiplier;
+    const effectiveSpeed = 0.04 * this.speedMultiplier * dtScale;
 
     // 2. Planets orbiting Sun
     this.celestialItems.forEach((item) => {
@@ -303,8 +331,8 @@ export class CosmicSolarSystemEngine {
       const z = Math.sin(item.currentAngle) * item.orbitRadius;
       item.mesh.position.set(x, 0, z);
 
-      // Axial rotation
-      item.mesh.rotation.y += item.rotationSpeed;
+      // Axial rotation normalized to frame time
+      item.mesh.rotation.y += item.rotationSpeed * dtScale;
     });
 
     // 3. Earth System Orbit around Sun
@@ -325,40 +353,40 @@ export class CosmicSolarSystemEngine {
       const moonZ = Math.sin(this.moonAngle) * moonData.visual.orbitRadius;
       const moonY = Math.sin(this.moonAngle) * 0.25; // Subtle 5° inclination
       this.moonMesh.position.set(moonX, moonY, moonZ);
-      this.moonMesh.rotation.y += 0.008;
+      this.moonMesh.rotation.y += 0.008 * dtScale;
     }
 
     // 5. Sun axial rotation
     const sunItem = this.celestialItems.get('sun');
     if (sunItem) {
-      sunItem.mesh.rotation.y += 0.001;
+      sunItem.mesh.rotation.y += 0.001 * dtScale;
     }
   }
 
   /**
    * Retrieves world position of any celestial body for camera targeting
    */
-  public getCelestialWorldPosition(id: string): THREE.Vector3 {
+  public getCelestialWorldPosition(
+    id: string,
+    target: THREE.Vector3 = new THREE.Vector3()
+  ): THREE.Vector3 {
     if (id === 'earth') {
-      const pos = new THREE.Vector3();
-      this.earthSystemGroup.getWorldPosition(pos);
-      return pos;
+      this.earthSystemGroup.getWorldPosition(target);
+      return target;
     }
 
     if (id === 'moon' && this.moonMesh) {
-      const pos = new THREE.Vector3();
-      this.moonMesh.getWorldPosition(pos);
-      return pos;
+      this.moonMesh.getWorldPosition(target);
+      return target;
     }
 
     const item = this.celestialItems.get(id);
     if (item) {
-      const pos = new THREE.Vector3();
-      item.mesh.getWorldPosition(pos);
-      return pos;
+      item.mesh.getWorldPosition(target);
+      return target;
     }
 
-    return new THREE.Vector3(0, 0, 0);
+    return target.set(0, 0, 0);
   }
 
   /**

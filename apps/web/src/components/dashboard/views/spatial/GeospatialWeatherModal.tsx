@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo, useRef, useCallback } from 'react';
+import React, { lazy, Suspense, useState, useEffect, useMemo, useRef, useCallback } from 'react';
 import {
   X,
   CloudRain,
@@ -78,21 +78,23 @@ import {
 import { WeatherConsensusData, weatherAggregatorService } from '@/services/weatherAggregatorService';
 import { weatherHistoryArchiveService } from '@/services/weatherHistoryArchiveService';
 import { seasonalIntelligenceService } from '@/services/seasonalIntelligenceService';
+import { useAuth } from '@/hooks/useAuth';
 import { ALL_INDONESIA_PLACES, GeoPlace, searchIndonesianPlaces } from '@/services/indonesiaGeoData';
-import { GeospatialRemoteSensingTab } from './studio/GeospatialRemoteSensingTab';
-import { GeospatialTerrainTab } from './studio/GeospatialTerrainTab';
-import { GeospatialPositioningTab } from './studio/GeospatialPositioningTab';
-import { GeospatialHydrologyTab } from './studio/GeospatialHydrologyTab';
-import { GeospatialAnalyticsTab } from './studio/GeospatialAnalyticsTab';
-import { GeospatialFieldSurveyTab } from './studio/GeospatialFieldSurveyTab';
-import { GeospatialBMKGTab } from './studio/GeospatialBMKGTab';
-import { GeospatialCatalogTab } from './studio/GeospatialCatalogTab';
-import { GeospatialChartsTab } from './studio/GeospatialChartsTab';
-import { GeospatialFusionIntelligenceTab } from './studio/GeospatialFusionIntelligenceTab';
-import { GeospatialHotspotsTab } from './studio/GeospatialHotspotsTab';
-import { GeospatialAccessibilityTab } from './studio/GeospatialAccessibilityTab';
-import { GeospatialEmissionsTab } from './studio/GeospatialEmissionsTab';
-import { GeospatialProductSwotTab } from './studio/GeospatialProductSwotTab';
+
+const GeospatialRemoteSensingTab = lazy(() => import('./studio/GeospatialRemoteSensingTab').then((m) => ({ default: m.GeospatialRemoteSensingTab })));
+const GeospatialTerrainTab = lazy(() => import('./studio/GeospatialTerrainTab').then((m) => ({ default: m.GeospatialTerrainTab })));
+const GeospatialPositioningTab = lazy(() => import('./studio/GeospatialPositioningTab').then((m) => ({ default: m.GeospatialPositioningTab })));
+const GeospatialHydrologyTab = lazy(() => import('./studio/GeospatialHydrologyTab').then((m) => ({ default: m.GeospatialHydrologyTab })));
+const GeospatialAnalyticsTab = lazy(() => import('./studio/GeospatialAnalyticsTab').then((m) => ({ default: m.GeospatialAnalyticsTab })));
+const GeospatialFieldSurveyTab = lazy(() => import('./studio/GeospatialFieldSurveyTab').then((m) => ({ default: m.GeospatialFieldSurveyTab })));
+const GeospatialBMKGTab = lazy(() => import('./studio/GeospatialBMKGTab').then((m) => ({ default: m.GeospatialBMKGTab })));
+const GeospatialCatalogTab = lazy(() => import('./studio/GeospatialCatalogTab').then((m) => ({ default: m.GeospatialCatalogTab })));
+const GeospatialChartsTab = lazy(() => import('./studio/GeospatialChartsTab').then((m) => ({ default: m.GeospatialChartsTab })));
+const GeospatialFusionIntelligenceTab = lazy(() => import('./studio/GeospatialFusionIntelligenceTab').then((m) => ({ default: m.GeospatialFusionIntelligenceTab })));
+const GeospatialHotspotsTab = lazy(() => import('./studio/GeospatialHotspotsTab').then((m) => ({ default: m.GeospatialHotspotsTab })));
+const GeospatialAccessibilityTab = lazy(() => import('./studio/GeospatialAccessibilityTab').then((m) => ({ default: m.GeospatialAccessibilityTab })));
+const GeospatialEmissionsTab = lazy(() => import('./studio/GeospatialEmissionsTab').then((m) => ({ default: m.GeospatialEmissionsTab })));
+const GeospatialProductSwotTab = lazy(() => import('./studio/GeospatialProductSwotTab').then((m) => ({ default: m.GeospatialProductSwotTab })));
 import { ispuCalculatorService, ISPUSubIndex } from '../../../../services/geospatial/ispuCalculatorService';
 import { HarmonyChartEngine } from './charts/HarmonyChartEngine';
 import { preciseGeocodingService, PreciseLocationInfo } from '../../../../services/preciseGeocodingService';
@@ -168,7 +170,7 @@ export const STUDIO_DOMAINS: StudioDomainDef[] = [
   },
   {
     id: 'bmkg',
-    name: 'Peta MKG',
+    name: 'Info BMKG',
     badge: 'BMKG Intel',
     icon: Radio,
     pillar: 'atmosfer',
@@ -541,9 +543,15 @@ export const GeospatialWeatherModal: React.FC<GeospatialWeatherModalProps> = ({
   initialDomain = 'weather',
   onApplyFeaturesToMap,
 }) => {
-  // Domain selection (Default ke weather - cuaca konsensus & grafik)
+  const { currentUser } = useAuth();
+  // Group Studio domains by role so Public/Students/Teachers start cleanly on Weather & BMKG while Experts see full stack
   const [activeDomain, setActiveDomain] = useState<StudioDomain>(initialDomain || 'weather');
-  const [domainPillarFilter, setDomainPillarFilter] = useState<'all' | 'observasi' | 'atmosfer' | 'analitik'>('all');
+  const [domainPillarFilter, setDomainPillarFilter] = useState<'all' | 'observasi' | 'atmosfer' | 'analitik'>(() => {
+    const startDomain = initialDomain || 'weather';
+    if (currentUser?.role === 'developer') return 'all';
+    const def = STUDIO_DOMAINS.find((d) => d.id === startDomain);
+    return def?.pillar || 'atmosfer';
+  });
   const domainTabsScrollRef = useRef<HTMLDivElement>(null);
 
   const isInitializedRef = useRef(false);
@@ -2502,6 +2510,13 @@ export const GeospatialWeatherModal: React.FC<GeospatialWeatherModalProps> = ({
 
         {/* Studio Content Viewport */}
         <div className="flex-1 overflow-y-auto p-3 sm:p-6 pb-24 sm:pb-8">
+          <Suspense
+            fallback={
+              <div className="flex min-h-[260px] items-center justify-center rounded-2xl border border-slate-200/70 bg-white/70 p-8 text-xs font-semibold text-slate-500 dark:border-slate-800 dark:bg-slate-900/60 dark:text-slate-400">
+                Memuat instrumen domain geospasial...
+              </div>
+            }
+          >
           {/* Domain 1: Remote Sensing Tab */}
           {activeDomain === 'remote_sensing' && (
             <GeospatialRemoteSensingTab
@@ -2655,6 +2670,7 @@ export const GeospatialWeatherModal: React.FC<GeospatialWeatherModalProps> = ({
           {activeDomain === 'swot' && (
             <GeospatialProductSwotTab />
           )}
+          </Suspense>
 
           {/* Domain: Weather & Atmosphere Multi-Source Consensus */}
           {activeDomain === 'weather' && (

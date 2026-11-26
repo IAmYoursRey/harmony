@@ -39,7 +39,7 @@ import {
   ArrowLeft, ArrowUp, ArrowUpRight, Check, Eye, Radio, BookOpen, ExternalLink, Calendar, Sparkles, Droplets,
   ChevronUp, ChevronDown, Database, Zap, Cpu, Video, Camera, Key, Play, Route, Sliders
 } from "lucide-react";
-import { useNavigate, useOutletContext } from "react-router-dom";
+import { useNavigate, useOutletContext, useSearchParams } from "react-router-dom";
 import { seasonalIntelligenceService, type SeasonalInfo, EQUATOR_MONUMENTS } from "@/services/seasonalIntelligenceService";
 import { useAuth } from "@/hooks/useAuth";
 import { useSchool } from "@/hooks/useSchool";
@@ -67,6 +67,7 @@ import {
   type TrafficSegment,
   type TrafficMilestone,
   INITIAL_TRAFFIC_CORRIDORS,
+  loadFullTrafficCorridors,
   simulateRealtimeTraffic,
   snapCorridorToActualRoad,
 } from "@/services/trafficTelemetryService";
@@ -667,13 +668,40 @@ export function MapsView() {
   const [trafficDrawerTab, setTrafficDrawerTab] = useState<'corridors' | 'probes' | 'cctv' | 'signals' | 'byok'>('corridors');
   const [customTomTomKeyInput, setCustomTomTomKeyInput] = useState<string>(() => liveTrafficFlowService.getCustomTomTomApiKey() || '');
   const [customTomTomKeyStatus, setCustomTomTomKeyStatus] = useState<string>('');
+  const [searchParams] = useSearchParams();
   const [uiExperienceMode, setUiExperienceMode] = useState<'education' | 'expert'>(() => {
+    const paramMode = searchParams.get('mode');
+    if (paramMode === 'expert' || paramMode === 'education') return paramMode;
     try {
+      const scoped = window.localStorage.getItem(`hm_ui_experience_mode_${activeUserId}`);
+      if (scoped === 'expert' || scoped === 'education') return scoped;
       const saved = window.localStorage.getItem('hm_ui_experience_mode');
       if (saved === 'expert' || saved === 'education') return saved;
     } catch (e) {}
-    return 'expert';
+    return currentUser?.role === 'developer' ? 'expert' : 'education';
   });
+  const handleExperienceModeChange = useCallback((nextMode: 'education' | 'expert') => {
+    setUiExperienceMode(nextMode);
+    try {
+      window.localStorage.setItem(`hm_ui_experience_mode_${activeUserId}`, nextMode);
+      window.localStorage.setItem('hm_ui_experience_mode', nextMode);
+    } catch (e) {}
+  }, [activeUserId]);
+  useEffect(() => {
+    const paramMode = searchParams.get('mode');
+    if (paramMode === 'expert' || paramMode === 'education') {
+      setUiExperienceMode(paramMode);
+      return;
+    }
+    try {
+      const scoped = window.localStorage.getItem(`hm_ui_experience_mode_${activeUserId}`);
+      if (scoped === 'expert' || scoped === 'education') {
+        setUiExperienceMode(scoped);
+        return;
+      }
+    } catch (e) {}
+    setUiExperienceMode(currentUser?.role === 'developer' ? 'expert' : 'education');
+  }, [activeUserId, currentUser?.role, searchParams]);
   const [showGroundedScenarioModal, setShowGroundedScenarioModal] = useState<boolean>(false);
   const [tomtomProbeResult, setTomtomProbeResult] = useState<{
     corridorId: string;
@@ -1067,6 +1095,20 @@ export function MapsView() {
     }, 450);
   }, [selectedCorridor, handleCheckTomTomLive]);
 
+  // Hydrate full 112-corridor traffic dataset lazily only when traffic layer is activated
+  useEffect(() => {
+    if (!showTrafficCorridors && activeMapBasemap !== 'traffic' && !showTrafficControlBar) return;
+    let active = true;
+    void loadFullTrafficCorridors().then((full) => {
+      if (active && full.length > 0) {
+        setTrafficDataList(full);
+      }
+    });
+    return () => {
+      active = false;
+    };
+  }, [showTrafficCorridors, activeMapBasemap, showTrafficControlBar]);
+
   // Automated Realtime Traffic Telemetry: Sinkronisasi otomatis berkala API setiap 15 detik
   useEffect(() => {
     const isTrafficActive = showTrafficCorridors || activeMapBasemap === 'traffic';
@@ -1288,6 +1330,7 @@ export function MapsView() {
 
   // Layer references for dynamic updates
   const baseTileLayerRef = useRef<TileLayer<any> | null>(null);
+  const hillshadeLayerRef = useRef<TileLayer<any> | null>(null);
   const satelliteReferenceLayerRef = useRef<TileLayer<any> | null>(null);
   const trafficOverlayLayerRef = useRef<TileLayer<any> | null>(null);
 
@@ -3170,6 +3213,21 @@ export function MapsView() {
     });
     baseTileLayerRef.current = baseTile;
 
+    const hillshadeLayer = new TileLayer({
+      source: new XYZ({
+        url: 'https://services.arcgisonline.com/arcgis/rest/services/Elevation/World_Hillshade/MapServer/tile/{z}/{y}/{x}',
+        maxZoom: 16,
+        crossOrigin: 'anonymous',
+      }),
+      cacheSize: 128,
+      preload: 0,
+      opacity: 0.24,
+      className: 'ol-hillshade-relief',
+      zIndex: 2,
+      visible: activeMapBasemap !== 'dark' && activeMapBasemap !== 'satellite' && perfProfile.effectiveMode !== 'lite',
+    });
+    hillshadeLayerRef.current = hillshadeLayer;
+
     const satelliteRefLayer = new TileLayer({
       source: new XYZ({
         url: 'https://server.arcgisonline.com/ArcGIS/rest/services/Reference/World_Boundaries_and_Places/MapServer/tile/{z}/{y}/{x}',
@@ -3456,6 +3514,7 @@ export function MapsView() {
       ]),
       layers: [
         baseTile,
+        hillshadeLayer,
         satelliteRefLayer,
         trafficOverlay,
         forestLayer,
@@ -5242,6 +5301,12 @@ export function MapsView() {
     const newSource = getSourceForBasemap(activeMapBasemap);
     baseTileLayerRef.current.setSource(newSource);
 
+    if (hillshadeLayerRef.current) {
+      hillshadeLayerRef.current.setVisible(
+        activeMapBasemap !== 'dark' && activeMapBasemap !== 'satellite' && perfProfile.effectiveMode !== 'lite'
+      );
+    }
+
     if (satelliteReferenceLayerRef.current) {
       satelliteReferenceLayerRef.current.setVisible(activeMapBasemap === 'satellite');
     }
@@ -5718,8 +5783,42 @@ export function MapsView() {
         </div>
       )}
 
+      {/* 3D Solar System & Globe: Three.js (Tata Surya + GLSL Shaders) vs Cesium 3D */}
+      {is3D && mapMode === 'spatial' && globeType === 'globe' && (
+        <div className="absolute inset-0 z-10 animate-in fade-in duration-500">
+          <Suspense fallback={<div role="status" className="p-6 text-white">Memuat semesta tata surya 3D...</div>}>
+            <GlobeView3D
+              mountains={mountains}
+              showActiveVolcanoes={showActive}
+              showInactiveVolcanoes={showInactive}
+              showPeaks={showPeaks}
+              showTectonicPlates={showTectonic}
+              showEarthquakes={showEarthquakes}
+              showEarthSensors={showTsunamiSensors}
+              onSelectSensor={setSelectedSensorForInspection}
+              activeRouteCoords={activeRoute?.coordinates}
+              initialCenter={globeInitialCenter}
+              userCoords={userCoords}
+              onSwitchTo2D={(lat, lng, targetZoom = 7.5) => {
+                handleToggle3D(false);
+                const view = mapRef.current?.getView();
+                if (view) {
+                  view.animate({
+                    center: fromLonLat([lng, lat]),
+                    zoom: targetZoom,
+                    duration: 400,
+                  });
+                }
+                setTimeout(() => { mapRef.current?.updateSize(); }, 50);
+                setTimeout(() => { mapRef.current?.updateSize(); }, 300);
+              }}
+            />
+          </Suspense>
+        </div>
+      )}
+
       {/* 3D Photorealistic Cosmic Globe (CesiumJS) */}
-      {is3D && mapMode === 'spatial' && (globeType === 'globe' || globeType === 'cesium') && (
+      {is3D && mapMode === 'spatial' && globeType === 'cesium' && (
         <div className="absolute inset-0 z-10 animate-in fade-in duration-500">
           <Suspense fallback={<div role="status" className="p-6 text-white">Memuat semesta tata surya 3D Cesium…</div>}>
             <CesiumGlobe3D 
@@ -5979,150 +6078,8 @@ export function MapsView() {
         </motion.div>
       )}
 
-      {/* Map Mode Switcher & Tools (Top Right) */}
-      <div className="absolute top-[calc(1rem+env(safe-area-inset-top))] right-3 sm:right-4 z-20 flex flex-col items-end gap-2">
-        {/* Desktop View: Full Segmented Tabs */}
-        <div className="hidden md:flex items-center gap-1 bg-white/90 dark:bg-slate-900/90 backdrop-blur-md rounded-2xl shadow-glass border border-slate-200/50 dark:border-slate-800/50 p-1.5">
-          <button 
-            onClick={() => setMapMode('spatial')}
-            className={`flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-semibold transition-all duration-300 ${mapMode === 'spatial' ? 'bg-indigo-500 text-white shadow-md' : 'text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800'}`}
-          >
-            <MapIcon2 className="w-4 h-4" /> Data
-          </button>
-          <button 
-            onClick={() => setMapMode('news')}
-            className={`flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-semibold transition-all duration-300 ${mapMode === 'news' ? 'bg-indigo-500 text-white shadow-md' : 'text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800'}`}
-          >
-            <Newspaper className="w-4 h-4" /> Berita
-          </button>
-          <button 
-            onClick={() => setMapMode('art')}
-            className={`flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-semibold transition-all duration-300 ${mapMode === 'art' ? 'bg-indigo-500 text-white shadow-md' : 'text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800'}`}
-          >
-            <Paintbrush className="w-4 h-4" /> Art
-          </button>
-        </div>
-
-        {/* Mobile View: Compact Square Button + Slide Down Dropdown */}
-        <div className="relative md:hidden">
-          <button
-            onClick={() => setIsModeDropdownOpen((prev) => !prev)}
-            className="flex h-11 w-11 items-center justify-center rounded-xl bg-white shadow-glass backdrop-blur-md hover:bg-slate-50 dark:bg-slate-900/90 dark:border dark:border-slate-800 text-slate-700 dark:text-slate-200 transition-all active:scale-95"
-            aria-label="Pilih Mode Peta"
-            title="Pilih Mode Peta"
-          >
-            {mapMode === 'spatial' && <MapIcon2 className="h-5 w-5 text-indigo-500" />}
-            {mapMode === 'news' && <Newspaper className="h-5 w-5 text-indigo-500" />}
-            {mapMode === 'art' && <Paintbrush className="h-5 w-5 text-indigo-500" />}
-          </button>
-
-          {/* Backdrop to close dropdown on tap outside */}
-          {isModeDropdownOpen && (
-            <div 
-              className="fixed inset-0 z-30" 
-              onClick={() => setIsModeDropdownOpen(false)} 
-            />
-          )}
-
-          {/* Slide-Down Menu */}
-          <AnimatePresence>
-            {isModeDropdownOpen && (
-              <motion.div
-                key="mode-dropdown-menu"
-                initial={{ opacity: 0, y: -8, scale: 0.95 }}
-                animate={{ opacity: 1, y: 0, scale: 1 }}
-                exit={{ opacity: 0, y: -8, scale: 0.95 }}
-                transition={{ duration: 0.18, ease: "easeOut" }}
-                className="absolute top-full mt-2 right-0 z-40 w-56 rounded-2xl bg-white/95 p-2 shadow-2xl backdrop-blur-md border border-slate-200/80 dark:bg-slate-900/95 dark:border-slate-800 origin-top-right flex flex-col gap-1"
-              >
-                <div className="px-3 py-1.5 border-b border-slate-100 dark:border-slate-800/80">
-                  <p className="text-[10px] font-bold uppercase tracking-wider text-slate-400">
-                    Mode Peta
-                  </p>
-                </div>
-
-                {/* Option 1: Peta Bencana */}
-                <button
-                  onClick={() => {
-                    setMapMode('spatial');
-                    setIsModeDropdownOpen(false);
-                  }}
-                  className={`flex items-center gap-3 px-3 py-2.5 rounded-xl text-left transition-all ${
-                    mapMode === 'spatial'
-                      ? 'bg-indigo-50 dark:bg-indigo-950/50 text-indigo-600 dark:text-indigo-400 font-bold'
-                      : 'text-slate-700 dark:text-slate-300 hover:bg-slate-100/70 dark:hover:bg-slate-800/70 font-medium'
-                  }`}
-                >
-                  <div className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-lg ${
-                    mapMode === 'spatial'
-                      ? 'bg-indigo-500 text-white shadow-sm'
-                      : 'bg-slate-100 dark:bg-slate-800 text-slate-500 dark:text-slate-400'
-                  }`}>
-                    <MapIcon2 className="h-4.5 w-4.5" />
-                  </div>
-                  <div className="min-w-0 flex-1">
-                    <p className="text-xs font-semibold leading-tight">Peta Bencana</p>
-                    <p className="text-[10px] text-slate-400 dark:text-slate-500">Data spasial & gempa</p>
-                  </div>
-                </button>
-
-                {/* Option 2: Peta Berita */}
-                <button
-                  onClick={() => {
-                    setMapMode('news');
-                    setIsModeDropdownOpen(false);
-                  }}
-                  className={`flex items-center gap-3 px-3 py-2.5 rounded-xl text-left transition-all ${
-                    mapMode === 'news'
-                      ? 'bg-indigo-50 dark:bg-indigo-950/50 text-indigo-600 dark:text-indigo-400 font-bold'
-                      : 'text-slate-700 dark:text-slate-300 hover:bg-slate-100/70 dark:hover:bg-slate-800/70 font-medium'
-                  }`}
-                >
-                  <div className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-lg ${
-                    mapMode === 'news'
-                      ? 'bg-indigo-500 text-white shadow-sm'
-                      : 'bg-slate-100 dark:bg-slate-800 text-slate-500 dark:text-slate-400'
-                  }`}>
-                    <Newspaper className="h-4.5 w-4.5" />
-                  </div>
-                  <div className="min-w-0 flex-1">
-                    <p className="text-xs font-semibold leading-tight">Peta Berita</p>
-                    <p className="text-[10px] text-slate-400 dark:text-slate-500">Kabar berita terkini</p>
-                  </div>
-                </button>
-
-                {/* Option 3: Harmony Art */}
-                <button
-                  onClick={() => {
-                    setMapMode('art');
-                    setIsModeDropdownOpen(false);
-                  }}
-                  className={`flex items-center gap-3 px-3 py-2.5 rounded-xl text-left transition-all ${
-                    mapMode === 'art'
-                      ? 'bg-indigo-50 dark:bg-indigo-950/50 text-indigo-600 dark:text-indigo-400 font-bold'
-                      : 'text-slate-700 dark:text-slate-300 hover:bg-slate-100/70 dark:hover:bg-slate-800/70 font-medium'
-                  }`}
-                >
-                  <div className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-lg ${
-                    mapMode === 'art'
-                      ? 'bg-indigo-500 text-white shadow-sm'
-                      : 'bg-slate-100 dark:bg-slate-800 text-slate-500 dark:text-slate-400'
-                  }`}>
-                    <Paintbrush className="h-4.5 w-4.5" />
-                  </div>
-                  <div className="min-w-0 flex-1">
-                    <p className="text-xs font-semibold leading-tight">Harmony Art</p>
-                    <p className="text-[10px] text-slate-400 dark:text-slate-500">Kanvas kreasi interaktif</p>
-                  </div>
-                </button>
-              </motion.div>
-            )}
-          </AnimatePresence>
-        </div>
-      </div>
-
       {/* Navigasi Geospasial & Pintasan Cepat Kanan (ramping 1 kolom pada HP agar bebas tabrakan) */}
-      <div className="absolute top-[calc(4.75rem+env(safe-area-inset-top))] sm:top-[calc(5.25rem+env(safe-area-inset-top))] right-3 sm:right-4 z-20 flex flex-col items-end gap-2">
+      <div className="absolute top-[calc(4.75rem+env(safe-area-inset-top))] md:top-[calc(1rem+env(safe-area-inset-top))] right-3 sm:right-4 z-20 flex flex-col items-end gap-2">
         {/* Navigasi Geospasial Terpadu: GPS Realtime & Orientasi Kompas 360 */}
         <div className="relative flex flex-col sm:flex-row items-center sm:items-stretch gap-1 sm:gap-1.5 mt-0.5 p-1 sm:p-1.5 rounded-2xl bg-white/90 dark:bg-slate-900/90 shadow-glass backdrop-blur-xl border border-slate-200/80 dark:border-slate-800 shadow-lg select-none">
           {/* Sisi Kiri: GPS Location Finder & Realtime Accuracy Tracking */}
@@ -6531,49 +6488,64 @@ export function MapsView() {
         </div>
       </div>
 
-      {/* Top Quick Actions: Daerah Rawan Bencana, Panduan WebGIS & Experience Mode Switcher */}
-      <div className="absolute top-[calc(1rem+env(safe-area-inset-top))] left-[calc(4rem+25.5rem)] z-20 hidden xl:flex items-center gap-2">
+      {/* Top Quick Actions: Zona Rawan & Mode Tampilan */}
+      <div className="absolute top-[calc(1rem+env(safe-area-inset-top))] left-[calc(4rem+18rem)] lg:left-[calc(4rem+22rem)] xl:left-[calc(4rem+25.5rem)] z-20 hidden md:flex items-center gap-2">
         <button
           type="button"
           onClick={() => setShowDisasterRiskCenter(true)}
-          className="flex items-center gap-2 px-3.5 py-2.5 rounded-full bg-gradient-to-r from-rose-500/15 to-amber-500/15 hover:from-rose-500/25 hover:to-amber-500/25 border border-rose-400/40 text-rose-700 dark:text-rose-300 text-xs font-bold shadow-glass backdrop-blur-md transition-all active:scale-95 cursor-pointer"
-          title="Buka Pusat Edukasi Daerah Rawan Bencana & Profil Risiko Sekolah"
+          className="flex items-center gap-1.5 px-3.5 py-2.5 rounded-full bg-white/90 hover:bg-white dark:bg-slate-900/90 dark:hover:bg-slate-800 border border-rose-300/60 dark:border-rose-700/60 text-rose-700 dark:text-rose-300 text-xs font-bold shadow-glass backdrop-blur-md transition-all active:scale-95 cursor-pointer"
+          title="Lihat zona rawan bencana dan info sekolah"
         >
-          <span className="text-sm"></span>
-          <span>Zona Rawan Bencana</span>
-          <span className="text-[10px] font-black uppercase px-1.5 py-0.2 rounded-full bg-rose-500 text-white">
-            Edukasi
-          </span>
+          <AlertCircle className="h-3.5 w-3.5 text-rose-500" />
+          <span>Zona Rawan</span>
         </button>
 
-        <button
-          type="button"
-          onClick={() => setShowWebGisTutorial(true)}
-          className="flex items-center gap-1.5 px-3.5 py-2.5 rounded-full bg-white/90 hover:bg-white dark:bg-slate-900/90 dark:hover:bg-slate-800 border border-slate-200/80 dark:border-slate-700 text-sky-700 dark:text-sky-300 text-xs font-bold shadow-glass backdrop-blur-md transition-all active:scale-95 cursor-pointer"
-          title="Buka Panduan Tutorial Interaktif Penggunaan WebGIS"
+        <div
+          role="group"
+          aria-label="Mode tampilan peta"
+          className="inline-flex items-center p-1 rounded-full bg-white/90 dark:bg-slate-900/90 border border-slate-200/80 dark:border-slate-700 shadow-glass backdrop-blur-md"
         >
-          <span className="text-sm"></span>
-          <span>Panduan WebGIS</span>
-        </button>
+          <button
+            type="button"
+            onClick={() => handleExperienceModeChange('education')}
+            className={`px-3 py-1.5 rounded-full text-xs font-bold transition-all cursor-pointer ${
+              uiExperienceMode === 'education'
+                ? 'bg-emerald-600 text-white shadow-sm'
+                : 'text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white'
+            }`}
+          >
+            Ringkas
+          </button>
+          <button
+            type="button"
+            onClick={() => handleExperienceModeChange('expert')}
+            className={`px-3 py-1.5 rounded-full text-xs font-bold transition-all cursor-pointer ${
+              uiExperienceMode === 'expert'
+                ? 'bg-indigo-600 text-white shadow-sm'
+                : 'text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white'
+            }`}
+          >
+            Analitik GIS
+          </button>
+        </div>
 
       </div>
 
-      {/* Harmony Left Top Stack: Conditional Education Risk Card vs Expert GIS Toolbar */}
+      {/* Harmony Left Top Stack: Show School Risk Card only when a school is active, or Expert GIS Toolbar */}
       <div className="absolute top-[calc(4.75rem+env(safe-area-inset-top))] sm:top-20 left-3 sm:left-4 z-20 flex flex-col items-start gap-2.5 max-w-[calc(100vw-5.5rem)] sm:max-w-sm pointer-events-none transition-all duration-200">
         {uiExperienceMode === 'education' && !is3D ? (
-          <div className="pointer-events-auto relative z-30">
-            <SchoolRiskSynthesisCard
-              schoolId={activeSchoolId}
-              schoolName={activeSchoolName}
-              lat={activeSchoolLat}
-              lng={activeSchoolLng}
-              onOpenScenarioModal={() => setShowGroundedScenarioModal(true)}
-              onSwitchToExpertMode={() => {
-                setUiExperienceMode('expert');
-                try { window.localStorage.setItem('hm_ui_experience_mode', 'expert'); } catch (e) {}
-              }}
-            />
-          </div>
+          (activeSchoolId || activeSchoolName) ? (
+            <div className="pointer-events-auto relative z-30">
+              <SchoolRiskSynthesisCard
+                schoolId={activeSchoolId}
+                schoolName={activeSchoolName}
+                lat={activeSchoolLat}
+                lng={activeSchoolLng}
+                onOpenScenarioModal={() => setShowGroundedScenarioModal(true)}
+                onSwitchToExpertMode={() => handleExperienceModeChange('expert')}
+              />
+            </div>
+          ) : null
         ) : (
           <>
             <div className="pointer-events-auto relative z-30">
@@ -8931,8 +8903,8 @@ export function MapsView() {
         )}
       </AnimatePresence>
 
-      {/* Tombol Bulat Pojok Kiri: Transparansi Sumber Data Resmi (BMKG, PVMBG, BIG, BNPB, Kemendikbud) */}
-      {weatherMapOverlay === 'none' && (
+      {/* Tombol Bulat Pojok Kiri: Transparansi Sumber Data Resmi (hanya di peta 2D agar tidak menabrak kapsul 3D) */}
+      {weatherMapOverlay === 'none' && !is3D && (
         <div className="absolute bottom-[calc(3.5rem+env(safe-area-inset-bottom))] sm:bottom-[calc(4rem+env(safe-area-inset-bottom))] left-3 sm:left-4 z-30 pointer-events-auto">
           <div className="relative group">
             <button
@@ -9866,7 +9838,7 @@ export function MapsView() {
               closeMapDrawers();
               setShowPanel(true);
             }}
-            className="absolute bottom-[calc(1rem+env(safe-area-inset-bottom))] sm:bottom-[calc(1.25rem+env(safe-area-inset-bottom))] right-3 sm:right-6 z-20 flex items-center gap-2.5 sm:gap-3 rounded-2xl bg-white/95 dark:bg-slate-900/95 px-3.5 sm:px-4 py-2.5 sm:py-3 shadow-2xl backdrop-blur-xl border border-slate-200/90 dark:border-slate-800 text-slate-800 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-800/90 transition-all hover:scale-[1.02] active:scale-95 group cursor-pointer shadow-brand-500/10"
+            className="absolute bottom-[calc(1rem+env(safe-area-inset-bottom))] sm:bottom-[calc(1.25rem+env(safe-area-inset-bottom))] right-16 sm:right-20 z-20 flex items-center gap-2.5 sm:gap-3 rounded-2xl bg-white/95 dark:bg-slate-900/95 px-3.5 sm:px-4 py-2.5 sm:py-3 shadow-2xl backdrop-blur-xl border border-slate-200/90 dark:border-slate-800 text-slate-800 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-800/90 transition-all hover:scale-[1.02] active:scale-95 group cursor-pointer shadow-brand-500/10"
             title="Klik untuk membuka Pengaturan Lapisan Peta (Harmony Maps)"
           >
             <div className="relative flex h-8 w-8 items-center justify-center rounded-xl bg-brand-50 dark:bg-brand-950/60 border border-brand-200/60 dark:border-brand-800/60 text-brand-600 dark:text-brand-400 shadow-xs">
@@ -10024,7 +9996,7 @@ export function MapsView() {
                     }`}
                   >
                     <MapIcon className="w-3.5 h-3.5" />
-                    <span>2D Datar</span>
+                    <span>2D</span>
                   </button>
                   <button
                     type="button"
@@ -10037,10 +10009,10 @@ export function MapsView() {
                         ? 'bg-gradient-to-r from-sky-500 via-indigo-500 to-purple-600 text-white shadow-sm shadow-sky-500/30' 
                         : 'text-slate-500 dark:text-slate-400 hover:text-slate-800 dark:hover:text-slate-200'
                     }`}
-                    title="Semesta Tata Surya & Bima Sakti 3D (Three.js WebGL)"
+                    title="Tata Surya & Bumi WebGL"
                   >
                     <Sparkles className="w-3.5 h-3.5 text-amber-300" />
-                    <span>Kosmik 3D</span>
+                    <span>Tata Surya</span>
                   </button>
                   <button
                     type="button"
@@ -10053,10 +10025,10 @@ export function MapsView() {
                         ? 'bg-gradient-to-r from-sky-500 to-indigo-500 text-white shadow-sm shadow-sky-500/30' 
                         : 'text-slate-500 dark:text-slate-400 hover:text-slate-800 dark:hover:text-slate-200'
                     }`}
-                    title="Globe 3D Realistis CesiumJS"
+                    title="Globe 3D Realistis"
                   >
                     <Globe className="w-3.5 h-3.5" />
-                    <span>Cesium 3D</span>
+                    <span>Globe 3D</span>
                   </button>
                   <button
                     type="button"
@@ -10072,7 +10044,7 @@ export function MapsView() {
                     title="Sudut Pandang Miring 3D"
                   >
                     <Box className="w-3.5 h-3.5" />
-                    <span>3D Miring</span>
+                    <span>Miring</span>
                   </button>
                 </div>
 

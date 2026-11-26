@@ -47,7 +47,10 @@ import {
   getCelestialTexture,
   getCelestialCanvas,
   getSaturnRingTexture,
-  REAL_PLANET_TEXTURE_URLS
+  REAL_PLANET_TEXTURE_URLS,
+  createAtmosphericRimMaterial,
+  createSolarSurfaceMaterial,
+  createSolarCoronaMaterial
 } from './cosmicSceneUtils';
 
 interface PlanetarySurfaceExplorerModalProps {
@@ -92,6 +95,8 @@ export function PlanetarySurfaceExplorerModal({
   const bodyData: CelestialBodyData = PLANETARY_CATALOG[activeBodyId] || PLANETARY_CATALOG['mars'];
   const surfaceEnv: SurfaceEnvironment = PLANETARY_SURFACE_ENVIRONMENTS[activeBodyId] || PLANETARY_SURFACE_ENVIRONMENTS['mars'];
   const landmarks: PlanetaryLandmark[] = getLandmarksForBody(activeBodyId);
+  const isGasGiant = ['jupiter', 'saturn', 'uranus', 'neptune'].includes(activeBodyId);
+  const isSunBody = activeBodyId === 'sun';
 
   // Sync initial body on mount/props change
   useEffect(() => {
@@ -230,8 +235,11 @@ export function PlanetarySurfaceExplorerModal({
     const scene = new THREE.Scene();
     scene.background = new THREE.Color(0x020617);
 
+    const isSaturn = activeBodyId === 'saturn';
+    const isSun = activeBodyId === 'sun';
     const camera = new THREE.PerspectiveCamera(40, width / height, 0.1, 100);
-    camera.position.set(0, 0, 3.2);
+    camera.position.set(0, isSaturn ? 1.25 : 0.35, isSaturn ? 4.35 : 3.1);
+    camera.lookAt(0, 0, 0);
 
     const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
     renderer.setSize(width, height);
@@ -239,15 +247,21 @@ export function PlanetarySurfaceExplorerModal({
     container.innerHTML = '';
     container.appendChild(renderer.domElement);
 
-    // Planet Globe Mesh
+    // Planet Globe Mesh (Sun uses self-luminous plasma shader; planets use standard shaded sphere)
     const sphereGeo = new THREE.SphereGeometry(1.0, 64, 64);
     const texture = getCelestialTexture(activeBodyId);
-    const sphereMat = new THREE.MeshStandardMaterial({
+    const solarShaderMat = isSun ? createSolarSurfaceMaterial(texture) : null;
+    const sphereMat = solarShaderMat || new THREE.MeshStandardMaterial({
       map: texture,
-      roughness: activeBodyId === 'sun' ? 0.2 : 0.8,
-      metalness: 0.1,
+      bumpMap: texture,
+      bumpScale: isGasGiant ? 0.008 : 0.025,
+      roughness: isGasGiant ? 0.72 : 0.86,
+      metalness: 0.08,
     });
     const globeMesh = new THREE.Mesh(sphereGeo, sphereMat);
+    if (isSaturn) {
+      globeMesh.rotation.z = 0.28;
+    }
     scene.add(globeMesh);
 
     // Saturn Rings with Polar Radial UV Mapping (Flawless Concentric Circles)
@@ -284,14 +298,10 @@ export function PlanetarySurfaceExplorerModal({
       globeMesh.add(ringMesh);
     }
 
-    // Atmosphere Glow Halo
-    const haloGeo = new THREE.SphereGeometry(1.06, 32, 32);
-    const haloMat = new THREE.MeshBasicMaterial({
-      color: new THREE.Color(bodyData.visual.glowColor || '#38bdf8'),
-      transparent: true,
-      opacity: 0.22,
-      side: THREE.BackSide,
-    });
+    // Atmosphere / Corona Glow Halo
+    const haloGeo = new THREE.SphereGeometry(isSun ? 1.24 : 1.045, 48, 48);
+    const solarCoronaMat = isSun ? createSolarCoronaMaterial('#f59e0b', 0.6) : null;
+    const haloMat = solarCoronaMat || createAtmosphericRimMaterial(bodyData.visual.glowColor || '#38bdf8', 0.9, 3.6);
     const haloMesh = new THREE.Mesh(haloGeo, haloMat);
     scene.add(haloMesh);
 
@@ -360,8 +370,12 @@ export function PlanetarySurfaceExplorerModal({
     window.addEventListener('pointerup', onPointerUp);
 
     let animId: number;
+    const startClock = performance.now();
     const animate = () => {
       animId = requestAnimationFrame(animate);
+      const elapsedSec = (performance.now() - startClock) * 0.001;
+      if (solarShaderMat) solarShaderMat.uniforms.uTime.value = elapsedSec;
+      if (solarCoronaMat) solarCoronaMat.uniforms.uTime.value = elapsedSec;
       if (!isDragging) {
         globeMesh.rotation.y += rotVelX;
         globeMesh.rotation.x += rotVelY;
@@ -488,61 +502,92 @@ export function PlanetarySurfaceExplorerModal({
     sunMesh.position.set(120, 60, -280);
     scene.add(sunMesh);
 
-    // 4. Procedural Planetary Ground Surface Plane (128x128 Tessellation)
+    // 4. Planetary Environment Layer: Cloud/Plasma Sea for Gas Giants & Sun, Terrain for Rocky Worlds
+    const isGaseousOrStar = isGasGiant || isSunBody;
     const groundGeo = new THREE.PlaneGeometry(600, 600, 96, 96);
     groundGeo.rotateX(-Math.PI / 2);
 
-    // Displace vertices to create authentic crater/dune relief
     const posAttr = groundGeo.attributes.position;
+    const baseY = new Float32Array(posAttr.count);
     for (let i = 0; i < posAttr.count; i++) {
       const gx = posAttr.getX(i);
       const gz = posAttr.getZ(i);
       const distFromCenter = Math.sqrt(gx * gx + gz * gz);
-      // Flatter landing clearing in the center, rugged hills in distance
       const heightFactor = Math.min(1.0, distFromCenter / 45.0);
-      const elevation = (
-        Math.sin(gx * 0.04) * Math.cos(gz * 0.04) * 3.2 +
-        Math.sin(gx * 0.09 + gz * 0.05) * 1.5 +
-        Math.cos(gx * 0.015) * 6.5
-      ) * heightFactor;
+      const elevation = isGaseousOrStar
+        ? (Math.sin(gx * 0.03) * Math.cos(gz * 0.025) * 4.5 + Math.cos(gx * 0.015 - gz * 0.02) * 3.0) * heightFactor - 2.0
+        : (
+            Math.sin(gx * 0.04) * Math.cos(gz * 0.04) * 3.2 +
+            Math.sin(gx * 0.09 + gz * 0.05) * 1.5 +
+            Math.cos(gx * 0.015) * 6.5 +
+            Math.abs(Math.sin(gx * 0.025 - gz * 0.018)) * 2.4 +
+            Math.cos(distFromCenter * 0.08) * 1.4 * Math.min(1, distFromCenter / 90)
+          ) * heightFactor;
       posAttr.setY(i, elevation);
+      baseY[i] = elevation;
     }
     groundGeo.computeVertexNormals();
 
-    const groundMat = new THREE.MeshStandardMaterial({
-      color: new THREE.Color(surfaceEnv.groundBaseColor),
-      roughness: 0.92,
-      metalness: 0.08,
-      flatShading: true,
-    });
+    const groundMat = isSunBody
+      ? new THREE.MeshBasicMaterial({ color: new THREE.Color(surfaceEnv.groundBaseColor) })
+      : new THREE.MeshStandardMaterial({
+          color: new THREE.Color(surfaceEnv.groundBaseColor),
+          roughness: isGasGiant ? 0.65 : 0.92,
+          metalness: isGasGiant ? 0.02 : 0.08,
+          flatShading: !isGaseousOrStar,
+        });
     const groundMesh = new THREE.Mesh(groundGeo, groundMat);
     scene.add(groundMesh);
 
-    // 5. Planetary Regolith Boulders & Rock Formations
-    const rockGeo = new THREE.DodecahedronGeometry(0.8, 1);
-    const rockMat = new THREE.MeshStandardMaterial({
-      color: new THREE.Color(surfaceEnv.groundDetailColor),
-      roughness: 0.95,
-    });
-    for (let r = 0; r < 65; r++) {
-      const angle = Math.random() * Math.PI * 2;
-      const dist = 6 + Math.random() * 85;
-      const scale = 0.35 + Math.random() * 1.8;
-      const rx = Math.cos(angle) * dist;
-      const rz = Math.sin(angle) * dist;
-      const rock = new THREE.Mesh(rockGeo, rockMat);
-      rock.position.set(rx, scale * 0.4, rz);
-      rock.scale.set(scale, scale * (0.6 + Math.random() * 0.8), scale);
-      rock.rotation.set(Math.random() * Math.PI, Math.random() * Math.PI, 0);
-      scene.add(rock);
+    // 5. Rocky Regolith Boulders ONLY on Solid Worlds (never on gas giants or Sun!)
+    if (!isGaseousOrStar) {
+      const rockGeo = new THREE.DodecahedronGeometry(0.8, 1);
+      const rockMat = new THREE.MeshStandardMaterial({
+        color: new THREE.Color(surfaceEnv.groundDetailColor),
+        roughness: 0.95,
+      });
+      for (let r = 0; r < 65; r++) {
+        const angle = Math.random() * Math.PI * 2;
+        const dist = 6 + Math.random() * 85;
+        const scale = 0.35 + Math.random() * 1.8;
+        const rx = Math.cos(angle) * dist;
+        const rz = Math.sin(angle) * dist;
+        const rock = new THREE.Mesh(rockGeo, rockMat);
+        rock.position.set(rx, scale * 0.4, rz);
+        rock.scale.set(scale, scale * (0.6 + Math.random() * 0.8), scale);
+        rock.rotation.set(Math.random() * Math.PI, Math.random() * Math.PI, 0);
+        scene.add(rock);
+      }
+    } else if (activeBodyId === 'saturn') {
+      // Iconic Saturn Ring Arch overhead in the upper cloud horizon
+      const archGeo = new THREE.RingGeometry(180, 295, 96);
+      archGeo.rotateX(Math.PI * 0.42);
+      archGeo.rotateZ(0.24);
+      const archMat = new THREE.MeshBasicMaterial({
+        color: 0xfde68a,
+        side: THREE.DoubleSide,
+        transparent: true,
+        opacity: 0.28,
+        depthWrite: false,
+      });
+      const ringArch = new THREE.Mesh(archGeo, archMat);
+      ringArch.position.set(0, 20, -40);
+      scene.add(ringArch);
     }
 
-    // Surface Lights
-    const dirLight = new THREE.DirectionalLight(new THREE.Color(surfaceEnv.sunColor), surfaceEnv.sunIntensity);
+    // Surface Lights (Solar Key + Atmospheric Hemisphere Fill)
+    const dirLight = new THREE.DirectionalLight(new THREE.Color(surfaceEnv.sunColor), surfaceEnv.sunIntensity * 1.15);
     dirLight.position.set(120, 60, -280);
     scene.add(dirLight);
 
-    const ambLight = new THREE.AmbientLight(new THREE.Color(surfaceEnv.ambientColor), 0.65);
+    const hemiLight = new THREE.HemisphereLight(
+      new THREE.Color(surfaceEnv.skyTopColor),
+      new THREE.Color(surfaceEnv.groundBaseColor),
+      0.85
+    );
+    scene.add(hemiLight);
+
+    const ambLight = new THREE.AmbientLight(new THREE.Color(surfaceEnv.ambientColor), 0.4);
     scene.add(ambLight);
 
     // First-Person Horizon Drag Controls
@@ -589,8 +634,16 @@ export function PlanetarySurfaceExplorerModal({
     window.addEventListener('pointerup', onPointerUp);
 
     let animId: number;
+    const t0 = performance.now();
     const animate = () => {
       animId = requestAnimationFrame(animate);
+      if (isGaseousOrStar) {
+        const t = (performance.now() - t0) * 0.0012;
+        for (let i = 0; i < posAttr.count; i += 2) {
+          posAttr.setY(i, baseY[i] + Math.sin(t + i * 0.08) * 0.55);
+        }
+        posAttr.needsUpdate = true;
+      }
       renderer.render(scene, camera);
     };
     animate();
@@ -628,7 +681,7 @@ export function PlanetarySurfaceExplorerModal({
     <div 
       onPointerDown={(e) => e.stopPropagation()}
       onClick={(e) => e.stopPropagation()}
-      className="fixed inset-0 z-[10000] flex flex-col bg-slate-950/95 backdrop-blur-2xl text-slate-100 overflow-hidden animate-in fade-in duration-300"
+      className="fixed inset-0 z-[100040] flex flex-col bg-slate-950/95 backdrop-blur-2xl text-slate-100 overflow-hidden animate-in fade-in duration-300"
     >
       {/* ================= TOP NAV HEADER ================= */}
       <div className="p-3 sm:p-4 border-b border-white/10 bg-slate-900/90 flex items-center justify-between gap-3 shrink-0">
@@ -645,7 +698,7 @@ export function PlanetarySurfaceExplorerModal({
           <div className="min-w-0">
             <div className="flex items-center gap-2 flex-wrap">
               <h2 className="font-extrabold text-base sm:text-lg text-white truncate tracking-wide">
-                {bodyData.name} ({bodyData.englishName})
+                {bodyData.name}
               </h2>
               <span className="px-2 py-0.5 rounded-full text-[10px] font-mono font-semibold bg-sky-500/20 text-sky-300 border border-sky-400/30">
                 {bodyData.typeLabel}
@@ -699,7 +752,7 @@ export function PlanetarySurfaceExplorerModal({
             }`}
           >
             <Navigation className="w-3.5 h-3.5" />
-            <span>Masuk / Mendarat</span>
+            <span>{isSunBody ? 'Korona 360°' : isGasGiant ? 'Atmosfer 360°' : 'Permukaan 360°'}</span>
           </button>
         </div>
 

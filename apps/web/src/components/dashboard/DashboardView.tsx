@@ -491,6 +491,144 @@ export function DashboardView() {
         </div>
       </div>
 
+      {/* Role-Focused Quick Flow Banner */}
+      {currentUser?.role === "teacher" ? (
+        <div className="grid gap-3 sm:grid-cols-2">
+          <Link
+            to="/app/teacher"
+            className="group glass flex items-center justify-between gap-4 rounded-2xl border border-amber-200/70 bg-gradient-to-br from-amber-50/70 via-white to-orange-50/40 p-4 transition-all hover:-translate-y-0.5 hover:shadow-glass dark:border-amber-900/40 dark:bg-slate-900/70"
+          >
+            <div>
+              <span className="inline-flex rounded-full bg-amber-500/15 px-2.5 py-0.5 text-[10px] font-bold uppercase tracking-wider text-amber-700 dark:text-amber-300">
+                Prioritas Guru
+              </span>
+              <h3 className="mt-1.5 font-display text-base font-extrabold text-ink-900 dark:text-white">
+                Dasbor Guru &amp; Sesi Kelas
+              </h3>
+              <p className="mt-0.5 text-xs text-ink-500 dark:text-slate-400">
+                Pandu simulasi bersama dan lihat nilai kelas.
+              </p>
+            </div>
+            <ArrowRight className="h-5 w-5 shrink-0 text-amber-600 transition-transform group-hover:translate-x-1" />
+          </Link>
+
+          <Link
+            to="/app/digital-twin"
+            className="group glass flex items-center justify-between gap-4 rounded-2xl border border-indigo-200/70 bg-gradient-to-br from-indigo-50/70 via-white to-sky-50/40 p-4 transition-all hover:-translate-y-0.5 hover:shadow-glass dark:border-indigo-900/40 dark:bg-slate-900/70"
+          >
+            <div>
+              <span className="inline-flex rounded-full bg-indigo-500/15 px-2.5 py-0.5 text-[10px] font-bold uppercase tracking-wider text-indigo-700 dark:text-indigo-300">
+                Denah Digital Twin
+              </span>
+              <h3 className="mt-1.5 font-display text-base font-extrabold text-ink-900 dark:text-white">
+                Atur Denah &amp; Jalur Aman
+              </h3>
+              <p className="mt-0.5 text-xs text-ink-500 dark:text-slate-400">
+                Sesuaikan skenario bencana gedung sekolah.
+              </p>
+            </div>
+            <ArrowRight className="h-5 w-5 shrink-0 text-indigo-600 transition-transform group-hover:translate-x-1" />
+          </Link>
+        </div>
+      ) : currentUser?.role === "developer" ? (
+        <div className="grid gap-3 sm:grid-cols-2">
+          <Link
+            to="/app/maps?mode=expert"
+            className="group glass flex items-center justify-between gap-4 rounded-2xl border border-indigo-200/70 bg-gradient-to-br from-indigo-50/70 via-white to-sky-50/40 p-4 transition-all hover:-translate-y-0.5 hover:shadow-glass dark:border-indigo-900/40 dark:bg-slate-900/70"
+          >
+            <div>
+              <span className="inline-flex rounded-full bg-indigo-500/15 px-2.5 py-0.5 text-[10px] font-bold uppercase tracking-wider text-indigo-700 dark:text-indigo-300">
+                Ahli &amp; Peneliti
+              </span>
+              <h3 className="mt-1.5 font-display text-base font-extrabold text-ink-900 dark:text-white">
+                Peta Analitik GIS
+              </h3>
+              <p className="mt-0.5 text-xs text-ink-500 dark:text-slate-400">
+                Buka toolbar GIS, lapisan, dan geoprocessing.
+              </p>
+            </div>
+            <ArrowRight className="h-5 w-5 shrink-0 text-indigo-600 transition-transform group-hover:translate-x-1" />
+          </Link>
+
+          <Link
+            to="/app/geospatial"
+            className="group glass flex items-center justify-between gap-4 rounded-2xl border border-emerald-200/70 bg-gradient-to-br from-emerald-50/70 via-white to-teal-50/40 p-4 transition-all hover:-translate-y-0.5 hover:shadow-glass dark:border-emerald-900/40 dark:bg-slate-900/70"
+          >
+            <div>
+              <span className="inline-flex rounded-full bg-emerald-500/15 px-2.5 py-0.5 text-[10px] font-bold uppercase tracking-wider text-emerald-700 dark:text-emerald-300">
+                Observasi &amp; Cuaca
+              </span>
+              <h3 className="mt-1.5 font-display text-base font-extrabold text-ink-900 dark:text-white">
+                Studio Geospasial Lengkap
+              </h3>
+              <p className="mt-0.5 text-xs text-ink-500 dark:text-slate-400">
+                Pantau BMKG, satelit Sentinel, dan fusi sensor.
+              </p>
+            </div>
+            <ArrowRight className="h-5 w-5 shrink-0 text-emerald-600 transition-transform group-hover:translate-x-1" />
+          </Link>
+        </div>
+      ) : (
+        <div className="glass rounded-2xl p-4 sm:p-5">
+          <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
+            <div>
+              <h3 className="font-display text-sm font-extrabold text-ink-900 dark:text-white sm:text-base">
+                Alur Belajar 3 Langkah
+              </h3>
+              <p className="text-xs text-ink-500 dark:text-slate-400">
+                Urutan cepat latihan kesiapsiagaan sekolah.
+              </p>
+            </div>
+          </div>
+          <div className="grid gap-3 sm:grid-cols-3">
+            {[
+              {
+                step: "Langkah 1",
+                title: "Tanya GeoBot",
+                desc: "Pahami langkah aman gempa & banjir.",
+                to: "/app/ai-learning",
+                cta: "Buka GeoBot",
+              },
+              {
+                step: "Langkah 2",
+                title: "Latihan & Simulasi",
+                desc: "Uji reaksi cepat pada skenario denah.",
+                to: "/app/simulation",
+                cta: "Mulai Latihan",
+              },
+              {
+                step: "Langkah 3",
+                title: "Cek Skor Harmony",
+                desc: "Lihat poin kesiapan dan progres kelas.",
+                to: "/app/gss",
+                cta: "Lihat Skor",
+              },
+            ].map((item) => (
+              <Link
+                key={item.step}
+                to={item.to}
+                className="group flex flex-col justify-between rounded-xl border border-slate-200/80 bg-white/80 p-3.5 transition-all hover:-translate-y-0.5 hover:border-brand-300 dark:border-slate-800 dark:bg-slate-900/70"
+              >
+                <div>
+                  <span className="inline-flex rounded-md bg-brand-500/10 px-2 py-0.5 text-[10px] font-bold text-brand-700 dark:text-brand-300">
+                    {item.step}
+                  </span>
+                  <h4 className="mt-2 font-display text-sm font-bold text-ink-900 dark:text-white">
+                    {item.title}
+                  </h4>
+                  <p className="mt-1 text-xs text-ink-500 dark:text-slate-400">
+                    {item.desc}
+                  </p>
+                </div>
+                <span className="mt-3 inline-flex items-center gap-1 text-xs font-bold text-brand-600 dark:text-brand-400">
+                  {item.cta} <ArrowRight className="h-3.5 w-3.5 transition-transform group-hover:translate-x-0.5" />
+                </span>
+              </Link>
+            ))}
+          </div>
+        </div>
+      )}
+
       {/* ── Score Improvement Card ─────────────────────────────────────────── */}
       <div className="glass rounded-2xl p-5 dark:bg-slate-900/60">
         <div className="flex flex-col items-center gap-6 sm:flex-row sm:justify-between">
