@@ -201,11 +201,11 @@ const dictionaries: Record<Language, Dictionary> = {
     "teacher.rec3.title": "Siswa terbaik",
     "teacher.rec3.detail": "Alvira N. (92) — pertimbangkan mentoring",
 
-    "about.team.label": "Kenali Tim Pengembang",
-    "about.team.title": "Tim Riset & Pengembangan",
+    "about.team.label": "Pembuat Platform",
+    "about.team.title": "Pengembang Utama",
     "about.team.desc":
-      "Dikembangkan oleh Tim Riset Harmony — menggabungkan AI, desain, dan data untuk membangun masa depan edukasi kesiapsiagaan bencana.",
-    "about.team.footer": "Dikembangkan oleh Tim Riset Harmony",
+      "Dirancang dan dikembangkan oleh My Princessa Z. M. untuk edukasi kesiapsiagaan bencana sekolah.",
+    "about.team.footer": "Dibuat oleh My Princessa Z. M.",
     "about.team.an.role": "Ketua Proyek",
     "about.team.an.subtitle": "Peneliti Peserta Didik",
     "about.team.ak.role": "Riset & Desainer UI/UX",
@@ -563,11 +563,11 @@ const dictionaries: Record<Language, Dictionary> = {
     "teacher.rec3.title": "Top performer identified",
     "teacher.rec3.detail": "Alvira N. leads at 92 — consider mentoring",
 
-    "about.team.label": "Meet the Development Team",
-    "about.team.title": "Research & Development Team",
+    "about.team.label": "Platform Creator",
+    "about.team.title": "Lead Developer",
     "about.team.desc":
-      "Developed by the Harmony Research Team — combining AI, design, and data to build the future of disaster preparedness education.",
-    "about.team.footer": "Developed by the Harmony Research Team",
+      "Designed and built by My Princessa Z. M. for school disaster preparedness.",
+    "about.team.footer": "Created by My Princessa Z. M.",
     "about.team.an.role": "Project Leader",
     "about.team.an.subtitle": "Student Researcher",
     "about.team.ak.role": "Research & UI/UX Designer",

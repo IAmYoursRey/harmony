@@ -67,13 +67,13 @@ export function Technology() {
       <div className="section-container">
         <Reveal className="mx-auto max-w-2xl text-center">
           <span className="text-sm font-semibold uppercase tracking-wider text-brand-300">
-            Alur Sistem
+            Cara Kerja
           </span>
           <h2 className="mt-3 font-display text-3xl font-extrabold tracking-tight text-white sm:text-4xl">
-            Alur Sistem
+            Lima Tahap Latihan Kesiapsiagaan
           </h2>
           <p className="mt-4 text-brand-200">
-            Lima tahapan terhubung untuk melatih kesiapan evakuasi sekolah secara sistematis.
+            Urutan kerja aplikasi dari pemetaan profil risiko hingga evaluasi kesiapan siswa.
           </p>
         </Reveal>
 

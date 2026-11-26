@@ -1,13 +1,11 @@
 import {
   Code2,
-  Palette,
-  BarChart3,
   Sparkles,
   type LucideIcon,
 } from "lucide-react";
 import { useI18n } from "@/hooks/useI18n";
 
-interface TeamMember {
+interface CreatorProfile {
   initials: string;
   name: string;
   roleKey: string;
@@ -15,26 +13,12 @@ interface TeamMember {
   icon: LucideIcon;
 }
 
-const members: TeamMember[] = [
+const members: CreatorProfile[] = [
   {
-    initials: "MD",
-    name: "M. David Silva W.",
-    roleKey: "Analis Data & Riset",
-    subtitleKey: "Data Geospasial",
-    icon: BarChart3,
-  },
-  {
-    initials: "AF",
-    name: "Alvira Fitriatun Nizha",
-    roleKey: "Ketua Proyek",
-    subtitleKey: "Koordinator Utama",
-    icon: Sparkles,
-  },
-  {
-    initials: "RA",
-    name: "Raihan Ansari",
-    roleKey: "Insinyur Perangkat Lunak",
-    subtitleKey: "Arsitektur & UI/UX",
+    initials: "MP",
+    name: "My Princessa Z. M.",
+    roleKey: "Perancang & Pengembang Utama",
+    subtitleKey: "WebGIS & Simulasi Sekolah",
     icon: Code2,
   },
 ];
@@ -46,7 +30,7 @@ interface TeamSectionProps {
 
 export function TeamSection({ heading, variant = "card" }: TeamSectionProps) {
   const { t } = useI18n();
-  const title = heading ?? "Tim Pengembang";
+  const title = heading ?? "Pembuat Platform";
 
   if (variant === "section") {
     return (
@@ -54,27 +38,24 @@ export function TeamSection({ heading, variant = "card" }: TeamSectionProps) {
         <div className="section-container">
           <div className="mx-auto max-w-2xl text-center">
             <span className="text-sm font-semibold uppercase tracking-wider text-brand-600">
-              {t("about.team.label", "Tim Kami")}
+              {t("about.team.label", "Pembuat Platform")}
             </span>
             <h2 className="mt-3 font-display text-3xl font-extrabold tracking-tight text-ink-900 sm:text-4xl">
               {title}
             </h2>
             <p className="mt-4 text-ink-600 dark:text-slate-300">
-              {t("about.team.desc", "Orang-orang di balik platform edukasi dan mitigasi bencana interaktif ini.")}
+              {t("about.team.desc", "Dirancang dan dikembangkan oleh My Princessa Z. M. untuk edukasi kesiapsiagaan bencana sekolah.")}
             </p>
           </div>
 
-          <div className="mt-14 grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
+          <div className="mx-auto mt-10 max-w-md">
             {members.map((m, i) => (
               <article
                 key={i}
                 className="glass group flex flex-col items-center rounded-2xl p-7 text-center transition-all hover:-translate-y-1.5 hover:shadow-glass-lg"
-                style={{ animationDelay: `${i * 80}ms` }}
               >
                 <div className="relative">
-                  <span
-                    className={`flex h-20 w-20 items-center justify-center rounded-full bg-gradient-to-br from-brand-500 to-brand-600 font-display text-2xl font-extrabold text-white shadow-glass ring-4 ring-white/60 transition-transform group-hover:scale-110`}
-                  >
+                  <span className="flex h-20 w-20 items-center justify-center rounded-full bg-gradient-to-br from-brand-500 to-brand-600 font-display text-2xl font-extrabold text-white shadow-glass ring-4 ring-white/60 transition-transform group-hover:scale-110">
                     {m.initials}
                   </span>
                   <span className="absolute -bottom-1 -right-1 flex h-9 w-9 items-center justify-center rounded-full bg-white text-brand-600 shadow-glass ring-1 ring-brand-100">
@@ -95,7 +76,7 @@ export function TeamSection({ heading, variant = "card" }: TeamSectionProps) {
           </div>
 
           <p className="mt-10 text-center text-sm font-medium text-ink-400 dark:text-slate-500">
-            {t("about.team.footer", "Dikembangkan untuk meningkatkan kesadaran bencana di Indonesia")}
+            {t("about.team.footer", "Dibuat oleh My Princessa Z. M.")}
           </p>
         </div>
       </section>
@@ -111,19 +92,17 @@ export function TeamSection({ heading, variant = "card" }: TeamSectionProps) {
         </h3>
       </div>
       <p className="mb-5 text-xs text-ink-500 dark:text-slate-400">
-        SMA Negeri 1 Ngoro · Mojokerto, Jawa Timur
+        {t("about.team.desc", "Dirancang dan dikembangkan oleh My Princessa Z. M. untuk edukasi kesiapsiagaan bencana sekolah.")}
       </p>
 
-      <div className="grid gap-4 sm:grid-cols-3">
+      <div className="mx-auto max-w-sm">
         {members.map((m, i) => (
           <div
             key={i}
             className="group flex flex-col items-center rounded-xl border border-brand-50 bg-white/40 p-4 text-center transition-all hover:-translate-y-1 hover:shadow-glass"
           >
             <div className="relative">
-              <span
-                className={`flex h-16 w-16 items-center justify-center rounded-full bg-gradient-to-br from-brand-500 to-brand-600 font-display text-xl font-extrabold text-white shadow-glass ring-4 ring-white/70 transition-transform group-hover:scale-110`}
-              >
+              <span className="flex h-16 w-16 items-center justify-center rounded-full bg-gradient-to-br from-brand-500 to-brand-600 font-display text-xl font-extrabold text-white shadow-glass ring-4 ring-white/70 transition-transform group-hover:scale-110">
                 {m.initials}
               </span>
               <span className="absolute -bottom-0.5 -right-0.5 flex h-7 w-7 items-center justify-center rounded-full bg-white text-brand-600 shadow-glass ring-1 ring-brand-100">
@@ -144,7 +123,7 @@ export function TeamSection({ heading, variant = "card" }: TeamSectionProps) {
       </div>
 
       <p className="mt-5 text-center text-xs font-medium text-ink-400 dark:text-slate-500">
-        {t("about.team.footer", "Dikembangkan untuk kesiapsiagaan bencana geospasial di Indonesia.")}
+        {t("about.team.footer", "Dibuat oleh My Princessa Z. M.")}
       </p>
     </div>
   );

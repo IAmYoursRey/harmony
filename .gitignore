@@ -25,10 +25,21 @@ dist-ssr/
 .vite/
 .vercel/
 
-# AI Agent & one-time utility scripts
+# AI Agent, local audit, and temporary files
 .agents/
+.claude/
+.cursor/
+.mcp.json
+AGENTS.md
+CLAUDE.md
 scratch/
 .backup-recovery-*/
+audit_double_probe_report.json
+UI_FOCUS_AUDIT.md
+refactor.js
+*.bak
+*.tmp
+coverage/
 
 # Secrets — never commit real keys
 .env
@@ -47,7 +58,6 @@ ABSENSI SISWA KELAS X GASAL 2026-2027.xlsx
 token_resp.json
 test_map.json
 osm-temp.json
-# schools-lite.json - we need this for Vercel static serving!
 
 # Large GeoJSON files
 apps/web/public/desa-extract/indonesia_villages_border.geojson

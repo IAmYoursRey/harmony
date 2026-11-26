@@ -1,10 +1,7 @@
 import {
   Mail,
   MapPin,
-  Phone,
   Github,
-  Instagram,
-  Linkedin,
   Info,
   Brain,
   Boxes,
@@ -53,18 +50,8 @@ const columns = [
 ];
 
 const socials = [
-  {
-    icon: Instagram,
-    label: "Instagram",
-    href: "https://instagram.com/harmony",
-  },
-  {
-    icon: Linkedin,
-    label: "LinkedIn",
-    href: "https://linkedin.com/company/harmony",
-  },
-  { icon: Github, label: "GitHub", href: "https://github.com/harmony" },
-  { icon: Mail, label: "Email", href: "mailto:hello@harmony.app" },
+  { icon: Github, label: "GitHub", href: "https://github.com/IAmYoursRey/harmony" },
+  { icon: Mail, label: "Email", href: "mailto:hello@harmony.edu" },
 ];
 
 export function Footer() {
@@ -116,15 +103,8 @@ export function Footer() {
               >
                 <Mail className="h-4 w-4 text-brand-400" /> hello@harmony.edu
               </a>
-              <a
-                href="tel:+6281234567890"
-                className="flex items-center gap-2 text-ink-400 transition-colors hover:text-brand-400"
-              >
-                <Phone className="h-4 w-4 text-brand-400" /> +62 812-3456-7890
-              </a>
               <p className="flex items-center gap-2 text-ink-400">
-                <MapPin className="h-4 w-4 text-brand-400" /> SMA Negeri 1
-                Ngoro, Mojokerto, Jawa Timur, Indonesia
+                <MapPin className="h-4 w-4 text-brand-400" /> Indonesia · Studi Kasus SMAN 1 Ngoro, Mojokerto
               </p>
             </div>
           </div>
@@ -171,7 +151,7 @@ export function Footer() {
         {/* Bottom bar */}
         <div className="mt-6 flex flex-col items-center justify-between gap-4 border-t border-white/10 pt-6 sm:flex-row">
           <p className="flex items-center gap-1.5 text-xs text-ink-500">
-            <Info className="h-3.5 w-3.5" />© 2026 Harmony — SMAN 1 Ngoro.
+            <Info className="h-3.5 w-3.5" />© 2026 Harmony · Dibuat oleh My Princessa Z. M.
           </p>
           <div className="flex items-center gap-3">
             {socials.map(({ icon: Icon, label, href }) => (

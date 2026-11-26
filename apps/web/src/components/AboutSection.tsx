@@ -8,18 +8,14 @@ import {
   Globe,
   Leaf,
   Building2,
-  Users,
+  User,
   Code2,
-  Palette,
-  BarChart3,
   Sparkles,
   ArrowRight,
   MapPin,
   type LucideIcon,
 } from "lucide-react";
 import { useI18n } from "@/hooks/useI18n";
-
-/* ─── Data ─────────────────────────────────────────────────────────────────── */
 
 const technologies: {
   icon: LucideIcon;
@@ -29,35 +25,35 @@ const technologies: {
 }[] = [
   {
     icon: Brain,
-    label: "Kecerdasan Buatan (AI)",
-    desc: "AI menganalisis data risiko bencana untuk memprediksi dampak kerusakan dan rute evakuasi secara otomatis.",
+    label: "Pembelajaran Adaptif",
+    desc: "Menyesuaikan materi dan latihan kesiapsiagaan berdasarkan profil risiko lokasi sekolah.",
     features: [
       "Rekomendasi Rute Evakuasi",
-      "Analisis Risiko Berbasis Data",
-      "Simulasi Kesiapsiagaan Real-time",
-      "Deteksi Dini Bahaya",
+      "Analisis Risiko Lokasi",
+      "Latihan Kesiapsiagaan Bertahap",
+      "Ringkasan Peringatan Dini",
     ],
   },
   {
     icon: Boxes,
     label: "Harmony Twin",
-    desc: "Simulasi 2D berbasis game pada denah lingkungan sekolah yang memungkinkan latihan evakuasi dan kesiapsiagaan bencana secara interaktif.",
+    desc: "Simulasi denah gedung sekolah 2D untuk melatih rute evakuasi menuju titik kumpul.",
     features: [
-      "Simulasi 2D Berbasis Game",
+      "Simulasi 2D Denah Sekolah",
       "Rute Evakuasi Interaktif",
-      "Latihan Mitigasi Bencana",
-      "Pemodelan Denah Sekolah",
+      "Latihan Mitigasi Darurat",
+      "Pemetaan Ruang Kelas",
     ],
   },
   {
     icon: Satellite,
     label: "Teknologi Geospasial",
-    desc: "Pemetaan akurat dari data satelit yang mengintegrasikan informasi topografi, kawasan hutan, dan demografi.",
+    desc: "Peta interaktif yang menggabungkan data gempa BMKG, cuaca, kemiringan lereng, dan titik panas.",
     features: [
       "Pemetaan Hutan & Cagar Alam",
       "Zonasi Rawan Bencana",
       "Integrasi OpenStreetMap",
-      "Monitoring Titik Panas",
+      "Pantauan Titik Panas",
     ],
   },
 ];
@@ -88,41 +84,14 @@ const sdgs: {
   },
 ];
 
-const team: {
-  initials: string;
-  name: string;
-  role: string;
-  subtitle: string;
-  icon: LucideIcon;
-  bio: string;
-}[] = [
-  {
-    initials: "MD",
-    name: "M. David Silva W.",
-    role: "Analis Data & Riset",
-    subtitle: "Pengumpulan Data Geospasial",
-    icon: BarChart3,
-    bio: "Mengumpulkan, memvalidasi, dan mengelola data geospasial serta titik observasi di seluruh Indonesia.",
-  },
-  {
-    initials: "AF",
-    name: "Alvira Fitriatun Nizha",
-    role: "Ketua Proyek",
-    subtitle: "Koordinator Utama Riset",
-    icon: Sparkles,
-    bio: "Penggagas konsep Harmony sekaligus koordinator riset, strategi edukasi, dan pengembangan platform.",
-  },
-  {
-    initials: "RA",
-    name: "Raihan Ansari",
-    role: "Insinyur Perangkat Lunak",
-    subtitle: "Arsitektur Sistem & UI/UX",
-    icon: Code2,
-    bio: "Pengembang utama arsitektur platform, rekayasa perangkat lunak, dan integrasi kembar digital.",
-  },
-];
-
-/* ─── Sub-components ────────────────────────────────────────────────────────── */
+const creator = {
+  initials: "MP",
+  name: "My Princessa Z. M.",
+  role: "Perancang & Pengembang Utama",
+  subtitle: "WebGIS, Simulasi 3D & Antarmuka",
+  icon: Code2,
+  bio: "Merancang dan membangun sistem pemetaan geospasial, simulasi denah evakuasi sekolah, serta antarmuka Harmony.",
+};
 
 function Card({
   children,
@@ -148,7 +117,6 @@ function SectionLabel({ children }: { children: React.ReactNode }) {
   );
 }
 
-/* ─── Decorative SVG illustration ───────────────────────────────────────────── */
 function HeroIllustration() {
   return (
     <svg viewBox="0 0 420 320" className="w-full max-w-md" aria-hidden>
@@ -351,12 +319,10 @@ function HeroIllustration() {
   );
 }
 
-/* ─── Main view ─────────────────────────────────────────────────────────────── */
 export function AboutSection({ compact = false }: { compact?: boolean }) {
   const { t } = useI18n();
   return (
     <section id="about" className="space-y-8 section-container scroll-mt-20 sm:scroll-mt-24 py-20">
-      {/* ── Hero banner ─────────────────────────────────────────────────────── */}
       <div className="relative overflow-hidden rounded-2xl bg-gradient-to-br from-brand-600 via-brand-700 to-brand-900 p-8 text-white shadow-glass-lg sm:p-10">
         <div className="absolute inset-0 bg-grid-pattern bg-[size:40px_40px] opacity-15" />
         <div className="absolute -right-16 -top-16 h-72 w-72 rounded-full bg-white/10 blur-3xl" />
@@ -365,17 +331,17 @@ export function AboutSection({ compact = false }: { compact?: boolean }) {
         <div className="relative flex flex-col items-center gap-8 lg:flex-row lg:items-center lg:justify-between">
           <div className="max-w-lg text-center lg:text-left">
             <span className="inline-flex items-center gap-1.5 rounded-full bg-white/15 px-3 py-1 text-xs font-semibold backdrop-blur-sm">
-              <Globe className="h-3.5 w-3.5" /> Tim Riset SMAN 1 Ngoro
+              <Globe className="h-3.5 w-3.5" /> Edukasi &amp; Mitigasi Bencana Sekolah
             </span>
             <h2 className="mt-4 font-display text-3xl font-extrabold tracking-tight sm:text-4xl lg:text-5xl">
               Tentang <span className="text-brand-200">Harmony</span>
             </h2>
             <p className="mt-4 text-base leading-relaxed text-brand-100 sm:text-lg">
-              Inisiatif sekolah untuk memetakan kerawanan bencana dan melatih jalur evakuasi berbasis denah kampus secara terukur.
+              Platform pemetaan kerawanan bencana dan latihan jalur evakuasi sekolah yang praktis dipakai di kelas.
             </p>
             <div className="mt-5 flex flex-wrap justify-center gap-2.5 lg:justify-start">
               {[
-                "Kecerdasan Buatan",
+                "Pembelajaran Adaptif",
                 "Harmony Twin",
                 "Data Geospasial",
               ].map((tech) => (
@@ -394,7 +360,6 @@ export function AboutSection({ compact = false }: { compact?: boolean }) {
         </div>
       </div>
 
-      {/* ── Vision & Mission ─────────────────────────────────────────────────── */}
       <div className="grid gap-5 sm:grid-cols-2">
         <Card className="relative overflow-hidden">
           <div className="absolute -right-6 -top-6 h-24 w-24 rounded-full bg-brand-100/60 blur-xl" />
@@ -408,10 +373,10 @@ export function AboutSection({ compact = false }: { compact?: boolean }) {
               </div>
             </div>
             <h2 className="font-display text-xl font-extrabold text-ink-900 dark:text-white">
-              Kesiapsiagaan Bencana
+              Sekolah Siap Menghadapi Bencana
             </h2>
             <p className="mt-3 text-sm leading-relaxed text-ink-600 dark:text-slate-300">
-              Menjadi pionir dalam pemetaan kebencanaan cerdas yang mengubah cara masyarakat Indonesia memahami dan menghadapi potensi bencana alam.
+              Membantu komunitas sekolah mengenali potensi bahaya di sekitarnya dan membiasakan latihan evakuasi yang terukur.
             </p>
             <div className="mt-4 flex items-center gap-2 text-xs font-semibold text-brand-600">
               <ArrowRight className="h-3.5 w-3.5" /> Arah Kebijakan
@@ -431,10 +396,10 @@ export function AboutSection({ compact = false }: { compact?: boolean }) {
               </div>
             </div>
             <h2 className="font-display text-xl font-extrabold text-ink-900 dark:text-white">
-              Inovasi Teknologi Geospasial
+              Peta Lokal &amp; Latihan Praktis
             </h2>
             <p className="mt-3 text-sm leading-relaxed text-ink-600 dark:text-slate-300">
-              Membangun simulasi dan visualisasi berbasis data nyata untuk membantu pengambil keputusan dan institusi pendidikan memitigasi bencana.
+              Menyajikan data cuaca, gempa, serta simulasi denah bangunan yang mudah dipahami siswa, guru, dan warga sekitar.
             </p>
             <div className="mt-4 flex items-center gap-2 text-xs font-semibold text-brand-600">
               <ArrowRight className="h-3.5 w-3.5" /> Tujuan Implementasi
@@ -443,7 +408,6 @@ export function AboutSection({ compact = false }: { compact?: boolean }) {
         </Card>
       </div>
 
-      {/* ── Background ───────────────────────────────────────────────────────── */}
       <Card className="relative overflow-hidden">
         <div className="absolute right-0 top-0 h-40 w-64 rounded-bl-full bg-brand-50/60 dark:bg-slate-800/60" />
         <div className="relative">
@@ -576,56 +540,48 @@ export function AboutSection({ compact = false }: { compact?: boolean }) {
       </div>
       )}
 
-      {/* ── Team ─────────────────────────────────────────────────────────────── */}
       <div>
         <div className="mb-5 text-center">
           <SectionLabel>
-            <Users className="h-3.5 w-3.5" /> Tim Kami
+            <User className="h-3.5 w-3.5" /> {t("about.team.label", "Pembuat Platform")}
           </SectionLabel>
           <h2 className="mt-2 font-display text-2xl font-extrabold text-ink-900 dark:text-white">
-            Tim Pengembang
+            Pembuat &amp; Pengembang
           </h2>
           <p className="mt-2 text-sm text-ink-500 dark:text-slate-400">
-            Tim Riset &amp; Pengembangan · SMA Negeri 1 Ngoro, Mojokerto, Jawa Timur
+            Dirancang oleh My Princessa Z. M. untuk edukasi kesiapsiagaan bencana sekolah.
           </p>
         </div>
 
-        <div className="grid gap-5 sm:grid-cols-3">
-          {team.map((m, i) => (
-            <Card
-              key={i}
-              className="group flex flex-col items-center text-center hover:-translate-y-1"
-            >
-              <div className="relative">
-                <span
-                  className={`flex h-20 w-20 items-center justify-center rounded-full bg-gradient-to-br from-brand-500 to-brand-600 font-display text-2xl font-extrabold text-white shadow-glass ring-4 ring-white/70 transition-transform group-hover:scale-110`}
-                >
-                  {m.initials}
-                </span>
-                <span className="absolute -bottom-1 -right-1 flex h-9 w-9 items-center justify-center rounded-full bg-white text-brand-600 shadow-glass ring-1 ring-brand-100">
-                  <m.icon className="h-4 w-4" strokeWidth={2} />
-                </span>
-              </div>
-              <h3 className="mt-5 font-display text-base font-bold text-ink-900 dark:text-white">
-                {m.name}
-              </h3>
-              <p className="mt-1 text-sm font-semibold text-brand-600">
-                {m.role}
-              </p>
-              <p className="mt-0.5 text-xs text-ink-500 dark:text-slate-400">
-                {m.subtitle}
-              </p>
-              <p className="mt-3 text-xs leading-relaxed text-ink-500 dark:text-slate-400">
-                {m.bio}
-              </p>
-            </Card>
-          ))}
+        <div className="mx-auto max-w-md">
+          <Card className="group flex flex-col items-center text-center hover:-translate-y-1">
+            <div className="relative">
+              <span className="flex h-20 w-20 items-center justify-center rounded-full bg-gradient-to-br from-brand-500 to-brand-600 font-display text-2xl font-extrabold text-white shadow-glass ring-4 ring-white/70 transition-transform group-hover:scale-110">
+                {creator.initials}
+              </span>
+              <span className="absolute -bottom-1 -right-1 flex h-9 w-9 items-center justify-center rounded-full bg-white text-brand-600 shadow-glass ring-1 ring-brand-100">
+                <creator.icon className="h-4 w-4" strokeWidth={2} />
+              </span>
+            </div>
+            <h3 className="mt-5 font-display text-base font-bold text-ink-900 dark:text-white">
+              {creator.name}
+            </h3>
+            <p className="mt-1 text-sm font-semibold text-brand-600">
+              {creator.role}
+            </p>
+            <p className="mt-0.5 text-xs text-ink-500 dark:text-slate-400">
+              {creator.subtitle}
+            </p>
+            <p className="mt-3 text-xs leading-relaxed text-ink-500 dark:text-slate-400">
+              {creator.bio}
+            </p>
+          </Card>
         </div>
 
         <div className="mt-6 flex items-center justify-center gap-2.5 rounded-2xl border border-brand-100 bg-brand-50/60 py-4 px-6 dark:border-brand-900/40 dark:bg-slate-800/40">
           <MapPin className="h-4 w-4 text-brand-500" />
           <p className="text-sm font-medium text-ink-600 dark:text-slate-300">
-            Dikembangkan secara eksklusif untuk edukasi dan kesiapsiagaan bencana geospasial di Indonesia.
+            Dirancang untuk mendukung program Satuan Pendidikan Aman Bencana di Indonesia.
           </p>
         </div>
       </div>

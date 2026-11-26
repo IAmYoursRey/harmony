@@ -70,7 +70,7 @@ export function generateRandomDemoPayload(
   const trimmed = preferredName?.trim();
 
   if (role === "developer") {
-    const devName = trimmed ? `${trimmed} (Dev)` : `Raihan Dev #${randCode.toUpperCase()}`;
+    const devName = trimmed ? `${trimmed} · Ahli` : `Ahli Geospasial #${randCode.toUpperCase()}`;
     const slug = trimmed
       ? trimmed.toLowerCase().replace(/[^a-z0-9]/g, ".").replace(/\.+/g, ".").slice(0, 16)
       : "dev";
