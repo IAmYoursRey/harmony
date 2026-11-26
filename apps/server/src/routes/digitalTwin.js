@@ -1,5 +1,13 @@
 import express from "express";
-import { readDB, writeDB, saveProfile, pool, timeoutQuery } from "../repositories/repository.js";
+import {
+  readDB,
+  writeDB,
+  saveProfile,
+  pool,
+  timeoutQuery,
+  isPgDegraded,
+  isPgQuotaOrUnavailableError,
+} from "../repositories/repository.js";
 import { verifyToken } from "../middleware/authMiddleware.js";
 import { initGameSession, endGameSession } from "../game/gameManager.js";
 import {
@@ -16,15 +24,30 @@ function getCanonicalSman1Twin() {
   return cachedCanonicalSman1Twin;
 }
 
+const canUsePg = () => Boolean(pool && !isPgDegraded());
+const memoryPhase1Maps = new Map();
+const memoryPhase1Scenarios = new Map();
+
 const router = express.Router();
 function generateId(prefix) {
   return `${prefix}_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`;
 }
 
-/** Get caller's schoolId from their profile */
-function getCallerSchoolId(db, userId) {
+/** Get caller's schoolId from their profile or JWT demo fallback */
+function getCallerSchoolId(db, userId, reqUser = null) {
   const profile = db.profiles.find((p) => p.userId === userId);
-  return profile?.schoolId || null;
+  if (profile?.schoolId) return profile.schoolId;
+  if (reqUser?.schoolId) return reqUser.schoolId;
+  const email = String(reqUser?.email || "").toLowerCase();
+  if (
+    reqUser?.isDemo ||
+    email.endsWith("@sman1ngoro.sch.id") ||
+    reqUser?.role === "developer" ||
+    reqUser?.role === "dev"
+  ) {
+    return SMAN1_NGORO_SCHOOL_ID;
+  }
+  return null;
 }
 
 /** Enforce teacher/dev role */
@@ -57,7 +80,7 @@ router.post("/legacy/:schoolId", verifyToken, async (req, res) => {
   const { schoolId } = req.params;
   const { mapImage, nodes, edges, disasterType } = req.body;
   const db = await readDB();
-  const callerSchoolId = getCallerSchoolId(db, req.user.id);
+  const callerSchoolId = getCallerSchoolId(db, req.user.id, req.user);
   if (!requireSchoolOwnership(req, res, callerSchoolId, schoolId)) return;
 
   if (!db.digitalTwins) db.digitalTwins = {};
@@ -85,7 +108,7 @@ router.post("/:schoolId", verifyToken, async (req, res, next) => {
   const id = req.params.schoolId;
   if (["maps", "simulations", "rooms"].includes(id)) return next();
   const db = await readDB();
-  const callerSchoolId = getCallerSchoolId(db, req.user.id);
+  const callerSchoolId = getCallerSchoolId(db, req.user.id, req.user);
   if (!requireSchoolOwnership(req, res, callerSchoolId, id)) return;
 
   const { mapImage, nodes, edges, disasterType } = req.body;
@@ -215,7 +238,7 @@ router.get("/maps", verifyToken, async (req, res) => {
   if (!schoolId)
     return res.status(400).json({ error: "schoolId query param required" });
   const db = await readDB();
-  const callerSchoolId = getCallerSchoolId(db, req.user.id);
+  const callerSchoolId = getCallerSchoolId(db, req.user.id, req.user);
   if (!requireSchoolOwnership(req, res, callerSchoolId, schoolId)) return;
   if (pool) {
     try {
@@ -260,7 +283,7 @@ router.get("/maps", verifyToken, async (req, res) => {
 router.post("/maps", verifyToken, async (req, res) => {
   if (!requireTeacher(req, res)) return;
   const db = await readDB();
-  const callerSchoolId = getCallerSchoolId(db, req.user.id);
+  const callerSchoolId = getCallerSchoolId(db, req.user.id, req.user);
   const {
     schoolId,
     name,
@@ -315,7 +338,7 @@ router.get("/maps/:mapId", verifyToken, async (req, res) => {
       );
       if (result.rows.length > 0) {
         const row = result.rows[0];
-        const callerSchoolId = getCallerSchoolId(db, req.user.id);
+        const callerSchoolId = getCallerSchoolId(db, req.user.id, req.user);
         if (!requireSchoolOwnership(req, res, callerSchoolId, row.school_id))
           return;
 
@@ -378,7 +401,7 @@ router.get("/maps/:mapId", verifyToken, async (req, res) => {
   const map = db.gridMaps?.[req.params.mapId];
   if (!map) return res.status(404).json({ error: "Map not found" });
 
-  const callerSchoolId = getCallerSchoolId(db, req.user.id);
+  const callerSchoolId = getCallerSchoolId(db, req.user.id, req.user);
   if (!requireSchoolOwnership(req, res, callerSchoolId, map.schoolId)) return;
 
   res.json({ data: map });
@@ -389,7 +412,7 @@ router.put("/maps/:mapId", verifyToken, async (req, res) => {
   const db = await readDB();
   const map = db.gridMaps?.[req.params.mapId];
   if (!map) return res.status(404).json({ error: "Map not found" });
-  const callerSchoolId = getCallerSchoolId(db, req.user.id);
+  const callerSchoolId = getCallerSchoolId(db, req.user.id, req.user);
   if (!requireSchoolOwnership(req, res, callerSchoolId, map.schoolId)) return;
 
   const {
@@ -424,7 +447,7 @@ router.delete("/maps/:mapId", verifyToken, async (req, res) => {
   const db = await readDB();
   const map = db.gridMaps?.[req.params.mapId];
   if (!map) return res.status(404).json({ error: "Map not found" });
-  const callerSchoolId = getCallerSchoolId(db, req.user.id);
+  const callerSchoolId = getCallerSchoolId(db, req.user.id, req.user);
   if (!requireSchoolOwnership(req, res, callerSchoolId, map.schoolId)) return;
 
   delete db.gridMaps[req.params.mapId];
@@ -437,7 +460,7 @@ router.get("/simulations", verifyToken, async (req, res) => {
   if (!schoolId)
     return res.status(400).json({ error: "schoolId query param required" });
   const db = await readDB();
-  const callerSchoolId = getCallerSchoolId(db, req.user.id);
+  const callerSchoolId = getCallerSchoolId(db, req.user.id, req.user);
   if (!requireSchoolOwnership(req, res, callerSchoolId, schoolId)) return;
 
   const sims = Object.values(db.simulations || {}).filter(
@@ -468,7 +491,7 @@ router.post("/simulations", verifyToken, async (req, res) => {
       .status(400)
       .json({ error: "schoolId, mapId, name, disasterType required" });
   }
-  const callerSchoolId = getCallerSchoolId(db, req.user.id);
+  const callerSchoolId = getCallerSchoolId(db, req.user.id, req.user);
   if (!requireSchoolOwnership(req, res, callerSchoolId, schoolId)) return;
 
   const map = db.gridMaps?.[mapId];
@@ -507,7 +530,7 @@ router.get("/simulations/:simId", verifyToken, async (req, res) => {
   const db = await readDB();
   const sim = db.simulations?.[req.params.simId];
   if (!sim) return res.status(404).json({ error: "Simulation not found" });
-  const callerSchoolId = getCallerSchoolId(db, req.user.id);
+  const callerSchoolId = getCallerSchoolId(db, req.user.id, req.user);
   if (!requireSchoolOwnership(req, res, callerSchoolId, sim.schoolId)) return;
   res.json({ data: sim });
 });
@@ -517,7 +540,7 @@ router.put("/simulations/:simId", verifyToken, async (req, res) => {
   const db = await readDB();
   const sim = db.simulations?.[req.params.simId];
   if (!sim) return res.status(404).json({ error: "Simulation not found" });
-  const callerSchoolId = getCallerSchoolId(db, req.user.id);
+  const callerSchoolId = getCallerSchoolId(db, req.user.id, req.user);
   if (!requireSchoolOwnership(req, res, callerSchoolId, sim.schoolId)) return;
 
   const allowed = [
@@ -544,7 +567,7 @@ router.delete("/simulations/:simId", verifyToken, async (req, res) => {
   const db = await readDB();
   const sim = db.simulations?.[req.params.simId];
   if (!sim) return res.status(404).json({ error: "Simulation not found" });
-  const callerSchoolId = getCallerSchoolId(db, req.user.id);
+  const callerSchoolId = getCallerSchoolId(db, req.user.id, req.user);
   if (!requireSchoolOwnership(req, res, callerSchoolId, sim.schoolId)) return;
 
   delete db.simulations[req.params.simId];
@@ -556,7 +579,7 @@ router.get("/rooms", verifyToken, async (req, res) => {
   const { schoolId } = req.query;
   if (!schoolId) return res.status(400).json({ error: "schoolId required" });
   const db = await readDB();
-  const callerSchoolId = getCallerSchoolId(db, req.user.id);
+  const callerSchoolId = getCallerSchoolId(db, req.user.id, req.user);
   if (!requireSchoolOwnership(req, res, callerSchoolId, schoolId)) return;
 
   let rooms = Object.values(db.dtRooms || {}).filter(
@@ -587,7 +610,7 @@ router.post("/rooms", verifyToken, async (req, res) => {
       error: "schoolId, name, mapId, simulationId, targetClass required",
     });
   }
-  const callerSchoolId = getCallerSchoolId(db, req.user.id);
+  const callerSchoolId = getCallerSchoolId(db, req.user.id, req.user);
   if (!requireSchoolOwnership(req, res, callerSchoolId, schoolId)) return;
 
   const map = db.gridMaps?.[mapId];
@@ -623,7 +646,7 @@ router.get("/rooms/:roomId", verifyToken, async (req, res) => {
   const db = await readDB();
   const room = db.dtRooms?.[req.params.roomId];
   if (!room) return res.status(404).json({ error: "Room not found" });
-  const callerSchoolId = getCallerSchoolId(db, req.user.id);
+  const callerSchoolId = getCallerSchoolId(db, req.user.id, req.user);
   if (!requireSchoolOwnership(req, res, callerSchoolId, room.schoolId)) return;
 
   if (req.user.role === "student") {
@@ -640,7 +663,7 @@ router.post("/rooms/:roomId/join", verifyToken, async (req, res) => {
   const room = db.dtRooms?.[req.params.roomId];
   if (!room) return res.status(404).json({ error: "Room not found" });
 
-  const callerSchoolId = getCallerSchoolId(db, req.user.id);
+  const callerSchoolId = getCallerSchoolId(db, req.user.id, req.user);
   if (!requireSchoolOwnership(req, res, callerSchoolId, room.schoolId)) return;
 
   if (req.user.role === "student") {
@@ -667,7 +690,7 @@ router.post("/rooms/:roomId/start", verifyToken, async (req, res) => {
   const db = await readDB();
   const room = db.dtRooms?.[req.params.roomId];
   if (!room) return res.status(404).json({ error: "Room not found" });
-  const callerSchoolId = getCallerSchoolId(db, req.user.id);
+  const callerSchoolId = getCallerSchoolId(db, req.user.id, req.user);
   if (!requireSchoolOwnership(req, res, callerSchoolId, room.schoolId)) return;
 
   if (room.status !== "WAITING") {
@@ -687,7 +710,7 @@ router.post("/rooms/:roomId/end", verifyToken, async (req, res) => {
   const db = await readDB();
   const room = db.dtRooms?.[req.params.roomId];
   if (!room) return res.status(404).json({ error: "Room not found" });
-  const callerSchoolId = getCallerSchoolId(db, req.user.id);
+  const callerSchoolId = getCallerSchoolId(db, req.user.id, req.user);
   if (!requireSchoolOwnership(req, res, callerSchoolId, room.schoolId)) return;
 
   room.status = "FINISHED";
@@ -704,7 +727,7 @@ router.post("/rooms/:roomId/result", verifyToken, async (req, res) => {
   const room = db.dtRooms?.[req.params.roomId];
   if (!room) return res.status(404).json({ error: "Room not found" });
 
-  const callerSchoolId = getCallerSchoolId(db, req.user.id);
+  const callerSchoolId = getCallerSchoolId(db, req.user.id, req.user);
   if (!requireSchoolOwnership(req, res, callerSchoolId, room.schoolId)) return;
   if (req.user.role === "student") {
     const profile = db.profiles.find((p) => p.userId === req.user.id);
@@ -773,7 +796,7 @@ router.get("/rooms/:roomId/results", verifyToken, async (req, res) => {
   const db = await readDB();
   const room = db.dtRooms?.[req.params.roomId];
   if (!room) return res.status(404).json({ error: "Room not found" });
-  const callerSchoolId = getCallerSchoolId(db, req.user.id);
+  const callerSchoolId = getCallerSchoolId(db, req.user.id, req.user);
   if (!requireSchoolOwnership(req, res, callerSchoolId, room.schoolId)) return;
 
   const results = (db.dtResults || []).filter(
@@ -787,7 +810,7 @@ router.post("/rooms/:roomId/sync", verifyToken, async (req, res) => {
   const room = db.dtRooms?.[req.params.roomId];
   if (!room) return res.status(404).json({ error: "Room not found" });
 
-  const callerSchoolId = getCallerSchoolId(db, req.user.id);
+  const callerSchoolId = getCallerSchoolId(db, req.user.id, req.user);
   if (!requireSchoolOwnership(req, res, callerSchoolId, room.schoolId)) return;
 
   if (req.user.role === "student") {
@@ -866,8 +889,19 @@ router.get("/phase1/maps", verifyToken, async (req, res) => {
     return list;
   };
 
-  if (!pool)
-    return res.json({ data: ensureCanonicalSman1Map([]) });
+  const getMemoryMapsForSchool = () => {
+    const list = [...memoryPhase1Maps.values()]
+      .filter((m) => m.school_id === schoolId)
+      .map((m) => ({
+        ...m,
+        scenarios: [...memoryPhase1Scenarios.values()].filter((s) => s.map_id === m.id),
+      }));
+    return ensureCanonicalSman1Map(list);
+  };
+
+  if (!canUsePg()) {
+    return res.json({ data: getMemoryMapsForSchool() });
+  }
   try {
     const result = await timeoutQuery(
       pool.query(
@@ -887,6 +921,9 @@ router.get("/phase1/maps", verifyToken, async (req, res) => {
     }
     res.json({ data: ensureCanonicalSman1Map(maps) });
   } catch (err) {
+    if (isPgQuotaOrUnavailableError(err)) {
+      return res.json({ data: getMemoryMapsForSchool(), storageMode: "fallback" });
+    }
     res.status(500).json({ error: err.message });
   }
 });
@@ -897,10 +934,41 @@ router.post("/phase1/maps", verifyToken, async (req, res) => {
   if (!schoolId || !name)
     return res.status(400).json({ error: "schoolId and name required" });
 
-  if (!pool)
-    return res.json({ data: [] });
-
   const id = generateId("dtmap");
+  const createInMemory = () => {
+    const now = new Date().toISOString();
+    memoryPhase1Maps.set(id, {
+      id,
+      school_id: schoolId,
+      name,
+      description: description || "",
+      width: width || 64,
+      height: height || 64,
+      active_floor_id: `${id}_f1`,
+      floors: [
+        {
+          id: `${id}_f1`,
+          map_id: id,
+          floor_number: 1,
+          name: "Lantai 1",
+          tiles: [],
+          objects: [],
+        },
+      ],
+      rooms: [],
+      boundaries: [],
+      stairs: [],
+      scenarios: [],
+      created_at: now,
+      updated_at: now,
+    });
+    return res.status(201).json({ success: true, id, storageMode: "fallback" });
+  };
+
+  if (!canUsePg()) {
+    return createInMemory();
+  }
+
   try {
     await timeoutQuery(
       pool.query(
@@ -910,6 +978,9 @@ router.post("/phase1/maps", verifyToken, async (req, res) => {
     );
     res.status(201).json({ success: true, id });
   } catch (err) {
+    if (isPgQuotaOrUnavailableError(err)) {
+      return createInMemory();
+    }
     res.status(500).json({ error: err.message });
   }
 });
@@ -932,11 +1003,25 @@ router.get("/phase1/maps/:mapId", verifyToken, async (req, res) => {
     };
   };
 
-  if (!pool) {
+  const resolveMemoryMap = () => {
     if (mapId === SMAN1_NGORO_MAP_ID) {
-      return res.json({ data: buildCanonicalMapPayload() });
+      return res.json({ data: buildCanonicalMapPayload(), storageMode: "fallback" });
     }
-    return res.json({ data: [] });
+    const memMap = memoryPhase1Maps.get(mapId);
+    if (memMap) {
+      return res.json({
+        data: {
+          ...memMap,
+          scenarios: [...memoryPhase1Scenarios.values()].filter((s) => s.map_id === mapId),
+        },
+        storageMode: "fallback",
+      });
+    }
+    return res.status(404).json({ error: "Map not found" });
+  };
+
+  if (!canUsePg()) {
+    return resolveMemoryMap();
   }
 
   try {
@@ -950,6 +1035,9 @@ router.get("/phase1/maps/:mapId", verifyToken, async (req, res) => {
     ) {
       if (mapId === SMAN1_NGORO_MAP_ID) {
         return res.json({ data: buildCanonicalMapPayload() });
+      }
+      if (memoryPhase1Maps.has(mapId)) {
+        return resolveMemoryMap();
       }
       return res.status(404).json({ error: "Map not found" });
     }
@@ -1007,6 +1095,9 @@ router.get("/phase1/maps/:mapId", verifyToken, async (req, res) => {
 
     res.json({ data: map });
   } catch (err) {
+    if (isPgQuotaOrUnavailableError(err)) {
+      return resolveMemoryMap();
+    }
     res.status(500).json({ error: err.message });
   }
 });
@@ -1014,9 +1105,6 @@ router.get("/phase1/maps/:mapId", verifyToken, async (req, res) => {
 router.put("/phase1/maps/:mapId", verifyToken, async (req, res) => {
   if (!requireTeacher(req, res)) return;
   const { mapId } = req.params;
-  if (!pool)
-    return res.json({ data: [] });
-
   const {
     name,
     description,
@@ -1030,8 +1118,33 @@ router.put("/phase1/maps/:mapId", verifyToken, async (req, res) => {
     border,
   } = req.body;
 
-  const client = await pool.connect();
+  const saveInMemory = () => {
+    const prev = memoryPhase1Maps.get(mapId) || { id: mapId, created_at: new Date().toISOString() };
+    memoryPhase1Maps.set(mapId, {
+      ...prev,
+      id: mapId,
+      name: name ?? prev.name,
+      description: description ?? prev.description,
+      width: width ?? prev.width ?? 64,
+      height: height ?? prev.height ?? 64,
+      floors: floors ?? prev.floors ?? [],
+      boundaries: boundaries ?? prev.boundaries ?? [],
+      stairs: stairs ?? prev.stairs ?? [],
+      rooms: rooms ?? prev.rooms ?? [],
+      active_floor_id: active_floor_id ?? prev.active_floor_id,
+      border: border ?? prev.border,
+      updated_at: new Date().toISOString(),
+    });
+    return res.json({ success: true, storageMode: "fallback" });
+  };
+
+  if (!canUsePg()) {
+    return saveInMemory();
+  }
+
+  let client = null;
   try {
+    client = await pool.connect();
     await client.query("BEGIN");
 
     await client.query(
@@ -1183,32 +1296,48 @@ router.put("/phase1/maps/:mapId", verifyToken, async (req, res) => {
     await client.query("COMMIT");
     res.json({ success: true });
   } catch (err) {
-    await client.query("ROLLBACK");
+    if (client) await client.query("ROLLBACK").catch(() => {});
+    if (isPgQuotaOrUnavailableError(err)) {
+      return saveInMemory();
+    }
     res.status(500).json({ error: err.message });
   } finally {
-    client.release();
+    if (client) client.release();
   }
 });
 
 router.delete("/phase1/maps/:mapId", verifyToken, async (req, res) => {
   if (!requireTeacher(req, res)) return;
   const { mapId } = req.params;
-  if (!pool)
-    return res.json({ data: [] });
+  if (!canUsePg()) {
+    memoryPhase1Maps.delete(mapId);
+    return res.json({ success: true, storageMode: "fallback" });
+  }
   try {
     await timeoutQuery(
       pool.query("DELETE FROM digital_twin_maps WHERE id = $1", [mapId]),
     );
+    memoryPhase1Maps.delete(mapId);
     res.json({ success: true });
   } catch (err) {
+    if (isPgQuotaOrUnavailableError(err)) {
+      memoryPhase1Maps.delete(mapId);
+      return res.json({ success: true, storageMode: "fallback" });
+    }
     res.status(500).json({ error: err.message });
   }
 });
 
 router.get("/phase1/maps/:mapId/scenarios", verifyToken, async (req, res) => {
   const { mapId } = req.params;
-  if (!pool)
-    return res.json({ data: [] });
+  const getMemScenarios = () => {
+    const base = mapId === SMAN1_NGORO_MAP_ID ? getCanonicalSman1Twin().scenarios : [];
+    const custom = [...memoryPhase1Scenarios.values()].filter((s) => s.map_id === mapId);
+    return [...base, ...custom];
+  };
+  if (!canUsePg()) {
+    return res.json({ data: getMemScenarios() });
+  }
 
   try {
     const result = await timeoutQuery(
@@ -1217,8 +1346,11 @@ router.get("/phase1/maps/:mapId/scenarios", verifyToken, async (req, res) => {
         [mapId],
       ),
     );
-    res.json({ data: result.rows });
+    res.json({ data: result.rows.length > 0 ? result.rows : getMemScenarios() });
   } catch (err) {
+    if (isPgQuotaOrUnavailableError(err)) {
+      return res.json({ data: getMemScenarios(), storageMode: "fallback" });
+    }
     res.status(500).json({ error: err.message });
   }
 });
@@ -1227,10 +1359,26 @@ router.post("/phase1/maps/:mapId/scenarios", verifyToken, async (req, res) => {
   if (!requireTeacher(req, res)) return;
   const { mapId } = req.params;
   const { name, disaster_type } = req.body;
-  if (!pool)
-    return res.json({ data: [] });
-
   const id = generateId("scn");
+  const createMemScenario = () => {
+    const now = new Date().toISOString();
+    memoryPhase1Scenarios.set(id, {
+      id,
+      map_id: mapId,
+      name,
+      disaster_type,
+      status: "draft",
+      config: {},
+      objects: [],
+      created_at: now,
+      updated_at: now,
+    });
+    return res.status(201).json({ success: true, id, storageMode: "fallback" });
+  };
+  if (!canUsePg()) {
+    return createMemScenario();
+  }
+
   try {
     await timeoutQuery(
       pool.query(
@@ -1240,6 +1388,9 @@ router.post("/phase1/maps/:mapId/scenarios", verifyToken, async (req, res) => {
     );
     res.status(201).json({ success: true, id });
   } catch (err) {
+    if (isPgQuotaOrUnavailableError(err)) {
+      return createMemScenario();
+    }
     res.status(500).json({ error: err.message });
   }
 });
@@ -1249,9 +1400,15 @@ router.get("/phase1/scenarios/:scenarioId", verifyToken, async (req, res) => {
   const canonicalScenario = getCanonicalSman1Twin().scenarios.find(
     (sc) => sc.id === scenarioId,
   );
-  if (!pool) {
-    if (canonicalScenario) return res.json({ data: canonicalScenario });
-    return res.json({ data: [] });
+  const resolveMemScenario = () => {
+    const memScn = memoryPhase1Scenarios.get(scenarioId);
+    if (memScn) return res.json({ data: memScn, storageMode: "fallback" });
+    if (canonicalScenario) return res.json({ data: canonicalScenario, storageMode: "fallback" });
+    return res.status(404).json({ error: "Scenario not found" });
+  };
+
+  if (!canUsePg()) {
+    return resolveMemScenario();
   }
 
   try {
@@ -1266,6 +1423,7 @@ router.get("/phase1/scenarios/:scenarioId", verifyToken, async (req, res) => {
         (scnRes.rows[0].version || 0) < (canonicalScenario.version || 0))
     ) {
       if (canonicalScenario) return res.json({ data: canonicalScenario });
+      if (memoryPhase1Scenarios.has(scenarioId)) return resolveMemScenario();
       return res.status(404).json({ error: "Scenario not found" });
     }
 
@@ -1280,6 +1438,9 @@ router.get("/phase1/scenarios/:scenarioId", verifyToken, async (req, res) => {
     scenario.objects = objsRes.rows;
     res.json({ data: scenario });
   } catch (err) {
+    if (isPgQuotaOrUnavailableError(err)) {
+      return resolveMemScenario();
+    }
     res.status(500).json({ error: err.message });
   }
 });
@@ -1288,11 +1449,28 @@ router.put("/phase1/scenarios/:scenarioId", verifyToken, async (req, res) => {
   if (!requireTeacher(req, res)) return;
   const { scenarioId } = req.params;
   const { name, disaster_type, status, config, objects } = req.body;
-  if (!pool)
-    return res.json({ data: [] });
+  const updateMemScenario = () => {
+    const canonicalScenario = getCanonicalSman1Twin().scenarios.find((sc) => sc.id === scenarioId);
+    const prev = memoryPhase1Scenarios.get(scenarioId) || canonicalScenario;
+    if (!prev) return res.status(404).json({ error: "Scenario not found" });
+    memoryPhase1Scenarios.set(scenarioId, {
+      ...prev,
+      name: name !== undefined ? name : prev.name,
+      disaster_type: disaster_type !== undefined ? disaster_type : prev.disaster_type,
+      status: status !== undefined ? status : prev.status,
+      config: config !== undefined ? config : prev.config,
+      objects: objects !== undefined ? objects : prev.objects || [],
+      updated_at: new Date().toISOString(),
+    });
+    return res.json({ success: true, storageMode: "fallback" });
+  };
+  if (!canUsePg()) {
+    return updateMemScenario();
+  }
 
-  const client = await pool.connect();
+  let client = null;
   try {
+    client = await pool.connect();
     await client.query("BEGIN");
 
     const exRes = await client.query(
@@ -1301,7 +1479,7 @@ router.put("/phase1/scenarios/:scenarioId", verifyToken, async (req, res) => {
     );
     if (exRes.rows.length === 0) {
       await client.query("ROLLBACK");
-      return res.status(404).json({ error: "Scenario not found" });
+      return updateMemScenario();
     }
     const existing = exRes.rows[0];
 
@@ -1312,7 +1490,6 @@ router.put("/phase1/scenarios/:scenarioId", verifyToken, async (req, res) => {
     const finalConfig = config !== undefined ? config : existing.config;
 
     if (finalStatus === "published") {
-      console.log("Publish Validation:", { finalName, finalDisasterType });
       if (
         !finalName ||
         (typeof finalName === "string" && finalName.trim() === "")
@@ -1366,10 +1543,13 @@ router.put("/phase1/scenarios/:scenarioId", verifyToken, async (req, res) => {
     await client.query("COMMIT");
     res.json({ success: true });
   } catch (err) {
-    await client.query("ROLLBACK");
+    if (client) await client.query("ROLLBACK").catch(() => {});
+    if (isPgQuotaOrUnavailableError(err)) {
+      return updateMemScenario();
+    }
     res.status(500).json({ error: err.message });
   } finally {
-    client.release();
+    if (client) client.release();
   }
 });
 
@@ -1379,18 +1559,38 @@ router.post(
   async (req, res) => {
     if (!requireTeacher(req, res)) return;
     const { scenarioId } = req.params;
-    if (!pool)
-      return res.json({ data: [] });
+    const dupMemScenario = () => {
+      const canonicalScenario = getCanonicalSman1Twin().scenarios.find((sc) => sc.id === scenarioId);
+      const src = memoryPhase1Scenarios.get(scenarioId) || canonicalScenario;
+      if (!src) return res.status(404).json({ error: "Scenario not found" });
+      const newId = generateId("scn");
+      memoryPhase1Scenarios.set(newId, {
+        ...src,
+        id: newId,
+        name: `${src.name} (Copy)`,
+        status: "draft",
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString(),
+      });
+      return res.status(201).json({ success: true, id: newId, storageMode: "fallback" });
+    };
+    if (!canUsePg()) {
+      return dupMemScenario();
+    }
 
-    const client = await pool.connect();
+    let client = null;
     try {
+      client = await pool.connect();
       await client.query("BEGIN");
 
       const scnRes = await client.query(
         "SELECT * FROM digital_twin_scenarios WHERE id = $1",
         [scenarioId],
       );
-      if (scnRes.rows.length === 0) throw new Error("Scenario not found");
+      if (scnRes.rows.length === 0) {
+        await client.query("ROLLBACK");
+        return dupMemScenario();
+      }
       const scn = scnRes.rows[0];
 
       const newId = generateId("scn");
@@ -1431,10 +1631,13 @@ router.post(
       await client.query("COMMIT");
       res.status(201).json({ success: true, id: newId });
     } catch (err) {
-      await client.query("ROLLBACK");
+      if (client) await client.query("ROLLBACK").catch(() => {});
+      if (isPgQuotaOrUnavailableError(err)) {
+        return dupMemScenario();
+      }
       res.status(500).json({ error: err.message });
     } finally {
-      client.release();
+      if (client) client.release();
     }
   },
 );
@@ -1445,16 +1648,23 @@ router.delete(
   async (req, res) => {
     if (!requireTeacher(req, res)) return;
     const { scenarioId } = req.params;
-    if (!pool)
-      return res.json({ data: [] });
+    if (!canUsePg()) {
+      memoryPhase1Scenarios.delete(scenarioId);
+      return res.json({ success: true, storageMode: "fallback" });
+    }
     try {
       await timeoutQuery(
         pool.query("DELETE FROM digital_twin_scenarios WHERE id=$1", [
           scenarioId,
         ]),
       );
+      memoryPhase1Scenarios.delete(scenarioId);
       res.json({ success: true });
     } catch (err) {
+      if (isPgQuotaOrUnavailableError(err)) {
+        memoryPhase1Scenarios.delete(scenarioId);
+        return res.json({ success: true, storageMode: "fallback" });
+      }
       res.status(500).json({ error: err.message });
     }
   },

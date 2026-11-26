@@ -37,28 +37,68 @@ const SMAN_1_NGORO_FALLBACK = {
 
 let _localSchoolsCache = null;
 
-export async function getBaseSchools() {
+function resolveRepoDataFile(relPath) {
+  const candidates = [
+    path.resolve(process.cwd(), "apps/web/public/data", relPath),
+    path.resolve(__dirname, "../../../web/public/data", relPath),
+    path.resolve(__dirname, "../database/data", relPath),
+  ];
+  return candidates.find((p) => fs.existsSync(p)) || null;
+}
+
+function loadProvinceSchoolsFromDisk(province) {
+  try {
+    const slugMapPath = resolveRepoDataFile("province-slugs.json");
+    let slug = province.toLowerCase().replace(/[^a-z0-9]+/g, "-");
+    if (slugMapPath) {
+      const slugMap = JSON.parse(fs.readFileSync(slugMapPath, "utf8"));
+      if (slugMap[province]) slug = slugMap[province];
+    }
+    const provFile = resolveRepoDataFile(path.join("schools-by-province", `${slug}.json`));
+    if (!provFile) return null;
+    const list = JSON.parse(fs.readFileSync(provFile, "utf8"));
+    if (
+      province === "Jawa Timur" &&
+      !list.some((s) => s.id === SMAN_1_NGORO_FALLBACK.id || s.school_id === SMAN_1_NGORO_FALLBACK.id)
+    ) {
+      list.push(SMAN_1_NGORO_FALLBACK);
+    }
+    return list;
+  } catch (e) {
+    console.warn("Error loading province schools:", e.message);
+    return null;
+  }
+}
+
+export async function getBaseSchools(provinceFilter = null) {
+  if (provinceFilter) {
+    const provList = loadProvinceSchoolsFromDisk(provinceFilter);
+    if (provList) return provList;
+  }
+
   if (_localSchoolsCache) return _localSchoolsCache;
 
   let schoolsList = [];
 
-  const finalPath = path.resolve(
-    __dirname,
-    "../../../../data/final/schools-final.json",
-  );
-  if (fs.existsSync(finalPath)) {
+  const litePath = resolveRepoDataFile("schools-lite.json");
+  if (litePath) {
     try {
-      schoolsList = JSON.parse(fs.readFileSync(finalPath, "utf8"));
+      schoolsList = JSON.parse(fs.readFileSync(litePath, "utf8"));
     } catch (e) {
-      console.error("Error reading schools-final.json:", e);
+      console.error("Error reading schools-lite.json:", e);
     }
   } else {
-    const litePath = path.resolve(__dirname, "../database/data/schools-lite.json");
-    if (fs.existsSync(litePath)) {
+    const provDir = resolveRepoDataFile("schools-by-province");
+    if (provDir && fs.statSync(provDir).isDirectory()) {
       try {
-        schoolsList = JSON.parse(fs.readFileSync(litePath, "utf8"));
+        for (const file of fs.readdirSync(provDir)) {
+          if (file.endsWith(".json")) {
+            const parsed = JSON.parse(fs.readFileSync(path.join(provDir, file), "utf8"));
+            if (Array.isArray(parsed)) schoolsList.push(...parsed);
+          }
+        }
       } catch (e) {
-        console.error("Error reading schools-lite.json:", e);
+        console.error("Error merging schools-by-province:", e);
       }
     }
   }
@@ -139,6 +179,11 @@ function enrichSchool(school) {
 
 router.get("/provinces", async (req, res) => {
   try {
+    const provPath = resolveRepoDataFile("provinces.json");
+    if (provPath) {
+      const parsed = JSON.parse(fs.readFileSync(provPath, "utf8"));
+      return res.json({ provinces: parsed });
+    }
     const schools = await getBaseSchools();
     const provs = new Set(schools.map((s) => s.province).filter(Boolean));
     const result = Array.from(provs).map((p) => ({ id: p, name: p }));
@@ -158,7 +203,15 @@ router.get("/regencies", async (req, res) => {
     if (!province)
       return res.status(400).json({ error: "province query required" });
 
-    const schools = await getBaseSchools();
+    const regPath = resolveRepoDataFile("regencies.json");
+    if (regPath) {
+      const regMap = JSON.parse(fs.readFileSync(regPath, "utf8"));
+      if (Array.isArray(regMap[province])) {
+        return res.json({ regencies: regMap[province] });
+      }
+    }
+
+    const schools = await getBaseSchools(province);
     const regs = new Set(
       schools
         .filter((s) => s.province === province)
@@ -178,7 +231,7 @@ router.get("/regencies", async (req, res) => {
 
 router.get("/", async (req, res, next) => {
   try {
-    const schools = await getBaseSchools();
+    const schools = await getBaseSchools(req.query.province || null);
 
     let filtered = schools;
 

@@ -2441,8 +2441,13 @@ export const reverseGeocodeProxy = async (req, res) => {
           const path = await import("path");
           const { fileURLToPath } = await import("url");
           const __dirname = path.dirname(fileURLToPath(import.meta.url));
-          const mPath = path.resolve(__dirname, "../database/data/mountains.json");
-          if (fs.existsSync(mPath)) {
+          const mountainCandidates = [
+            path.resolve(process.cwd(), "apps/web/public/data/mountains.json"),
+            path.resolve(__dirname, "../../../web/public/data/mountains.json"),
+            path.resolve(__dirname, "../database/data/mountains.json"),
+          ];
+          const mPath = mountainCandidates.find((p) => fs.existsSync(p));
+          if (mPath) {
             volcanoes = JSON.parse(fs.readFileSync(mPath, "utf8"));
           }
         } catch (e) {
@@ -2963,8 +2968,13 @@ export const reverseGeocodeProxy = async (req, res) => {
         const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
         let mountains = [];
-        const mPath = path.resolve(__dirname, "../database/data/mountains.json");
-        if (fs.existsSync(mPath)) {
+        const mountainCandidates = [
+          path.resolve(process.cwd(), "apps/web/public/data/mountains.json"),
+          path.resolve(__dirname, "../../../web/public/data/mountains.json"),
+          path.resolve(__dirname, "../database/data/mountains.json"),
+        ];
+        const mPath = mountainCandidates.find((p) => fs.existsSync(p));
+        if (mPath) {
           mountains = JSON.parse(fs.readFileSync(mPath, "utf8"));
         }
 

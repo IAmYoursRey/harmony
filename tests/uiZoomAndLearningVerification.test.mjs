@@ -77,7 +77,7 @@ test("Geospatial weather & maps views wire SMAN 1 Ngoro school defaults, native 
   assert.match(mapsSrc, /curZoom <= 2\.3/);
   assert.match(mapsSrc, /onOpenDetails=\{\(\) => openStudioDomain\(['"]weather['"]\)\}/);
   assert.match(mapsSrc, /Radar &amp; Citra Native/);
-  assert.match(mapsSrc, /hidden xl:flex items-center gap-2/);
+  assert.match(mapsSrc, /MapGISToolbar/);
   assert.match(mapsSrc, /env\(safe-area-inset-top\)/);
   assert.match(mapsSrc, /env\(safe-area-inset-bottom\)/);
 });

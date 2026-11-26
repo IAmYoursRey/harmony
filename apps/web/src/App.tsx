@@ -263,6 +263,14 @@ export default function App() {
             }
           />
           <Route
+            path="leaderboard"
+            element={
+              <Suspense fallback={<PageSkeleton />}>
+                <LeaderboardView />
+              </Suspense>
+            }
+          />
+          <Route
             path="teacher"
             element={
               <Suspense fallback={<PageSkeleton />}>

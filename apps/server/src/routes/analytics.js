@@ -11,9 +11,17 @@ import {
 
 const router = express.Router();
 
-function getCallerSchoolId(db, userId) {
+const SMAN1_NGORO_SCHOOL_ID = "ffdcdf34-fc99-4209-913e-5a6042e957ad";
+
+function getCallerSchoolId(db, userId, reqUser = null) {
   const profile = db.profiles.find((p) => p.userId === userId);
-  return profile?.schoolId || null;
+  if (profile?.schoolId) return profile.schoolId;
+  if (reqUser?.schoolId) return reqUser.schoolId;
+  const email = String(reqUser?.email || "").toLowerCase();
+  if (reqUser?.isDemo || email.endsWith("@sman1ngoro.sch.id")) {
+    return SMAN1_NGORO_SCHOOL_ID;
+  }
+  return null;
 }
 
 router.get("/system", verifyToken, async (req, res) => {
@@ -55,7 +63,7 @@ router.get("/class", verifyToken, async (req, res) => {
   }
 
   const db = await readDB();
-  const callerSchoolId = getCallerSchoolId(db, req.user.id);
+  const callerSchoolId = getCallerSchoolId(db, req.user.id, req.user);
 
   if (!callerSchoolId) {
     return res.status(403).json({ error: "Not assigned to a school" });
@@ -201,7 +209,7 @@ router.get("/class", verifyToken, async (req, res) => {
 
 router.get("/sri", verifyToken, async (req, res) => {
   const db = await readDB();
-  const callerSchoolId = getCallerSchoolId(db, req.user.id);
+  const callerSchoolId = getCallerSchoolId(db, req.user.id, req.user);
   const targetSchoolId = req.query.schoolId || callerSchoolId;
 
   if (!targetSchoolId || targetSchoolId === "unknown") {

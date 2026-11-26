@@ -1,5 +1,6 @@
 import { apiClient } from '../services/apiClient';
 export const TOKEN_KEY = 'harmony_token';
+export const DEMO_ACCOUNT_CACHE_KEY = 'harmony_demo_account';
 
 export interface UserAccount {
   id: string;
@@ -17,8 +18,54 @@ export function saveToken(token: string): void {
   localStorage.setItem(TOKEN_KEY, token);
 }
 
+export function getCachedDemoAccount(): UserAccount | null {
+  try {
+    const raw = localStorage.getItem(DEMO_ACCOUNT_CACHE_KEY);
+    return raw ? (JSON.parse(raw) as UserAccount) : null;
+  } catch {
+    return null;
+  }
+}
+
 export function clearSession(): void {
   localStorage.removeItem(TOKEN_KEY);
+  localStorage.removeItem(DEMO_ACCOUNT_CACHE_KEY);
+}
+
+function buildOfflineDemoLoginResult(token: string, role?: string) {
+  if (!token.startsWith('{')) return null;
+  try {
+    const payload = JSON.parse(token);
+    if (!payload?.isDemo && !String(payload?.email || '').toLowerCase().endsWith('@sman1ngoro.sch.id')) {
+      return null;
+    }
+    const resolvedRole: 'student' | 'teacher' | 'developer' =
+      payload.role === 'teacher' || payload.role === 'developer' || payload.role === 'student'
+        ? payload.role
+        : role === 'teacher' || role === 'developer'
+        ? role
+        : 'student';
+    const account: UserAccount = {
+      id: payload.sub || `usr-demo-offline-${Date.now()}`,
+      email: payload.email || `demo.offline.${Date.now()}@sman1ngoro.sch.id`,
+      name:
+        payload.name ||
+        (resolvedRole === 'teacher'
+          ? 'Siti Nurhaliza, S.Pd.'
+          : resolvedRole === 'developer'
+          ? 'Ahli Geospasial'
+          : 'Siswa Demo'),
+      role: resolvedRole,
+      createdAt: new Date().toISOString(),
+    };
+    const encoded = btoa(unescape(encodeURIComponent(JSON.stringify(account))));
+    const offlineToken = `offline_demo:${encoded}`;
+    saveToken(offlineToken);
+    localStorage.setItem(DEMO_ACCOUNT_CACHE_KEY, JSON.stringify(account));
+    return { success: true, status: 'registered', account, token: offlineToken };
+  } catch {
+    return null;
+  }
 }
 
 export async function authenticateAccount(token: string, role?: string): Promise<{ success: boolean; status?: string; email?: string; name?: string; picture?: string; googleId?: string; error?: string; account?: UserAccount, token?: string }> {
@@ -27,6 +74,13 @@ export async function authenticateAccount(token: string, role?: string): Promise
     
     if (data.status === 'registered') {
       saveToken(data.token);
+      if (data.account?.isDemo || String(data.account?.email || '').endsWith('@sman1ngoro.sch.id')) {
+        try {
+          localStorage.setItem(DEMO_ACCOUNT_CACHE_KEY, JSON.stringify(data.account));
+        } catch {
+          // Ignore storage quota errors
+        }
+      }
       return { success: true, status: 'registered', account: data.account, token: data.token };
     } else if (data.status === 'not_registered') {
       return { 
@@ -39,10 +93,13 @@ export async function authenticateAccount(token: string, role?: string): Promise
       };
     }
     
-    // Fallback if status is missing
     if (data.token) saveToken(data.token);
     return { success: true, account: data.account, token: data.token };
   } catch (err: unknown) {
+    const offlineFallback = buildOfflineDemoLoginResult(token, role);
+    if (offlineFallback) {
+      return offlineFallback;
+    }
     return { success: false, error: err instanceof Error ? err.message : 'Login error' };
   }
 }

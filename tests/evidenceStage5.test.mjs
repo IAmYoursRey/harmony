@@ -19,6 +19,7 @@
 import { test, describe, before, after } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
+import path from 'node:path';
 import { createRequire } from 'node:module';
 
 const require = createRequire(import.meta.url);
@@ -26,7 +27,7 @@ const { build } = require('esbuild');
 const ts = require('typescript');
 
 const repo = process.cwd();
-const fixtureDir = 'D:/Blender/test 1/harmony-web-check/2026-10-03-fifth-remediation-review';
+const fixtureDir = path.join(repo, 'tests/fixtures/geotiff');
 const remotePath = 'apps/web/src/components/dashboard/views/spatial/studio/GeospatialRemoteSensingTab.tsx';
 const mapsPath = 'apps/web/src/components/dashboard/views/spatial/MapsView.tsx';
 

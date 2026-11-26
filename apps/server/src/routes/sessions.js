@@ -147,7 +147,7 @@ router.post("/", verifyToken, async (req, res) => {
   const safeStyle = avatarStyle === "boy" ? "boy" : "girl";
   const safeColor = typeof avatarColor === "string" ? avatarColor : "#3b82f6";
 
-  if (shouldUseMemorySessions()) {
+  const createMemorySession = () => {
     const code = generateJoinCode();
     const record = {
       id,
@@ -194,28 +194,32 @@ router.post("/", verifyToken, async (req, res) => {
       createdBy: req.user.id,
       settings: normalizedSettings,
     });
-  }
+  };
 
-  let code;
-  let codeUnique = false;
-  for (let i = 0; i < 6; i++) {
-    code = generateJoinCode();
-    const existing = await timeoutQuery(
-      pool.query(
-        "SELECT id FROM simulation_sessions WHERE code = $1 AND status != 'ENDED'",
-        [code],
-      ),
-    );
-    if (existing.rows.length === 0) {
-      codeUnique = true;
-      break;
-    }
-  }
-  if (!codeUnique) {
-    return res.status(500).json({ error: "Gagal membuat kode room unik" });
+  if (shouldUseMemorySessions()) {
+    return createMemorySession();
   }
 
   try {
+    let code;
+    let codeUnique = false;
+    for (let i = 0; i < 6; i++) {
+      code = generateJoinCode();
+      const existing = await timeoutQuery(
+        pool.query(
+          "SELECT id FROM simulation_sessions WHERE code = $1 AND status != 'ENDED'",
+          [code],
+        ),
+      );
+      if (existing.rows.length === 0) {
+        codeUnique = true;
+        break;
+      }
+    }
+    if (!codeUnique) {
+      return res.status(500).json({ error: "Gagal membuat kode room unik" });
+    }
+
     await timeoutQuery(
       pool.query(
         `
@@ -258,6 +262,9 @@ router.post("/", verifyToken, async (req, res) => {
       settings: normalizedSettings,
     });
   } catch (err) {
+    if (isPgQuotaOrUnavailableError(err)) {
+      return createMemorySession();
+    }
     console.error("Create session error:", err);
     res.status(500).json({ error: "Database error" });
   }
@@ -267,7 +274,7 @@ router.get("/public", verifyToken, async (req, res) => {
   await ensureMultiplayerSchema();
   const { mapId } = req.query;
 
-  if (shouldUseMemorySessions()) {
+  const listMemoryPublicSessions = () => {
     const twoHoursAgo = Date.now() - 2 * 3600 * 1000;
     const rooms = [...memorySessions.values()]
       .filter(
@@ -291,6 +298,10 @@ router.get("/public", verifyToken, async (req, res) => {
         createdAt: s.createdAt,
       }));
     return res.json({ data: rooms });
+  };
+
+  if (shouldUseMemorySessions()) {
+    return listMemoryPublicSessions();
   }
 
   try {
@@ -346,6 +357,9 @@ router.get("/public", verifyToken, async (req, res) => {
 
     res.json({ data: rooms });
   } catch (err) {
+    if (isPgQuotaOrUnavailableError(err)) {
+      return listMemoryPublicSessions();
+    }
     console.error("List public sessions error:", err);
     res.status(500).json({ error: "Database error" });
   }

@@ -8,11 +8,20 @@ const router = express.Router();
 
 let _mountainsCache = null;
 
+function resolveMountainsPath() {
+  const candidates = [
+    path.resolve(process.cwd(), "apps/web/public/data/mountains.json"),
+    path.resolve(__dirname, "../../../web/public/data/mountains.json"),
+    path.resolve(__dirname, "../database/data/mountains.json"),
+  ];
+  return candidates.find((p) => fs.existsSync(p)) || null;
+}
+
 function getMountains() {
   if (_mountainsCache) return _mountainsCache;
 
-  const dataPath = path.resolve(__dirname, "../database/data/mountains.json");
-  if (fs.existsSync(dataPath)) {
+  const dataPath = resolveMountainsPath();
+  if (dataPath) {
     try {
       _mountainsCache = JSON.parse(fs.readFileSync(dataPath, "utf8"));
       return _mountainsCache;

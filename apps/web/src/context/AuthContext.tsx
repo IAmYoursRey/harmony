@@ -15,6 +15,7 @@ import {
   registerAccount,
   registerGoogleAccount,
   getToken,
+  getCachedDemoAccount,
   clearSession,
   updateAccount,
 } from "@/data/accounts";
@@ -84,6 +85,21 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         setIsLoading(false);
         return;
       }
+      if (token.startsWith("offline_demo:")) {
+        try {
+          const decoded = JSON.parse(decodeURIComponent(escape(atob(token.slice("offline_demo:".length)))));
+          const cached = getCachedDemoAccount() || decoded;
+          const profile = buildFallbackDemoProfile(cached);
+          setCurrentProfile(profile);
+          setCurrentUser(cached);
+          setSelection(SMAN_1_NGORO_FALLBACK);
+        } catch {
+          clearSession();
+        } finally {
+          setIsLoading(false);
+        }
+        return;
+      }
       try {
         const data = await apiClient.get("/api/auth/me");
         const prof = await getProfile();
@@ -104,8 +120,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
             if (ngoro) setSelection(ngoro);
           });
         }
-      } catch {
-        clearSession();
+      } catch (err: any) {
+        const cachedDemo = err?.status !== 401 ? getCachedDemoAccount() : null;
+        if (cachedDemo) {
+          setCurrentProfile(buildFallbackDemoProfile(cachedDemo));
+          setCurrentUser(cachedDemo);
+          setSelection(SMAN_1_NGORO_FALLBACK);
+        } else {
+          clearSession();
+        }
       } finally {
         setIsLoading(false);
       }
