@@ -6494,8 +6494,8 @@ export function MapsView() {
         </motion.div>
       )}
 
-      {/* Navigasi Geospasial & Pintasan Cepat Kanan (sembunyikan di Luar Angkasa 3D) */}
-      {!isDeepSpaceMode && (
+      {/* Navigasi Geospasial & Pintasan Cepat Kanan (sembunyikan di Luar Angkasa 3D atau saat panel kanan terbuka) */}
+      {!isDeepSpaceMode && !showTrafficCorridors && !showPanel && (
       <div className="absolute top-[calc(4.75rem+env(safe-area-inset-top))] md:top-[calc(1rem+env(safe-area-inset-top))] right-3 sm:right-4 z-20 flex flex-col items-end gap-2">
         {/* Navigasi Geospasial Terpadu: GPS Realtime & Orientasi Kompas 360 */}
         <div className="relative flex flex-col sm:flex-row items-center sm:items-stretch gap-1 sm:gap-1.5 mt-0.5 p-1 sm:p-1.5 rounded-2xl bg-white/90 dark:bg-slate-900/90 shadow-glass backdrop-blur-xl border border-slate-200/80 dark:border-slate-800 shadow-lg select-none">
@@ -7359,9 +7359,6 @@ export function MapsView() {
                       aria-label={trafficDrawerTab !== 'corridors' ? "Kembali ke Koridor Utama" : "Tutup Panel"}
                     >
                       <ArrowLeft className="w-4 h-4 sm:w-5 sm:h-5 group-hover:-translate-x-0.5 transition-transform" />
-                      <span className="text-[11px] font-bold text-slate-600 dark:text-slate-300 hidden md:inline">
-                        Kembali
-                      </span>
                     </button>
 
                     {/* Ikon Kategori Aktif */}
