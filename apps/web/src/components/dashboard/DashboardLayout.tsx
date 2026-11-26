@@ -74,6 +74,11 @@ export function DashboardLayout() {
     !currentUser &&
     !publicOpenRoutes.has(activeId)
   ) {
+    const postLogoutTarget = sessionStorage.getItem("harmony_post_logout_to");
+    if (postLogoutTarget) {
+      sessionStorage.removeItem("harmony_post_logout_to");
+      return <Navigate to={postLogoutTarget} replace />;
+    }
     if (hadUserRef.current) {
       return <Navigate to="/app/maps" replace />;
     }

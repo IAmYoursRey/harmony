@@ -1030,9 +1030,9 @@ export function ProfileView() {
 
             <button
               onClick={() => {
+                sessionStorage.setItem("harmony_post_logout_to", "/login");
                 show("Anda telah keluar dari sesi.", "info");
-                navigate("/login?switch=1", { replace: true });
-                setTimeout(() => logout(), 0);
+                logout();
               }}
               className="flex w-full items-center gap-3 rounded-xl border border-brand-100 p-3 text-left transition-colors hover:bg-brand-50 dark:border-brand-900/40 dark:hover:bg-brand-950/30"
             >
