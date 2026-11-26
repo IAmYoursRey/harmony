@@ -23,10 +23,13 @@ export function TeacherSessionCreatorModal({
   const { show } = useToast();
   const navigate = useNavigate();
 
+  const targetSchoolId =
+    classData?.schoolId || "ffdcdf34-fc99-4209-913e-5a6042e957ad";
+
   useEffect(() => {
     async function loadMaps() {
       try {
-        const mapsData = await phase1Api.getMaps(classData.schoolId);
+        const mapsData = await phase1Api.getMaps(targetSchoolId);
         setMaps(mapsData);
         if (mapsData.length > 0) {
           const preferred =
@@ -42,7 +45,7 @@ export function TeacherSessionCreatorModal({
       }
     }
     loadMaps();
-  }, [classData.schoolId]);
+  }, [targetSchoolId]);
 
   useEffect(() => {
     if (!selectedMap) {
@@ -72,7 +75,7 @@ export function TeacherSessionCreatorModal({
     setCreating(true);
     try {
       const res = await apiClient.post("/api/sessions", {
-        schoolId: classData.schoolId,
+        schoolId: targetSchoolId,
         classId: classData.id,
         mapId: selectedMap,
         scenarioId: selectedScenario,

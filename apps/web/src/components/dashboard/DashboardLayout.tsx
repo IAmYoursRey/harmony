@@ -2,7 +2,7 @@ import { Outlet, useLocation, useNavigate, Navigate, useSearchParams } from "rea
 import { Sidebar } from "@/components/dashboard/Sidebar";
 import { Topbar } from "@/components/dashboard/Topbar";
 import { navItems } from "@/components/dashboard/nav";
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useAuth } from "@/hooks/useAuth";
 import { LogoSpinner } from "@/components/ui/LogoSpinner";
 import { AuthRequiredModal } from "@/components/dashboard/AuthRequiredModal";
@@ -13,6 +13,10 @@ export function DashboardLayout() {
   const location = useLocation();
   const [searchParams, setSearchParams] = useSearchParams();
   const { currentUser, currentProfile, isLoading } = useAuth();
+  const hadUserRef = useRef(Boolean(currentUser));
+  useEffect(() => {
+    hadUserRef.current = Boolean(currentUser);
+  }, [currentUser]);
 
   const [authModal, setAuthModal] = useState<{
     isOpen: boolean;
@@ -57,6 +61,7 @@ export function DashboardLayout() {
 
   const publicOpenRoutes = new Set([
     "maps",
+    "geo-risk-map",
     "geospatial",
     "field-telemetry",
     "learning-gain",
@@ -69,6 +74,9 @@ export function DashboardLayout() {
     !currentUser &&
     !publicOpenRoutes.has(activeId)
   ) {
+    if (hadUserRef.current) {
+      return <Navigate to="/app/maps" replace />;
+    }
     return <Navigate to={`/app/maps?authRequired=${activeId}`} replace />;
   }
 
