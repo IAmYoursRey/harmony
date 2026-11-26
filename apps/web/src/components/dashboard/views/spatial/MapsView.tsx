@@ -21,6 +21,8 @@ import { bbox as bboxStrategy } from "ol/loadingstrategy";
 import Overlay from "ol/Overlay";
 import VectorLayer from "ol/layer/Vector";
 import VectorSource from "ol/source/Vector";
+import Cluster from "ol/source/Cluster";
+import { boundingExtent } from "ol/extent";
 import Feature from "ol/Feature";
 import Point from "ol/geom/Point";
 import LineString from "ol/geom/LineString";
@@ -68,6 +70,7 @@ import {
   loadFullTrafficCorridors,
   simulateRealtimeTraffic,
   snapCorridorToActualRoad,
+  classifyTrafficStatusByTier,
 } from "@/services/trafficTelemetryService";
 
 export interface ProcessedTrafficCorridor extends TrafficCorridor {
@@ -97,7 +100,11 @@ import { MapWeatherObservationCard } from "./map/MapWeatherObservationCard";
 import { SchoolRiskSynthesisCard } from "./SchoolRiskSynthesisCard";
 import { aoiService, AreaOfInterest } from "@/services/geospatial/aoiService";
 import { trafficCctvService, type TrafficCctvCamera } from "@/services/trafficCctvService";
-import { trafficSignalsService, type TrafficSignalIntersection } from "@/services/trafficSignalsService";
+import {
+  trafficSignalsService,
+  computeSingleSignalState,
+  type TrafficSignalIntersection,
+} from "@/services/trafficSignalsService";
 import { liveTrafficFlowService, type LiveTrafficNetworkSummary } from "@/services/liveTrafficFlowService";
 import { trafficGpsDensityService, computeTypicalTraffic, type TrafficCrowdsourceSummary } from "@/services/trafficGpsDensityService";
 
@@ -635,6 +642,14 @@ export function MapsView() {
   const [syncCountdown, setSyncCountdown] = useState<number>(15);
   // Real-time Traffic Layers & Google Maps Traffic Engine States (Lightweight on-demand for mobile)
   const [trafficMode, setTrafficMode] = useState<'live' | 'typical'>('live');
+  const selectedCorridorRef = useRef<TrafficCorridor | null>(selectedCorridor);
+  const trafficModeRef = useRef<'live' | 'typical'>(trafficMode);
+  useEffect(() => {
+    selectedCorridorRef.current = selectedCorridor;
+  }, [selectedCorridor]);
+  useEffect(() => {
+    trafficModeRef.current = trafficMode;
+  }, [trafficMode]);
   const [trafficTypicalDay, setTrafficTypicalDay] = useState<number>(() => new Date().getDay()); // 0 = M, 1 = S, 2 = S, 3 = R, 4 = K, 5 = J, 6 = S
   const [trafficTypicalHour, setTrafficTypicalHour] = useState<number>(() => {
     const d = new Date();
@@ -671,10 +686,16 @@ export function MapsView() {
   const [cctvCityFilter, setCctvCityFilter] = useState<string>('Semua');
   const [cctvCategoryFilter, setCctvCategoryFilter] = useState<string>('Semua');
   const [cctvSearchQuery, setCctvSearchQuery] = useState<string>('');
+  const [cctvViewportOnly, setCctvViewportOnly] = useState<boolean>(false);
   const [cctvDisplayLimit, setCctvDisplayLimit] = useState<number>(40);
   const [isCctvLoading, setIsCctvLoading] = useState<boolean>(false);
   const [selectedTrafficSignalId, setSelectedTrafficSignalId] = useState<string | null>(null);
   const [isSignalsLoading, setIsSignalsLoading] = useState<boolean>(false);
+  const [rawSignalsVersion, setRawSignalsVersion] = useState<number>(0);
+  const [signalSearchQuery, setSignalSearchQuery] = useState<string>('');
+  const [signalViewportOnly, setSignalViewportOnly] = useState<boolean>(false);
+  const [signalsDisplayLimit, setSignalsDisplayLimit] = useState<number>(40);
+  const [mapViewportExtent, setMapViewportExtent] = useState<[number, number, number, number] | null>(null);
   const [selectedVolcanoForModal, setSelectedVolcanoForModal] = useState<VolcanoLiveStatus | null>(null);
   const [selectedEarthquakeForModal, setSelectedEarthquakeForModal] = useState<EarthquakeRecord | null>(null);
   const [selectedHotspotForModal, setSelectedHotspotForModal] = useState<ActiveFireHotspot | null>(null);
@@ -812,7 +833,16 @@ export function MapsView() {
         });
 
         // Sinkronisasi data koridor dengan telemetri arus langsung TomTom
-        const liveStatus = data.currentSpeedKmh >= 70 ? 'Lancar' : data.currentSpeedKmh >= 40 ? 'Ramai Lancar' : data.currentSpeedKmh >= 20 ? 'Padat Merayap' : 'Macet Total';
+        const liveStatus =
+          typeof classifyTrafficStatusByTier === 'function'
+            ? classifyTrafficStatusByTier(data.currentSpeedKmh, corridor.tier)
+            : data.currentSpeedKmh >= 70
+            ? 'Lancar'
+            : data.currentSpeedKmh >= 40
+            ? 'Ramai Lancar'
+            : data.currentSpeedKmh >= 20
+            ? 'Padat Merayap'
+            : 'Macet Total';
         if (typeof setTrafficDataList === 'function') {
           setTrafficDataList((prev) =>
             prev.map((c) =>
@@ -1050,14 +1080,52 @@ export function MapsView() {
   }, [filteredCorridors, visibleCorridorsCount]);
 
   const liveSignals = useMemo(() => {
-    const all = trafficSignalsService.getAllSignals(liveSignalTime);
-    if (!userCoords) return all;
-    return [...all].sort((a, b) => {
-      const distA = geospatialAnalysisService.calculateDistanceKm(userCoords.lat, userCoords.lng, a.lat, a.lng);
-      const distB = geospatialAnalysisService.calculateDistanceKm(userCoords.lat, userCoords.lng, b.lat, b.lng);
-      return distA - distB;
-    });
-  }, [liveSignalTime, userCoords]);
+    const raw = trafficSignalsService.getRawSignals();
+    if (!userCoords) {
+      return raw.slice(0, 120).map((s, idx) => computeSingleSignalState(s, idx, liveSignalTime));
+    }
+    const withDist = raw.map((s, idx) => ({
+      s,
+      idx,
+      dist: geospatialAnalysisService.calculateDistanceKm(userCoords.lat, userCoords.lng, s.lat, s.lng),
+    }));
+    withDist.sort((a, b) => a.dist - b.dist);
+    return withDist.slice(0, 120).map((item) => computeSingleSignalState(item.s, item.idx, liveSignalTime));
+  }, [liveSignalTime, userCoords, rawSignalsVersion]);
+
+  const totalSignalsCatalogCount = useMemo(() => {
+    return trafficSignalsService.getRawSignals().length;
+  }, [rawSignalsVersion]);
+
+  const filteredDrawerSignals = useMemo(() => {
+    const raw = trafficSignalsService.getRawSignals();
+    const q = signalSearchQuery.trim().toLowerCase();
+    const candidates: Array<{ sig: typeof raw[number]; idx: number; dist: number | null }> = [];
+    for (let i = 0; i < raw.length; i++) {
+      const s = raw[i];
+      if (signalViewportOnly && mapViewportExtent) {
+        const [west, south, east, north] = mapViewportExtent;
+        if (s.lat < south || s.lat > north || s.lng < west || s.lng > east) continue;
+      }
+      if (q) {
+        const match =
+          (s.name || '').toLowerCase().includes(q) ||
+          (s.city || '').toLowerCase().includes(q) ||
+          (s.authoritySource || '').toLowerCase().includes(q);
+        if (!match) continue;
+      }
+      const dist = userCoords
+        ? geospatialAnalysisService.calculateDistanceKm(userCoords.lat, userCoords.lng, s.lat, s.lng)
+        : null;
+      candidates.push({ sig: s, idx: i, dist });
+    }
+    if (userCoords) {
+      candidates.sort((a, b) => (a.dist ?? Infinity) - (b.dist ?? Infinity));
+    }
+    return candidates
+      .slice(0, signalsDisplayLimit)
+      .map((item) => computeSingleSignalState(item.sig, item.idx, liveSignalTime));
+  }, [rawSignalsVersion, signalSearchQuery, signalViewportOnly, mapViewportExtent, userCoords, signalsDisplayLimit, liveSignalTime]);
 
   const nearestSignal = useMemo(() => {
     if (!userCoords || liveSignals.length === 0) return null;
@@ -1085,13 +1153,18 @@ export function MapsView() {
   }, [userCoords, filteredCorridors]);
 
   const sortedCctvCameras = useMemo(() => {
-    if (!userCoords) return cctvCameras;
-    return [...cctvCameras].sort((a, b) => {
+    let list = cctvCameras;
+    if (cctvViewportOnly && mapViewportExtent) {
+      const [west, south, east, north] = mapViewportExtent;
+      list = list.filter((c) => c.lat >= south && c.lat <= north && c.lng >= west && c.lng <= east);
+    }
+    if (!userCoords) return list;
+    return [...list].sort((a, b) => {
       const distA = geospatialAnalysisService.calculateDistanceKm(userCoords.lat, userCoords.lng, a.lat, a.lng);
       const distB = geospatialAnalysisService.calculateDistanceKm(userCoords.lat, userCoords.lng, b.lat, b.lng);
       return distA - distB;
     });
-  }, [cctvCameras, userCoords]);
+  }, [cctvCameras, cctvViewportOnly, mapViewportExtent, userCoords]);
 
   const handleRefreshTraffic = useCallback(() => {
     setIsTrafficRefreshing(true);
@@ -1215,9 +1288,8 @@ export function MapsView() {
   }, []);
 
   const updateCctvLayerFeatures = useCallback((cams: TrafficCctvCamera[]) => {
-    if (!trafficCctvLayerRef.current) return;
-    const source = trafficCctvLayerRef.current.getSource();
-    if (!source) return;
+    if (!trafficCctvRawSourceRef.current) return;
+    const source = trafficCctvRawSourceRef.current;
     source.clear();
     const features = cams.map((cam) => {
       return new Feature({
@@ -1234,14 +1306,20 @@ export function MapsView() {
   const loadCctvFeeds = useCallback(async (city?: string, category?: string, search?: string) => {
     setIsCctvLoading(true);
     try {
-      const cams = await trafficCctvService.fetchCameras({
+      const all = await trafficCctvService.fetchCameras({
+        category: category && category !== 'Semua' ? category : undefined,
+        limit: 7000,
+        trafficOnly: true,
+      });
+      const filtered = trafficCctvService.getCamerasFiltered({
         city: city && city !== 'Semua' ? city : undefined,
         category: category && category !== 'Semua' ? category : undefined,
         search: search || undefined,
-        limit: 300,
+        includeCourtroom: category === 'pengadilan' || category === 'pengadilannegeri',
       });
-      setCctvCameras(cams);
-      updateCctvLayerFeatures(cams);
+      const finalCams = filtered.length > 0 || city || category || search ? filtered : all;
+      setCctvCameras(finalCams);
+      updateCctvLayerFeatures(finalCams);
     } catch {
       // Fallback preserves existing in-memory catalog
     } finally {
@@ -1834,7 +1912,11 @@ export function MapsView() {
   const equatorLayerRef = useRef<VectorLayer<VectorSource> | null>(null);
   const trafficVectorLayerRef = useRef<VectorLayer<VectorSource> | null>(null);
   const trafficCctvLayerRef = useRef<VectorLayer<VectorSource> | null>(null);
+  const trafficCctvRawSourceRef = useRef<VectorSource | null>(null);
+  const trafficCctvClusterSourceRef = useRef<Cluster | null>(null);
   const trafficSignalsLayerRef = useRef<VectorLayer<VectorSource> | null>(null);
+  const trafficSignalsRawSourceRef = useRef<VectorSource | null>(null);
+  const trafficSignalsClusterSourceRef = useRef<Cluster | null>(null);
   const observationCoverageLayerRef = useRef<VectorLayer<VectorSource> | null>(null);
   const [geospatialModalDomain, setGeospatialModalDomain] = useState<StudioDomain>('weather');
 
@@ -2854,44 +2936,109 @@ export function MapsView() {
     }
   }, [trafficOpacity]);
 
-  // Sinkronisasi data telemetri kecepatan kendaraan realtime ke OpenLayers Vector Source
+  // Sinkronisasi fitur segmen jalan (LineString) & milestone ke OpenLayers Vector Source + sync GPS density service
   useEffect(() => {
+    trafficGpsDensityService.setCorridors(trafficDataList);
     if (!trafficVectorLayerRef.current) return;
     const source = trafficVectorLayerRef.current.getSource();
     if (!source) return;
 
-    source.forEachFeature((feat) => {
-      const corridorId = feat.get('corridorId');
-      const segmentId = feat.get('segmentId');
-      const milestoneId = feat.get('milestoneId');
-      const corridor = trafficDataList.find((c) => c.id === corridorId);
-      if (!corridor) return;
+    const decimatePath = (coords: [number, number][], maxPts: number): [number, number][] => {
+      if (!coords || coords.length <= maxPts) return coords || [];
+      const out: [number, number][] = [coords[0]];
+      const step = (coords.length - 1) / (maxPts - 1);
+      for (let i = 1; i < maxPts - 1; i++) {
+        out.push(coords[Math.round(i * step)]);
+      }
+      out.push(coords[coords.length - 1]);
+      return out;
+    };
 
-      if (segmentId && corridor.segments) {
-        const seg = corridor.segments.find((s) => s.id === segmentId);
-        if (seg) {
-          feat.set('speedKmh', seg.speedKmh);
-          feat.set('status', seg.status);
+    const nextFeatures: Feature[] = [];
+    for (const corridor of trafficDataList) {
+      const isFocus = selectedCorridor?.id === corridor.id;
+      const tier = corridor.tier || 'arterial';
+      const segList = corridor.segments || [];
+
+      if (segList.length > 0) {
+        for (const seg of segList) {
+          if (!seg.path || seg.path.length < 2) continue;
+          const sampled = decimatePath(seg.path, isFocus ? 300 : 48);
+          const projCoords = sampled.map((pt) => fromLonLat(pt));
+          const typicalProfile =
+            trafficMode === 'typical'
+              ? computeTypicalTraffic(corridor.id, tier, trafficTypicalDay, trafficTypicalHour)
+              : null;
+
+          nextFeatures.push(
+            new Feature({
+              geometry: new LineString(projCoords),
+              isTrafficLine: true,
+              corridorId: corridor.id,
+              segmentId: seg.id,
+              segmentName: seg.name,
+              corridorName: corridor.name,
+              status: typicalProfile ? typicalProfile.status : seg.status,
+              speedKmh: typicalProfile ? typicalProfile.speedKmh : seg.speedKmh,
+              delayMinutes: typicalProfile ? typicalProfile.delayMinutes : 0,
+              routeType: corridor.routeType,
+              tier,
+              corridorData: corridor,
+            })
+          );
         }
-      } else if (milestoneId && corridor.milestones) {
-        const ms = corridor.milestones.find((m) => m.id === milestoneId);
-        if (ms) {
-          feat.set('speedKmh', ms.speedKmh);
-          feat.set('status', ms.status);
+      }
+
+      if (corridor.milestones && corridor.milestones.length > 0) {
+        for (const ms of corridor.milestones) {
+          const typicalProfile =
+            trafficMode === 'typical'
+              ? computeTypicalTraffic(corridor.id, tier, trafficTypicalDay, trafficTypicalHour)
+              : null;
+          nextFeatures.push(
+            new Feature({
+              geometry: new Point(fromLonLat(ms.coord)),
+              isTrafficMilestone: true,
+              corridorId: corridor.id,
+              milestoneId: ms.id,
+              name: ms.name,
+              corridorName: corridor.name,
+              status: typicalProfile ? typicalProfile.status : ms.status,
+              speedKmh: typicalProfile ? typicalProfile.speedKmh : ms.speedKmh,
+              delayMinutes: typicalProfile ? typicalProfile.delayMinutes : 0,
+              routeType: corridor.routeType,
+              tier,
+              corridorData: corridor,
+            })
+          );
         }
       } else {
-        feat.set('speedKmh', corridor.speedKmh);
-        feat.set('status', corridor.status);
+        const typicalProfile =
+          trafficMode === 'typical'
+            ? computeTypicalTraffic(corridor.id, tier, trafficTypicalDay, trafficTypicalHour)
+            : null;
+        nextFeatures.push(
+          new Feature({
+            geometry: new Point(fromLonLat(corridor.center)),
+            isTrafficMilestone: true,
+            corridorId: corridor.id,
+            name: corridor.name,
+            corridorName: corridor.name,
+            status: typicalProfile ? typicalProfile.status : corridor.status,
+            speedKmh: typicalProfile ? typicalProfile.speedKmh : corridor.speedKmh,
+            delayMinutes: typicalProfile ? typicalProfile.delayMinutes : 0,
+            routeType: corridor.routeType,
+            tier,
+            corridorData: corridor,
+          })
+        );
       }
-    });
+    }
 
+    source.clear(true);
+    source.addFeatures(nextFeatures);
     trafficVectorLayerRef.current.changed();
-  }, [trafficDataList]);
-
-  // Synchronize corridors to GPS density service
-  useEffect(() => {
-    trafficGpsDensityService.setCorridors(trafficDataList);
-  }, [trafficDataList]);
+  }, [trafficDataList, selectedCorridor?.id, trafficMode, trafficTypicalDay, trafficTypicalHour]);
 
   // Subscribe to crowdsourced GPS density telemetry summary
   useEffect(() => {
@@ -2901,116 +3048,54 @@ export function MapsView() {
     return unsub;
   }, []);
 
-  // Real-time Traffic Corridors, GPS Probes, Heatmap & ATCS Signal Animation Loop
+  // Efficient 1Hz ticker for traffic probes, corridor density updates, and ATCS signal countdowns
   useEffect(() => {
-    const isTrafficActive = (activeMapBasemap === 'traffic' || showTrafficCorridors) && !showGeospatialModal;
-    if (!isTrafficActive) return;
+    const isAnyTrafficFeatureActive =
+      (activeMapBasemap === 'traffic' ||
+        showTrafficCorridors ||
+        showTrafficSignals ||
+        trafficDrawerTab === 'signals') &&
+      !showGeospatialModal;
+    if (!isAnyTrafficFeatureActive) return;
 
-    let animFrameId: number;
-    let lastTime = performance.now();
-    let signalTickCounter = 0;
-    let densityTickCounter = 0;
+    let tickCount = 0;
+    const interval = setInterval(() => {
+      if (typeof document !== 'undefined' && document.hidden) return;
+      tickCount++;
 
-    const animate = (currentTime: number) => {
-      const dt = Math.min((currentTime - lastTime) / 1000, 0.1);
-      lastTime = currentTime;
+      trafficGpsDensityService.advanceProbes(1.0);
 
-      // 1. Advance crowdsourced GPS commuter probes along road vectors
-      trafficGpsDensityService.advanceProbes(dt);
-
-      // 2. Dynamic Congestion Calculation (Google Maps Live GPS vs Typical Profile)
-      densityTickCounter += dt;
-      if (densityTickCounter >= 2.5) {
-        densityTickCounter = 0;
-        if (trafficMode === 'live') {
-          trafficGpsDensityService.recomputeDensity();
-          setCrowdsourceSummary(trafficGpsDensityService.getSummary());
-          if (trafficVectorLayerRef.current) {
-            const vecSource = trafficVectorLayerRef.current.getSource();
-            if (vecSource) {
-              vecSource.getFeatures().forEach((feat) => {
-                if (feat.get('isTrafficMilestone')) {
-                  const corridorId = feat.get('corridorId');
-                  const metric = trafficGpsDensityService.getSegmentMetric(corridorId);
-                  if (metric) {
-                    feat.set('status', metric.congestionLevel, true);
-                    feat.set('speedKmh', metric.averageSpeedKmh, true);
-                    feat.set('probeCount', metric.probeCount, true);
-                    feat.set('densityPerKm', metric.densityPerKm, true);
-                    feat.set('delayMinutes', metric.delayMinutes, true);
-                  }
-                }
-              });
-              trafficVectorLayerRef.current.changed();
-            }
-          }
-        }
-      }
-
-      // 3. Advance ATCS Signals countdown & phase changes every ~1 second
-      signalTickCounter += dt;
-      if (signalTickCounter >= 1.0) {
-        signalTickCounter = 0;
-        if ((showTrafficSignals || trafficDrawerTab === 'signals') && trafficSignalsLayerRef.current) {
-          const source = trafficSignalsLayerRef.current.getSource();
-          if (source) {
-            const signals = trafficSignalsService.getAllSignals();
-            const currUserCoords = userCoordsRef.current;
-            let nearestId: string | null = null;
-            if (currUserCoords) {
-              let minDist = Infinity;
-              signals.forEach((s) => {
-                const dist = geospatialAnalysisService.calculateDistanceKm(currUserCoords.lat, currUserCoords.lng, s.lat, s.lng);
-                if (dist < minDist) {
-                  minDist = dist;
-                  nearestId = s.id;
-                }
-              });
-            }
-
-            source.getFeatures().forEach((feat) => {
-              const sigId = feat.get('signalId');
-              const sig = signals.find((s) => s.id === sigId);
-              if (sig) {
-                feat.set('currentPhase', sig.currentPhase, true);
-                feat.set('remainingSeconds', sig.remainingSeconds, true);
-                feat.set('isNearest', sig.id === nearestId, true);
-                feat.set('signalData', sig, true);
+      if (tickCount % 3 === 0 && trafficMode === 'live' && (activeMapBasemap === 'traffic' || showTrafficCorridors)) {
+        trafficGpsDensityService.recomputeDensity();
+        setCrowdsourceSummary(trafficGpsDensityService.getSummary());
+        const vecSource = trafficVectorLayerRef.current?.getSource();
+        if (vecSource) {
+          vecSource.getFeatures().forEach((feat) => {
+            if (feat.get('isTrafficMilestone') || feat.get('isTrafficLine')) {
+              const corridorId = feat.get('corridorId');
+              const metric = trafficGpsDensityService.getSegmentMetric(corridorId);
+              if (metric) {
+                feat.set('status', metric.congestionLevel, true);
+                feat.set('speedKmh', metric.averageSpeedKmh, true);
+                feat.set('probeCount', metric.probeCount, true);
+                feat.set('densityPerKm', metric.densityPerKm, true);
+                feat.set('delayMinutes', metric.delayMinutes, true);
               }
-            });
-            trafficSignalsLayerRef.current.changed();
-          }
+            }
+          });
+          trafficVectorLayerRef.current?.changed();
         }
       }
 
-      animFrameId = requestAnimationFrame(animate);
-    };
-
-    animFrameId = requestAnimationFrame(animate);
+      if ((showTrafficSignals || trafficDrawerTab === 'signals') && trafficSignalsLayerRef.current) {
+        trafficSignalsLayerRef.current.changed();
+      }
+    }, 1000);
 
     return () => {
-      cancelAnimationFrame(animFrameId);
+      clearInterval(interval);
     };
   }, [activeMapBasemap, showTrafficCorridors, trafficMode, showTrafficSignals, trafficDrawerTab, showGeospatialModal]);
-
-  // Google Maps Typical Traffic Profile Engine: updates roads when day or hour slider moves
-  useEffect(() => {
-    if (trafficMode !== 'typical' || !trafficVectorLayerRef.current) return;
-    const source = trafficVectorLayerRef.current.getSource();
-    if (!source) return;
-
-    source.getFeatures().forEach((feat) => {
-      if (feat.get('isTrafficMilestone')) {
-        const corridorId = (feat.get('corridorId') || '') as string;
-        const tier = (feat.get('tier') || 'arterial') as 'expressway' | 'arterial' | 'collector' | 'local';
-        const profile = computeTypicalTraffic(corridorId, tier, trafficTypicalDay, trafficTypicalHour);
-        feat.set('status', profile.status, true);
-        feat.set('speedKmh', profile.speedKmh, true);
-        feat.set('delayMinutes', profile.delayMinutes, true);
-      }
-    });
-    trafficVectorLayerRef.current.changed();
-  }, [trafficMode, trafficTypicalDay, trafficTypicalHour]);
 
   // When switching back to live traffic, immediately restore live density metrics
   useEffect(() => {
@@ -3019,7 +3104,7 @@ export function MapsView() {
       const vecSource = trafficVectorLayerRef.current.getSource();
       if (vecSource) {
         vecSource.getFeatures().forEach((feat) => {
-          if (feat.get('isTrafficMilestone')) {
+          if (feat.get('isTrafficMilestone') || feat.get('isTrafficLine')) {
             const corridorId = feat.get('corridorId');
             const metric = trafficGpsDensityService.getSegmentMetric(corridorId);
             if (metric) {
@@ -3331,99 +3416,98 @@ export function MapsView() {
     });
     satelliteReferenceLayerRef.current = satelliteRefLayer;
 
-    // Traffic Strategic Milestones & Toll Plazas (Google Maps native traffic renders all connected roads)
+    // Traffic Strategic Corridors (LineString segments) & Milestones
     const trafficSource = new VectorSource();
-    INDONESIA_TRAFFIC_CORRIDORS.forEach((corridor) => {
-      // Add strategic milestone markers (Toll Plazas / Junctions / Interchanges)
-      if (corridor.milestones && corridor.milestones.length > 0) {
-        corridor.milestones.forEach((ms) => {
-          const pointFeat = new Feature({
-            geometry: new Point(fromLonLat(ms.coord)),
-            isTrafficMilestone: true,
-            corridorId: corridor.id,
-            milestoneId: ms.id,
-            name: ms.name,
-            corridorName: corridor.name,
-            status: ms.status,
-            speedKmh: ms.speedKmh,
-            routeType: corridor.routeType,
-            tier: corridor.tier,
-            corridorData: corridor,
-          });
-          trafficSource.addFeature(pointFeat);
-        });
-      } else {
-        const pointFeat = new Feature({
-          geometry: new Point(fromLonLat(corridor.center)),
-          isTrafficMilestone: true,
-          corridorId: corridor.id,
-          name: corridor.name,
-          corridorName: corridor.name,
-          status: corridor.status,
-          speedKmh: corridor.speedKmh,
-          routeType: corridor.routeType,
-          tier: corridor.tier,
-          corridorData: corridor,
-        });
-        trafficSource.addFeature(pointFeat);
-      }
-    });
+
+    const trafficLineStyleCache = new globalThis.Map<string, Style>();
+    const trafficMilestoneStyleCache = new globalThis.Map<string, Style[]>();
+
+    const getTrafficStatusColor = (status: string) => {
+      if (status === 'Lancar') return '#0f9d58';
+      if (status === 'Ramai Lancar') return '#f9ab00';
+      if (status === 'Padat Merayap') return '#ea4335';
+      return '#7f1d1d';
+    };
 
     const trafficVectorLayer = new VectorLayer({
       source: trafficSource,
       zIndex: 22,
       visible: activeMapBasemap === 'traffic' || showTrafficCorridors,
       style: (feature, resolution) => {
-        const isMilestone = feature.get('isTrafficMilestone');
-        const status = feature.get('status') as string;
+        const isLine = Boolean(feature.get('isTrafficLine'));
+        const isMilestone = Boolean(feature.get('isTrafficMilestone'));
+        const status = (feature.get('status') as string) || 'Lancar';
         const speed = (feature.get('speedKmh') as number) || 60;
         const tier = (feature.get('tier') as string) || 'arterial';
         const corridorId = feature.get('corridorId');
-        const isSelected = selectedCorridor && selectedCorridor.id === corridorId;
-
-        // Authentic Google Maps Live Traffic color palette
-        const color =
-          status === 'Lancar'
-            ? '#0f9d58' // Authentic Google Maps Emerald / Free-flow
-            : status === 'Ramai Lancar'
-            ? '#f9ab00' // Authentic Google Maps Amber / Moderate flow
-            : status === 'Padat Merayap'
-            ? '#ea4335' // Authentic Google Maps Red / Congested
-            : '#7f1d1d'; // Authentic Google Maps Dark Burgundy / Standstill
-
+        const isSelected = Boolean(selectedCorridorRef.current && selectedCorridorRef.current.id === corridorId);
+        const isTypical = trafficModeRef.current === 'typical';
+        const color = getTrafficStatusColor(status);
         const isLocal = tier === 'local';
 
+        if (isLine) {
+          // Declutter local roads at national zoom unless focused
+          if (resolution > 400 && isLocal && !isSelected) return [];
+          const widthTier = isSelected ? 'sel' : isTypical ? 'typ' : resolution < 120 ? 'close' : 'far';
+          const cacheKey = `${status}|${widthTier}`;
+          let cached = trafficLineStyleCache.get(cacheKey);
+          if (!cached) {
+            const width = isSelected ? 6.5 : isTypical ? (tier === 'expressway' ? 4.5 : 3.5) : resolution < 120 ? 3 : 2;
+            cached = new Style({
+              stroke: new Stroke({
+                color: isSelected ? color : isTypical ? color : `${color}cc`,
+                width,
+                lineCap: 'round',
+                lineJoin: 'round',
+              }),
+              zIndex: isSelected ? 10 : isTypical ? 5 : 2,
+            });
+            trafficLineStyleCache.set(cacheKey, cached);
+          }
+          if (isSelected) {
+            return [
+              new Style({
+                stroke: new Stroke({ color: '#ffffff', width: 9.5, lineCap: 'round', lineJoin: 'round' }),
+                zIndex: 9,
+              }),
+              cached,
+            ];
+          }
+          return cached;
+        }
+
         if (isMilestone) {
-          // Declutter: speed badges appear when zoomed in to city level (resolution < 120) or when corridor is selected
           if (resolution > 120 && !isSelected) {
             return [];
           }
-
-          const vehicleIcon = '';
-
-          return [
-            // Anchor pin dot
-            new Style({
-              image: new CircleStyle({
-                radius: isSelected ? 5.5 : 4,
-                fill: new Fill({ color: color }),
-                stroke: new Stroke({ color: '#ffffff', width: 1.8 }),
+          const mKey = `${speed}|${status}|${isLocal ? 1 : 0}|${isSelected ? 1 : 0}`;
+          let cached = trafficMilestoneStyleCache.get(mKey);
+          if (!cached) {
+            cached = [
+              new Style({
+                image: new CircleStyle({
+                  radius: isSelected ? 5.5 : 4,
+                  fill: new Fill({ color }),
+                  stroke: new Stroke({ color: '#ffffff', width: 1.8 }),
+                }),
               }),
-            }),
-            // Pill label badge with live telemetry speed
-            new Style({
-              text: new Text({
-                text: `${vehicleIcon} ${speed} km/j`,
-                font: 'bold 9.5px Inter, system-ui, sans-serif',
-                fill: new Fill({ color: '#ffffff' }),
-                stroke: new Stroke({ color: '#0f172a', width: 2.2 }),
-                backgroundFill: new Fill({ color: isLocal ? '#1e293b' : '#0f172a' }),
-                backgroundStroke: new Stroke({ color: isLocal ? '#38bdf8' : color, width: 1.8 }),
-                padding: [2.5, 6, 2.5, 6],
-                offsetY: -14,
+              new Style({
+                text: new Text({
+                  text: ` ${speed} km/j`,
+                  font: 'bold 9.5px Inter, system-ui, sans-serif',
+                  fill: new Fill({ color: '#ffffff' }),
+                  stroke: new Stroke({ color: '#0f172a', width: 2.2 }),
+                  backgroundFill: new Fill({ color: isLocal ? '#1e293b' : '#0f172a' }),
+                  backgroundStroke: new Stroke({ color: isLocal ? '#38bdf8' : color, width: 1.8 }),
+                  padding: [2.5, 6, 2.5, 6],
+                  offsetY: -14,
+                }),
               }),
-            }),
-          ];
+            ];
+            if (trafficMilestoneStyleCache.size > 400) trafficMilestoneStyleCache.clear();
+            trafficMilestoneStyleCache.set(mKey, cached);
+          }
+          return cached;
         }
 
         return [];
@@ -3434,10 +3518,11 @@ export function MapsView() {
     // Initialize crowdsourced GPS density service corridors for probe simulation
     trafficGpsDensityService.setCorridors(INDONESIA_TRAFFIC_CORRIDORS);
 
-    // Realtime Public Traffic CCTV Cameras Layer
+    // Realtime Public Traffic CCTV Cameras Layer (Clustered for smooth 60 FPS across 5,000+ cameras)
     const trafficCctvSource = new VectorSource();
-    const cctvCameras = trafficCctvService.getAllCameras();
-    cctvCameras.forEach((cam) => {
+    trafficCctvRawSourceRef.current = trafficCctvSource;
+    const cctvCamerasInit = trafficCctvService.getCamerasFiltered({ includeCourtroom: false });
+    cctvCamerasInit.forEach((cam) => {
       const feat = new Feature({
         geometry: new Point(fromLonLat(cam.location)),
         isTrafficCctv: true,
@@ -3448,118 +3533,223 @@ export function MapsView() {
       trafficCctvSource.addFeature(feat);
     });
 
-    const trafficCctvLayer = new VectorLayer({
+    const trafficCctvClusterSource = new Cluster({
+      distance: 36,
+      minDistance: 18,
       source: trafficCctvSource,
+    });
+    trafficCctvClusterSourceRef.current = trafficCctvClusterSource;
+
+    const cctvClusterStyleCache = new globalThis.Map<string, Style>();
+    const trafficCctvLayer = new VectorLayer({
+      source: trafficCctvClusterSource as unknown as VectorSource,
       zIndex: 26,
       visible: (activeMapBasemap === 'traffic' || showTrafficCorridors) && showTrafficCctv,
       style: (feature, resolution) => {
-        const isClose = resolution < 120;
-        return new Style({
-          image: new CircleStyle({
-            radius: isClose ? 7.5 : 5.5,
-            fill: new Fill({ color: '#06b6d4' }),
-            stroke: new Stroke({ color: '#0f172a', width: 2 }),
-          }),
-          text: isClose
-            ? new Text({
-                text: 'CCTV LIVE',
-                font: 'bold 9px Inter, system-ui, sans-serif',
+        const clustered = feature.get('features') as Feature[] | undefined;
+        const size = clustered ? clustered.length : 1;
+
+        if (size > 1) {
+          const bucket = size >= 100 ? 'lg' : size >= 20 ? 'md' : 'sm';
+          const key = `c:${size}:${bucket}`;
+          let style = cctvClusterStyleCache.get(key);
+          if (!style) {
+            const radius = size >= 100 ? 15 : size >= 20 ? 12.5 : 10.5;
+            style = new Style({
+              image: new CircleStyle({
+                radius,
+                fill: new Fill({ color: size >= 100 ? '#0284c7' : '#0891b2' }),
+                stroke: new Stroke({ color: '#e0f2fe', width: 2 }),
+              }),
+              text: new Text({
+                text: String(size),
+                font: 'bold 10px Inter, system-ui, sans-serif',
                 fill: new Fill({ color: '#ffffff' }),
                 stroke: new Stroke({ color: '#083344', width: 2 }),
-                backgroundFill: new Fill({ color: '#0e7490' }),
-                backgroundStroke: new Stroke({ color: '#38bdf8', width: 1 }),
-                padding: [2, 4, 2, 4],
-                offsetY: -13,
-              })
-            : undefined,
-        });
+              }),
+            });
+            if (cctvClusterStyleCache.size > 300) cctvClusterStyleCache.clear();
+            cctvClusterStyleCache.set(key, style);
+          }
+          return style;
+        }
+
+        const showBadge = resolution < 35;
+        const singleKey = showBadge ? 's:badge' : 's:dot';
+        let singleStyle = cctvClusterStyleCache.get(singleKey);
+        if (!singleStyle) {
+          singleStyle = new Style({
+            image: new CircleStyle({
+              radius: showBadge ? 7 : 5.5,
+              fill: new Fill({ color: '#06b6d4' }),
+              stroke: new Stroke({ color: '#0f172a', width: 2 }),
+            }),
+            text: showBadge
+              ? new Text({
+                  text: 'CCTV LIVE',
+                  font: 'bold 8.5px Inter, system-ui, sans-serif',
+                  fill: new Fill({ color: '#ffffff' }),
+                  stroke: new Stroke({ color: '#083344', width: 2 }),
+                  backgroundFill: new Fill({ color: '#0e7490' }),
+                  backgroundStroke: new Stroke({ color: '#38bdf8', width: 1 }),
+                  padding: [2, 4, 2, 4],
+                  offsetY: -13,
+                })
+              : undefined,
+          });
+          cctvClusterStyleCache.set(singleKey, singleStyle);
+        }
+        return singleStyle;
       },
     });
     trafficCctvLayerRef.current = trafficCctvLayer;
 
-    // Realtime ATCS Traffic Signals Layer
+    // Realtime ATCS & OSM Verified Traffic Signals Layer (Clustered for smooth 60 FPS across thousands of APILL)
     const trafficSignalsSource = new VectorSource();
-    const allSignals = trafficSignalsService.getAllSignals();
-    allSignals.forEach((sig) => {
+    trafficSignalsRawSourceRef.current = trafficSignalsSource;
+    const rawSignalsInit = trafficSignalsService.getRawSignals();
+    rawSignalsInit.forEach((sig, idx) => {
       const feat = new Feature({
-        geometry: new Point(fromLonLat(sig.location)),
+        geometry: new Point(fromLonLat([sig.lng, sig.lat])),
         isTrafficSignal: true,
         signalId: sig.id,
-        signalData: sig,
-        currentPhase: sig.currentPhase,
-        remainingSeconds: sig.remainingSeconds,
+        signalRaw: sig,
+        signalIndex: idx,
         name: sig.name,
       });
       trafficSignalsSource.addFeature(feat);
     });
 
-    const trafficSignalsLayer = new VectorLayer({
+    const trafficSignalsClusterSource = new Cluster({
+      distance: 32,
+      minDistance: 16,
       source: trafficSignalsSource,
+    });
+    trafficSignalsClusterSourceRef.current = trafficSignalsClusterSource;
+
+    const signalStyleCache = new globalThis.Map<string, Style | Style[]>();
+    const trafficSignalsLayer = new VectorLayer({
+      source: trafficSignalsClusterSource as unknown as VectorSource,
       zIndex: 25,
       visible: showTrafficSignals || trafficDrawerTab === 'signals',
       style: (feature, resolution) => {
-        const rawPhase = (feature.get('currentPhase') as string) || 'RED';
-        const phase = rawPhase.toUpperCase();
-        const remaining = (feature.get('remainingSeconds') as number) || 10;
-        const isNearest = Boolean(feature.get('isNearest'));
-        const name = (feature.get('name') as string) || 'Simpang';
-        const isClose = resolution < 150;
-        const isVeryClose = resolution < 40;
+        const clustered = feature.get('features') as Feature[] | undefined;
+        const size = clustered ? clustered.length : 1;
 
-        const phaseColor =
-          phase === 'GREEN' ? '#10b981' : phase === 'YELLOW' ? '#f59e0b' : '#ef4444';
-        const phaseBg =
-          phase === 'GREEN' ? 'rgba(6, 78, 59, 0.95)' : phase === 'YELLOW' ? 'rgba(120, 53, 15, 0.95)' : 'rgba(127, 29, 29, 0.95)';
-        const phaseText =
-          phase === 'GREEN' ? 'HIJAU' : phase === 'YELLOW' ? 'KUNING' : 'MERAH';
-        const phaseIcon =
-          phase === 'GREEN'? '': phase === 'YELLOW'? '': '';
+        if (size > 1) {
+          const clusterKey = `sc:${size}`;
+          let clusterStyle = signalStyleCache.get(clusterKey);
+          if (!clusterStyle) {
+            const radius = size >= 100 ? 15 : size >= 20 ? 12.5 : 10.5;
+            clusterStyle = new Style({
+              image: new CircleStyle({
+                radius,
+                fill: new Fill({ color: '#b91c1c' }),
+                stroke: new Stroke({ color: '#fef2f2', width: 2 }),
+              }),
+              text: new Text({
+                text: String(size),
+                font: 'bold 10px Inter, system-ui, sans-serif',
+                fill: new Fill({ color: '#ffffff' }),
+                stroke: new Stroke({ color: '#450a0a', width: 2 }),
+              }),
+            });
+            if (signalStyleCache.size > 400) signalStyleCache.clear();
+            signalStyleCache.set(clusterKey, clusterStyle);
+          }
+          return clusterStyle;
+        }
 
-        const styles: Style[] = [];
+        const inner = clustered ? clustered[0] : feature;
+        const rawSig = inner.get('signalRaw');
+        const sigIndex = (inner.get('signalIndex') as number) || 0;
+        const state = rawSig
+          ? computeSingleSignalState(rawSig, sigIndex, Date.now())
+          : {
+              currentPhase: (inner.get('currentPhase') as string) || 'RED',
+              remainingSeconds: (inner.get('remainingSeconds') as number) || 10,
+              name: (inner.get('name') as string) || 'Simpang',
+            };
 
-        // 1. Glowing outer pulse halo
-        styles.push(
+        const phase = String(state.currentPhase || 'RED').toUpperCase();
+        const remaining = state.remainingSeconds || 10;
+        const isClose = resolution < 80;
+        const isVeryClose = resolution < 22;
+
+        const phaseColor = phase === 'GREEN' ? '#10b981' : phase === 'YELLOW' ? '#f59e0b' : '#ef4444';
+        const phaseText = phase === 'GREEN' ? 'HIJAU' : phase === 'YELLOW' ? 'KUNING' : 'MERAH';
+
+        // Reuse cached dot + text styles when not showing full intersection name
+        if (!isVeryClose) {
+          const sKey = `ss:${phase}:${isClose ? remaining : 'dot'}`;
+          let cached = signalStyleCache.get(sKey);
+          if (!cached) {
+            cached = [
+              new Style({
+                image: new CircleStyle({
+                  radius: isClose ? 11 : 8,
+                  fill: new Fill({
+                    color: phase === 'GREEN' ? 'rgba(16, 185, 129, 0.25)' : phase === 'YELLOW' ? 'rgba(245, 158, 11, 0.25)' : 'rgba(239, 68, 68, 0.25)',
+                  }),
+                  stroke: new Stroke({ color: phaseColor, width: 1.4 }),
+                }),
+              }),
+              new Style({
+                image: new CircleStyle({
+                  radius: isClose ? 6.5 : 5,
+                  fill: new Fill({ color: phaseColor }),
+                  stroke: new Stroke({ color: '#090d16', width: 2 }),
+                }),
+                text: isClose
+                  ? new Text({
+                      text: `${remaining}s`,
+                      font: 'bold 9px Inter, system-ui, sans-serif',
+                      fill: new Fill({ color: '#ffffff' }),
+                      stroke: new Stroke({ color: '#090d16', width: 2.2 }),
+                      backgroundFill: new Fill({ color: 'rgba(15, 23, 42, 0.92)' }),
+                      backgroundStroke: new Stroke({ color: phaseColor, width: 1.2 }),
+                      padding: [2, 4, 2, 4],
+                      offsetY: -15,
+                    })
+                  : undefined,
+              }),
+            ];
+            if (signalStyleCache.size > 400) signalStyleCache.clear();
+            signalStyleCache.set(sKey, cached);
+          }
+          return cached;
+        }
+
+        const labelText = `${state.name}\n${phaseText} ${remaining}s`;
+        return [
           new Style({
             image: new CircleStyle({
-              radius: isNearest ? 16 : isClose ? 13 : 10,
+              radius: 13,
               fill: new Fill({
                 color: phase === 'GREEN' ? 'rgba(16, 185, 129, 0.28)' : phase === 'YELLOW' ? 'rgba(245, 158, 11, 0.28)' : 'rgba(239, 68, 68, 0.28)',
               }),
-              stroke: new Stroke({
-                color: phaseColor,
-                width: isNearest ? 2.5 : 1.5,
-              }),
+              stroke: new Stroke({ color: phaseColor, width: 1.8 }),
             }),
-          })
-        );
-
-        // 2. Solid inner core with high-contrast text badge
-        const labelText = isNearest
-          ? (isVeryClose ? `⭐ ${name}\n[${phaseIcon} ${phaseText} ${remaining}s]` : `⭐ ${name} (${remaining}s)`)
-          : (isClose ? `${name}\n${phaseIcon} ${phaseText} ${remaining}s`: `${remaining}s`);
-
-        styles.push(
+          }),
           new Style({
             image: new CircleStyle({
-              radius: isNearest ? 9 : isClose ? 7 : 6,
+              radius: 7,
               fill: new Fill({ color: phaseColor }),
               stroke: new Stroke({ color: '#090d16', width: 2.5 }),
             }),
             text: new Text({
               text: labelText,
-              font: isNearest ? 'bold 10px Inter, system-ui, sans-serif' : 'bold 9px Inter, system-ui, sans-serif',
+              font: 'bold 9.5px Inter, system-ui, sans-serif',
               fill: new Fill({ color: '#ffffff' }),
               stroke: new Stroke({ color: '#090d16', width: 2.5 }),
-              backgroundFill: new Fill({ color: isNearest ? phaseBg : 'rgba(15, 23, 42, 0.92)' }),
-              backgroundStroke: new Stroke({ color: phaseColor, width: isNearest ? 2 : 1.2 }),
-              padding: isNearest ? [3, 6, 3, 6] : [2, 5, 2, 5],
-              offsetY: isVeryClose ? -22 : -17,
+              backgroundFill: new Fill({ color: 'rgba(15, 23, 42, 0.94)' }),
+              backgroundStroke: new Stroke({ color: phaseColor, width: 1.4 }),
+              padding: [2.5, 5, 2.5, 5],
+              offsetY: -20,
               textAlign: 'center',
             }),
-          })
-        );
-
-        return styles;
+          }),
+        ];
       },
     });
     trafficSignalsLayerRef.current = trafficSignalsLayer;
@@ -4990,6 +5180,62 @@ export function MapsView() {
                 if (popupRef.current) popupRef.current.style.display = 'none';
               });
             }
+          } else if (Array.isArray(feature.get('features'))) {
+            const members = feature.get('features') as Feature[];
+            if (members.length === 1) {
+              const inner = members[0];
+              if (inner.get('isTrafficCctv')) {
+                const cctv = inner.get('cctvData') as TrafficCctvCamera;
+                if (cctv) {
+                  setSelectedCctvCamera(cctv);
+                  if (popupRef.current) popupRef.current.style.display = 'none';
+                  return;
+                }
+              } else if (inner.get('isTrafficSignal')) {
+                const sigId = inner.get('signalId') as string;
+                if (sigId) {
+                  setSelectedTrafficSignalId(sigId);
+                  const innerGeom = inner.getGeometry();
+                  if (innerGeom && innerGeom.getType() === 'Point') {
+                    mapRef.current?.getView().animate({
+                      center: (innerGeom as Point).getCoordinates(),
+                      zoom: Math.max(15.5, mapRef.current.getView().getZoom() || 15.5),
+                      duration: 500,
+                    });
+                  }
+                  if (popupRef.current) popupRef.current.style.display = 'none';
+                  return;
+                }
+              }
+            } else if (members.length > 1) {
+              const curZoom = mapRef.current?.getView().getZoom() || 10;
+              if (curZoom >= 17.5) {
+                const first = members[0];
+                if (first.get('isTrafficCctv') && first.get('cctvData')) {
+                  setSelectedCctvCamera(first.get('cctvData') as TrafficCctvCamera);
+                  if (popupRef.current) popupRef.current.style.display = 'none';
+                  return;
+                }
+                if (first.get('isTrafficSignal') && first.get('signalId')) {
+                  setSelectedTrafficSignalId(first.get('signalId') as string);
+                  if (popupRef.current) popupRef.current.style.display = 'none';
+                  return;
+                }
+              }
+              const pts = members
+                .map((m) => (m.getGeometry() as Point | undefined)?.getCoordinates())
+                .filter((c): c is [number, number] => Array.isArray(c));
+              if (pts.length > 0 && mapRef.current) {
+                const ext = boundingExtent(pts);
+                mapRef.current.getView().fit(ext, {
+                  padding: [80, 80, 80, 80],
+                  maxZoom: 17,
+                  duration: 550,
+                });
+              }
+              if (popupRef.current) popupRef.current.style.display = 'none';
+              return;
+            }
           } else if (feature.get('isTrafficCctv')) {
             const cctv = feature.get('cctvData') as TrafficCctvCamera;
             if (cctv) {
@@ -5403,7 +5649,10 @@ export function MapsView() {
 
     const isTrafficActive = activeMapBasemap === 'traffic' || showTrafficCorridors;
     if (trafficOverlayLayerRef.current) {
-      trafficOverlayLayerRef.current.setVisible(showTrafficCorridors && activeMapBasemap !== 'traffic');
+      trafficOverlayLayerRef.current.setVisible(
+        ((showTrafficCorridors && activeMapBasemap !== 'traffic') || activeMapBasemap === 'traffic') &&
+          trafficMode !== 'typical'
+      );
     }
     if (trafficVectorLayerRef.current) {
       trafficVectorLayerRef.current.setVisible(isTrafficActive);
@@ -5415,14 +5664,14 @@ export function MapsView() {
       trafficSignalsLayerRef.current.setVisible(showTrafficSignals || trafficDrawerTab === 'signals');
     }
     mapRef.current?.render();
-  }, [activeMapBasemap, showTrafficCorridors, showTrafficCctv, showTrafficSignals, trafficDrawerTab]);
+  }, [activeMapBasemap, showTrafficCorridors, showTrafficCctv, showTrafficSignals, trafficDrawerTab, trafficMode]);
 
-  // Load CCTV cameras when CCTV tab is active or filters update
+  // Hydrate full valid outdoor traffic CCTV catalog automatically when CCTV layer or traffic drawer is opened
   useEffect(() => {
-    if (trafficDrawerTab === 'cctv') {
+    if (showTrafficCctv || trafficDrawerTab === 'cctv') {
       loadCctvFeeds(cctvCityFilter, cctvCategoryFilter, cctvSearchQuery);
     }
-  }, [trafficDrawerTab, cctvCityFilter, cctvCategoryFilter, cctvSearchQuery, loadCctvFeeds]);
+  }, [showTrafficCctv, trafficDrawerTab, cctvCityFilter, cctvCategoryFilter, cctvSearchQuery, loadCctvFeeds]);
 
   // Continuously receive 5-minute background CCTV updates without interrupting map interaction
   useEffect(() => {
@@ -5432,6 +5681,65 @@ export function MapsView() {
     });
     return () => unsubscribe();
   }, [updateCctvLayerFeatures]);
+
+  // Subscribe to nationwide traffic signals dataset and rebuild map vector source on update
+  useEffect(() => {
+    const syncSignalsSource = (rawList: any[]) => {
+      const source = trafficSignalsRawSourceRef.current;
+      if (!source) return;
+      const next = rawList.map((sig, idx) => new Feature({
+        geometry: new Point(fromLonLat([sig.lng, sig.lat])),
+        isTrafficSignal: true,
+        signalId: sig.id,
+        signalRaw: sig,
+        signalIndex: idx,
+        name: sig.name,
+      }));
+      source.clear(true);
+      source.addFeatures(next);
+      trafficSignalsLayerRef.current?.changed();
+      setRawSignalsVersion((v) => v + 1);
+    };
+
+    const unsub = trafficSignalsService.subscribe((rawList) => {
+      syncSignalsSource(rawList);
+    });
+    return unsub;
+  }, []);
+
+  // Dynamically scale cluster distance by zoom & discover viewport Overpass traffic signals when zoomed in
+  useEffect(() => {
+    const map = mapRef.current;
+    if (!map || !mapReady) return;
+
+    const handleTrafficViewportChange = () => {
+      const view = map.getView();
+      const zoom = view.getZoom() || 5;
+      if (trafficCctvClusterSourceRef.current) {
+        trafficCctvClusterSourceRef.current.setDistance(zoom >= 15.5 ? 0 : zoom >= 13 ? 20 : 36);
+      }
+      if (trafficSignalsClusterSourceRef.current) {
+        trafficSignalsClusterSourceRef.current.setDistance(zoom >= 15 ? 0 : zoom >= 12.5 ? 20 : 32);
+      }
+
+      const size = map.getSize();
+      if (!size) return;
+      const ext3857 = view.calculateExtent(size);
+      const ext4326 = transformExtent(ext3857, 'EPSG:3857', 'EPSG:4326') as [number, number, number, number];
+      setMapViewportExtent(ext4326);
+
+      if ((showTrafficSignals || trafficDrawerTab === 'signals') && zoom >= 13) {
+        const [west, south, east, north] = ext4326;
+        void trafficSignalsService.fetchViewportSignals([south, west, north, east]);
+      }
+    };
+
+    handleTrafficViewportChange();
+    map.on('moveend', handleTrafficViewportChange);
+    return () => {
+      map.un('moveend', handleTrafficViewportChange);
+    };
+  }, [mapReady, showTrafficSignals, trafficDrawerTab]);
 
   // Fetch verified signals telemetry from API whenever ATCS tab or signal layer is active
   useEffect(() => {
@@ -6060,8 +6368,8 @@ export function MapsView() {
         <Menu className="h-5 w-5" />
       </button>
 
-      {/* Floating On-Map Reactive HUD: Rambu & Lampu Merah Terdekat */}
-      {nearestSignal && (showTrafficSignals || showTrafficCorridors || activeMapBasemap === 'traffic') && !isNearestSignalHudDismissed && (
+      {/* Floating On-Map Reactive HUD: Rambu & Lampu Merah Terdekat (hanya tampil jika ATCS aktif atau simpang berada dalam <= 5 km) */}
+      {nearestSignal && (showTrafficSignals || (nearestSignal.distanceKm <= 5 && (showTrafficCorridors || activeMapBasemap === 'traffic'))) && !isNearestSignalHudDismissed && (
         <motion.div
           initial={{ opacity: 0, y: -8, scale: 0.95 }}
           animate={{ opacity: 1, y: 0, scale: 1 }}
@@ -7304,7 +7612,7 @@ export function MapsView() {
                       : 'text-slate-600 dark:text-slate-400 hover:bg-slate-200/60 dark:hover:bg-slate-800'
                   }`}
                 >
-                  <span className="truncate">ATCS ({liveSignals.length})</span>
+                  <span className="truncate">ATCS ({totalSignalsCatalogCount})</span>
                 </button>
 
                 <button
@@ -7395,13 +7703,22 @@ export function MapsView() {
                       </div>
                     </div>
 
-                    {(liveTrafficSummary?.dataStatus === 'ERROR' || liveTrafficSummary?.dataStatus === 'UNAVAILABLE') && (
-                      <div role="status" className="p-2 rounded-xl bg-amber-50/90 dark:bg-amber-950/40 border border-amber-200/80 dark:border-amber-900/60 text-[10px] text-amber-800 dark:text-amber-300 flex items-center justify-between gap-2">
-                        <span className="font-bold">
-                          {liveTrafficSummary.dataStatus === 'ERROR' ? 'ERROR TRAFFIC API' : 'FEED TRAFIK EKSTERNAL BELUM TERHUBUNG'}
-                        </span>
+                    {liveTrafficSummary?.dataStatus === 'ERROR' ? (
+                      <div role="status" className="p-2 rounded-xl bg-rose-50/90 dark:bg-rose-950/40 border border-rose-200/80 dark:border-rose-900/60 text-[10px] text-rose-800 dark:text-rose-300 flex items-center justify-between gap-2">
+                        <span className="font-bold">ERROR TRAFFIC API</span>
                         <span className="truncate opacity-80">
                           {liveTrafficSummary.errorMessage || 'Menampilkan katalog koridor referensi'}
+                        </span>
+                      </div>
+                    ) : (
+                      <div role="status" className="p-2 rounded-xl bg-emerald-50/80 dark:bg-emerald-950/30 border border-emerald-200/80 dark:border-emerald-900/60 text-[10px] text-emerald-800 dark:text-emerald-300 flex items-center justify-between gap-2">
+                        <span className="font-bold">
+                          {trafficMode === 'typical' ? 'PROFIL LALU LINTAS BIASANYA AKTIF' : 'OVERLAY TRAFIK & KORIDOR AKTIF'}
+                        </span>
+                        <span className="truncate opacity-85">
+                          {liveTrafficSummary?.tomtomConfigured
+                            ? 'Live TomTom & Google Traffic aktif'
+                            : '112 Koridor + Google Traffic (TomTom BYOK opsional)'}
                         </span>
                       </div>
                     )}
@@ -8091,9 +8408,23 @@ export function MapsView() {
                         ))}
                       </div>
 
-                      {/* Quick City Pills */}
+                      {/* Quick City Pills & Viewport Toggle */}
                       <div className="flex items-center gap-1 overflow-x-auto pb-0.5 pt-0.5 no-scrollbar">
-                        {['Semua', 'Bandung', 'Semarang', 'Cirebon', 'DKI Jakarta', 'D.I. Yogyakarta', 'Surabaya', 'Provinsi Bali', 'Jalan Tol Trans Jawa'].map((cityName) => (
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setCctvViewportOnly((v) => !v);
+                            setCctvDisplayLimit(40);
+                          }}
+                          className={`px-2 py-0.5 rounded-lg text-[9px] font-bold whitespace-nowrap transition-colors cursor-pointer border ${
+                            cctvViewportOnly
+                              ? 'bg-emerald-600 text-white border-emerald-500 shadow-2xs'
+                              : 'bg-emerald-50 dark:bg-emerald-950/60 text-emerald-700 dark:text-emerald-300 border-emerald-200 dark:border-emerald-800 hover:bg-emerald-100'
+                          }`}
+                        >
+                          {cctvViewportOnly ? 'Area Peta: AKTIF' : 'Area Peta Saat Ini'}
+                        </button>
+                        {['Semua', 'DKI Jakarta', 'Bandung', 'Semarang', 'D.I. Yogyakarta', 'Surabaya', 'Sidoarjo', 'Malang', 'Bogor', 'Medan', 'Jalan Tol Trans Jawa'].map((cityName) => (
                           <button
                             key={cityName}
                             type="button"
@@ -8325,7 +8656,7 @@ export function MapsView() {
                       <div className="flex items-center gap-1.5">
                         <span className="flex items-center gap-1 px-2 py-0.5 rounded-full bg-emerald-100 dark:bg-emerald-900 text-emerald-800 dark:text-emerald-200 text-[9.5px] font-bold border border-emerald-300/60 dark:border-emerald-700">
                           <span className="h-1.5 w-1.5 rounded-full bg-emerald-500 animate-pulse" />
-                          {liveSignals.length} Simpang Terhubung
+                          {totalSignalsCatalogCount.toLocaleString('id-ID')} Simpang Terverifikasi
                         </span>
                         <button
                           type="button"
@@ -8344,28 +8675,83 @@ export function MapsView() {
                     </div>
                     
                     <p className="text-[10px] text-emerald-700/90 dark:text-emerald-300/80 leading-relaxed">
-                      Siklus fase lampu lalu lintas realtime dihitung secara deterministik dengan telemetri hitung mundur dan estimasi panjang antrean kendaraan.
+                      Koordinat simpang berasal dari pemetaan fisik resmi Dishub ATCS &amp; OpenStreetMap Indonesia; fase lampu &amp; hitung mundur menggunakan model estimasi siklus terkalibrasi.
                     </p>
 
                     {/* Official Ground-Truth Provenance Attribution */}
                     <div className="p-2.5 rounded-xl bg-white/80 dark:bg-slate-900/80 border border-emerald-200/70 dark:border-emerald-800/60 text-[9.5px] space-y-1.5 shadow-2xs">
                       <div className="flex items-center justify-between text-slate-600 dark:text-slate-300">
                         <span className="font-bold flex items-center gap-1 text-emerald-700 dark:text-emerald-300">
-                          <span>Sumber Resmi Data:</span>
+                          <span>Sumber Data Terintegrasi:</span>
                         </span>
                         <span className="font-mono text-[9px] text-emerald-700 dark:text-emerald-300 px-1.5 py-0.5 rounded bg-emerald-100/70 dark:bg-emerald-950/60 font-bold border border-emerald-300/40 dark:border-emerald-700/50">
                           API: /api/spatial/traffic/signals
                         </span>
                       </div>
                       <p className="text-slate-600 dark:text-slate-300 leading-normal">
-                        Terhubung ke <strong>33 titik simpang resmi</strong> di bawah pengawasan langsung <strong>Dinas Perhubungan Pemerintah Daerah</strong> (ATCS Semarang, SITS Surabaya, Balai Kota Bandung, SCATS DKI Jakarta, Dishub DIY, Surakarta, Bali, Balikpapan) dan <strong>Ditjen Bina Marga Kementerian PU</strong>.
+                        Memuat <strong>{totalSignalsCatalogCount.toLocaleString('id-ID')} titik simpang APILL</strong> seluruh Indonesia (ATCS Dishub DKI Jakarta, SITS Surabaya, ATCS Bandung, Semarang, DIY, Solo, Bali, Balikpapan, serta registri persimpangan fisik OpenStreetMap termasuk Mojokerto, Malang, Sidoarjo, Medan, Makassar, dll).
                       </p>
                       <div className="flex items-center justify-between pt-1 border-t border-emerald-100 dark:border-emerald-900/50 text-[9px] text-slate-500 dark:text-slate-400 font-mono">
                         <span className="text-emerald-600 dark:text-emerald-400 font-bold flex items-center gap-1">
                           <span className="h-1.5 w-1.5 rounded-full bg-emerald-500 animate-pulse" />
-                          Protokol SCATS &amp; SITS Realtime
+                          ATCS + OSM Viewport Sync
                         </span>
-                        <span>Delay: ±0.9s - 1.5s</span>
+                        <span>Model Siklus Terkalibrasi</span>
+                      </div>
+                    </div>
+
+                    {/* Signal Search & Viewport Toggle */}
+                    <div className="space-y-1.5 pt-1">
+                      <div className="relative">
+                        <Search className="w-3.5 h-3.5 absolute left-2.5 top-1/2 -translate-y-1/2 text-emerald-600/70 dark:text-emerald-400/70" />
+                        <input
+                          type="text"
+                          value={signalSearchQuery}
+                          onChange={(e) => {
+                            setSignalSearchQuery(e.target.value);
+                            setSignalsDisplayLimit(40);
+                          }}
+                          placeholder="Cari simpang atau kota (mis. Mojokerto, Jakarta, Surabaya)..."
+                          className="w-full pl-8 pr-7 py-1.5 text-[11px] rounded-xl bg-white/90 dark:bg-slate-900/90 border border-emerald-200 dark:border-emerald-800 text-slate-800 dark:text-slate-100 placeholder:text-slate-400 focus:outline-hidden focus:ring-1 focus:ring-emerald-500"
+                        />
+                        {signalSearchQuery && (
+                          <button
+                            type="button"
+                            onClick={() => setSignalSearchQuery('')}
+                            className="absolute right-2 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 text-xs"
+                          >
+                            ×
+                          </button>
+                        )}
+                      </div>
+                      <div className="flex items-center gap-1.5">
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setSignalViewportOnly((v) => !v);
+                            setSignalsDisplayLimit(40);
+                          }}
+                          className={`px-2.5 py-1 rounded-lg text-[9.5px] font-bold transition-colors cursor-pointer border ${
+                            signalViewportOnly
+                              ? 'bg-emerald-600 text-white border-emerald-500'
+                              : 'bg-white dark:bg-slate-900 text-emerald-700 dark:text-emerald-300 border-emerald-200 dark:border-emerald-800'
+                          }`}
+                        >
+                          {signalViewportOnly ? 'Filter Area Peta: AKTIF' : 'Filter Area Peta Saat Ini'}
+                        </button>
+                        {['Jakarta', 'Surabaya', 'Mojokerto', 'Bandung', 'Semarang'].map((cName) => (
+                          <button
+                            key={cName}
+                            type="button"
+                            onClick={() => {
+                              setSignalSearchQuery(cName);
+                              setSignalsDisplayLimit(40);
+                            }}
+                            className="px-2 py-1 rounded-lg text-[9px] font-bold bg-white/80 dark:bg-slate-900/80 text-slate-600 dark:text-slate-300 border border-slate-200 dark:border-slate-700 hover:bg-emerald-100 dark:hover:bg-emerald-950/60 cursor-pointer"
+                          >
+                            {cName}
+                          </button>
+                        ))}
                       </div>
                     </div>
                   </div>
@@ -8410,7 +8796,23 @@ export function MapsView() {
                     </div>
                   )}
 
-                  {liveSignals.map((sig) => {
+                  {filteredDrawerSignals.length === 0 ? (
+                    <div className="p-6 text-center text-slate-500 dark:text-slate-400 text-xs">
+                      <p className="font-semibold">Tidak ada simpang lampu merah yang cocok dengan filter ini.</p>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setSignalSearchQuery('');
+                          setSignalViewportOnly(false);
+                        }}
+                        className="mt-2 px-3 py-1 bg-emerald-600 text-white rounded-xl text-[10px] font-bold"
+                      >
+                        Reset Filter Simpang
+                      </button>
+                    </div>
+                  ) : (
+                    <>
+                      {filteredDrawerSignals.map((sig) => {
                     const sigDistKm = userCoords ? geospatialAnalysisService.calculateDistanceKm(userCoords.lat, userCoords.lng, sig.lat, sig.lng) : null;
                     const sigDistFormatted = sigDistKm !== null ? (sigDistKm < 1 ? `${Math.round(sigDistKm * 1000)} m` : `${sigDistKm.toFixed(1)} km`) : null;
                     const phaseColor =
@@ -8519,6 +8921,19 @@ export function MapsView() {
                       </div>
                     );
                   })}
+                      {filteredDrawerSignals.length >= signalsDisplayLimit && totalSignalsCatalogCount > signalsDisplayLimit && (
+                        <div className="pt-2 text-center pb-2">
+                          <button
+                            type="button"
+                            onClick={() => setSignalsDisplayLimit((prev) => prev + 40)}
+                            className="px-4 py-1.5 rounded-xl bg-emerald-100 dark:bg-emerald-950/60 hover:bg-emerald-200 dark:hover:bg-emerald-900 text-emerald-800 dark:text-emerald-200 font-bold text-[10.5px] transition-all cursor-pointer shadow-2xs"
+                          >
+                            Tampilkan 40 Simpang Berikutnya ({signalsDisplayLimit} dari {totalSignalsCatalogCount.toLocaleString('id-ID')})
+                          </button>
+                        </div>
+                      )}
+                    </>
+                  )}
                 </div>
               )}
 
@@ -8595,7 +9010,7 @@ export function MapsView() {
                     </div>
                     <div className="flex items-center justify-between">
                       <span className="text-slate-500">Simpang ATCS:</span>
-                      <span className="text-emerald-600 font-bold">{trafficSignalsService.getAllSignals().length} Simpang Aktif</span>
+                      <span className="text-emerald-600 font-bold">{totalSignalsCatalogCount} Simpang Aktif</span>
                     </div>
                   </div>
                 </div>
@@ -11570,12 +11985,35 @@ export function MapsView() {
           />
         )}
 
-        {selectedTrafficSignalId && (
-          <TrafficSignalModal
-            signalId={selectedTrafficSignalId}
-            onClose={() => setSelectedTrafficSignalId(null)}
-          />
-        )}
+        {selectedTrafficSignalId && (() => {
+          const activeSig = trafficSignalsService.getSignalById(selectedTrafficSignalId);
+          let nearestCam: TrafficCctvCamera | null = null;
+          let nearestCamDistM: number | null = null;
+          if (activeSig) {
+            const cams = trafficCctvService.getCamerasFiltered({ includeCourtroom: false });
+            let bestKm = 1.5;
+            for (const cam of cams) {
+              const dKm = geospatialAnalysisService.calculateDistanceKm(activeSig.lat, activeSig.lng, cam.lat, cam.lng);
+              if (dKm < bestKm) {
+                bestKm = dKm;
+                nearestCam = cam;
+              }
+            }
+            if (nearestCam) nearestCamDistM = Math.round(bestKm * 1000);
+          }
+          return (
+            <TrafficSignalModal
+              signalId={selectedTrafficSignalId}
+              onClose={() => setSelectedTrafficSignalId(null)}
+              nearbyCamera={nearestCam}
+              nearbyCameraDistanceM={nearestCamDistM}
+              onOpenCctv={(cam) => {
+                setSelectedTrafficSignalId(null);
+                setSelectedCctvCamera(cam);
+              }}
+            />
+          );
+        })()}
 
         {selectedVolcanoForModal && (
           <VolcanoDetailModal

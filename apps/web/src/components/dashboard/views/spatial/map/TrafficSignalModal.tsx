@@ -1,13 +1,23 @@
 import React, { useState, useEffect } from 'react';
-import { X, Clock, ShieldCheck, Activity, Radio, Wrench, AlertTriangle, CheckCircle2, Building2 } from 'lucide-react';
+import { X, Clock, ShieldCheck, Activity, Radio, Wrench, AlertTriangle, CheckCircle2, Building2, Camera } from 'lucide-react';
 import { TrafficSignalIntersection, trafficSignalsService } from '@/services/trafficSignalsService';
+import type { TrafficCctvCamera } from '@/services/trafficCctvService';
 
 interface TrafficSignalModalProps {
   signalId: string | null;
   onClose: () => void;
+  nearbyCamera?: TrafficCctvCamera | null;
+  nearbyCameraDistanceM?: number | null;
+  onOpenCctv?: (camera: TrafficCctvCamera) => void;
 }
 
-export const TrafficSignalModal: React.FC<TrafficSignalModalProps> = ({ signalId, onClose }) => {
+export const TrafficSignalModal: React.FC<TrafficSignalModalProps> = ({
+  signalId,
+  onClose,
+  nearbyCamera,
+  nearbyCameraDistanceM,
+  onOpenCctv,
+}) => {
   const [signal, setSignal] = useState<TrafficSignalIntersection | null>(null);
 
   useEffect(() => {
@@ -41,7 +51,7 @@ export const TrafficSignalModal: React.FC<TrafficSignalModalProps> = ({ signalId
 
   return (
     <div 
-      className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/75 backdrop-blur-md animate-in fade-in duration-200"
+      className="fixed inset-0 z-[10001] flex items-center justify-center p-4 bg-slate-950/75 backdrop-blur-md animate-in fade-in duration-200"
       onClick={onClose}
     >
       <div 
@@ -156,13 +166,25 @@ export const TrafficSignalModal: React.FC<TrafficSignalModalProps> = ({ signalId
               <Radio className="h-3 w-3 animate-pulse" />
               FASE AKTIF: {signal.currentPhase === 'RED' ? 'BERHENTI (MERAH)' : signal.currentPhase === 'YELLOW' ? 'HATI-HATI (KUNING)' : 'JALAN (HIJAU)'}
             </span>
-            <div className="flex items-center gap-2 text-[10px] text-slate-400 font-mono">
+            <div className="flex items-center gap-2 text-[10px] text-slate-400 font-mono flex-wrap justify-center">
               <span>Sisa: <strong className="text-white text-xs">{signal.remainingSec} detik</strong></span>
               <span>•</span>
               <span>Siklus Total: {signal.cycleTotalSec}s</span>
               <span>•</span>
-              <span className="text-sky-300">Latensi: ±{signal.telemetryDelaySec}s</span>
+              <span className="text-sky-300">Estimasi Siklus Terkalibrasi (±{signal.telemetryDelaySec}s)</span>
             </div>
+            {nearbyCamera && onOpenCctv && (
+              <button
+                type="button"
+                onClick={() => onOpenCctv(nearbyCamera)}
+                className="mt-2.5 px-3 py-1.5 rounded-xl bg-cyan-600 hover:bg-cyan-500 text-white text-[11px] font-bold flex items-center gap-1.5 shadow-md transition-colors cursor-pointer"
+              >
+                <Camera className="w-3.5 h-3.5 shrink-0" />
+                <span className="truncate max-w-[290px]">
+                  Lihat Live CCTV Simpang Terdekat ({nearbyCameraDistanceM != null ? (nearbyCameraDistanceM < 1000 ? `${Math.round(nearbyCameraDistanceM)} m` : `${(nearbyCameraDistanceM / 1000).toFixed(1)} km`) : 'Dekat'}) — {nearbyCamera.name}
+                </span>
+              </button>
+            )}
           </div>
         </div>
 
@@ -171,7 +193,11 @@ export const TrafficSignalModal: React.FC<TrafficSignalModalProps> = ({ signalId
           <div className="flex items-start gap-2">
             <Building2 className="w-3.5 h-3.5 text-sky-400 shrink-0 mt-0.5" />
             <div className="min-w-0">
-              <span className="text-slate-400 block text-[9.5px]">Otoritas Sumber Data Resmi:</span>
+              <span className="text-slate-400 block text-[9.5px]">
+                {signal.signalSource === 'OSM_VERIFIED'
+                  ? 'Lokasi Simpang Fisik Terverifikasi (OpenStreetMap APILL & Dishub Daerah):'
+                  : 'Katalog Simpang ATCS Pemerintah Daerah:'}
+              </span>
               <strong className="text-slate-200">{signal.authoritySource}</strong>
             </div>
           </div>

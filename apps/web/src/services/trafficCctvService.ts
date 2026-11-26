@@ -105,26 +105,48 @@ const RAW_CAMERAS: Omit<TrafficCctvCamera, 'location'>[] = [
     description: "Pemantauan zona pedestrian Alun-Alun Bandung dan koridor heritage Asia Afrika.",
   },
   {
-    id: "bali-305-simpang-lima",
-    name: "Simpang Lima Klungkung Bali",
-    road: "Jl. Untung Surapati - Jl. Bypass Ida Bagus Mantra",
-    city: "Provinsi Bali",
-    region: "Provinsi Bali",
-    lat: -8.5343064,
-    lng: 115.394877,
-    direction: "Pusat Persimpangan Lima Arah",
+    id: "balitower-m-8",
+    name: "Bendungan Hilir 001 — ATCS DKI Jakarta",
+    road: "Jl. Jenderal Sudirman - Bendungan Hilir",
+    city: "DKI Jakarta",
+    region: "DKI Jakarta",
+    lat: -6.20763,
+    lng: 106.80376,
+    direction: "Pusat Koridor Bisnis Sudirman Jakarta",
     streamType: "hls",
-    streamUrl: "/api/spatial/traffic/cctv-stream?id=bali-305-simpang-lima",
-    portalUrl: "https://cctvnusantara.com/cctv/bali-305-simpang-lima",
-    thumbnailUrl: "https://cctvnusantara.com/api/thumbnail?id=bali-305-simpang-lima",
-    authority: "Diskominfo Provinsi Bali (Bali Satu Data)",
+    streamUrl: "/api/spatial/traffic/cctv-stream?id=balitower-m-8",
+    portalUrl: "https://cctvnusantara.com/cctv/balitower-m-8",
+    thumbnailUrl: "https://cctvnusantara.com/api/thumbnail?id=balitower-m-8",
+    authority: "Pemprov DKI Jakarta (Balitower)",
     fps: 25,
     resolution: "1080p FHD",
     status: "LIVE",
-    statusText: "Lalu Lintas Lancar Mengalir Bebas",
-    trafficDensity: 38,
+    statusText: "Lalu Lintas Koridor Sudirman Aktif",
+    trafficDensity: 52,
     category: "jalan",
-    description: "Persimpangan strategis penghubung kabupaten Klungkung dan Gianyar Bali.",
+    description: "Kamera pantau jalan protokol Jenderal Sudirman - Bendungan Hilir Jakarta Pusat.",
+  },
+  {
+    id: "sidoarjo-1",
+    name: "Pendopo Sidoarjo — ATCS Kabupaten Sidoarjo",
+    road: "Jl. Cokronegoro / Alun-Alun Sidoarjo",
+    city: "Kabupaten Sidoarjo",
+    region: "Jawa Timur",
+    lat: -7.444555,
+    lng: 112.718077,
+    direction: "Pusat Kota Sidoarjo",
+    streamType: "hls",
+    streamUrl: "/api/spatial/traffic/cctv-stream?id=sidoarjo-1",
+    portalUrl: "https://cctvnusantara.com/cctv/sidoarjo-1",
+    thumbnailUrl: "https://cctvnusantara.com/api/thumbnail?id=sidoarjo-1",
+    authority: "Diskominfo & Dishub Kabupaten Sidoarjo",
+    fps: 25,
+    resolution: "1080p FHD",
+    status: "LIVE",
+    statusText: "Lalu Lintas Alun-Alun Sidoarjo Terkendali",
+    trafficDensity: 46,
+    category: "jalan",
+    description: "Kamera pantau pusat aktivitas Alun-Alun dan koridor arteri Kabupaten Sidoarjo.",
   },
   {
     id: "hk-sibanceh-541553474526192414586736",
@@ -336,6 +358,8 @@ const FALLBACK_CAMERAS: TrafficCctvCamera[] = ALL_RAW_CAMERAS.map((c) => ({
 
 class TrafficCctvService {
   private cameras: TrafficCctvCamera[] = FALLBACK_CAMERAS;
+  private allTrafficLoaded: boolean = false;
+  private courtroomLoaded: boolean = false;
   private cities: CitySummary[] = [];
   private categories: CategorySummary[] = [];
   private activeCity: string = 'Semua';
@@ -396,36 +420,98 @@ class TrafficCctvService {
     category?: string;
     search?: string;
     limit?: number;
+    trafficOnly?: boolean;
   }): Promise<TrafficCctvCamera[]> {
     this.currentParams = params;
+    const requestedCategory = params?.category || 'Semua';
+    const needsCourtroom = requestedCategory.toLowerCase() === 'pengadilan' || requestedCategory.toLowerCase() === 'pengadilannegeri';
+
+    // Serve immediately from hydrated catalog when only local filters/search change
+    if (this.allTrafficLoaded && (!needsCourtroom || this.courtroomLoaded) && (!params?.limit || params.limit >= 1000)) {
+      return this.getCamerasFiltered(params);
+    }
+
     if (this.isFetching) return this.getCamerasFiltered(params);
 
     this.isFetching = true;
     try {
       const searchParams = new URLSearchParams();
-      if (params?.city && params.city !== 'Semua') searchParams.set('city', params.city);
-      if (params?.category && params.category !== 'Semua') searchParams.set('category', params.category);
-      if (params?.search) searchParams.set('search', params.search);
-      searchParams.set('limit', String(params?.limit || 300));
+      searchParams.set('compact', '1');
+      if (needsCourtroom) {
+        searchParams.set('category', requestedCategory);
+        searchParams.set('limit', '2000');
+      } else {
+        searchParams.set('trafficOnly', '1');
+        searchParams.set('limit', String(Math.max(params?.limit || 7000, 7000)));
+      }
 
       const res = await fetch(`/api/spatial/traffic/cctv?${searchParams.toString()}`);
       if (res.ok) {
         const json = await res.json();
         if (json.success && Array.isArray(json.data) && json.data.length > 0) {
-          this.cameras = json.data.map((c: any) => ({
-            ...c,
-            directStreamUrl:
-              c.directStreamUrl ||
-              (c.streamType === 'hls'
-                ? `https://cctvnusantara.com/api/stream?id=${encodeURIComponent(c.id)}`
-                : undefined),
-            directThumbnailUrl:
-              c.directThumbnailUrl ||
-              (c.streamType === 'hls'
-                ? `https://cctvnusantara.com/api/thumbnail?id=${encodeURIComponent(c.id)}`
-                : undefined),
-            location: c.location || [c.lng, c.lat],
-          }));
+          const normalized = json.data.map((c: any) => {
+            const streamType = c.streamType || 'hls';
+            const category = c.category || 'jalan';
+            const city = c.city || 'Indonesia';
+            const road = c.road || c.name || 'Arteri Publik';
+            const authority = c.authority || 'ATCS Publik Dishub';
+            const status = c.status || 'LIVE';
+            const streamUrl =
+              c.streamUrl ||
+              (streamType === 'hls'
+                ? `/api/spatial/traffic/cctv-stream?id=${encodeURIComponent(c.id)}`
+                : `/api/spatial/traffic/cctv-proxy?url=${encodeURIComponent(`https://cctvnusantara.com/api/stream?id=${c.id}`)}`);
+            const portalUrl = c.portalUrl || `https://cctvnusantara.com/cctv/${encodeURIComponent(c.id)}`;
+            const thumbnailUrl = c.thumbnailUrl || `/api/spatial/traffic/cctv-thumbnail?id=${encodeURIComponent(c.id)}`;
+            const fps = c.fps || (streamType === 'youtube' ? 30 : 25);
+            const resolution = c.resolution || '1080p FHD';
+            const statusText =
+              c.statusText ||
+              (status === 'DEGRADED'
+                ? 'Stream Terdeteksi Gangguan'
+                : status === 'OFFLINE'
+                ? 'Feed CCTV Offline'
+                : 'Stream CCTV Terdaftar (Tanpa Sensor Kecepatan)');
+
+            return {
+              ...c,
+              road,
+              city,
+              region: c.region || city,
+              streamType,
+              streamUrl,
+              directStreamUrl:
+                c.directStreamUrl ||
+                (streamType === 'hls'
+                  ? `https://cctvnusantara.com/api/stream?id=${encodeURIComponent(c.id)}`
+                  : undefined),
+              portalUrl,
+              thumbnailUrl,
+              directThumbnailUrl:
+                c.directThumbnailUrl ||
+                (streamType === 'hls'
+                  ? `https://cctvnusantara.com/api/thumbnail?id=${encodeURIComponent(c.id)}`
+                  : undefined),
+              authority,
+              fps,
+              resolution,
+              status,
+              statusText,
+              category,
+              location: c.location || [c.lng, c.lat],
+            } as TrafficCctvCamera;
+          });
+
+          if (needsCourtroom) {
+            const byId = new Map<string, TrafficCctvCamera>();
+            for (const cam of this.cameras) byId.set(cam.id, cam);
+            for (const cam of normalized) byId.set(cam.id, cam);
+            this.cameras = Array.from(byId.values());
+            this.courtroomLoaded = true;
+          } else {
+            this.cameras = normalized;
+            this.allTrafficLoaded = true;
+          }
 
           if (Array.isArray(json.cities) && json.cities.length > 0) {
             this.cities = json.cities;
@@ -435,7 +521,7 @@ class TrafficCctvService {
           }
           this.lastFetchedAt = Date.now();
           this.notifyListeners();
-          return this.cameras;
+          return this.getCamerasFiltered(params);
         }
       }
     } catch {
@@ -452,15 +538,35 @@ class TrafficCctvService {
     category?: string;
     search?: string;
     limit?: number;
+    bbox?: [number, number, number, number]; // [west, south, east, north]
+    includeCourtroom?: boolean;
   }): TrafficCctvCamera[] {
-    let result = this.getCameras();
+    let result = this.cameras;
 
-    if (params?.city && params.city !== 'Semua') {
-      result = result.filter((c) => c.city.toLowerCase() === params.city?.toLowerCase());
+    const hasExplicitCat = Boolean(params?.category && params.category !== 'Semua');
+    if (!params?.includeCourtroom && !hasExplicitCat) {
+      result = result.filter((c) => c.category !== 'pengadilan' && c.category !== 'pengadilannegeri');
     }
 
-    if (params?.category && params.category !== 'Semua') {
-      result = result.filter((c) => c.category === params.category);
+    if (params?.city && params.city !== 'Semua') {
+      const lc = params.city.toLowerCase();
+      result = result.filter(
+        (c) =>
+          c.city.toLowerCase().includes(lc) ||
+          (c.region && c.region.toLowerCase().includes(lc))
+      );
+    }
+
+    if (hasExplicitCat) {
+      const lcat = params!.category!.toLowerCase();
+      result = result.filter((c) => (c.category || 'jalan').toLowerCase() === lcat);
+    }
+
+    if (params?.bbox) {
+      const [west, south, east, north] = params.bbox;
+      result = result.filter(
+        (c) => c.lat >= south && c.lat <= north && c.lng >= west && c.lng <= east
+      );
     }
 
     if (params?.search) {
@@ -479,7 +585,10 @@ class TrafficCctvService {
       result = result.slice(0, params.limit);
     }
 
-    return result;
+    return result.map((c) => ({
+      ...c,
+      location: c.location || [c.lng, c.lat],
+    }));
   }
 
   public getCameras(): TrafficCctvCamera[] {

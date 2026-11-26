@@ -9,6 +9,18 @@ const DATA_FILE_PATH = path.resolve(__dirname, '../data/cctv_cameras.json');
 const CCTV_NUSANTARA_API = 'https://cctvnusantara.com/api/cameras';
 const CCTV_NUSANTARA_BASE = 'https://cctvnusantara.com';
 
+function isValidIndonesiaCoord(lat, lng) {
+  return (
+    Number.isFinite(lat) &&
+    Number.isFinite(lng) &&
+    !(lat === 0 && lng === 0) &&
+    lat >= -12 &&
+    lat <= 10 &&
+    lng >= 94 &&
+    lng <= 142
+  );
+}
+
 class CctvService {
   constructor() {
     this.cameras = [];
@@ -37,8 +49,12 @@ class CctvService {
         const raw = fs.readFileSync(DATA_FILE_PATH, 'utf8');
         const list = JSON.parse(raw);
         if (Array.isArray(list) && list.length > 0) {
-          // Exclude known dead feeds that return 502 upstream
-          const cleaned = list.filter((c) => !c.id?.startsWith('binamarga-tol-semarang'));
+          // Exclude dead feeds and invalid out-of-Indonesia or (0,0) coordinates
+          const cleaned = list.filter(
+            (c) =>
+              !c.id?.startsWith('binamarga-tol-semarang') &&
+              isValidIndonesiaCoord(Number(c.lat), Number(c.lng))
+          );
           this.setCameras(cleaned);
         }
       }
@@ -107,13 +123,26 @@ class CctvService {
     // Guaranteed 24/7 continuous video streams
     if (c.tipe === 'youtube') score += 120;
 
-    // Verified high-uptime government ATCS streams (Pantausemar, Pelindung, SITS Surabaya, Jogja, Bali)
+    // Verified high-uptime HLS networks across Indonesia
     if (c.id && (
-      c.id.startsWith('pantausemar') || 
-      c.id.startsWith('pelindung') || 
-      c.id.startsWith('sits') || 
-      c.id.startsWith('jogja') || 
-      c.id.startsWith('bali')
+      c.id.startsWith('balitower') ||
+      c.id.startsWith('binamarga-') ||
+      c.id.startsWith('pantausemar') ||
+      c.id.startsWith('pelindung') ||
+      c.id.startsWith('jogja') ||
+      c.id.startsWith('malang') ||
+      c.id.startsWith('sidoarjo') ||
+      c.id.startsWith('nganjuk') ||
+      c.id.startsWith('tol-') ||
+      c.id.startsWith('bogor') ||
+      c.id.startsWith('medan') ||
+      c.id.startsWith('demakkab') ||
+      c.id.startsWith('gresik') ||
+      c.id.startsWith('magelangkota') ||
+      c.id.startsWith('banjarkab') ||
+      c.id.startsWith('pekalongan') ||
+      c.id.startsWith('denpasar') ||
+      c.id.startsWith('hk-')
     )) {
       score += 90;
     }
@@ -122,7 +151,7 @@ class CctvService {
     if (c.kategori === 'tol' || (c.nama && c.nama.toLowerCase().includes('tol'))) score += 30;
 
     // Major metropolitan areas with high-availability ATCS
-    const highTierCities = ['jakarta', 'bandung', 'semarang', 'bali', 'denpasar', 'surabaya', 'jogja', 'yogyakarta', 'surakarta'];
+    const highTierCities = ['jakarta', 'bandung', 'semarang', 'denpasar', 'surabaya', 'jogja', 'yogyakarta', 'surakarta', 'malang', 'sidoarjo', 'medan'];
     const cityStr = ((c.kota || '') + ' ' + (c.kotaNama || '')).toLowerCase();
     if (highTierCities.some(city => cityStr.includes(city))) score += 40;
 
@@ -132,20 +161,28 @@ class CctvService {
     // Arterial roads
     if (c.kategori === 'jalan') score += 15;
 
-    // Heavily penalize dead / defunct regional feeds
-    if (c.id && (c.id.startsWith('binamarga-tol-semarang') || c.id.startsWith('acehtengah'))) {
-      score -= 150;
+    // Heavily penalize known degraded / dead / 503 regional feeds (preserve balitower-* which is DKI Jakarta)
+    if (c.id && (
+      c.id.startsWith('binamarga-tol-semarang') ||
+      c.id.startsWith('acehtengah') ||
+      c.id.startsWith('sits-') ||
+      c.id.startsWith('bali-') ||
+      c.id.startsWith('semarang-') ||
+      c.id.startsWith('surakarta-')
+    )) {
+      score -= 120;
     }
 
     // Deprioritize internal courtroom cameras whose WebRTC encoders are frequently offline
-    if (c.kategori === 'pengadilan' || (c.sumber && c.sumber.toLowerCase().includes('badilag')) || c.tipe === 'iframe') {
+    if (c.kategori === 'pengadilan' || c.kategori === 'pengadilannegeri' || (c.sumber && c.sumber.toLowerCase().includes('badilag')) || c.tipe === 'iframe') {
       score -= 100;
     }
     return score;
   }
 
   setCameras(list) {
-    const sortedList = [...list].sort((a, b) => this.computeReliabilityScore(b) - this.computeReliabilityScore(a));
+    const validList = list.filter((c) => isValidIndonesiaCoord(Number(c.lat), Number(c.lng)));
+    const sortedList = [...validList].sort((a, b) => this.computeReliabilityScore(b) - this.computeReliabilityScore(a));
 
     this.cameras = sortedList.map((c) => {
       const lat = Number(c.lat) || 0;
@@ -250,7 +287,11 @@ class CctvService {
         const data = await res.json();
         const rawList = Array.isArray(data) ? data : (Array.isArray(data?.cameras) ? data.cameras : null);
         if (rawList && rawList.length > 0) {
-          const cleaned = rawList.filter((c) => !c.id?.startsWith('binamarga-tol-semarang'));
+          const cleaned = rawList.filter(
+            (c) =>
+              !c.id?.startsWith('binamarga-tol-semarang') &&
+              isValidIndonesiaCoord(Number(c.lat), Number(c.lng))
+          );
           this.setCameras(cleaned);
           this.syncCount++;
           this.consecutiveFailures = 0;
@@ -344,8 +385,15 @@ class CctvService {
     return null;
   }
 
-  getCameras({ city, category, search, limit = 100, page = 1 } = {}) {
+  getCameras({ city, category, search, limit = 100, page = 1, trafficOnly = false, bbox = null, compact = false } = {}) {
     let result = this.cameras;
+    const hasExplicitCategory = Boolean(category && category.toLowerCase() !== 'semua');
+
+    if (trafficOnly && !hasExplicitCategory) {
+      result = result.filter(
+        (c) => c.category !== 'pengadilan' && c.category !== 'pengadilannegeri'
+      );
+    }
 
     if (city && city.toLowerCase() !== 'semua') {
       const lc = city.toLowerCase();
@@ -355,9 +403,16 @@ class CctvService {
       );
     }
 
-    if (category && category.toLowerCase() !== 'semua') {
+    if (hasExplicitCategory) {
       const lcat = category.toLowerCase();
       result = result.filter((c) => c.category.toLowerCase() === lcat);
+    }
+
+    if (Array.isArray(bbox) && bbox.length === 4 && bbox.every((n) => Number.isFinite(n))) {
+      const [south, west, north, east] = bbox;
+      result = result.filter(
+        (c) => c.lat >= south && c.lat <= north && c.lng >= west && c.lng <= east
+      );
     }
 
     if (search && search.trim()) {
@@ -371,18 +426,42 @@ class CctvService {
     }
 
     const total = result.length;
-    const numLimit = Math.max(1, Math.min(Number(limit) || 100, 1000));
+    const numLimit = Math.max(1, Math.min(Number(limit) || 100, 10000));
     const numPage = Math.max(1, Number(page) || 1);
     const start = (numPage - 1) * numLimit;
     const paginated = result.slice(start, start + numLimit);
 
+    const data = compact
+      ? paginated.map((c) => ({
+          id: c.id,
+          name: c.name,
+          road: c.road !== c.name ? c.road : undefined,
+          city: c.city,
+          lat: Number(c.lat.toFixed(5)),
+          lng: Number(c.lng.toFixed(5)),
+          streamType: c.streamType !== 'hls' ? c.streamType : undefined,
+          category: c.category !== 'jalan' ? c.category : undefined,
+          authority: c.authority !== 'ATCS Publik Dishub' ? c.authority : undefined,
+          status: c.status !== 'LIVE' ? c.status : undefined,
+          youtubeVideoId: c.youtubeVideoId,
+          streamUrl: c.streamType !== 'hls' ? c.streamUrl : undefined,
+          portalUrl: c.portalUrl && !c.portalUrl.startsWith('https://cctvnusantara.com/cctv/') ? c.portalUrl : undefined,
+        }))
+      : paginated;
+
+    const trafficTotal = this.cameras.reduce(
+      (acc, c) => acc + (c.category !== 'pengadilan' && c.category !== 'pengadilannegeri' ? 1 : 0),
+      0
+    );
+
     return {
       total,
+      trafficTotal,
       count: paginated.length,
       page: numPage,
       limit: numLimit,
       totalPages: Math.ceil(total / numLimit),
-      data: paginated,
+      data,
       cities: this.cityList,
       categories: this.categoryList,
     };
@@ -400,10 +479,10 @@ class CctvService {
       'jogja-titik-nol-km': 'pantausemar-8393',
       'cctv-jogja-titik-nol': 'pantausemar-8393',
       'jogja-991': 'pantausemar-8393',
-      'surabaya-joyoboyo': 'sits-sby-bundaran-waru-arah-tol-ptz',
-      'cctv-sby-joyoboyo': 'sits-sby-bundaran-waru-arah-tol-ptz',
+      'surabaya-joyoboyo': 'sidoarjo-1',
+      'cctv-sby-joyoboyo': 'sidoarjo-1',
       'cctv-tol-cikatama-70': 'pantausemar-6601',
-      'cctv-jkt-hi': 'pantausemar-310',
+      'cctv-jkt-hi': 'balitower-m-8',
     };
     if (ALIAS_MAP[cameraId]) return ALIAS_MAP[cameraId];
 

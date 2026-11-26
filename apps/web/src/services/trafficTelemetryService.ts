@@ -3773,7 +3773,21 @@ export async function loadFullTrafficCorridors(): Promise<TrafficCorridor[]> {
     .then((res) => (res.ok ? res.json() : INITIAL_TRAFFIC_CORRIDORS))
     .then((data) => {
       if (Array.isArray(data) && data.length > 0) {
-        cachedFullCorridors = data as TrafficCorridor[];
+        cachedFullCorridors = (data as TrafficCorridor[]).map((corridor) => {
+          if (corridor.path && corridor.path.length > 0) return corridor;
+          const reconstructedPath: [number, number][] = [];
+          (corridor.segments || []).forEach((seg) => {
+            if (Array.isArray(seg.path)) {
+              for (let i = 0; i < seg.path.length; i++) {
+                reconstructedPath.push(seg.path[i]);
+              }
+            }
+          });
+          return {
+            ...corridor,
+            path: reconstructedPath,
+          };
+        });
         return cachedFullCorridors;
       }
       return INITIAL_TRAFFIC_CORRIDORS;
@@ -3784,6 +3798,35 @@ export async function loadFullTrafficCorridors(): Promise<TrafficCorridor[]> {
       inflightCorridorsPromise = null;
     });
   return inflightCorridorsPromise;
+}
+
+export function classifyTrafficStatusByTier(
+  speedKmh: number,
+  tier?: string
+): 'Lancar' | 'Ramai Lancar' | 'Padat Merayap' | 'Macet Total' {
+  switch (tier) {
+    case 'expressway':
+      if (speedKmh >= 65) return 'Lancar';
+      if (speedKmh >= 40) return 'Ramai Lancar';
+      if (speedKmh >= 20) return 'Padat Merayap';
+      return 'Macet Total';
+    case 'collector':
+      if (speedKmh >= 32) return 'Lancar';
+      if (speedKmh >= 18) return 'Ramai Lancar';
+      if (speedKmh >= 10) return 'Padat Merayap';
+      return 'Macet Total';
+    case 'local':
+      if (speedKmh >= 25) return 'Lancar';
+      if (speedKmh >= 14) return 'Ramai Lancar';
+      if (speedKmh >= 8) return 'Padat Merayap';
+      return 'Macet Total';
+    case 'arterial':
+    default:
+      if (speedKmh >= 40) return 'Lancar';
+      if (speedKmh >= 24) return 'Ramai Lancar';
+      if (speedKmh >= 12) return 'Padat Merayap';
+      return 'Macet Total';
+  }
 }
 
 // Sinkronisasi Telemetri Kecepatan Berbasis Data Riil (Bebas Random/Gimmick)
@@ -3803,12 +3846,7 @@ export function simulateRealtimeTraffic(corridors: TrafficCorridor[], liveUpdate
 
     const updatedSegments = (corridor.segments || []).map((seg) => {
       const segSpeed = live?.speedKmh ?? seg.speedKmh;
-
-      let newStatus: 'Lancar' | 'Ramai Lancar' | 'Padat Merayap' | 'Macet Total' = 'Lancar';
-      if (segSpeed >= 70) newStatus = 'Lancar';
-      else if (segSpeed >= 40) newStatus = 'Ramai Lancar';
-      else if (segSpeed >= 20) newStatus = 'Padat Merayap';
-      else newStatus = 'Macet Total';
+      const newStatus = classifyTrafficStatusByTier(segSpeed, corridor.tier);
 
       if (newStatus === 'Padat Merayap' || newStatus === 'Macet Total') {
         congested++;
@@ -3828,11 +3866,7 @@ export function simulateRealtimeTraffic(corridors: TrafficCorridor[], liveUpdate
       ? Math.round(updatedSegments.reduce((acc, s) => acc + s.speedKmh, 0) / updatedSegments.length)
       : effectiveCorridorSpeed;
 
-    let corridorStatus: 'Lancar' | 'Ramai Lancar' | 'Padat Merayap' | 'Macet Total' = 'Lancar';
-    if (avgSpeed >= 70) corridorStatus = 'Lancar';
-    else if (avgSpeed >= 40) corridorStatus = 'Ramai Lancar';
-    else if (avgSpeed >= 20) corridorStatus = 'Padat Merayap';
-    else corridorStatus = 'Macet Total';
+    const corridorStatus = classifyTrafficStatusByTier(avgSpeed, corridor.tier);
 
     return {
       ...corridor,

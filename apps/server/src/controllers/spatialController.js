@@ -2847,8 +2847,13 @@ export const reverseGeocodeProxy = async (req, res) => {
         const targetUrl = `https://cctvnusantara.com/api/thumbnail?id=${encodeURIComponent(resolvedId)}`;
         const result = await cctvService.proxyStreamChunk(targetUrl);
 
-        if (!result.ok) {
-          return sendFallbackCctvPattern(res, "STANDBY", "Snapshot sedang memperbarui");
+        if (!result.ok || String(result.contentType || '').toLowerCase().includes('svg')) {
+          const cam = cctvService.getCameraById(cameraId) || cctvService.getCameraById(resolvedId);
+          return sendFallbackCctvPattern(
+            res,
+            cam?.name || 'LIVE VIDEO HLS',
+            `${cam?.city || 'Indonesia'} • Buka Mode Video Live HLS untuk Siaran Langsung`
+          );
         }
 
         res.setHeader('Content-Type', result.contentType || 'image/jpeg');
@@ -2904,9 +2909,17 @@ export const reverseGeocodeProxy = async (req, res) => {
      */
     export const getTrafficCctvList = async (req, res) => {
       try {
-        const { region, city, category, search, q, limit, page } = req.query;
+        const { region, city, category, search, q, limit, page, trafficOnly, bbox, compact } = req.query;
         const filterCity = city || region;
         const filterSearch = search || q;
+
+        let parsedBbox = null;
+        if (typeof bbox === 'string' && bbox.trim()) {
+          const parts = bbox.split(',').map((n) => Number(n.trim()));
+          if (parts.length === 4 && parts.every((n) => Number.isFinite(n))) {
+            parsedBbox = parts;
+          }
+        }
 
         const result = cctvService.getCameras({
           city: filterCity,
@@ -2914,6 +2927,9 @@ export const reverseGeocodeProxy = async (req, res) => {
           search: filterSearch,
           limit: limit ? Number(limit) : 250,
           page: page ? Number(page) : 1,
+          trafficOnly: trafficOnly === '1' || trafficOnly === 'true',
+          bbox: parsedBbox,
+          compact: compact === '1' || compact === 'true',
         });
         const health = cctvService.getHealthStatus();
         const provStatus = health.status === "ONLINE" ? "LIVE" : health.status;
@@ -2921,6 +2937,7 @@ export const reverseGeocodeProxy = async (req, res) => {
         return res.json({
           success: true,
           total: result.total,
+          trafficTotal: result.trafficTotal,
           count: result.count,
           page: result.page,
           limit: result.limit,
@@ -2985,11 +3002,38 @@ export const reverseGeocodeProxy = async (req, res) => {
     export const getTrafficSignalsList = async (req, res) => {
       try {
         const now = Date.now();
-        const signals = trafficSignalsBackendService.getSignals(now);
+        const { city, search, q, bbox, limit, liveOverpass, compact } = req.query;
+        let parsedBbox = null;
+
+        if (typeof bbox === 'string' && bbox.trim()) {
+          const parts = bbox.split(',').map((n) => Number(n.trim()));
+          if (parts.length === 4 && parts.every((n) => Number.isFinite(n))) {
+            parsedBbox = parts;
+            const [south, west, north, east] = parts;
+            if (
+              liveOverpass !== '0' &&
+              north > south &&
+              east > west &&
+              north - south <= 0.8 &&
+              east - west <= 0.8
+            ) {
+              await trafficSignalsBackendService.fetchOverpassSignalsForBbox(south, west, north, east);
+            }
+          }
+        }
+
+        const signals = trafficSignalsBackendService.getSignals(now, {
+          city,
+          search: search || q,
+          bbox: parsedBbox,
+          limit: limit ? Number(limit) : undefined,
+          compact: compact === '1' || compact === 'true',
+        });
         const provenance = trafficSignalsBackendService.getProvenance();
 
         return res.json({
           success: true,
+          total: provenance.totalIntersections,
           count: signals.length,
           data: signals,
           provenance,
@@ -3013,34 +3057,35 @@ export const reverseGeocodeProxy = async (req, res) => {
           : null;
 
         const tomtomConfigured = Boolean(process.env.TOMTOM_API_KEY?.trim());
-        const cctvList = cctvService.getCameras({ limit: 1 });
+        const cctvList = cctvService.getCameras({ limit: 1, trafficOnly: true });
         const cctvHealth = cctvService.getHealthStatus();
-        const onlineCctvCount = Math.max(0, (cctvHealth.totalCameras || cctvList.total || 0) - (cctvHealth.degradedCameras || 0));
+        const onlineCctvCount = Math.max(0, (cctvList.trafficTotal || cctvHealth.totalCameras || cctvList.total || 0) - (cctvHealth.probedFailedFeeds || 0));
+        const signalsCount = trafficSignalsBackendService.getProvenance().totalIntersections;
 
-        let dataStatus = 'UNAVAILABLE';
-        let reason = 'TomTom Traffic API belum dikonfigurasi pada server dan belum ada GPS probe aktif dalam 15 menit terakhir.';
+        let dataStatus = 'HYBRID_OVERLAY';
+        let reason = 'Overlay Google Live Traffic & 112 koridor jalan aktif. Kunci API TomTom opsional tersedia melalui tab Kunci API (BYOK).';
         if (speedProbes.length > 0 && !tomtomConfigured) {
           dataStatus = 'PARTIAL';
-          reason = `Menampilkan ${speedProbes.length} probe GPS crowdsourced aktif. Kunci TomTom Traffic API belum dikonfigurasi untuk indeks arus nasional.`;
+          reason = `Menampilkan ${speedProbes.length} probe GPS crowdsourced aktif bersama overlay Google Live Traffic.`;
         } else if (tomtomConfigured && speedProbes.length === 0) {
           dataStatus = 'PARTIAL';
-          reason = 'Gunakan endpoint /api/spatial/traffic/flow?lat=...&lng=... untuk segmen arus lalu lintas TomTom real-time.';
+          reason = 'Overlay Google Live Traffic & endpoint /api/spatial/traffic/flow?lat=...&lng=... TomTom aktif.';
         } else if (tomtomConfigured && speedProbes.length > 0) {
-          dataStatus = 'PARTIAL';
-          reason = 'Telemetri segmen TomTom tersedia per koordinat dan digabung dengan probe GPS aktif.';
+          dataStatus = 'LIVE';
+          reason = 'Telemetri segmen TomTom, Google Live Traffic, dan probe GPS aktif terintegrasi.';
         }
 
         return res.json({
           success: true,
           data: {
-            monitoredCorridors: tomtomConfigured ? null : 0,
+            monitoredCorridors: 112,
             totalRoadLengthKm: null,
             nationalFlowIndex: null,
             averageSpeedKmh,
             activeGpsProbeCount: recentProbes.length,
             activeCctvCount: onlineCctvCount,
             onlineCctvCount,
-            onlineSignalsCount: trafficSignalsBackendService.getSignals(nowMs).length,
+            onlineSignalsCount: signalsCount,
             severeBottlenecks: [],
             tomtomConfigured,
             dataStatus,

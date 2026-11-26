@@ -30,6 +30,7 @@ export const LiveCctvModal: React.FC<LiveCctvModalProps> = ({ camera, onClose, o
   const [isMuted, setIsMuted] = useState<boolean>(true);
   const [streamMode, setStreamMode] = useState<'stream' | 'snapshot'>('stream');
   const [useDirectSnapshot, setUseDirectSnapshot] = useState<boolean>(true);
+  const [capturedFrameDataUrl, setCapturedFrameDataUrl] = useState<string | null>(null);
 
   const videoRef = useRef<HTMLVideoElement | null>(null);
   const hlsRef = useRef<Hls | null>(null);
@@ -65,71 +66,93 @@ export const LiveCctvModal: React.FC<LiveCctvModalProps> = ({ camera, onClose, o
   }, [handleClose]);
 
   const allCameras = trafficCctvService.getAllCameras();
-  const currentIndex = camera ? allCameras.findIndex((c) => c.id === camera.id) : -1;
+  const cityCameras = camera
+    ? allCameras.filter((c) => c.city && camera.city && c.city.toLowerCase() === camera.city.toLowerCase())
+    : [];
+  const navCameras = cityCameras.length >= 2 ? cityCameras : allCameras;
+  const currentIndex = camera ? navCameras.findIndex((c) => c.id === camera.id) : -1;
 
   const handleNext = useCallback(() => {
-    if (allCameras.length === 0) return;
-    const nextIdx = (currentIndex + 1) % allCameras.length;
-    const nextCam = allCameras[nextIdx];
+    if (navCameras.length === 0) return;
+    const nextIdx = (currentIndex + 1) % navCameras.length;
+    const nextCam = navCameras[nextIdx];
     setStreamError(false);
     setSnapshotError(false);
+    setCapturedFrameDataUrl(null);
     setIsPlaying(false);
     setIsConnecting(true);
     setConnectionErrorText('');
     if (onSelectCamera) onSelectCamera(nextCam);
-  }, [allCameras, currentIndex, onSelectCamera]);
+  }, [navCameras, currentIndex, onSelectCamera]);
 
   const handlePrev = useCallback(() => {
-    if (allCameras.length === 0) return;
-    const prevIdx = (currentIndex - 1 + allCameras.length) % allCameras.length;
-    const prevCam = allCameras[prevIdx];
+    if (navCameras.length === 0) return;
+    const prevIdx = (currentIndex - 1 + navCameras.length) % navCameras.length;
+    const prevCam = navCameras[prevIdx];
     setStreamError(false);
     setSnapshotError(false);
+    setCapturedFrameDataUrl(null);
     setIsPlaying(false);
     setIsConnecting(true);
     setConnectionErrorText('');
     if (onSelectCamera) onSelectCamera(prevCam);
-  }, [allCameras, currentIndex, onSelectCamera]);
+  }, [navCameras, currentIndex, onSelectCamera]);
 
   // Jump to a guaranteed 24/7 active streaming video camera (prioritizing same city)
   const handleSwitchToVerifiedLive = useCallback(() => {
     if (!allCameras.length) return;
 
+    const isVerifiedLiveHls = (c: TrafficCctvCamera) =>
+      c.streamType === 'hls' &&
+      !c.id.startsWith('bali-') &&
+      !c.id.startsWith('sits-') &&
+      !c.id.startsWith('semarang-') &&
+      !c.id.startsWith('surakarta-') &&
+      !c.id.startsWith('binamarga-tol-semarang') &&
+      (c.id.startsWith('balitower') ||
+        c.id.startsWith('binamarga-') ||
+        c.id.startsWith('pantausemar') ||
+        c.id.startsWith('pelindung') ||
+        c.id.startsWith('jogja') ||
+        c.id.startsWith('malang') ||
+        c.id.startsWith('sidoarjo') ||
+        c.id.startsWith('nganjuk') ||
+        c.id.startsWith('bogor') ||
+        c.id.startsWith('medan') ||
+        c.id.startsWith('denpasar'));
+
     // Priority 1: Verified active camera in the SAME city
     let verified = allCameras.find(
-      (c) => c.city === camera?.city &&
-             c.id !== camera?.id &&
-             (c.streamType === 'youtube' || 
-              (c.streamType === 'hls' && (
-                c.id.startsWith('pantausemar') || 
-                c.id.startsWith('pelindung') || 
-                c.id.startsWith('sits') || 
-                c.id.startsWith('jogja') || 
-                c.id.startsWith('bali')
-              )))
+      (c) =>
+        c.city === camera?.city &&
+        c.id !== camera?.id &&
+        (c.streamType === 'youtube' || isVerifiedLiveHls(c))
     );
 
     // Priority 2: Any active non-courtroom camera in the same city
     if (!verified) {
       verified = allCameras.find(
-        (c) => c.city === camera?.city &&
-               c.id !== camera?.id &&
-               !c.id.includes('badilag') &&
-               !c.id.startsWith('binamarga-tol-semarang')
+        (c) =>
+          c.city === camera?.city &&
+          c.id !== camera?.id &&
+          !c.id.includes('badilag') &&
+          !c.id.startsWith('binamarga-tol-semarang')
       );
     }
 
     // Priority 3: Nationwide guaranteed 24/7 stream
     if (!verified) {
       verified = allCameras.find(
-        (c) => (c.streamType === 'youtube' || (c.streamType === 'hls' && c.id.startsWith('pantausemar'))) &&
-               c.id !== camera?.id
+        (c) =>
+          (c.streamType === 'youtube' || isVerifiedLiveHls(c)) &&
+          c.id !== camera?.id
       );
     }
 
     if (verified && onSelectCamera) {
       setStreamError(false);
       setSnapshotError(false);
+      setCapturedFrameDataUrl(null);
       setIsPlaying(false);
       setIsConnecting(true);
       setConnectionErrorText('');
@@ -142,6 +165,7 @@ export const LiveCctvModal: React.FC<LiveCctvModalProps> = ({ camera, onClose, o
     if (!camera) return;
     setStreamError(false);
     setSnapshotError(false);
+    setCapturedFrameDataUrl(null);
     setIsPlaying(false);
     setIsConnecting(true);
     setConnectionErrorText('');
@@ -285,10 +309,31 @@ export const LiveCctvModal: React.FC<LiveCctvModalProps> = ({ camera, onClose, o
     return () => clearInterval(interval);
   }, [camera, autoRefreshSec, streamMode]);
 
+  const captureLiveVideoFrame = useCallback((): string | null => {
+    const video = videoRef.current;
+    if (!video || video.readyState < 2 || !video.videoWidth || !video.videoHeight) return null;
+    try {
+      const canvas = document.createElement('canvas');
+      canvas.width = video.videoWidth;
+      canvas.height = video.videoHeight;
+      const ctx = canvas.getContext('2d');
+      if (!ctx) return null;
+      ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+      return canvas.toDataURL('image/jpeg', 0.88);
+    } catch {
+      return null;
+    }
+  }, []);
+
   const handleManualRefresh = () => {
     setIsRefreshing(true);
     setSnapshotError(false);
     setFrameCount((prev) => prev + 1);
+
+    if (streamMode === 'snapshot' && isHls) {
+      const snap = captureLiveVideoFrame();
+      if (snap) setCapturedFrameDataUrl(snap);
+    }
 
     if (camera?.streamType === 'hls' && hlsRef.current && streamMode === 'stream') {
       hlsRef.current.startLoad();
@@ -370,7 +415,7 @@ export const LiveCctvModal: React.FC<LiveCctvModalProps> = ({ camera, onClose, o
                 <ChevronLeft className="h-3.5 w-3.5" />
               </button>
               <span className="text-[9.5px] font-mono px-1.5 text-slate-300 font-semibold">
-                {currentIndex >= 0 ? `${currentIndex + 1}/${allCameras.length}` : allCameras.length}
+                {currentIndex >= 0 ? `${currentIndex + 1}/${navCameras.length}` : navCameras.length}
               </span>
               <button
                 type="button"
@@ -539,14 +584,16 @@ export const LiveCctvModal: React.FC<LiveCctvModalProps> = ({ camera, onClose, o
           {/* 5. Live Snapshot Image (Crisp, Clean, Auto-Updating) */}
           {(streamMode === 'snapshot' || (!isYouTube && !isIframe && !isHls)) && !snapshotError && (
             <img
-              key={`cctv-img-${currentCamera.id}-${frameCount}-${useDirectSnapshot ? 'direct' : 'proxy'}`}
-              src={snapshotSrc}
+              key={`cctv-img-${currentCamera.id}-${frameCount}-${useDirectSnapshot ? 'direct' : 'proxy'}-${capturedFrameDataUrl ? 'cap' : 'url'}`}
+              src={capturedFrameDataUrl || snapshotSrc}
               alt={currentCamera.name}
               loading="lazy"
               decoding="async"
               className="w-full h-full object-contain bg-black"
               onError={() => {
-                if (useDirectSnapshot && directThumbBase) {
+                if (capturedFrameDataUrl) {
+                  setCapturedFrameDataUrl(null);
+                } else if (useDirectSnapshot && directThumbBase) {
                   setUseDirectSnapshot(false);
                 } else {
                   setSnapshotError(true);
@@ -614,6 +661,8 @@ export const LiveCctvModal: React.FC<LiveCctvModalProps> = ({ camera, onClose, o
                 <button
                   type="button"
                   onClick={() => {
+                    const snap = captureLiveVideoFrame();
+                    if (snap) setCapturedFrameDataUrl(snap);
                     setStreamMode('snapshot');
                     setStreamError(false);
                   }}
@@ -644,6 +693,8 @@ export const LiveCctvModal: React.FC<LiveCctvModalProps> = ({ camera, onClose, o
                 <button
                   type="button"
                   onClick={() => {
+                    const snap = captureLiveVideoFrame();
+                    if (snap) setCapturedFrameDataUrl(snap);
                     setStreamMode('snapshot');
                     setStreamError(false);
                   }}
