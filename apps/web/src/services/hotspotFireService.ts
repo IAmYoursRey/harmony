@@ -320,11 +320,50 @@ class HotspotFireService {
         dayRange: String(dayRange),
       });
 
-      const res = await fetch(`/api/spatial/hotspots?${query.toString()}`, {
+      let res = await fetch(`/api/spatial/hotspots?${query.toString()}`, {
         signal: internalController.signal,
       });
       resHttp = res.status;
-      const body = await res.json();
+      let body = await res.json();
+      let usedPublicFeed = false;
+
+      if (body?.reason?.code === 'NOT_CONFIGURED') {
+        const publicSource = source.startsWith('VIIRS')
+          ? 'VIIRS'
+          : source === 'MODIS_NRT'
+          ? 'MODIS'
+          : 'ALL';
+        const publicQuery = new URLSearchParams({
+          bbox: bbox.join(','),
+          source: publicSource,
+          dayRange: String(dayRange),
+          scope: 'aoi',
+        });
+        const pubRes = await fetch(`/api/spatial/hotspots/public-feed?${publicQuery.toString()}`, {
+          signal: internalController.signal,
+        });
+        resHttp = pubRes.status;
+        const pubBody = await pubRes.json();
+        if (pubRes.ok && pubBody?.success === true && Array.isArray(pubBody.data)) {
+          usedPublicFeed = true;
+          res = pubRes;
+          body = {
+            ...pubBody,
+            data: pubBody.data.map((item: any) => ({
+              ...item,
+              lat: item.latitude ?? item.lat,
+              lng: item.longitude ?? item.lng,
+              brightness: item.brightnessKelvin ?? item.brightness,
+              frp: item.frpMw ?? item.frp,
+              confidence: item.confidenceNumeric ?? item.confidenceLevel ?? item.confidenceRaw ?? item.confidence,
+              acqTime: String(item.acqTimeUtc || item.acqTime || '')
+                .replace(/[^0-9]/g, '')
+                .slice(0, 4),
+              source: item.systemSource || 'NASA_FIRMS_OPEN_NRT',
+            })),
+          };
+        }
+      }
 
       if (!res.ok || body.success !== true || !Array.isArray(body.data)) {
         throw new Error(body?.reason?.message || body?.error || 'Respons titik panas tidak valid.');
@@ -532,7 +571,7 @@ class HotspotFireService {
         queryKey,
         requestId,
         dataSnapshotId: requestId,
-        provider: 'NASA_FIRMS',
+        provider: usedPublicFeed ? 'NASA_EOSDIS_LANCE_OPEN_NRT' : 'NASA_FIRMS',
         source,
         bbox,
         dayRange,

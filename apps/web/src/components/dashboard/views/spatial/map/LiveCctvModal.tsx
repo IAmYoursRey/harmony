@@ -29,10 +29,12 @@ export const LiveCctvModal: React.FC<LiveCctvModalProps> = ({ camera, onClose, o
   const [connectionErrorText, setConnectionErrorText] = useState<string>('');
   const [isMuted, setIsMuted] = useState<boolean>(true);
   const [streamMode, setStreamMode] = useState<'stream' | 'snapshot'>('stream');
-  
+  const [useDirectSnapshot, setUseDirectSnapshot] = useState<boolean>(true);
+
   const videoRef = useRef<HTMLVideoElement | null>(null);
   const hlsRef = useRef<Hls | null>(null);
   const containerRef = useRef<HTMLDivElement | null>(null);
+  const usedProxyFallbackRef = useRef<boolean>(false);
 
   // Digital clock interval: ticks every 1 second continuously
   useEffect(() => {
@@ -144,6 +146,8 @@ export const LiveCctvModal: React.FC<LiveCctvModalProps> = ({ camera, onClose, o
     setIsConnecting(true);
     setConnectionErrorText('');
     setFrameCount(1);
+    setUseDirectSnapshot(true);
+    usedProxyFallbackRef.current = false;
 
     if (camera.streamType === 'hls' || camera.streamType === 'youtube' || camera.streamType === 'video' || camera.streamType === 'iframe') {
       setStreamMode('stream');
@@ -165,7 +169,14 @@ export const LiveCctvModal: React.FC<LiveCctvModalProps> = ({ camera, onClose, o
       const video = videoRef.current;
       if (!video) return;
 
-      const streamUrl = camera.streamUrl;
+      const directUrl =
+        camera.directStreamUrl ||
+        (!camera.streamUrl?.startsWith('http')
+          ? `https://cctvnusantara.com/api/stream?id=${encodeURIComponent(camera.id)}`
+          : camera.streamUrl);
+      const proxyUrl = camera.streamUrl;
+      const primaryUrl = directUrl || proxyUrl;
+      usedProxyFallbackRef.current = primaryUrl === proxyUrl;
 
       if (Hls.isSupported()) {
         const hls = new Hls({
@@ -182,7 +193,7 @@ export const LiveCctvModal: React.FC<LiveCctvModalProps> = ({ camera, onClose, o
         });
         hlsRef.current = hls;
 
-        hls.loadSource(streamUrl);
+        hls.loadSource(primaryUrl);
         hls.attachMedia(video);
 
         hls.on(Hls.Events.MANIFEST_PARSED, () => {
@@ -209,14 +220,19 @@ export const LiveCctvModal: React.FC<LiveCctvModalProps> = ({ camera, onClose, o
             switch (data.type) {
               case Hls.ErrorTypes.NETWORK_ERROR:
                 networkErrorCount++;
-                if (networkErrorCount > 1) {
+                if (networkErrorCount === 1) {
+                  hls.startLoad();
+                } else if (!usedProxyFallbackRef.current && proxyUrl && proxyUrl !== primaryUrl) {
+                  usedProxyFallbackRef.current = true;
+                  networkErrorCount = 0;
+                  hls.loadSource(proxyUrl);
+                  hls.startLoad();
+                } else {
                   hls.destroy();
                   setStreamError(true);
                   setIsPlaying(false);
                   setIsConnecting(false);
                   setConnectionErrorText('Penyedia CCTV upstream tidak merespons (502 / Gangguan Server Daerah)');
-                } else {
-                  hls.startLoad();
                 }
                 break;
               case Hls.ErrorTypes.MEDIA_ERROR:
@@ -233,7 +249,7 @@ export const LiveCctvModal: React.FC<LiveCctvModalProps> = ({ camera, onClose, o
           }
         });
       } else if (video.canPlayType('application/vnd.apple.mpegurl')) {
-        video.src = streamUrl;
+        video.src = primaryUrl;
         video.addEventListener('loadedmetadata', () => {
           setIsConnecting(false);
           video.play().then(() => setIsPlaying(true)).catch(() => {});
@@ -292,8 +308,15 @@ export const LiveCctvModal: React.FC<LiveCctvModalProps> = ({ camera, onClose, o
   const isIframe = currentCamera.streamType === 'iframe';
   const isHls = currentCamera.streamType === 'hls';
 
-  // Snapshot URL: loads from our direct backend proxy with no CORS issues
-  const snapshotSrc = `/api/spatial/traffic/cctv-thumbnail?id=${encodeURIComponent(currentCamera.id)}&v=${frameCount}`;
+  // Snapshot URL: try direct CORS thumbnail first, fall back to backend proxy on error
+  const proxySnapshotSrc = `/api/spatial/traffic/cctv-thumbnail?id=${encodeURIComponent(currentCamera.id)}&v=${frameCount}`;
+  const directThumbBase =
+    currentCamera.directThumbnailUrl ||
+    (isHls ? `https://cctvnusantara.com/api/thumbnail?id=${encodeURIComponent(currentCamera.id)}` : '');
+  const snapshotSrc =
+    useDirectSnapshot && directThumbBase
+      ? `${directThumbBase}${directThumbBase.includes('?') ? '&' : '?'}v=${frameCount}`
+      : proxySnapshotSrc;
 
   return (
     <div 
@@ -516,13 +539,19 @@ export const LiveCctvModal: React.FC<LiveCctvModalProps> = ({ camera, onClose, o
           {/* 5. Live Snapshot Image (Crisp, Clean, Auto-Updating) */}
           {(streamMode === 'snapshot' || (!isYouTube && !isIframe && !isHls)) && !snapshotError && (
             <img
-              key={`cctv-img-${currentCamera.id}-${frameCount}`}
+              key={`cctv-img-${currentCamera.id}-${frameCount}-${useDirectSnapshot ? 'direct' : 'proxy'}`}
               src={snapshotSrc}
               alt={currentCamera.name}
               loading="lazy"
               decoding="async"
               className="w-full h-full object-contain bg-black"
-              onError={() => setSnapshotError(true)}
+              onError={() => {
+                if (useDirectSnapshot && directThumbBase) {
+                  setUseDirectSnapshot(false);
+                } else {
+                  setSnapshotError(true);
+                }
+              }}
             />
           )}
 

@@ -488,6 +488,19 @@ export function CesiumGlobe3D({
           } catch {
             if (!cancelled) setTerrainStatus('Relief bola bumi WGS84 standar.');
           }
+        } else {
+          try {
+            const terrain = await C.ArcGISTiledElevationTerrainProvider.fromUrl(
+              'https://elevation3d.arcgis.com/arcgis/rest/services/WorldElevation3D/Terrain3D/ImageServer'
+            );
+            if (!cancelled && !viewer.isDestroyed()) {
+              viewer.terrainProvider = terrain;
+              setTerrainStatus('Relief 3D Global Esri WorldElevation3D aktif.');
+              viewer.scene.requestRender();
+            }
+          } catch {
+            if (!cancelled) setTerrainStatus('Relief bola bumi WGS84 standar.');
+          }
         }
       } catch (err: any) {
         if (cancelled) return;

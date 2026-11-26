@@ -2006,13 +2006,21 @@ export const reverseGeocodeProxy = async (req, res) => {
      * POST /api/spatial/network/isochrones
      */
     export const getIsochrones = async (req, res) => {
-      const { centerLng, centerLat, profile = "foot-walking", intervalsMinutes = [5, 10, 15] } = req.body;
+      const {
+        centerLng,
+        centerLat,
+        profile = "foot-walking",
+        intervalsMinutes = [5, 10, 15],
+        useOsrmRoadMatrix = false,
+      } = req.body;
       if (centerLng === undefined || centerLat === undefined) {
         return res.status(400).json({ error: "Missing centerLng or centerLat" });
       }
 
       const orsKey = process.env.ORS_API_KEY;
       const fetchedAt = new Date().toISOString();
+      const sortedIntervals = [...intervalsMinutes].map(Number).filter((m) => Number.isFinite(m) && m > 0).sort((a, b) => a - b);
+      const validIntervals = sortedIntervals.length > 0 ? sortedIntervals : [5, 10, 15];
 
       let orsAttempt = null;
       if (orsKey) {
@@ -2026,7 +2034,7 @@ export const reverseGeocodeProxy = async (req, res) => {
             },
             body: JSON.stringify({
               locations: [[centerLng, centerLat]],
-              range: intervalsMinutes.map((m) => m * 60),
+              range: validIntervals.map((m) => m * 60),
             }),
           });
 
@@ -2036,7 +2044,7 @@ export const reverseGeocodeProxy = async (req, res) => {
               success: true,
               profile,
               isochrones: data.features.map((f, idx) => ({
-                intervalMinutes: intervalsMinutes[idx] || (f.properties?.value ? f.properties.value / 60 : 15),
+                intervalMinutes: validIntervals[idx] || (f.properties?.value ? f.properties.value / 60 : 15),
                 geometry: f.geometry,
                 areaKm2: f.properties?.area ? f.properties.area / 1e6 : null,
               })),
@@ -2071,7 +2079,110 @@ export const reverseGeocodeProxy = async (req, res) => {
       const speedKmh = profile === "foot-walking" ? 4.5 : profile === "cycling-regular" ? 14.0 : 28.0;
       const earthRadiusKm = 6371;
 
-      const isochrones = intervalsMinutes.map((minutes) => {
+      // Keyless real road-network isochrones via OSRM OpenStreetMap table API when explicitly requested
+      if (!orsKey && useOsrmRoadMatrix === true) {
+        try {
+          const osrmProfile = profile === "foot-walking" ? "foot" : profile === "cycling-regular" ? "bike" : "driving";
+          const maxMin = Math.max(...validIntervals, 15);
+          const nominalMaxKm = speedKmh * (maxMin / 60);
+          const innerKm = Math.max(0.25, nominalMaxKm * 0.5);
+          const outerKm = Math.max(0.5, nominalMaxKm * 1.15);
+          const rayCount = 16;
+          const cosLat = Math.max(0.15, Math.cos((centerLat * Math.PI) / 180));
+
+          const makePt = (km, angle) => {
+            const dLat = (km / earthRadiusKm) * (180 / Math.PI) * Math.sin(angle);
+            const dLng = (km / (earthRadiusKm * cosLat)) * (180 / Math.PI) * Math.cos(angle);
+            return [Number((centerLng + dLng).toFixed(6)), Number((centerLat + dLat).toFixed(6))];
+          };
+
+          const matrixCoords = [[Number(centerLng), Number(centerLat)]];
+          for (let r = 0; r < rayCount; r++) {
+            const angle = (r / rayCount) * 2 * Math.PI;
+            matrixCoords.push(makePt(innerKm, angle));
+          }
+          for (let r = 0; r < rayCount; r++) {
+            const angle = (r / rayCount) * 2 * Math.PI;
+            matrixCoords.push(makePt(outerKm, angle));
+          }
+
+          const coordParam = matrixCoords.map((p) => `${p[0]},${p[1]}`).join(";");
+          const osrmUrl = `https://router.project-osrm.org/table/v1/${osrmProfile}/${coordParam}?sources=0`;
+          const osrmRes = await fetch(osrmUrl, { signal: AbortSignal.timeout(5500) });
+          if (osrmRes.ok) {
+            const osrmJson = await osrmRes.json();
+            const durations = osrmJson?.code === "Ok" ? osrmJson?.durations?.[0] : null;
+            if (Array.isArray(durations) && durations.length >= 1 + rayCount * 2) {
+              const prevRadii = new Array(rayCount).fill(0);
+              const osrmIsochrones = validIntervals.map((minutes) => {
+                const targetSec = minutes * 60;
+                const fallbackKm = speedKmh * (minutes / 60) * 0.72;
+                const ringRadii = [];
+                const ring = [];
+
+                for (let r = 0; r < rayCount; r++) {
+                  const t1 = durations[1 + r];
+                  const t2 = durations[1 + rayCount + r];
+                  let distKm = fallbackKm;
+
+                  if (typeof t1 === "number" && t1 > 0 && Number.isFinite(t1)) {
+                    if (targetSec <= t1) {
+                      distKm = innerKm * (targetSec / t1);
+                    } else if (typeof t2 === "number" && t2 > t1 + 1 && Number.isFinite(t2)) {
+                      const frac = (targetSec - t1) / (t2 - t1);
+                      distKm = innerKm + frac * (outerKm - innerKm);
+                    } else {
+                      distKm = innerKm * Math.min(2.2, targetSec / t1);
+                    }
+                  }
+                  const clamped = Math.max(prevRadii[r] + 0.03, Math.min(outerKm * 1.35, Math.max(0.08, distKm)));
+                  prevRadii[r] = clamped;
+                  ringRadii.push(clamped);
+                  ring.push(makePt(clamped, (r / rayCount) * 2 * Math.PI));
+                }
+                ring.push(ring[0]);
+
+                // Exact polar polygon area in km^2: sum of triangles 0.5 * r_i * r_{i+1} * sin(dTheta)
+                const dTheta = (2 * Math.PI) / rayCount;
+                let areaKm2 = 0;
+                for (let r = 0; r < rayCount; r++) {
+                  const rNext = ringRadii[(r + 1) % rayCount];
+                  areaKm2 += 0.5 * ringRadii[r] * rNext * Math.sin(dTheta);
+                }
+
+                return {
+                  intervalMinutes: minutes,
+                  intervalSeconds: targetSec,
+                  geometry: { type: "Polygon", coordinates: [ring] },
+                  areaKm2: Number(areaKm2.toFixed(2)),
+                  profile,
+                };
+              });
+
+              return res.json({
+                success: true,
+                profile,
+                isochrones: osrmIsochrones,
+                provenance: {
+                  sourceType: "NETWORK_ISOCHRONE",
+                  provider: "OSRM OpenStreetMap Road Network Matrix",
+                  dataStatus: "LIVE",
+                  algorithmVersion: "2.2.0",
+                  fetchedAt,
+                  attribution: "Project OSRM / OpenStreetMap contributors",
+                },
+              });
+            }
+          }
+        } catch (osrmErr) {
+          orsAttempt = {
+            ...(orsAttempt || {}),
+            osrmFallbackError: osrmErr?.message || "OSRM unavailable",
+          };
+        }
+      }
+
+      const isochrones = validIntervals.map((minutes) => {
         const nominalDistKm = speedKmh * (minutes / 60) * 0.72; // 0.72 winding factor
         const numPoints = 24;
         const coordinates = [];

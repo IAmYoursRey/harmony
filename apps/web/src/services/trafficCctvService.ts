@@ -10,8 +10,10 @@ export interface TrafficCctvCamera {
   direction?: string;
   streamType: 'snapshot' | 'hls' | 'mjpeg' | 'youtube' | 'video' | 'iframe' | 'web';
   streamUrl: string;
+  directStreamUrl?: string;
   portalUrl?: string;
   thumbnailUrl?: string;
+  directThumbnailUrl?: string;
   youtubeVideoId?: string;
   authority: string;
   fps: number;
@@ -319,6 +321,16 @@ const ALL_RAW_CAMERAS: Omit<TrafficCctvCamera, 'location'>[] = [
 
 const FALLBACK_CAMERAS: TrafficCctvCamera[] = ALL_RAW_CAMERAS.map((c) => ({
   ...c,
+  directStreamUrl:
+    c.directStreamUrl ||
+    (c.streamType === 'hls' && !c.streamUrl?.startsWith('http')
+      ? `https://cctvnusantara.com/api/stream?id=${encodeURIComponent(c.id)}`
+      : undefined),
+  directThumbnailUrl:
+    c.directThumbnailUrl ||
+    (c.streamType === 'hls'
+      ? `https://cctvnusantara.com/api/thumbnail?id=${encodeURIComponent(c.id)}`
+      : undefined),
   location: [c.lng, c.lat] as [number, number],
 }));
 
@@ -402,6 +414,16 @@ class TrafficCctvService {
         if (json.success && Array.isArray(json.data) && json.data.length > 0) {
           this.cameras = json.data.map((c: any) => ({
             ...c,
+            directStreamUrl:
+              c.directStreamUrl ||
+              (c.streamType === 'hls'
+                ? `https://cctvnusantara.com/api/stream?id=${encodeURIComponent(c.id)}`
+                : undefined),
+            directThumbnailUrl:
+              c.directThumbnailUrl ||
+              (c.streamType === 'hls'
+                ? `https://cctvnusantara.com/api/thumbnail?id=${encodeURIComponent(c.id)}`
+                : undefined),
             location: c.location || [c.lng, c.lat],
           }));
 

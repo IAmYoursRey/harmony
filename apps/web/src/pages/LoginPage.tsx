@@ -49,6 +49,29 @@ export default function LoginPage() {
 
   // Demo account optional custom nickname
   const [demoNickname, setDemoNickname] = useState("");
+  const [quotaGoogleFallback, setQuotaGoogleFallback] = useState<{
+    name: string;
+    email: string;
+    sub: string;
+    picture?: string;
+  } | null>(null);
+
+  const decodeGoogleJwtPayload = (jwtToken: string) => {
+    try {
+      const parts = jwtToken.split(".");
+      if (parts.length < 2) return null;
+      const base64 = parts[1].replace(/-/g, "+").replace(/_/g, "/");
+      const jsonStr = decodeURIComponent(
+        atob(base64)
+          .split("")
+          .map((c) => `%${("00" + c.charCodeAt(0).toString(16)).slice(-2)}`)
+          .join(""),
+      );
+      return JSON.parse(jsonStr);
+    } catch {
+      return null;
+    }
+  };
 
   // Registration Data
   const [regName, setRegName] = useState("");
@@ -130,7 +153,21 @@ export default function LoginPage() {
           setAuthStatus("registered");
         }
       } else {
-        show(result.error ?? "Gagal masuk", "error");
+        const errMsg = String(result.error ?? "Gagal masuk");
+        if (/53000|kuota|quota|database/i.test(errMsg)) {
+          const decoded = decodeGoogleJwtPayload(credentialResponse.credential);
+          if (decoded?.email) {
+            setQuotaGoogleFallback({
+              name: decoded.name || decoded.email.split("@")[0],
+              email: decoded.email,
+              sub: decoded.sub || `usr-demo-g-${Date.now()}`,
+              picture: decoded.picture,
+            });
+            show("Database sedang penuh kuota. Gunakan masuk cepat dengan profil Google di bawah.", "info");
+            return;
+          }
+        }
+        show(errMsg, "error");
       }
     } catch (e: any) {
       show(e?.message || "Terjadi kesalahan saat memverifikasi akun", "error");
@@ -172,6 +209,38 @@ export default function LoginPage() {
       }
     } catch (e: any) {
       show(e?.message || "Gagal masuk sesi demo", "error");
+    } finally {
+      setLoading(false);
+      setLoadingText("");
+    }
+  };
+
+  const handleGoogleQuotaEnter = async (role: "student" | "teacher") => {
+    if (!quotaGoogleFallback) return;
+    setLoading(true);
+    setLoadingText(`Masuk sebagai ${quotaGoogleFallback.name}...`);
+    try {
+      const payload = {
+        email: quotaGoogleFallback.email,
+        name: quotaGoogleFallback.name,
+        sub: quotaGoogleFallback.sub,
+        picture: quotaGoogleFallback.picture,
+        role,
+        isDemo: true,
+      };
+      const result = await login(JSON.stringify(payload));
+      if (result.success && result.account) {
+        manualRedirectRef.current = true;
+        setSelection(SMAN_1_NGORO_FALLBACK);
+        await finalizeLogin(result.account);
+        setQuotaGoogleFallback(null);
+        show(`Masuk sebagai ${result.account.name} · SMAN 1 Ngoro`, "success");
+        navigate(resolveTargetRoute(result.account.role), { replace: true });
+      } else {
+        show(result.error ?? "Gagal masuk sesi sementara", "error");
+      }
+    } catch (e: any) {
+      show(e?.message || "Gagal masuk sesi sementara", "error");
     } finally {
       setLoading(false);
       setLoadingText("");
@@ -322,6 +391,44 @@ export default function LoginPage() {
                           }}
                           shape="pill"
                         />
+                      </div>
+                    )}
+
+                    {quotaGoogleFallback && (
+                      <div className="w-full rounded-2xl border border-amber-300/70 bg-amber-50/90 dark:border-amber-700/60 dark:bg-amber-950/40 p-3.5 space-y-2.5">
+                        <div className="flex items-center gap-2.5">
+                          {quotaGoogleFallback.picture && (
+                            <img
+                              src={quotaGoogleFallback.picture}
+                              alt={quotaGoogleFallback.name}
+                              className="h-9 w-9 rounded-full border border-amber-300 dark:border-amber-700 object-cover shrink-0"
+                            />
+                          )}
+                          <div className="min-w-0">
+                            <p className="text-xs font-bold text-slate-900 dark:text-white truncate">
+                              {quotaGoogleFallback.name}
+                            </p>
+                            <p className="text-[11px] text-amber-800 dark:text-amber-300 leading-snug">
+                              Database permanen sedang penuh kuota. Lanjutkan sesi sementara memakai profil Google Anda:
+                            </p>
+                          </div>
+                        </div>
+                        <div className="grid grid-cols-2 gap-2">
+                          <button
+                            type="button"
+                            onClick={() => handleGoogleQuotaEnter("student")}
+                            className="rounded-xl bg-brand-600 hover:bg-brand-700 text-white text-xs font-bold py-2 px-3 transition-colors"
+                          >
+                            Lanjut sebagai Murid
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => handleGoogleQuotaEnter("teacher")}
+                            className="rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-800 dark:text-slate-100 text-xs font-semibold py-2 px-3 hover:bg-slate-50 dark:hover:bg-slate-700 transition-colors"
+                          >
+                            Lanjut sebagai Guru
+                          </button>
+                        </div>
                       </div>
                     )}
 

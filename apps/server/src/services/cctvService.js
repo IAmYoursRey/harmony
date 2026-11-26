@@ -154,9 +154,14 @@ class CctvService {
       const authority = c.sumber || 'ATCS Publik Dishub';
       const category = c.kategori || 'jalan';
       const tipe = c.tipe || 'hls';
+      const resolvedId = this.resolveAlias(c.id);
       const streamUrl = tipe === 'hls'
         ? `/api/spatial/traffic/cctv-stream?id=${encodeURIComponent(c.id)}`
         : (c.url || `/api/spatial/traffic/cctv-proxy?url=${encodeURIComponent(`${CCTV_NUSANTARA_BASE}/api/stream?id=${c.id}`)}`);
+      const directStreamUrl = tipe === 'hls'
+        ? `${CCTV_NUSANTARA_BASE}/api/stream?id=${encodeURIComponent(resolvedId)}`
+        : undefined;
+      const directThumbnailUrl = `${CCTV_NUSANTARA_BASE}/api/thumbnail?id=${encodeURIComponent(resolvedId)}`;
 
       const portalUrl = c.url && !c.url.includes('cctvbadilag')
         ? c.url
@@ -194,8 +199,10 @@ class CctvService {
         location: [lng, lat],
         streamType: tipe,
         streamUrl,
+        directStreamUrl,
         portalUrl,
         thumbnailUrl: `/api/spatial/traffic/cctv-thumbnail?id=${encodeURIComponent(c.id)}`,
+        directThumbnailUrl,
         youtubeVideoId: youtubeVideoId || undefined,
         authority,
         fps: tipe === 'youtube' ? 30 : 25,

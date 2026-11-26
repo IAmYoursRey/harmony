@@ -1,3 +1,6 @@
+import fs from "node:fs";
+import os from "node:os";
+import path from "node:path";
 import express from "express";
 import { v4 as uuidv4 } from "uuid";
 import { pool, timeoutQuery, isPgDegraded, isPgQuotaOrUnavailableError } from "../repositories/repository.js";
@@ -53,8 +56,58 @@ function getScenarioTitle(scenarioId) {
   return scenarioMetaCache.get(scenarioId) || null;
 }
 
-// In-memory fallback store when PostgreSQL pool is unavailable
+// In-memory + /tmp persisted fallback store when PostgreSQL pool is unavailable
 const memorySessions = new Map();
+const SESSION_TMP_PATH = path.join(os.tmpdir(), "harmony-multiplayer-sessions.json");
+
+function hydrateMemorySessions() {
+  try {
+    if (!fs.existsSync(SESSION_TMP_PATH)) return;
+    const raw = JSON.parse(fs.readFileSync(SESSION_TMP_PATH, "utf8"));
+    if (!Array.isArray(raw)) return;
+    const cutoff = Date.now() - 2 * 3600 * 1000;
+    for (const s of raw) {
+      if (!s?.id || s.status === "ENDED") continue;
+      if (new Date(s.createdAt || 0).getTime() <= cutoff) continue;
+      if (!memorySessions.has(s.id)) {
+        memorySessions.set(s.id, {
+          ...s,
+          participants: new Map(Array.isArray(s.participants) ? s.participants : []),
+        });
+      }
+    }
+  } catch {
+    // Non-fatal tmp hydration issue
+  }
+}
+
+function persistMemorySessions() {
+  try {
+    const cutoff = Date.now() - 2 * 3600 * 1000;
+    const serialized = [];
+    for (const s of memorySessions.values()) {
+      if (s.status === "ENDED" || new Date(s.createdAt || 0).getTime() <= cutoff) continue;
+      serialized.push({
+        ...s,
+        participants: [...s.participants.entries()],
+      });
+    }
+    fs.writeFileSync(SESSION_TMP_PATH, JSON.stringify(serialized), "utf8");
+  } catch {
+    // Non-fatal tmp write issue
+  }
+}
+
+function findMemorySession(idOrCode) {
+  hydrateMemorySessions();
+  return (
+    memorySessions.get(idOrCode) ||
+    [...memorySessions.values()].find(
+      (s) => s.code === idOrCode && s.status !== "ENDED",
+    ) ||
+    null
+  );
+}
 
 function generateJoinCode() {
   return Math.floor(100000 + Math.random() * 900000).toString();
@@ -185,6 +238,7 @@ router.post("/", verifyToken, async (req, res) => {
       ]),
     };
     memorySessions.set(id, record);
+    persistMemorySessions();
     return res.json({
       id,
       code,
@@ -275,6 +329,7 @@ router.get("/public", verifyToken, async (req, res) => {
   const { mapId } = req.query;
 
   const listMemoryPublicSessions = () => {
+    hydrateMemorySessions();
     const twoHoursAgo = Date.now() - 2 * 3600 * 1000;
     const rooms = [...memorySessions.values()]
       .filter(
@@ -370,11 +425,7 @@ router.get("/:idOrCode", verifyToken, async (req, res) => {
   const { idOrCode } = req.params;
 
   if (shouldUseMemorySessions()) {
-    const found =
-      memorySessions.get(idOrCode) ||
-      [...memorySessions.values()].find(
-        (s) => s.code === idOrCode && s.status !== "ENDED",
-      );
+    const found = findMemorySession(idOrCode);
     if (!found) return res.status(404).json({ error: "Room tidak ditemukan" });
     return res.json({
       id: found.id,
@@ -439,7 +490,7 @@ router.post("/:id/join", verifyToken, async (req, res) => {
       : "#3b82f6";
 
   if (shouldUseMemorySessions()) {
-    const s = memorySessions.get(id);
+    const s = findMemorySession(id);
     if (!s) return res.status(404).json({ error: "Room tidak ditemukan" });
     if (s.status === "ENDED") {
       return res.status(403).json({ error: "Room sudah berakhir" });
@@ -481,17 +532,25 @@ router.post("/:id/join", verifyToken, async (req, res) => {
       existing.avatarStyle = avatarStyle;
       existing.avatarColor = avatarColor;
     }
-    return res.json({ success: true, sessionId: id });
+    persistMemorySessions();
+    return res.json({ success: true, sessionId: s.id, code: s.code });
   }
 
   try {
+    const isCodeLookup = /^\d{6}$/.test(id);
     const sessionRes = await timeoutQuery(
-      pool.query("SELECT * FROM simulation_sessions WHERE id = $1", [id]),
+      pool.query(
+        isCodeLookup
+          ? "SELECT * FROM simulation_sessions WHERE code = $1 AND status != 'ENDED' ORDER BY created_at DESC LIMIT 1"
+          : "SELECT * FROM simulation_sessions WHERE id = $1",
+        [id],
+      ),
     );
     if (sessionRes.rows.length === 0) {
       return res.status(404).json({ error: "Room tidak ditemukan" });
     }
     const session = sessionRes.rows[0];
+    const resolvedSessionId = session.id;
     const settings =
       typeof session.settings === "string"
         ? JSON.parse(session.settings || "{}")
@@ -518,7 +577,7 @@ router.post("/:id/join", verifyToken, async (req, res) => {
          WHERE session_id = $1
            AND LOWER(TRIM(display_name)) = LOWER(TRIM($2))
            AND student_id != $3`,
-        [id, displayName, studentId],
+        [resolvedSessionId, displayName, studentId],
       ),
     );
     if (nameCheck.rows.length > 0) {
@@ -532,7 +591,7 @@ router.post("/:id/join", verifyToken, async (req, res) => {
     const participantsRes = await timeoutQuery(
       pool.query(
         "SELECT COUNT(*) as count FROM simulation_participants WHERE session_id = $1",
-        [id],
+        [resolvedSessionId],
       ),
     );
     const currentCount = parseInt(participantsRes.rows[0].count, 10);
@@ -540,7 +599,7 @@ router.post("/:id/join", verifyToken, async (req, res) => {
     const existing = await timeoutQuery(
       pool.query(
         "SELECT id FROM simulation_participants WHERE session_id = $1 AND student_id = $2",
-        [id, studentId],
+        [resolvedSessionId, studentId],
       ),
     );
 
@@ -558,7 +617,7 @@ router.post("/:id/join", verifyToken, async (req, res) => {
         `,
           [
             uuidv4(),
-            id,
+            resolvedSessionId,
             studentId,
             displayName,
             session.status === "RUNNING" ? "RUNNING" : "WAITING",
@@ -576,12 +635,12 @@ router.post("/:id/join", verifyToken, async (req, res) => {
           SET display_name = $1, avatar_style = $2, avatar_color = $3, last_sync_at = CURRENT_TIMESTAMP
           WHERE session_id = $4 AND student_id = $5
         `,
-          [displayName, avatarStyle, avatarColor, id, studentId],
+          [displayName, avatarStyle, avatarColor, resolvedSessionId, studentId],
         ),
       );
     }
 
-    res.json({ success: true, sessionId: id });
+    res.json({ success: true, sessionId: resolvedSessionId, code: session.code });
   } catch (err) {
     console.error(err);
     res.status(500).json({ error: "Database error" });
@@ -600,7 +659,7 @@ router.post("/:id/ready", verifyToken, async (req, res) => {
 
   if (trimmedName) {
     if (shouldUseMemorySessions()) {
-      const s = memorySessions.get(id);
+      const s = findMemorySession(id);
       for (const [pStudentId, p] of s?.participants || []) {
         if (
           pStudentId !== studentId &&
@@ -632,13 +691,14 @@ router.post("/:id/ready", verifyToken, async (req, res) => {
   }
 
   if (shouldUseMemorySessions()) {
-    const s = memorySessions.get(id);
+    const s = findMemorySession(id);
     const p = s?.participants.get(studentId);
     if (p) {
       if (typeof ready === "boolean") p.readyState = ready;
       if (avatarStyle === "boy" || avatarStyle === "girl") p.avatarStyle = avatarStyle;
       if (typeof avatarColor === "string") p.avatarColor = avatarColor;
       if (trimmedName) p.displayName = trimmedName;
+      persistMemorySessions();
     }
     return res.json({ success: true });
   }
@@ -677,7 +737,7 @@ router.post("/:id/start", verifyToken, async (req, res) => {
   const { id } = req.params;
 
   if (shouldUseMemorySessions()) {
-    const s = memorySessions.get(id);
+    const s = findMemorySession(id);
     if (!s) return res.status(404).json({ error: "Room tidak ditemukan" });
     if (s.createdBy !== req.user.id && !["teacher", "dev", "developer"].includes(req.user.role)) {
       return res.status(403).json({ error: "Hanya host yang dapat memulai room" });
@@ -685,6 +745,7 @@ router.post("/:id/start", verifyToken, async (req, res) => {
     s.status = "RUNNING";
     s.startedAt = new Date().toISOString();
     for (const p of s.participants.values()) p.status = "RUNNING";
+    persistMemorySessions();
     return res.json({ success: true, startedAt: s.startedAt });
   }
 
@@ -740,7 +801,7 @@ router.post("/:id/restart", verifyToken, async (req, res) => {
   const { id } = req.params;
 
   if (shouldUseMemorySessions()) {
-    const s = memorySessions.get(id);
+    const s = findMemorySession(id);
     if (!s) return res.status(404).json({ error: "Room tidak ditemukan" });
     s.status = "LOBBY";
     s.startedAt = null;
@@ -752,6 +813,7 @@ router.post("/:id/restart", verifyToken, async (req, res) => {
       p.grade = null;
       p.liveState = {};
     }
+    persistMemorySessions();
     return res.json({ success: true });
   }
 
@@ -803,12 +865,13 @@ router.post("/:id/leave", verifyToken, async (req, res) => {
   const studentId = req.user.id;
 
   if (shouldUseMemorySessions()) {
-    const s = memorySessions.get(id);
+    const s = findMemorySession(id);
     if (s) {
       s.participants.delete(studentId);
       if (s.participants.size === 0 || s.createdBy === studentId) {
         s.status = "ENDED";
       }
+      persistMemorySessions();
     }
     return res.json({ success: true });
   }
@@ -848,9 +911,10 @@ router.post("/:id/end", verifyToken, async (req, res) => {
   const { id } = req.params;
 
   if (shouldUseMemorySessions()) {
-    const s = memorySessions.get(id);
+    const s = findMemorySession(id);
     if (!s) return res.status(404).json({ error: "Room tidak ditemukan" });
     s.status = "ENDED";
+    persistMemorySessions();
     return res.json({ success: true });
   }
 
@@ -889,9 +953,10 @@ router.get("/:id/participants", verifyToken, async (req, res) => {
   const { id } = req.params;
 
   if (shouldUseMemorySessions()) {
-    const s = memorySessions.get(id);
+    const s = findMemorySession(id);
     if (!s) return res.status(404).json({ error: "Room tidak ditemukan" });
     const list = [...s.participants.values()];
+    persistMemorySessions();
     return res.json({
       participants: list,
       leaderboard: sortCompetitiveLeaderboard(list),
@@ -987,7 +1052,7 @@ router.post("/:id/sync", verifyToken, async (req, res) => {
   };
 
   if (shouldUseMemorySessions()) {
-    const s = memorySessions.get(id);
+    const s = findMemorySession(id);
     if (!s) return res.status(404).json({ error: "Room tidak ditemukan" });
     let p = s.participants.get(studentId);
     if (!p) {
@@ -1019,6 +1084,7 @@ router.post("/:id/sync", verifyToken, async (req, res) => {
       p.status = "FINISHED";
     }
     const list = [...s.participants.values()];
+    persistMemorySessions();
     return res.json({
       sessionStatus: s.status,
       serverNowMs: Date.now(),

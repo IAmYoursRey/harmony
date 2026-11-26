@@ -53,6 +53,39 @@ export const GeospatialAccessibilityTab: React.FC<GeospatialAccessibilityTabProp
   const [candidateName, setCandidateName] = useState<string>('Puskesmas Pembantu Baru');
   const [candidateCategory, setCandidateCategory] = useState<FacilityItem['category']>('kesehatan');
   const [showScenario, setShowScenario] = useState<boolean>(false);
+  const [liveIsochrones, setLiveIsochrones] = useState<any[] | null>(null);
+  const [isochroneProvenance, setIsochroneProvenance] = useState<{
+    dataStatus?: string;
+    provider?: string;
+  } | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    setLiveIsochrones(null);
+    setIsochroneProvenance(null);
+    fetch('/api/spatial/network/isochrones', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        centerLng: lng,
+        centerLat: lat,
+        profile,
+        intervalsMinutes: [5, 10, 15],
+        useOsrmRoadMatrix: true,
+      }),
+    })
+      .then((r) => (r.ok ? r.json() : null))
+      .then((json) => {
+        if (!cancelled && json?.success && Array.isArray(json.isochrones) && json.isochrones.length > 0) {
+          setLiveIsochrones(json.isochrones);
+          setIsochroneProvenance(json.provenance || null);
+        }
+      })
+      .catch(() => {});
+    return () => {
+      cancelled = true;
+    };
+  }, [lat, lng, profile]);
 
   // TomTom Traffic Flow Proxy State & 5-Minute Auto-Refresh
   const [trafficData, setTrafficData] = useState<{
@@ -153,6 +186,8 @@ export const GeospatialAccessibilityTab: React.FC<GeospatialAccessibilityTabProp
   }, [lat, lng, regionName, profile, baselineFacilities, activeAOI]);
 
   const analysis = envelope.data;
+  const activeIsochrones = liveIsochrones || analysis?.isochrones || [];
+  const isLiveRoadNetwork = isochroneProvenance?.dataStatus === 'LIVE';
 
   // Scenario candidate facility explicitly marked as [RENCANA / USULAN]
   const candidateFacility: FacilityItem = useMemo(() => {
@@ -180,15 +215,15 @@ export const GeospatialAccessibilityTab: React.FC<GeospatialAccessibilityTabProp
     if (!analysis) return;
     const geojson = {
       type: 'FeatureCollection',
-      provenance: envelope.provenance,
-      features: analysis.isochrones.map((iso) => ({
+      provenance: isLiveRoadNetwork ? isochroneProvenance : envelope.provenance,
+      features: activeIsochrones.map((iso) => ({
         type: 'Feature',
         geometry: iso.geometry,
         properties: {
           intervalMinutes: iso.intervalMinutes,
           intervalSeconds: iso.intervalSeconds,
           areaKm2: iso.areaKm2,
-          profile: iso.profile,
+          profile: iso.profile || profile,
           origin: analysis.originPoint,
         },
       })),
@@ -255,15 +290,15 @@ export const GeospatialAccessibilityTab: React.FC<GeospatialAccessibilityTabProp
     };
 
     // 1. Isochrone polygons
-    analysis.isochrones.forEach((iso) => {
+    activeIsochrones.forEach((iso) => {
       features.push({
         type: 'Feature',
         id: `isochrone-${iso.intervalMinutes}m`,
         properties: {
           layerType: 'isochrone',
-          name: `Perkiraan Jangkauan ${iso.intervalMinutes} Menit (${profile})`,
-          dataStatus: envelope.dataStatus,
-          method: 'RADIAL_ESTIMATE',
+          name: `${isLiveRoadNetwork ? 'Jangkauan Jalan OSRM' : 'Perkiraan Jangkauan'} ${iso.intervalMinutes} Menit (${profile})`,
+          dataStatus: isLiveRoadNetwork ? 'LIVE' : envelope.dataStatus,
+          method: isLiveRoadNetwork ? 'OSRM_ROAD_NETWORK' : 'RADIAL_ESTIMATE',
           intervalMinutes: iso.intervalMinutes,
           areaKm2: iso.areaKm2,
           color: colors[iso.intervalMinutes] || '#6366f1',
@@ -332,7 +367,7 @@ export const GeospatialAccessibilityTab: React.FC<GeospatialAccessibilityTabProp
                 Akses Layanan
               </h3>
               <span className="text-[10px] font-extrabold uppercase px-2 py-0.5 rounded-full bg-blue-500/15 text-blue-700 dark:text-blue-300 border border-blue-500/25">
-                Estimasi Radial
+                {isLiveRoadNetwork ? 'Jaringan Jalan OSM' : 'Estimasi Radial'}
               </span>
             </div>
             <p className="text-xs text-slate-600 dark:text-slate-400">
@@ -348,7 +383,9 @@ export const GeospatialAccessibilityTab: React.FC<GeospatialAccessibilityTabProp
       </div>
 
       <div role="status" className="rounded-xl border border-amber-500/30 bg-amber-500/10 p-3 text-xs leading-relaxed text-amber-800 dark:text-amber-200">
-        Tampilan ini memakai perkiraan jarak dan kecepatan, belum menghitung jaringan jalan. Kontur dan waktu tempuh bersifat ilustrasi; hasilnya belum membuktikan akses 15 menit atau jalur evakuasi.
+        {isLiveRoadNetwork
+          ? `Poligon isokron menggunakan matriks waktu tempuh jaringan jalan nyata (${isochroneProvenance?.provider || 'OSRM / OpenStreetMap'}), sedangkan daftar fasilitas memakai estimasi jarak jaringan.`
+          : 'Tampilan ini memakai perkiraan jarak dan kecepatan, belum menghitung jaringan jalan. Kontur dan waktu tempuh bersifat ilustrasi; hasilnya belum membuktikan akses 15 menit atau jalur evakuasi.'}
       </div>
 
       {/* Mode Selector & Action Buttons */}
@@ -430,7 +467,7 @@ export const GeospatialAccessibilityTab: React.FC<GeospatialAccessibilityTabProp
 
       {/* KPI Cards: Isochrone Areas */}
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-        {analysis?.isochrones.map((iso) => (
+        {activeIsochrones.map((iso) => (
           <div
             key={iso.intervalMinutes}
             className="p-4 rounded-2xl bg-white dark:bg-slate-800/90 border border-slate-200 dark:border-slate-700/80"
@@ -443,7 +480,9 @@ export const GeospatialAccessibilityTab: React.FC<GeospatialAccessibilityTabProp
               {iso.areaKm2} km²
             </div>
             <p className="text-[11px] text-slate-500 mt-1">
-              Luas area perkiraan dengan moda {profile.split('-')[0]}
+              {isLiveRoadNetwork
+                ? `Jangkauan graf jalan OSM (${profile.split('-')[0]})`
+                : `Luas area perkiraan dengan moda ${profile.split('-')[0]}`}
             </p>
           </div>
         ))}
