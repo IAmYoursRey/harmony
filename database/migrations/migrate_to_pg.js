@@ -12,6 +12,11 @@ if (!dbUrl) {
   process.exit(1);
 }
 
+if (!fs.existsSync(dbPath)) {
+  console.error(`Legacy snapshot file '${dbPath}' not found. Run this migration only when importing a legacy JSON backup.`);
+  process.exit(1);
+}
+
 const pool = new pg.Pool({
   connectionString: dbUrl,
   ssl: { rejectUnauthorized: false },

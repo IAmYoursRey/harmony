@@ -576,6 +576,16 @@ export function MapsView() {
   
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const [mapMode, setMapMode] = useState<'spatial' | 'news' | 'art'>('spatial');
+  const [isDeepSpaceMode, setIsDeepSpaceMode] = useState<boolean>(false);
+
+  useEffect(() => {
+    const onSpaceMode = (e: Event) => {
+      const detail = (e as CustomEvent<{ active?: boolean }>).detail;
+      setIsDeepSpaceMode(Boolean(detail?.active));
+    };
+    window.addEventListener('harmony:cosmic-space-mode', onSpaceMode);
+    return () => window.removeEventListener('harmony:cosmic-space-mode', onSpaceMode);
+  }, []);
   const [isModeDropdownOpen, setIsModeDropdownOpen] = useState(false);
   
   const [showPanel, setShowPanel] = useState(false);
@@ -1932,6 +1942,12 @@ export function MapsView() {
     const info = seasonalIntelligenceService.calculateSeasonalIntelligence(lat, lng);
     setSeasonalInfo(info);
   }, [userCoords?.lat, userCoords?.lng, selection?.school?.lat, selection?.school?.lng, activeSchoolLat, activeSchoolLng]);
+
+  useEffect(() => {
+    if ((!is3D || mapMode !== 'spatial') && isDeepSpaceMode) {
+      setIsDeepSpaceMode(false);
+    }
+  }, [is3D, mapMode, isDeepSpaceMode]);
 
   // Sync Equator Layer visibility
   useEffect(() => {
@@ -6078,7 +6094,8 @@ export function MapsView() {
         </motion.div>
       )}
 
-      {/* Navigasi Geospasial & Pintasan Cepat Kanan (ramping 1 kolom pada HP agar bebas tabrakan) */}
+      {/* Navigasi Geospasial & Pintasan Cepat Kanan (sembunyikan di Luar Angkasa 3D) */}
+      {!isDeepSpaceMode && (
       <div className="absolute top-[calc(4.75rem+env(safe-area-inset-top))] md:top-[calc(1rem+env(safe-area-inset-top))] right-3 sm:right-4 z-20 flex flex-col items-end gap-2">
         {/* Navigasi Geospasial Terpadu: GPS Realtime & Orientasi Kompas 360 */}
         <div className="relative flex flex-col sm:flex-row items-center sm:items-stretch gap-1 sm:gap-1.5 mt-0.5 p-1 sm:p-1.5 rounded-2xl bg-white/90 dark:bg-slate-900/90 shadow-glass backdrop-blur-xl border border-slate-200/80 dark:border-slate-800 shadow-lg select-none">
@@ -6326,6 +6343,7 @@ export function MapsView() {
           </button>
         </div>
       </div>
+      )}
 
       {/* Custom OpenLayers & 3D Tilt Styles */}
       <style>{`
@@ -6400,7 +6418,8 @@ export function MapsView() {
         </div>
       )}
 
-      {/* Top Search Bar (Beside Menu Button, leaving room for right-side switcher on mobile) */}
+      {/* Top Search Bar (disembunyikan saat berada di Deep Space 3D) */}
+      {!isDeepSpaceMode && (
       <div className="absolute top-[calc(1rem+env(safe-area-inset-top))] left-16 z-10 w-[calc(100%-8.75rem)] sm:max-w-[260px] md:w-72 lg:w-80 xl:w-96 transition-all duration-300">
         <div className="relative">
           <div className="flex h-11 w-full items-center overflow-hidden rounded-full bg-white px-4 shadow-glass backdrop-blur-md dark:bg-slate-900/90 dark:border dark:border-slate-800 focus-within:ring-2 focus-within:ring-brand-500 transition-shadow">
@@ -6487,8 +6506,10 @@ export function MapsView() {
           )}
         </div>
       </div>
+      )}
 
       {/* Top Quick Actions: Zona Rawan & Mode Tampilan */}
+      {!isDeepSpaceMode && (
       <div className="absolute top-[calc(1rem+env(safe-area-inset-top))] left-[calc(4rem+18rem)] lg:left-[calc(4rem+22rem)] xl:left-[calc(4rem+25.5rem)] z-20 hidden md:flex items-center gap-2">
         <button
           type="button"
@@ -6525,11 +6546,12 @@ export function MapsView() {
                 : 'text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white'
             }`}
           >
-            Analitik GIS
+            <span>Analitik GIS</span>
           </button>
         </div>
 
       </div>
+      )}
 
       {/* Harmony Left Top Stack: Show School Risk Card only when a school is active, or Expert GIS Toolbar */}
       <div className="absolute top-[calc(4.75rem+env(safe-area-inset-top))] sm:top-20 left-3 sm:left-4 z-20 flex flex-col items-start gap-2.5 max-w-[calc(100vw-5.5rem)] sm:max-w-sm pointer-events-none transition-all duration-200">
@@ -9824,9 +9846,9 @@ export function MapsView() {
       </AnimatePresence>
 
 
-      {/* Floating Panel Trigger Button (Ketika Tertutup) */}
+      {/* Floating Panel Trigger Button (Ketika Tertutup dan tidak di Deep Space) */}
       <AnimatePresence>
-        {!showPanel && !showLayerManager && !showBasemapMenu && !showTrafficCorridors && !showObservationCoverage && !(weatherMapOverlay !== 'none' && showWindyMenu) && (
+        {!isDeepSpaceMode && !showPanel && !showLayerManager && !showBasemapMenu && !showTrafficCorridors && !showObservationCoverage && !(weatherMapOverlay !== 'none' && showWindyMenu) && (
           <motion.button 
             key="panel-trigger-button"
             type="button"

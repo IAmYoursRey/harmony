@@ -2,10 +2,21 @@ import * as THREE from 'three';
 import { PLANETARY_CATALOG, CelestialBodyData } from '@/data/planetaryCatalog';
 
 // Texture Cache
-const textureCache: Record<string, THREE.CanvasTexture> = {};
+const textureCache: Record<string, THREE.Texture> = {};
 const canvasCache: Record<string, HTMLCanvasElement> = {};
 const dataUrlCache: Record<string, string> = {};
 const realTextureLoadedState: Record<string, boolean> = {};
+let milkyWayDomeTexCache: THREE.CanvasTexture | null = null;
+let earthCloudsTexCache: THREE.CanvasTexture | null = null;
+let solarFlareTexCache: THREE.CanvasTexture | null = null;
+let cesiumSkyBoxCache: {
+  positiveX: string;
+  negativeX: string;
+  positiveY: string;
+  negativeY: string;
+  positiveZ: string;
+  negativeZ: string;
+} | null = null;
 
 /**
  * Authentic NASA & ESA spacecraft photographic cylindrical maps (2048x1024)
@@ -821,47 +832,97 @@ export function generateHDCelestialCanvas(bodyId: string): HTMLCanvasElement {
   return canvas;
 }
 
-export function getCelestialTexture(bodyId: string): THREE.CanvasTexture {
+export function getCelestialTexture(bodyId: string): THREE.Texture {
   if (textureCache[bodyId]) return textureCache[bodyId];
   const canvas = getCelestialCanvas(bodyId);
   const texture = new THREE.CanvasTexture(canvas);
   texture.colorSpace = THREE.SRGBColorSpace;
+  texture.wrapS = THREE.RepeatWrapping;
+  texture.wrapT = THREE.ClampToEdgeWrapping;
+  texture.anisotropy = 8;
+  texture.needsUpdate = true;
   textureCache[bodyId] = texture;
   return texture;
 }
 
 /**
- * Generate Saturn's Iconic Concentric Rings Texture (1D linear for polar UV mapped Three.js)
+ * Generates Saturn's ring texture with fine Cassini, Encke, Maxwell, and Keeler gaps plus ringlet ripples
  */
 export function getSaturnRingTexture(): THREE.CanvasTexture {
-  if (textureCache['saturn_ring']) return textureCache['saturn_ring'];
+  if (textureCache['saturn_ring']) return textureCache['saturn_ring'] as THREE.CanvasTexture;
 
   const canvas = document.createElement('canvas');
-  canvas.width = 1024;
+  canvas.width = 2048;
   canvas.height = 64;
   const ctx = canvas.getContext('2d')!;
+  const imgData = ctx.createImageData(2048, 1);
+  const d = imgData.data;
 
-  const grad = ctx.createLinearGradient(0, 0, 1024, 0);
-  grad.addColorStop(0.0, 'rgba(0, 0, 0, 0)');
-  grad.addColorStop(0.02, 'rgba(180, 83, 9, 0.45)');   // C Ring (Crepe Ring) inner
-  grad.addColorStop(0.20, 'rgba(202, 138, 4, 0.60)');  // C Ring outer
-  grad.addColorStop(0.22, 'rgba(254, 240, 138, 0.95)');// B Ring inner (Densest & brightest)
-  grad.addColorStop(0.64, 'rgba(234, 179, 8, 0.92)');  // B Ring outer
-  grad.addColorStop(0.66, 'rgba(0, 0, 0, 0.04)');      // Cassini Division (4,700 km dark gap)
-  grad.addColorStop(0.72, 'rgba(0, 0, 0, 0.04)');      // Cassini Division outer edge
-  grad.addColorStop(0.74, 'rgba(234, 179, 8, 0.85)');  // A Ring inner edge
-  grad.addColorStop(0.91, 'rgba(202, 138, 4, 0.72)');  // A Ring body
-  grad.addColorStop(0.92, 'rgba(0, 0, 0, 0.15)');      // Encke Division gap
-  grad.addColorStop(0.94, 'rgba(202, 138, 4, 0.65)');  // A Ring outer edge
-  grad.addColorStop(0.96, 'rgba(0, 0, 0, 0)');         // Gap before F ring
-  grad.addColorStop(0.975, 'rgba(253, 224, 71, 0.65)');// F Ring strand
-  grad.addColorStop(1.0, 'rgba(0, 0, 0, 0)');
+  for (let x = 0; x < 2048; x++) {
+    const u = x / 2047;
+    let alpha = 0;
+    let r = 225;
+    let g = 202;
+    let b = 158;
 
-  ctx.fillStyle = grad;
-  ctx.fillRect(0, 0, 1024, 64);
+    if (u >= 0.015 && u < 0.21) {
+      // C Ring (translucent smoky crepe ring)
+      const local = (u - 0.015) / 0.195;
+      const ringlet = 0.72 + 0.28 * Math.sin(u * 290.0) * Math.cos(u * 115.0);
+      alpha = (0.16 + local * 0.24) * ringlet;
+      r = 175;
+      g = 155;
+      b = 128;
+    } else if (u >= 0.21 && u < 0.635) {
+      // B Ring (bright dense icy ringlets)
+      const local = (u - 0.21) / 0.425;
+      const fineRipple = 0.8 + 0.12 * Math.sin(u * 520.0) + 0.08 * Math.cos(u * 190.0);
+      alpha = (0.74 + Math.sin(local * Math.PI) * 0.22) * fineRipple;
+      const tone = 0.88 + 0.12 * Math.sin(u * 340.0);
+      r = Math.round(244 * tone);
+      g = Math.round(220 * tone);
+      b = Math.round(170 * tone);
+    } else if (u >= 0.635 && u < 0.715) {
+      // Cassini Division (4,800 km dark gap with faint inner ringlets)
+      const inGap = Math.abs(u - 0.675) / 0.04;
+      alpha = inGap < 0.15 ? 0.09 : 0.025;
+      r = 150;
+      g = 138;
+      b = 120;
+    } else if (u >= 0.715 && u < 0.945) {
+      // A Ring with Encke Gap (~0.885) & Keeler Gap (~0.935)
+      const isEncke = Math.abs(u - 0.885) < 0.008;
+      const isKeeler = Math.abs(u - 0.938) < 0.004;
+      const fineRipple = 0.82 + 0.18 * Math.sin(u * 420.0);
+      alpha = isEncke ? 0.05 : isKeeler ? 0.08 : 0.68 * fineRipple;
+      r = 228;
+      g = 205;
+      b = 166;
+    } else if (u >= 0.962 && u <= 0.978) {
+      // Narrow bright F Ring strand
+      const peak = 1.0 - Math.abs(u - 0.97) / 0.008;
+      alpha = 0.58 * peak;
+      r = 248;
+      g = 232;
+      b = 188;
+    }
+
+    const idx = x * 4;
+    d[idx] = Math.min(255, Math.max(0, r));
+    d[idx + 1] = Math.min(255, Math.max(0, g));
+    d[idx + 2] = Math.min(255, Math.max(0, b));
+    d[idx + 3] = Math.min(255, Math.max(0, Math.round(alpha * 255)));
+  }
+
+  for (let row = 0; row < 64; row++) {
+    ctx.putImageData(imgData, 0, row);
+  }
 
   const texture = new THREE.CanvasTexture(canvas);
   texture.colorSpace = THREE.SRGBColorSpace;
+  texture.wrapS = THREE.ClampToEdgeWrapping;
+  texture.wrapT = THREE.ClampToEdgeWrapping;
+  texture.anisotropy = 8;
   textureCache['saturn_ring'] = texture;
   return texture;
 }
@@ -933,20 +994,21 @@ export function getSaturnRingRadialDataUrl(): string {
   // Inner ring (1.25x R_saturn) starts at 0.510 (261px), leaving a distinct 25% clear gap.
   const grad = ctx.createRadialGradient(cx, cy, 0, cx, cy, 512);
   grad.addColorStop(0.0, 'rgba(0, 0, 0, 0)');
-  grad.addColorStop(0.505, 'rgba(0, 0, 0, 0)');        // Inner dark void (never overlaps planet body)
-  grad.addColorStop(0.515, 'rgba(180, 83, 9, 0.40)');  // C Ring (Crepe Ring) inner
-  grad.addColorStop(0.615, 'rgba(202, 138, 4, 0.55)');  // C Ring outer
-  grad.addColorStop(0.625, 'rgba(254, 240, 138, 0.95)');// B Ring inner (densest & brightest)
-  grad.addColorStop(0.795, 'rgba(234, 179, 8, 0.92)');  // B Ring outer
-  grad.addColorStop(0.805, 'rgba(0, 0, 0, 0.05)');      // Cassini Division inner
-  grad.addColorStop(0.835, 'rgba(0, 0, 0, 0.05)');      // Cassini Division outer (4,700 km dark gap)
-  grad.addColorStop(0.845, 'rgba(234, 179, 8, 0.85)');  // A Ring inner
-  grad.addColorStop(0.935, 'rgba(202, 138, 4, 0.70)');  // A Ring body
-  grad.addColorStop(0.940, 'rgba(0, 0, 0, 0.15)');      // Encke gap
-  grad.addColorStop(0.950, 'rgba(202, 138, 4, 0.65)');  // A Ring outer
-  grad.addColorStop(0.960, 'rgba(0, 0, 0, 0)');         // Pre-F ring gap
-  grad.addColorStop(0.970, 'rgba(253, 224, 71, 0.6)');  // F Ring
-  grad.addColorStop(0.985, 'rgba(0, 0, 0, 0)');         // Outer deep space
+  grad.addColorStop(0.505, 'rgba(0, 0, 0, 0)');
+  grad.addColorStop(0.515, 'rgba(175, 155, 128, 0.34)');
+  grad.addColorStop(0.615, 'rgba(205, 185, 145, 0.52)');
+  grad.addColorStop(0.625, 'rgba(246, 226, 178, 0.94)');
+  grad.addColorStop(0.710, 'rgba(232, 206, 158, 0.96)');
+  grad.addColorStop(0.795, 'rgba(218, 190, 142, 0.90)');
+  grad.addColorStop(0.805, 'rgba(18, 16, 14, 0.04)');
+  grad.addColorStop(0.835, 'rgba(18, 16, 14, 0.04)');
+  grad.addColorStop(0.845, 'rgba(232, 210, 168, 0.84)');
+  grad.addColorStop(0.935, 'rgba(212, 190, 152, 0.72)');
+  grad.addColorStop(0.940, 'rgba(18, 16, 14, 0.14)');
+  grad.addColorStop(0.950, 'rgba(212, 190, 152, 0.64)');
+  grad.addColorStop(0.960, 'rgba(0, 0, 0, 0)');
+  grad.addColorStop(0.970, 'rgba(248, 232, 188, 0.58)');
+  grad.addColorStop(0.985, 'rgba(0, 0, 0, 0)');
   grad.addColorStop(1.0, 'rgba(0, 0, 0, 0)');
 
   ctx.fillStyle = grad;
@@ -1083,51 +1145,491 @@ export function getAtmosphereHaloDataUrl(bodyId: string): string {
 
 
 /**
- * 3D Milky Way Galaxy (Galaksi Bima Sakti) Particle Spiral & Deep Starfield
- * Creates 16,000+ stars arranged in two majestic logarithmic spiral arms with galactic core
+ * Creates crisp soft circular asteroid texture so Points never render as square blocks
+ */
+function createCircularParticleTexture(size: number = 64): THREE.CanvasTexture {
+  const canvas = document.createElement('canvas');
+  canvas.width = size;
+  canvas.height = size;
+  const ctx = canvas.getContext('2d')!;
+  const half = size * 0.5;
+  const g = ctx.createRadialGradient(half, half, 0, half, half, half);
+  g.addColorStop(0.0, 'rgba(255, 255, 255, 1.0)');
+  g.addColorStop(0.32, 'rgba(255, 255, 255, 0.88)');
+  g.addColorStop(0.7, 'rgba(255, 255, 255, 0.22)');
+  g.addColorStop(1.0, 'rgba(255, 255, 255, 0.0)');
+  ctx.fillStyle = g;
+  ctx.fillRect(0, 0, size, size);
+  const tex = new THREE.CanvasTexture(canvas);
+  tex.colorSpace = THREE.SRGBColorSpace;
+  return tex;
+}
+
+/**
+ * Deterministic seeded PRNG and smooth spherical FBM noise for skybox and cloud textures
+ */
+function mulberry32(seed: number): () => number {
+  let a = seed >>> 0;
+  return () => {
+    a |= 0;
+    a = (a + 0x6d2b79f5) | 0;
+    let t = Math.imul(a ^ (a >>> 15), 1 | a);
+    t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
+    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+  };
+}
+
+function hash3(x: number, y: number, z: number): number {
+  const n = Math.sin(x * 127.1 + y * 311.7 + z * 74.7) * 43758.5453123;
+  return n - Math.floor(n);
+}
+
+function noise3(x: number, y: number, z: number): number {
+  const ix = Math.floor(x);
+  const iy = Math.floor(y);
+  const iz = Math.floor(z);
+  const fx = x - ix;
+  const fy = y - iy;
+  const fz = z - iz;
+  const ux = fx * fx * (3 - 2 * fx);
+  const uy = fy * fy * (3 - 2 * fy);
+  const uz = fz * fz * (3 - 2 * fz);
+
+  const n000 = hash3(ix, iy, iz);
+  const n100 = hash3(ix + 1, iy, iz);
+  const n010 = hash3(ix, iy + 1, iz);
+  const n110 = hash3(ix + 1, iy + 1, iz);
+  const n001 = hash3(ix, iy, iz + 1);
+  const n101 = hash3(ix + 1, iy, iz + 1);
+  const n011 = hash3(ix, iy + 1, iz + 1);
+  const n111 = hash3(ix + 1, iy + 1, iz + 1);
+
+  const nx00 = n000 + (n100 - n000) * ux;
+  const nx10 = n010 + (n110 - n010) * ux;
+  const nx01 = n001 + (n101 - n001) * ux;
+  const nx11 = n011 + (n111 - n011) * ux;
+  const nxy0 = nx00 + (nx10 - nx00) * uy;
+  const nxy1 = nx01 + (nx11 - nx01) * uy;
+  return nxy0 + (nxy1 - nxy0) * uz;
+}
+
+function fbm3(x: number, y: number, z: number, octaves: number = 4): number {
+  let val = 0;
+  let amp = 0.5;
+  let freq = 1.0;
+  for (let i = 0; i < octaves; i++) {
+    val += amp * noise3(x * freq, y * freq, z * freq);
+    freq *= 2.04;
+    amp *= 0.5;
+  }
+  return val;
+}
+
+function sampleMilkyWayPixel(dx: number, dy: number, dz: number): [number, number, number] {
+  // Tilted galactic basis vectors (galactic plane ~60 deg to ecliptic)
+  const gx = dx * 0.72 + dy * 0.61 + dz * 0.33;
+  const gy = -dx * 0.55 + dy * 0.76 - dz * 0.34;
+  const gz = -dx * 0.42 + dy * 0.06 + dz * 0.90;
+
+  const planeDist = Math.abs(gy);
+  const bandMask = Math.exp(-planeDist * planeDist * 18.0);
+  const coreMask = Math.exp(-planeDist * planeDist * 30.0) * Math.max(0, 0.55 + 0.45 * gx);
+
+  const n1 = fbm3(dx * 3.1 + 1.4, dy * 3.1 - 0.7, dz * 3.1 + 2.2, 4);
+  const n2 = fbm3(dx * 7.8 - 2.3, dy * 7.8 + 1.1, dz * 7.8 - 1.6, 3);
+  const dustRift = Math.max(0, 1.0 - Math.exp(-Math.pow((planeDist - (n2 - 0.5) * 0.08) * 14.0, 2.0))) * 0.65 + 0.35;
+
+  const cosmicHaze = Math.max(0, n1 - 0.38) * 0.42;
+  const mwDensity = bandMask * (0.42 + 0.88 * n1) * dustRift;
+
+  // Ordered micro-dither prevents 8-bit contour banding across dark deep-space gradients
+  const dither = (hash3(dx * 517.3, dy * 613.7, dz * 491.9) - 0.5) * 1.9;
+
+  let r = 1 + cosmicHaze * 14 + mwDensity * 36 + coreMask * 72 * (0.6 + 0.4 * n2) + dither;
+  let g = 3 + cosmicHaze * 22 + mwDensity * 42 + coreMask * 52 * (0.6 + 0.4 * n1) + dither;
+  let b = 8 + cosmicHaze * 44 + mwDensity * 74 + coreMask * 38 + Math.max(0, n2 - 0.48) * bandMask * 48 + dither;
+
+  const nebulaMask = Math.max(0, fbm3(dx * 5.2, dy * 5.2, dz * 5.2, 3) - 0.56) * bandMask * 1.9;
+  r += nebulaMask * (0.5 + 0.5 * Math.sin(gz * 3.5)) * 58;
+  g += nebulaMask * 26;
+  b += nebulaMask * (0.5 + 0.5 * Math.cos(gx * 3.5)) * 68;
+
+  return [
+    Math.min(255, Math.max(0, Math.round(r))),
+    Math.min(255, Math.max(0, Math.round(g))),
+    Math.min(255, Math.max(0, Math.round(b))),
+  ];
+}
+
+function paintStarsIntoCubeFace(
+  ctx: CanvasRenderingContext2D,
+  size: number,
+  faceFn: (u: number, v: number) => [number, number, number]
+): void {
+  const img = ctx.createImageData(size, size);
+  const data = img.data;
+  for (let y = 0; y < size; y++) {
+    const v = (y / (size - 1)) * 2 - 1;
+    for (let x = 0; x < size; x++) {
+      const u = (x / (size - 1)) * 2 - 1;
+      const [vx, vy, vz] = faceFn(u, v);
+      const invLen = 1 / Math.hypot(vx, vy, vz);
+      const [r, g, b] = sampleMilkyWayPixel(vx * invLen, vy * invLen, vz * invLen);
+      const idx = (y * size + x) * 4;
+      data[idx] = r;
+      data[idx + 1] = g;
+      data[idx + 2] = b;
+      data[idx + 3] = 255;
+    }
+  }
+  ctx.putImageData(img, 0, 0);
+}
+
+/**
+ * Generates seamless 6-face deep-space Milky Way + Nebula + Harvard-spectral star CubeMap for Cesium SkyBox
+ */
+export function getCesiumSkyBoxDataUrls(): {
+  positiveX: string;
+  negativeX: string;
+  positiveY: string;
+  negativeY: string;
+  positiveZ: string;
+  negativeZ: string;
+} {
+  if (cesiumSkyBoxCache) return cesiumSkyBoxCache;
+
+  const size = 1024;
+  const faces: Array<{
+    key: 'positiveX' | 'negativeX' | 'positiveY' | 'negativeY' | 'positiveZ' | 'negativeZ';
+    dir: (u: number, v: number) => [number, number, number];
+  }> = [
+    { key: 'positiveX', dir: (u, v) => [1, -v, -u] },
+    { key: 'negativeX', dir: (u, v) => [-1, -v, u] },
+    { key: 'positiveY', dir: (u, v) => [u, 1, v] },
+    { key: 'negativeY', dir: (u, v) => [u, -1, -v] },
+    { key: 'positiveZ', dir: (u, v) => [u, -v, 1] },
+    { key: 'negativeZ', dir: (u, v) => [-u, -v, -1] },
+  ];
+
+  const canvases: Record<string, HTMLCanvasElement> = {};
+  const ctxs: Record<string, CanvasRenderingContext2D> = {};
+
+  for (const f of faces) {
+    const c = document.createElement('canvas');
+    c.width = size;
+    c.height = size;
+    const ctx = c.getContext('2d')!;
+    paintStarsIntoCubeFace(ctx, size, f.dir);
+    canvases[f.key] = c;
+    ctxs[f.key] = ctx;
+  }
+
+  // Project 6,500 pinpoint spectral stars seamlessly onto matching cube faces
+  const rng = mulberry32(20261126);
+  for (let i = 0; i < 6500; i++) {
+    const theta = rng() * Math.PI * 2;
+    const nearGalactic = rng() < 0.45;
+    const zUniform = nearGalactic ? (rng() - 0.5) * 0.42 : rng() * 2 - 1;
+    const rHoriz = Math.sqrt(Math.max(0, 1 - zUniform * zUniform));
+    let dx = rHoriz * Math.cos(theta);
+    let dy = zUniform;
+    let dz = rHoriz * Math.sin(theta);
+
+    if (nearGalactic) {
+      const cosT = Math.cos(1.02);
+      const sinT = Math.sin(1.02);
+      const ny = dy * cosT - dz * sinT;
+      const nz = dy * sinT + dz * cosT;
+      dy = ny;
+      dz = nz;
+    }
+
+    const ax = Math.abs(dx);
+    const ay = Math.abs(dy);
+    const az = Math.abs(dz);
+    let faceKey: 'positiveX' | 'negativeX' | 'positiveY' | 'negativeY' | 'positiveZ' | 'negativeZ';
+    let u = 0;
+    let v = 0;
+    if (ax >= ay && ax >= az) {
+      faceKey = dx > 0 ? 'positiveX' : 'negativeX';
+      u = dx > 0 ? -dz / ax : dz / ax;
+      v = -dy / ax;
+    } else if (ay >= ax && ay >= az) {
+      faceKey = dy > 0 ? 'positiveY' : 'negativeY';
+      u = dx / ay;
+      v = dy > 0 ? dz / ay : -dz / ay;
+    } else {
+      faceKey = dz > 0 ? 'positiveZ' : 'negativeZ';
+      u = dz > 0 ? dx / az : -dx / az;
+      v = -dy / az;
+    }
+
+    const px = ((u + 1) * 0.5) * (size - 1);
+    const py = ((v + 1) * 0.5) * (size - 1);
+    const mag = Math.pow(rng(), 5.2);
+    const radius = 0.5 + mag * 1.1;
+    const huePick = rng();
+    const starColor = huePick < 0.35
+      ? '210, 232, 255'
+      : huePick < 0.7
+      ? '255, 252, 245'
+      : huePick < 0.88
+      ? '254, 236, 178'
+      : '253, 186, 140';
+
+    const ctx = ctxs[faceKey];
+    if (mag > 0.74) {
+      const glow = ctx.createRadialGradient(px, py, 0, px, py, radius * 2.4);
+      glow.addColorStop(0.0, 'rgba(255,255,255,0.98)');
+      glow.addColorStop(0.32, `rgba(${starColor},0.55)`);
+      glow.addColorStop(1.0, `rgba(${starColor},0)`);
+      ctx.fillStyle = glow;
+      ctx.beginPath();
+      ctx.arc(px, py, radius * 2.4, 0, Math.PI * 2);
+      ctx.fill();
+    } else {
+      ctx.fillStyle = `rgba(${starColor}, ${0.38 + mag * 0.6})`;
+      ctx.beginPath();
+      ctx.arc(px, py, radius, 0, Math.PI * 2);
+      ctx.fill();
+    }
+  }
+
+  cesiumSkyBoxCache = {
+    positiveX: canvases.positiveX.toDataURL('image/jpeg', 0.9),
+    negativeX: canvases.negativeX.toDataURL('image/jpeg', 0.9),
+    positiveY: canvases.positiveY.toDataURL('image/jpeg', 0.9),
+    negativeY: canvases.negativeY.toDataURL('image/jpeg', 0.9),
+    positiveZ: canvases.positiveZ.toDataURL('image/jpeg', 0.9),
+    negativeZ: canvases.negativeZ.toDataURL('image/jpeg', 0.9),
+  };
+  return cesiumSkyBoxCache;
+}
+
+export function getCircularStarTexture(size: number = 64): THREE.CanvasTexture {
+  if (textureCache['circular_star']) return textureCache['circular_star'] as THREE.CanvasTexture;
+  const tex = createCircularParticleTexture(size);
+  textureCache['circular_star'] = tex;
+  return tex;
+}
+
+/**
+ * Generates seamless 2K equirectangular Milky Way & Deep-Space Nebula texture for Three.js sky domes
+ */
+export function getMilkyWayDomeTexture(): THREE.CanvasTexture {
+  if (milkyWayDomeTexCache) return milkyWayDomeTexCache;
+
+  const w = 2048;
+  const h = 1024;
+  const canvas = document.createElement('canvas');
+  canvas.width = w;
+  canvas.height = h;
+  const ctx = canvas.getContext('2d')!;
+  const img = ctx.createImageData(w, h);
+  const data = img.data;
+
+  for (let y = 0; y < h; y++) {
+    const phi = (y / (h - 1)) * Math.PI;
+    const sinPhi = Math.sin(phi);
+    const cosPhi = Math.cos(phi);
+    for (let x = 0; x < w; x++) {
+      const theta = (x / (w - 1)) * Math.PI * 2;
+      const dx = sinPhi * Math.cos(theta);
+      const dy = cosPhi;
+      const dz = sinPhi * Math.sin(theta);
+      const [r, g, b] = sampleMilkyWayPixel(dx, dy, dz);
+      const idx = (y * w + x) * 4;
+      data[idx] = r;
+      data[idx + 1] = g;
+      data[idx + 2] = b;
+      data[idx + 3] = 255;
+    }
+  }
+  ctx.putImageData(img, 0, 0);
+
+  // Add pinpoint spectral starfield (crisp sub-pixel cores without bloated orbs)
+  const rng = mulberry32(990812);
+  for (let i = 0; i < 5200; i++) {
+    const sx = rng() * w;
+    const sy = rng() * h;
+    const mag = Math.pow(rng(), 5.5);
+    const r = 0.35 + mag * 0.85;
+    const huePick = rng();
+    const rgb = huePick < 0.36 ? '206,232,255' : huePick < 0.72 ? '255,253,248' : huePick < 0.9 ? '254,234,168' : '253,182,132';
+    if (mag > 0.78) {
+      const glow = ctx.createRadialGradient(sx, sy, 0, sx, sy, r * 2.1);
+      glow.addColorStop(0.0, 'rgba(255,255,255,0.98)');
+      glow.addColorStop(0.35, `rgba(${rgb},0.5)`);
+      glow.addColorStop(1.0, `rgba(${rgb},0)`);
+      ctx.fillStyle = glow;
+      ctx.beginPath();
+      ctx.arc(sx, sy, r * 2.1, 0, Math.PI * 2);
+      ctx.fill();
+    } else {
+      ctx.fillStyle = `rgba(${rgb},${0.35 + mag * 0.65})`;
+      ctx.beginPath();
+      ctx.arc(sx, sy, r, 0, Math.PI * 2);
+      ctx.fill();
+    }
+  }
+
+  const tex = new THREE.CanvasTexture(canvas);
+  tex.colorSpace = THREE.SRGBColorSpace;
+  tex.wrapS = THREE.RepeatWrapping;
+  tex.wrapT = THREE.ClampToEdgeWrapping;
+  milkyWayDomeTexCache = tex;
+  return tex;
+}
+
+/**
+ * Creates a seamless 3D Deep-Space Sky Dome with Milky Way band and spectral stars
+ */
+export function createDeepSpaceSkyDome(radius: number = 4200): THREE.Mesh {
+  const geo = new THREE.SphereGeometry(radius, 48, 32);
+  const mat = new THREE.MeshBasicMaterial({
+    map: getMilkyWayDomeTexture(),
+    side: THREE.BackSide,
+    depthWrite: false,
+    fog: false,
+  });
+  const mesh = new THREE.Mesh(geo, mat);
+  mesh.name = 'DeepSpaceMilkyWayDome';
+  mesh.renderOrder = -10;
+  return mesh;
+}
+
+/**
+ * Generates realistic swirling global atmospheric cloud deck texture for Earth
+ */
+export function getEarthCloudsTexture(): THREE.CanvasTexture {
+  if (earthCloudsTexCache) return earthCloudsTexCache;
+  const w = 1024;
+  const h = 512;
+  const canvas = document.createElement('canvas');
+  canvas.width = w;
+  canvas.height = h;
+  const ctx = canvas.getContext('2d')!;
+  const img = ctx.createImageData(w, h);
+  const d = img.data;
+
+  for (let y = 0; y < h; y++) {
+    const phi = (y / (h - 1)) * Math.PI;
+    const sinPhi = Math.sin(phi);
+    const cosPhi = Math.cos(phi);
+    const latWeight = 0.72 + 0.28 * Math.exp(-Math.pow((cosPhi) * 4.0, 2.0));
+    for (let x = 0; x < w; x++) {
+      const theta = (x / (w - 1)) * Math.PI * 2;
+      const dx = sinPhi * Math.cos(theta);
+      const dy = cosPhi;
+      const dz = sinPhi * Math.sin(theta);
+
+      // Domain-warped FBM for realistic cyclonic & jet-stream wispy cloud structure
+      const warp = fbm3(dx * 2.6, dy * 3.8, dz * 2.6, 3) * 1.35;
+      const cloudRaw = fbm3(dx * 5.2 + warp, dy * 6.5 - warp * 0.5, dz * 5.2 + warp, 4);
+      const density = Math.max(0, (cloudRaw * latWeight - 0.44) * 2.35);
+      const alpha = Math.min(245, Math.round(Math.pow(Math.min(1, density), 1.35) * 225));
+
+      const idx = (y * w + x) * 4;
+      d[idx] = 248;
+      d[idx + 1] = 252;
+      d[idx + 2] = 255;
+      d[idx + 3] = alpha;
+    }
+  }
+  ctx.putImageData(img, 0, 0);
+
+  const tex = new THREE.CanvasTexture(canvas);
+  tex.colorSpace = THREE.SRGBColorSpace;
+  tex.wrapS = THREE.RepeatWrapping;
+  tex.wrapT = THREE.ClampToEdgeWrapping;
+  tex.anisotropy = 8;
+  earthCloudsTexCache = tex;
+  return tex;
+}
+
+/**
+ * Generates anamorphic lens flare + soft Gaussian coronal aura texture for the Sun
+ */
+export function getSolarFlareTexture(): THREE.CanvasTexture {
+  if (solarFlareTexCache) return solarFlareTexCache;
+  const size = 512;
+  const canvas = document.createElement('canvas');
+  canvas.width = size;
+  canvas.height = size;
+  const ctx = canvas.getContext('2d')!;
+  const c = size * 0.5;
+
+  const radial = ctx.createRadialGradient(c, c, 0, c, c, c);
+  radial.addColorStop(0.0, 'rgba(255, 255, 245, 0.95)');
+  radial.addColorStop(0.14, 'rgba(254, 240, 138, 0.72)');
+  radial.addColorStop(0.36, 'rgba(245, 158, 11, 0.28)');
+  radial.addColorStop(0.7, 'rgba(234, 88, 12, 0.06)');
+  radial.addColorStop(1.0, 'rgba(0, 0, 0, 0)');
+  ctx.fillStyle = radial;
+  ctx.fillRect(0, 0, size, size);
+
+  // Soft anamorphic horizontal & subtle vertical flare beams
+  const horiz = ctx.createLinearGradient(0, c, size, c);
+  horiz.addColorStop(0.0, 'rgba(255,255,255,0)');
+  horiz.addColorStop(0.5, 'rgba(254, 249, 195, 0.42)');
+  horiz.addColorStop(1.0, 'rgba(255,255,255,0)');
+  ctx.fillStyle = horiz;
+  ctx.fillRect(0, c - 4, size, 8);
+
+  const vert = ctx.createLinearGradient(c, 0, c, size);
+  vert.addColorStop(0.0, 'rgba(255,255,255,0)');
+  vert.addColorStop(0.5, 'rgba(254, 240, 138, 0.22)');
+  vert.addColorStop(1.0, 'rgba(255,255,255,0)');
+  ctx.fillStyle = vert;
+  ctx.fillRect(c - 2, 0, 4, size);
+
+  const tex = new THREE.CanvasTexture(canvas);
+  tex.colorSpace = THREE.SRGBColorSpace;
+  solarFlareTexCache = tex;
+  return tex;
+}
+
+/**
+ * 3D Milky Way Galaxy Particle Spiral & Optical-Infinity Deep Starfield
  */
 export function createMilkyWayGalaxy(): THREE.Group {
   const galaxyGroup = new THREE.Group();
   galaxyGroup.name = 'MilkyWayGalaxy';
 
-  // Parameters
-  const starCount = 18000;
+  // Seamless Photographic Deep Space Sky Dome (Milky Way Plane + Nebulae + Stars)
+  galaxyGroup.add(createDeepSpaceSkyDome(4600));
+
+  // Parallax 3D Stellar Dust & Galactic Plane Clusters
+  const starCount = 12000;
   const positions = new Float32Array(starCount * 3);
   const colors = new Float32Array(starCount * 3);
 
-  const minRadius = 1200;
-  const maxRadius = 4500;
+  const minRadius = 1550;
+  const maxRadius = 4200;
   const arms = 2;
 
-  const coreColor = new THREE.Color(0xfef08a);    // Warm gold/amber core
-  const armColorInner = new THREE.Color(0x38bdf8);// Cyan/sky blue
-  const armColorOuter = new THREE.Color(0x818cf8);// Violet/indigo
+  const coreColor = new THREE.Color(0xfef3c7);
+  const armColorInner = new THREE.Color(0x93c5fd);
+  const armColorOuter = new THREE.Color(0xa5b4fc);
 
   for (let i = 0; i < starCount; i++) {
     const idx = i * 3;
-    // Radial distribution: placed far in the cosmic background (no particles inside the Solar System)
-    const r = minRadius + Math.pow(Math.random(), 1.5) * (maxRadius - minRadius);
-    const spinAngle = r * 0.0025;
-    const branchAngle = ((i % arms) * ((2 * Math.PI) / arms));
+    const r = minRadius + Math.pow(Math.random(), 1.45) * (maxRadius - minRadius);
+    const spinAngle = r * 0.0022;
+    const branchAngle = (i % arms) * ((2 * Math.PI) / arms);
 
-    // Natural cosmic dispersal
-    const randomX = (Math.pow(Math.random(), 3) * (Math.random() < 0.5 ? 1 : -1) * 0.25) * r;
-    const randomY = (Math.pow(Math.random(), 3) * (Math.random() < 0.5 ? 1 : -1) * 0.12) * r;
-    const randomZ = (Math.pow(Math.random(), 3) * (Math.random() < 0.5 ? 1 : -1) * 0.25) * r;
+    const randomX = Math.pow(Math.random(), 3) * (Math.random() < 0.5 ? 1 : -1) * 0.24 * r;
+    const randomY = Math.pow(Math.random(), 3) * (Math.random() < 0.5 ? 1 : -1) * 0.10 * r;
+    const randomZ = Math.pow(Math.random(), 3) * (Math.random() < 0.5 ? 1 : -1) * 0.24 * r;
 
     const angle = branchAngle + spinAngle;
-    const x = Math.cos(angle) * r + randomX;
-    const y = randomY;
-    const z = Math.sin(angle) * r + randomZ;
+    positions[idx] = Math.cos(angle) * r + randomX;
+    positions[idx + 1] = randomY;
+    positions[idx + 2] = Math.sin(angle) * r + randomZ;
 
-    positions[idx] = x;
-    positions[idx + 1] = y;
-    positions[idx + 2] = z;
-
-    // Distant star colors
     const armProgress = (r - minRadius) / (maxRadius - minRadius);
     const mixedColor = coreColor.clone();
-    mixedColor.lerp(armColorInner, 0.4);
+    mixedColor.lerp(armColorInner, 0.45);
     mixedColor.lerp(armColorOuter, armProgress);
 
     colors[idx] = mixedColor.r;
@@ -1135,72 +1637,26 @@ export function createMilkyWayGalaxy(): THREE.Group {
     colors[idx + 2] = mixedColor.b;
   }
 
+  const particleMap = createCircularParticleTexture(64);
   const geometry = new THREE.BufferGeometry();
   geometry.setAttribute('position', new THREE.BufferAttribute(positions, 3));
   geometry.setAttribute('color', new THREE.BufferAttribute(colors, 3));
 
   const material = new THREE.PointsMaterial({
-    size: 2.5,
+    size: 1.9,
+    map: getCircularStarTexture(64),
+    alphaTest: 0.01,
     vertexColors: true,
     transparent: true,
-    opacity: 0.75,
+    opacity: 0.36,
     blending: THREE.AdditiveBlending,
     depthWrite: false,
   });
 
   const galaxyPoints = new THREE.Points(geometry, material);
-  // Realistically tilt galaxy by ~60° relative to solar system ecliptic plane
   galaxyPoints.rotation.x = Math.PI * 0.33;
   galaxyPoints.rotation.z = Math.PI * 0.15;
   galaxyGroup.add(galaxyPoints);
-
-  // Distant Deep Space Cosmic Starfield at Optical Infinity
-  const bgCount = 3000;
-  const bgPositions = new Float32Array(bgCount * 3);
-  const bgColors = new Float32Array(bgCount * 3);
-
-  for (let i = 0; i < bgCount; i++) {
-    const idx = i * 3;
-    const dist = 3500 + Math.random() * 2500;
-    const theta = Math.random() * Math.PI * 2;
-    const phi = Math.acos(2 * Math.random() - 1);
-
-    bgPositions[idx] = dist * Math.sin(phi) * Math.cos(theta);
-    bgPositions[idx + 1] = dist * Math.sin(phi) * Math.sin(theta);
-    bgPositions[idx + 2] = dist * Math.cos(phi);
-
-    // Varied stellar spectral classes (O, B, A, F, G, K, M)
-    const rand = Math.random();
-    if (rand < 0.6) {
-      // White/Bluish (A, B)
-      bgColors[idx] = 0.9;
-      bgColors[idx + 1] = 0.95;
-      bgColors[idx + 2] = 1.0;
-    } else if (rand < 0.85) {
-      // Yellow (G like Sun)
-      bgColors[idx] = 1.0;
-      bgColors[idx + 1] = 0.9;
-      bgColors[idx + 2] = 0.7;
-    } else {
-      // Reddish/Orange (K, M)
-      bgColors[idx] = 1.0;
-      bgColors[idx + 1] = 0.55;
-      bgColors[idx + 2] = 0.45;
-    }
-  }
-
-  const bgGeo = new THREE.BufferGeometry();
-  bgGeo.setAttribute('position', new THREE.BufferAttribute(bgPositions, 3));
-  bgGeo.setAttribute('color', new THREE.BufferAttribute(bgColors, 3));
-  const bgMat = new THREE.PointsMaterial({
-    size: 0.9,
-    vertexColors: true,
-    transparent: true,
-    opacity: 0.75,
-  });
-
-  const bgStars = new THREE.Points(bgGeo, bgMat);
-  galaxyGroup.add(bgStars);
 
   return galaxyGroup;
 }
@@ -1209,27 +1665,35 @@ export function createMilkyWayGalaxy(): THREE.Group {
  * Creates thin, luminous orbital tracks for each celestial body
  */
 export function createOrbitLine(radius: number, color: string = '#38bdf8'): THREE.LineLoop {
-  const segments = 128;
+  const segments = 192;
   const points: THREE.Vector3[] = [];
+  const colors: number[] = [];
+  const baseColor = new THREE.Color(color);
   for (let i = 0; i <= segments; i++) {
-    const theta = (i / segments) * Math.PI * 2;
+    const t = i / segments;
+    const theta = t * Math.PI * 2;
     points.push(new THREE.Vector3(Math.cos(theta) * radius, 0, Math.sin(theta) * radius));
+    const fade = 0.28 + 0.72 * Math.pow(0.5 + 0.5 * Math.cos(theta), 1.6);
+    colors.push(baseColor.r * fade, baseColor.g * fade, baseColor.b * fade);
   }
 
   const geometry = new THREE.BufferGeometry().setFromPoints(points);
+  geometry.setAttribute('color', new THREE.Float32BufferAttribute(colors, 3));
   const material = new THREE.LineBasicMaterial({
-    color: new THREE.Color(color),
+    vertexColors: true,
     transparent: true,
-    opacity: 0.28,
+    opacity: 0.48,
+    blending: THREE.AdditiveBlending,
+    depthWrite: false,
   });
 
   return new THREE.LineLoop(geometry, material);
 }
 
 /**
- * Creates the Main Asteroid Belt between Mars and Jupiter (~2.2 to ~3.2 AU)
+ * Creates Main Asteroid Belt dust & micro-body field using soft circular shader sprites (zero square pixels)
  */
-export function createAsteroidBelt(innerRadius: number = 65.0, outerRadius: number = 88.0, count: number = 2400): THREE.Points {
+export function createAsteroidBelt(innerRadius: number = 240.0, outerRadius: number = 360.0, count: number = 2400): THREE.Points {
   const positions = new Float32Array(count * 3);
   const colors = new Float32Array(count * 3);
 
@@ -1237,29 +1701,25 @@ export function createAsteroidBelt(innerRadius: number = 65.0, outerRadius: numb
     const idx = i * 3;
     const r = innerRadius + Math.random() * (outerRadius - innerRadius);
     const theta = Math.random() * Math.PI * 2;
-    const verticalSpread = (Math.random() - 0.5) * 1.4;
+    const verticalSpread = (Math.random() - 0.5) * 4.8;
 
     positions[idx] = Math.cos(theta) * r;
     positions[idx + 1] = verticalSpread;
     positions[idx + 2] = Math.sin(theta) * r;
 
-    // Silicate (S-type), Carbonaceous (C-type), and Metallic asteroid shades
     const rand = Math.random();
-    if (rand < 0.6) {
-      // Carbonaceous dark grey
-      colors[idx] = 0.55 + Math.random() * 0.15;
-      colors[idx + 1] = 0.52 + Math.random() * 0.15;
-      colors[idx + 2] = 0.50 + Math.random() * 0.15;
-    } else if (rand < 0.85) {
-      // Silicate rocky ochre
-      colors[idx] = 0.72 + Math.random() * 0.1;
-      colors[idx + 1] = 0.60 + Math.random() * 0.1;
-      colors[idx + 2] = 0.48 + Math.random() * 0.1;
+    if (rand < 0.62) {
+      colors[idx] = 0.52 + Math.random() * 0.14;
+      colors[idx + 1] = 0.50 + Math.random() * 0.12;
+      colors[idx + 2] = 0.48 + Math.random() * 0.12;
+    } else if (rand < 0.88) {
+      colors[idx] = 0.68 + Math.random() * 0.10;
+      colors[idx + 1] = 0.58 + Math.random() * 0.10;
+      colors[idx + 2] = 0.48 + Math.random() * 0.10;
     } else {
-      // Metallic nickel-iron reflective flecks
-      colors[idx] = 0.85;
-      colors[idx + 1] = 0.85;
-      colors[idx + 2] = 0.90;
+      colors[idx] = 0.78;
+      colors[idx + 1] = 0.80;
+      colors[idx + 2] = 0.86;
     }
   }
 
@@ -1268,11 +1728,12 @@ export function createAsteroidBelt(innerRadius: number = 65.0, outerRadius: numb
   geometry.setAttribute('color', new THREE.BufferAttribute(colors, 3));
 
   const material = new THREE.PointsMaterial({
-    size: 0.65,
+    size: 0.95,
+    map: createCircularParticleTexture(64),
     vertexColors: true,
     transparent: true,
-    opacity: 0.82,
-    blending: THREE.NormalBlending,
+    opacity: 0.62,
+    depthWrite: false,
   });
 
   const asteroidBelt = new THREE.Points(geometry, material);
@@ -1281,23 +1742,95 @@ export function createAsteroidBelt(innerRadius: number = 65.0, outerRadius: numb
 }
 
 /**
- * Fresnel-based atmospheric scattering shell for Earth and planets.
+ * Creates 3D faceted rocky boulders using InstancedMesh for realistic sunlit asteroid belt silhouettes
+ */
+export function createInstancedAsteroidBelt(
+  innerRadius: number = 240.0,
+  outerRadius: number = 360.0,
+  count: number = 650
+): THREE.InstancedMesh {
+  const baseGeo = new THREE.IcosahedronGeometry(1.0, 0);
+  const posAttr = baseGeo.attributes.position;
+  for (let i = 0; i < posAttr.count; i++) {
+    const x = posAttr.getX(i);
+    const y = posAttr.getY(i);
+    const z = posAttr.getZ(i);
+    const warp = 0.72 + 0.48 * hash3(Math.round(x * 10), Math.round(y * 10), Math.round(z * 10));
+    posAttr.setXYZ(i, x * warp, y * warp * 0.78, z * warp);
+  }
+  baseGeo.computeVertexNormals();
+
+  const mat = new THREE.MeshStandardMaterial({
+    color: 0xb8afa6,
+    roughness: 0.92,
+    metalness: 0.14,
+    flatShading: true,
+  });
+
+  const instanced = new THREE.InstancedMesh(baseGeo, mat, count);
+  instanced.name = 'celestial_asteroid_boulders';
+  const dummy = new THREE.Object3D();
+  const color = new THREE.Color();
+
+  for (let i = 0; i < count; i++) {
+    const r = innerRadius + Math.random() * (outerRadius - innerRadius);
+    const theta = Math.random() * Math.PI * 2;
+    const y = (Math.random() - 0.5) * 6.5;
+    const s = 0.14 + Math.pow(Math.random(), 2.8) * 0.55;
+
+    dummy.position.set(Math.cos(theta) * r, y, Math.sin(theta) * r);
+    dummy.rotation.set(Math.random() * Math.PI, Math.random() * Math.PI, Math.random() * Math.PI);
+    dummy.scale.set(s * (0.8 + Math.random() * 0.5), s * (0.65 + Math.random() * 0.5), s * (0.8 + Math.random() * 0.5));
+    dummy.updateMatrix();
+    instanced.setMatrixAt(i, dummy.matrix);
+
+    const tone = 0.48 + Math.random() * 0.45;
+    color.setRGB(tone * 1.04, tone * 0.96, tone * 0.90);
+    instanced.setColorAt(i, color);
+  }
+
+  instanced.instanceMatrix.needsUpdate = true;
+  if (instanced.instanceColor) instanced.instanceColor.needsUpdate = true;
+  return instanced;
+}
+
+/**
+ * Sun-aware volumetric Rayleigh + Mie atmospheric halo rendered smoothly on BackSide
+ * Eliminates hard geometric outer sphere borders and adds realistic day/night terminator wrap.
  */
 export function createAtmosphericRimMaterial(
   hexColor: string = '#38bdf8',
   intensity: number = 1.15,
-  power: number = 3.4
+  power: number = 2.6,
+  options?: {
+    sunPosition?: THREE.Vector3;
+    twilightColor?: string;
+    limbRatio?: number;
+  }
 ): THREE.ShaderMaterial {
+  const limbRatio = options?.limbRatio ?? 1.12;
+  const maxDot = Math.sqrt(Math.max(0.08, 1.0 - 1.0 / (limbRatio * limbRatio)));
   return new THREE.ShaderMaterial({
     uniforms: {
       uColor: { value: new THREE.Color(hexColor) },
+      uTwilightColor: { value: new THREE.Color(options?.twilightColor || '#fb923c') },
       uIntensity: { value: intensity },
       uPower: { value: power },
+      uMaxDot: { value: maxDot },
+      uSunPos: { value: options?.sunPosition ? options.sunPosition.clone() : new THREE.Vector3(0, 0, 0) },
+      uUseSunDir: { value: options?.sunPosition === undefined ? 1.0 : 1.0 },
     },
     vertexShader: `
+      varying vec3 vWorldNormal;
+      varying vec3 vWorldPos;
+      varying vec3 vPlanetCenter;
       varying vec3 vNormal;
       varying vec3 vViewDir;
       void main() {
+        vec4 worldPos = modelMatrix * vec4(position, 1.0);
+        vWorldPos = worldPos.xyz;
+        vPlanetCenter = (modelMatrix * vec4(0.0, 0.0, 0.0, 1.0)).xyz;
+        vWorldNormal = normalize(mat3(modelMatrix) * normal);
         vec4 mvPosition = modelViewMatrix * vec4(position, 1.0);
         vNormal = normalize(normalMatrix * normal);
         vViewDir = normalize(-mvPosition.xyz);
@@ -1306,26 +1839,252 @@ export function createAtmosphericRimMaterial(
     `,
     fragmentShader: `
       uniform vec3 uColor;
+      uniform vec3 uTwilightColor;
       uniform float uIntensity;
       uniform float uPower;
+      uniform float uMaxDot;
+      uniform vec3 uSunPos;
+      uniform float uUseSunDir;
+      varying vec3 vWorldNormal;
+      varying vec3 vWorldPos;
+      varying vec3 vPlanetCenter;
       varying vec3 vNormal;
       varying vec3 vViewDir;
+
       void main() {
-        float ndotv = clamp(dot(normalize(vNormal), normalize(vViewDir)), 0.0, 1.0);
-        float rim = pow(1.0 - ndotv, uPower);
-        float alpha = clamp(rim * uIntensity, 0.0, 0.92);
-        gl_FragColor = vec4(uColor * (0.85 + 0.35 * rim), alpha);
+        // BackSide alignment peaks at planet horizon and drops cleanly to 0 at outer mesh boundary
+        float backAlign = clamp(dot(normalize(-vNormal), normalize(vViewDir)), 0.0, 1.0);
+        float shellDensity = smoothstep(0.02, max(0.28, uMaxDot), backAlign);
+        float glow = pow(shellDensity, max(1.4, uPower * 0.72));
+
+        vec3 sunDir = normalize(uSunPos - vPlanetCenter);
+        float ndotl = dot(normalize(vWorldNormal), sunDir);
+        float dayWrap = smoothstep(-0.38, 0.35, ndotl);
+        float twilightBand = exp(-pow((ndotl - 0.02) * 3.8, 2.0));
+        vec3 scatterCol = mix(uColor, uTwilightColor, twilightBand * 0.55);
+
+        float sunWeight = mix(1.0, mix(0.08, 1.0, dayWrap), uUseSunDir);
+        float alpha = clamp(glow * uIntensity * sunWeight * 0.82, 0.0, 0.92);
+        gl_FragColor = vec4(scatterCol * (0.95 + 0.45 * glow), alpha);
       }
     `,
     transparent: true,
     blending: THREE.AdditiveBlending,
     depthWrite: false,
-    side: THREE.FrontSide,
+    side: THREE.BackSide,
   });
 }
 
 /**
- * Animated solar photosphere shader with plasma granulation and limb brightening.
+ * AAA World-Space Lit Planet Surface Shader supporting:
+ * - Crisp day/night terminator wrap scattering
+ * - Earth ocean specular glint + glowing night-side city lights
+ * - Rocky regolith micro-contrast & gas giant zonal wind band sheen
+ */
+export function createAAAPlanetMaterial(
+  baseTexture: THREE.Texture | null,
+  options: {
+    bodyId: string;
+    sunPosition?: THREE.Vector3;
+    atmoColor?: string;
+    isGasGiant?: boolean;
+    nightLightsStrength?: number;
+  }
+): THREE.ShaderMaterial {
+  const isEarth = options.bodyId === 'earth' ? 1.0 : 0.0;
+  const isGas = options.isGasGiant ? 1.0 : 0.0;
+  const hasAtmo = options.bodyId === 'mercury' || options.bodyId === 'moon' ? 0.0 : 1.0;
+
+  return new THREE.ShaderMaterial({
+    uniforms: {
+      uMap: { value: baseTexture },
+      uSunPos: { value: options.sunPosition ? options.sunPosition.clone() : new THREE.Vector3(0, 0, 0) },
+      uAtmoColor: { value: new THREE.Color(options.atmoColor || '#38bdf8') },
+      uTime: { value: 0 },
+      uIsEarth: { value: isEarth },
+      uIsGasGiant: { value: isGas },
+      uHasAtmo: { value: hasAtmo },
+      uNightLights: { value: options.nightLightsStrength ?? (isEarth > 0.5 ? 1.0 : 0.0) },
+    },
+    vertexShader: `
+      varying vec2 vUv;
+      varying vec3 vWorldPos;
+      varying vec3 vWorldNormal;
+      varying vec3 vViewDirWorld;
+
+      void main() {
+        vUv = uv;
+        vec4 worldPos = modelMatrix * vec4(position, 1.0);
+        vWorldPos = worldPos.xyz;
+        vWorldNormal = normalize(mat3(modelMatrix) * normal);
+        vViewDirWorld = normalize(cameraPosition - worldPos.xyz);
+        gl_Position = projectionMatrix * viewMatrix * worldPos;
+      }
+    `,
+    fragmentShader: `
+      uniform sampler2D uMap;
+      uniform vec3 uSunPos;
+      uniform vec3 uAtmoColor;
+      uniform float uTime;
+      uniform float uIsEarth;
+      uniform float uIsGasGiant;
+      uniform float uHasAtmo;
+      uniform float uNightLights;
+
+      varying vec2 vUv;
+      varying vec3 vWorldPos;
+      varying vec3 vWorldNormal;
+      varying vec3 vViewDirWorld;
+
+      float hash21(vec2 p) {
+        p = fract(p * vec2(123.34, 456.21));
+        p += dot(p, p + 45.32);
+        return fract(p.x * p.y);
+      }
+
+      float noise2(vec2 p) {
+        vec2 i = floor(p);
+        vec2 f = fract(p);
+        vec2 u = f * f * (3.0 - 2.0 * f);
+        return mix(
+          mix(hash21(i), hash21(i + vec2(1.0, 0.0)), u.x),
+          mix(hash21(i + vec2(0.0, 1.0)), hash21(i + vec2(1.0, 1.0)), u.x),
+          u.y
+        );
+      }
+
+      void main() {
+        vec2 uvSample = vUv;
+        if (uIsGasGiant > 0.5) {
+          float shear = sin(vUv.y * 24.0) * 0.0025 * uTime;
+          uvSample.x = fract(vUv.x + shear);
+        }
+
+        vec3 albedo = texture2D(uMap, uvSample).rgb;
+        vec3 N = normalize(vWorldNormal);
+        vec3 V = normalize(vViewDirWorld);
+        vec3 L = normalize(uSunPos - vWorldPos);
+
+        // Micro-relief normal perturbation from texture luminance gradients (no extra bump fetch needed)
+        float eps = 0.0014;
+        float hC = dot(albedo, vec3(0.299, 0.587, 0.114));
+        float hX = dot(texture2D(uMap, uvSample + vec2(eps, 0.0)).rgb, vec3(0.299, 0.587, 0.114));
+        float hY = dot(texture2D(uMap, uvSample + vec2(0.0, eps)).rgb, vec3(0.299, 0.587, 0.114));
+        float bumpGain = mix(1.4, 0.25, uIsGasGiant);
+        vec3 tangentPerturb = normalize(vec3((hC - hX) * bumpGain, (hC - hY) * bumpGain, 1.0));
+        float ndotlRaw = dot(N, L);
+        float reliefDetail = clamp(dot(tangentPerturb, vec3(0.45, 0.45, 0.8)), 0.72, 1.24);
+
+        // Soft terminator diffuse with subtle night ambient so dark side retains silhouette readability
+        float wrap = mix(0.04, 0.18, uHasAtmo);
+        float diffuse = smoothstep(-0.12 - wrap, 0.85, ndotlRaw) * reliefDetail;
+        float ambientFill = mix(0.055, 0.12, uHasAtmo);
+        vec3 litColor = albedo * (ambientFill + diffuse * 1.18);
+
+        // Earth Ocean Specular Glint + Illuminated Continents City Lights on Night Hemisphere
+        if (uIsEarth > 0.5) {
+          float oceanMask = smoothstep(0.02, 0.14, albedo.b - max(albedo.r * 1.05, albedo.g * 0.92));
+          float iceMask = smoothstep(0.65, 0.82, min(min(albedo.r, albedo.g), albedo.b));
+          float landMask = clamp((1.0 - oceanMask) * (1.0 - iceMask), 0.0, 1.0);
+
+          vec3 H = normalize(L + V);
+          float spec = pow(max(dot(N, H), 0.0), 42.0) * oceanMask * smoothstep(-0.05, 0.35, ndotlRaw);
+          litColor += vec3(0.95, 0.97, 1.0) * spec * 0.65;
+
+          if (uNightLights > 0.01) {
+            float nightFactor = smoothstep(0.06, -0.22, ndotlRaw);
+            float cityGrid = noise2(vUv * vec2(180.0, 90.0)) * noise2(vUv * vec2(65.0, 32.0));
+            float cityCluster = smoothstep(0.36, 0.66, cityGrid) * landMask;
+            float equatorPop = smoothstep(0.05, 0.22, abs(vUv.y - 0.5) < 0.38 ? 0.22 : 0.0);
+            litColor += vec3(1.0, 0.76, 0.34) * cityCluster * equatorPop * nightFactor * 1.35 * uNightLights;
+          }
+        }
+
+        // Front-facing Fresnel atmospheric haze blend on sunlit limb
+        if (uHasAtmo > 0.5) {
+          float fresnel = pow(1.0 - clamp(dot(N, V), 0.0, 1.0), 3.6);
+          float sunEdge = smoothstep(-0.25, 0.45, ndotlRaw);
+          litColor += uAtmoColor * fresnel * sunEdge * 0.48;
+        }
+
+        gl_FragColor = vec4(litColor, 1.0);
+      }
+    `,
+  });
+}
+
+/**
+ * Ray-traced Saturn Ring Shader casting Saturn's real-time planetary umbra & penumbra across the rings
+ */
+export function createSaturnRingMaterial(
+  ringTexture: THREE.Texture,
+  planetRadius: number,
+  sunPosition: THREE.Vector3 = new THREE.Vector3(0, 0, 0)
+): THREE.ShaderMaterial {
+  return new THREE.ShaderMaterial({
+    uniforms: {
+      uMap: { value: ringTexture },
+      uSunPos: { value: sunPosition.clone() },
+      uPlanetRadius: { value: planetRadius },
+    },
+    vertexShader: `
+      varying vec2 vUv;
+      varying vec3 vWorldPos;
+      varying vec3 vPlanetCenter;
+      varying vec3 vRingNormal;
+
+      void main() {
+        vUv = uv;
+        vec4 worldPos = modelMatrix * vec4(position, 1.0);
+        vWorldPos = worldPos.xyz;
+        vPlanetCenter = (modelMatrix * vec4(0.0, 0.0, 0.0, 1.0)).xyz;
+        vRingNormal = normalize(mat3(modelMatrix) * normal);
+        gl_Position = projectionMatrix * viewMatrix * worldPos;
+      }
+    `,
+    fragmentShader: `
+      uniform sampler2D uMap;
+      uniform vec3 uSunPos;
+      uniform float uPlanetRadius;
+
+      varying vec2 vUv;
+      varying vec3 vWorldPos;
+      varying vec3 vPlanetCenter;
+      varying vec3 vRingNormal;
+
+      void main() {
+        vec4 texel = texture2D(uMap, vUv);
+        if (texel.a < 0.01) discard;
+
+        vec3 toSun = normalize(uSunPos - vPlanetCenter);
+        vec3 rel = vWorldPos - vPlanetCenter;
+
+        // Ray-sphere umbra check: if fragment lies behind planet along -toSun
+        float proj = dot(rel, toSun);
+        float shadowFactor = 1.0;
+        if (proj < 0.0) {
+          vec3 perp = rel - toSun * proj;
+          float perpDist = length(perp);
+          shadowFactor = mix(0.07, 1.0, smoothstep(uPlanetRadius * 0.92, uPlanetRadius * 1.06, perpDist));
+        }
+
+        // Subtle phase brightening on ice crystals facing light or backlit scattering
+        vec3 V = normalize(cameraPosition - vWorldPos);
+        float phase = 0.85 + 0.25 * abs(dot(V, toSun));
+        float shimmer = 0.95 + 0.05 * sin(vUv.x * 160.0);
+
+        vec3 finalCol = texel.rgb * shadowFactor * phase * shimmer * 1.12;
+        gl_FragColor = vec4(finalCol, texel.a);
+      }
+    `,
+    transparent: true,
+    side: THREE.DoubleSide,
+    depthWrite: false,
+  });
+}
+
+/**
+ * Animated solar photosphere shader with HDR plasma convection, sunspot contrast, and fiery limb darkening
  */
 export function createSolarSurfaceMaterial(baseTexture: THREE.Texture | null): THREE.ShaderMaterial {
   return new THREE.ShaderMaterial({
@@ -1337,8 +2096,10 @@ export function createSolarSurfaceMaterial(baseTexture: THREE.Texture | null): T
       varying vec2 vUv;
       varying vec3 vNormal;
       varying vec3 vViewDir;
+      varying vec3 vLocalPos;
       void main() {
         vUv = uv;
+        vLocalPos = position;
         vec4 mvPosition = modelViewMatrix * vec4(position, 1.0);
         vNormal = normalize(normalMatrix * normal);
         vViewDir = normalize(-mvPosition.xyz);
@@ -1351,26 +2112,56 @@ export function createSolarSurfaceMaterial(baseTexture: THREE.Texture | null): T
       varying vec2 vUv;
       varying vec3 vNormal;
       varying vec3 vViewDir;
+      varying vec3 vLocalPos;
+
+      float hash31(vec3 p) {
+        p = fract(p * 0.1031);
+        p += dot(p, p.yzx + 33.33);
+        return fract((p.x + p.y) * p.z);
+      }
+
+      float noise3d(vec3 x) {
+        vec3 i = floor(x);
+        vec3 f = fract(x);
+        f = f * f * (3.0 - 2.0 * f);
+        return mix(
+          mix(mix(hash31(i), hash31(i + vec3(1,0,0)), f.x),
+              mix(hash31(i + vec3(0,1,0)), hash31(i + vec3(1,1,0)), f.x), f.y),
+          mix(mix(hash31(i + vec3(0,0,1)), hash31(i + vec3(1,0,1)), f.x),
+              mix(hash31(i + vec3(0,1,1)), hash31(i + vec3(1,1,1)), f.x), f.y),
+          f.z
+        );
+      }
 
       void main() {
-        vec2 driftUv = vUv + vec2(uTime * 0.004, sin(vUv.x * 12.56 + uTime * 0.5) * 0.003);
+        vec3 p = normalize(vLocalPos) * 7.5;
+        float boil = noise3d(p + vec3(uTime * 0.22, -uTime * 0.16, uTime * 0.19)) * 0.65
+                   + noise3d(p * 2.3 - vec3(uTime * 0.35)) * 0.35;
+
+        vec2 driftUv = vUv + vec2(uTime * 0.0025, (boil - 0.5) * 0.008);
         vec3 baseCol = texture2D(uMap, fract(driftUv)).rgb;
-        float plasma = 0.5 + 0.5 * sin(vUv.x * 38.0 + uTime * 1.4) * cos(vUv.y * 26.0 - uTime * 1.1);
+
         float ndotv = clamp(dot(normalize(vNormal), normalize(vViewDir)), 0.0, 1.0);
-        float limb = pow(1.0 - ndotv, 2.2);
-        vec3 glowCol = baseCol * (0.96 + plasma * 0.14) + vec3(1.0, 0.58, 0.16) * (limb * 0.42);
-        gl_FragColor = vec4(glowCol, 1.0);
+        // True astrophysical solar limb darkening toward chromospheric crimson-orange
+        float limbFactor = pow(ndotv, 0.42);
+        vec3 chromosphereRim = vec3(1.15, 0.32, 0.05) * pow(1.0 - ndotv, 2.4);
+
+        // HDR core emission drives UnrealBloomPass naturally without washing out dark sunspots
+        float lum = dot(baseCol, vec3(0.3, 0.59, 0.11));
+        vec3 hdrBoost = baseCol * (0.82 + 0.36 * boil) * (0.48 + 0.68 * limbFactor);
+        vec3 brightFaculae = vec3(1.18, 0.88, 0.38) * smoothstep(0.65, 0.96, lum) * 0.28;
+        gl_FragColor = vec4(hdrBoost + brightFaculae + chromosphereRim * 0.52, 1.0);
       }
     `,
   });
 }
 
 /**
- * Soft additive solar corona envelope rendered on the back faces around the photosphere.
+ * Soft BackSide volumetric solar corona & dynamic magnetic streamer glow (zero hard shell edge)
  */
 export function createSolarCoronaMaterial(
   hexColor: string = '#f59e0b',
-  intensity: number = 0.72
+  intensity: number = 0.92
 ): THREE.ShaderMaterial {
   return new THREE.ShaderMaterial({
     uniforms: {
@@ -1381,7 +2172,9 @@ export function createSolarCoronaMaterial(
     vertexShader: `
       varying vec3 vNormal;
       varying vec3 vViewDir;
+      varying vec3 vLocalDir;
       void main() {
+        vLocalDir = normalize(position);
         vec4 mvPosition = modelViewMatrix * vec4(position, 1.0);
         vNormal = normalize(normalMatrix * normal);
         vViewDir = normalize(-mvPosition.xyz);
@@ -1394,11 +2187,16 @@ export function createSolarCoronaMaterial(
       uniform float uTime;
       varying vec3 vNormal;
       varying vec3 vViewDir;
+      varying vec3 vLocalDir;
       void main() {
-        float alignment = max(dot(normalize(-vNormal), normalize(vViewDir)), 0.0);
-        float halo = pow(alignment, 3.0);
-        float pulse = 0.92 + 0.08 * sin(uTime * 1.7);
-        gl_FragColor = vec4(uColor * (1.0 + halo * 0.4), halo * uIntensity * pulse);
+        float alignment = clamp(dot(normalize(-vNormal), normalize(vViewDir)), 0.0, 1.0);
+        // Smooth radial falloff that reaches exact zero at the outer corona mesh silhouette
+        float radial = pow(smoothstep(0.03, 0.72, alignment), 2.35);
+        float angle = atan(vLocalDir.y, vLocalDir.x);
+        float streamer = 0.84 + 0.16 * sin(angle * 7.0 + uTime * 0.75) * cos(vLocalDir.z * 9.0 - uTime * 0.6);
+        float pulse = 0.94 + 0.06 * sin(uTime * 1.4);
+        float alpha = clamp(radial * uIntensity * streamer * pulse, 0.0, 0.95);
+        gl_FragColor = vec4(uColor * (1.2 + radial * 0.65), alpha);
       }
     `,
     transparent: true,

@@ -7,6 +7,10 @@ import {
 } from '@/services/geospatial/earthquakeSnapshotService';
 import React, { useEffect, useRef, useState, useCallback, useMemo } from 'react';
 import * as THREE from 'three';
+import { EffectComposer } from 'three/examples/jsm/postprocessing/EffectComposer.js';
+import { RenderPass } from 'three/examples/jsm/postprocessing/RenderPass.js';
+import { UnrealBloomPass } from 'three/examples/jsm/postprocessing/UnrealBloomPass.js';
+import { OutputPass } from 'three/examples/jsm/postprocessing/OutputPass.js';
 import { 
   Globe, 
   Pause, 
@@ -43,7 +47,7 @@ import {
   VolumeX
 } from 'lucide-react';
 import { CosmicSolarSystemEngine } from './celestial/CosmicSolarSystemEngine';
-import { createAtmosphericRimMaterial } from './celestial/cosmicSceneUtils';
+import { createAtmosphericRimMaterial, getEarthCloudsTexture } from './celestial/cosmicSceneUtils';
 import { CelestialInfoPanel } from './celestial/CelestialInfoPanel';
 import { PlanetarySurfaceExplorerModal } from './celestial/PlanetarySurfaceExplorerModal';
 import { cosmicAudio } from './celestial/cosmicAudioSynth';
@@ -984,7 +988,7 @@ export function GlobeView3D({
     const scene = new THREE.Scene();
     sceneRef.current = scene;
 
-    const camera = new THREE.PerspectiveCamera(45, mount.clientWidth / mount.clientHeight, 0.1, 1000);
+    const camera = new THREE.PerspectiveCamera(45, mount.clientWidth / mount.clientHeight, 0.1, 12000);
     camera.position.z = zoom;
     cameraRef.current = camera;
 
@@ -992,14 +996,35 @@ export function GlobeView3D({
 
     const renderer = new THREE.WebGLRenderer({ 
       antialias: perfProfile.effectiveMode === 'high', 
-      alpha: true, 
+      alpha: false, 
       powerPreference: 'high-performance' 
     });
     renderer.setSize(mount.clientWidth, mount.clientHeight);
     renderer.setPixelRatio(perfProfile.threePixelRatio);
-    renderer.setClearColor(0x000000, 0);
+    renderer.setClearColor(0x01030b, 1);
+    renderer.toneMapping = THREE.ACESFilmicToneMapping;
+    renderer.toneMappingExposure = 1.06;
     mount.appendChild(renderer.domElement);
     rendererRef.current = renderer;
+
+    let composer: EffectComposer | null = null;
+    let bloomPass: UnrealBloomPass | null = null;
+    if (perfProfile.effectiveMode !== 'lite') {
+      try {
+        composer = new EffectComposer(renderer);
+        composer.addPass(new RenderPass(scene, camera));
+        bloomPass = new UnrealBloomPass(
+          new THREE.Vector2(mount.clientWidth || 800, mount.clientHeight || 600),
+          0.26,
+          0.45,
+          0.91
+        );
+        composer.addPass(bloomPass);
+        composer.addPass(new OutputPass());
+      } catch {
+        composer = null;
+      }
+    }
 
     const unsubPerf = hardwarePerformanceService.subscribe((profile) => {
       if (rendererRef.current) {
@@ -1258,20 +1283,23 @@ export function GlobeView3D({
     globe.add(boundariesGroup);
     boundariesGroupRef.current = boundariesGroup;
 
-    // Atmospheric Glow Outer Shell (Fresnel Scattering Shader)
-    const atmGeo = new THREE.SphereGeometry(radius * 1.022, 48, 48);
-    const atmMat = createAtmosphericRimMaterial('#38bdf8', 1.15, 3.6);
+    // Atmospheric Glow Outer Shell (Sun-Aware Volumetric Rayleigh Shader)
+    const atmGeo = new THREE.SphereGeometry(radius * 1.12, 48, 48);
+    const atmMat = createAtmosphericRimMaterial('#38bdf8', 1.12, 2.5, {
+      limbRatio: 1.12,
+      twilightColor: '#fb923c',
+      sunPosition: new THREE.Vector3(0, 0, 0),
+    });
     const atmosphere = new THREE.Mesh(atmGeo, atmMat);
     cosmicEngine.earthSystemGroup.add(atmosphere);
     atmosphereRef.current = atmosphere;
 
-    // Clouds Layer
-    const cloudsGeo = new THREE.SphereGeometry(radius * 1.008, 36, 36);
+    // Clouds Layer (Dynamic swirling weather cloud deck)
+    const cloudsGeo = new THREE.SphereGeometry(radius * 1.008, 48, 48);
     const cloudsMat = new THREE.MeshLambertMaterial({
-      color: 0xffffff,
+      map: getEarthCloudsTexture(),
       transparent: true,
-      opacity: 0.28,
-      blending: THREE.AdditiveBlending,
+      opacity: 0.78,
       depthWrite: false,
     });
     const clouds = new THREE.Mesh(cloudsGeo, cloudsMat);
@@ -1310,22 +1338,6 @@ export function GlobeView3D({
     windParticlesRef.current = windPoints;
     windParticlesData.current = { velocities: windVelocities, lats: windLats, lngs: windLngs };
 
-    // Starfield Backdrop
-    const starGeo = new THREE.BufferGeometry();
-    const starCount = 800;
-    const starPositions = new Float32Array(starCount * 3);
-    for (let i = 0; i < starCount * 3; i += 3) {
-      const dist = 280 + Math.random() * 200;
-      const theta = Math.random() * Math.PI * 2;
-      const phi = Math.acos(2 * Math.random() - 1);
-      starPositions[i] = dist * Math.sin(phi) * Math.cos(theta);
-      starPositions[i + 1] = dist * Math.sin(phi) * Math.sin(theta);
-      starPositions[i + 2] = dist * Math.cos(phi);
-    }
-    starGeo.setAttribute('position', new THREE.BufferAttribute(starPositions, 3));
-    const starMat = new THREE.PointsMaterial({ color: 0xffffff, size: 0.7, transparent: true, opacity: 0.7 });
-    scene.add(new THREE.Points(starGeo, starMat));
-
     // Load initial tiles
     drawTiles(2, basemapMode);
     setIsTextureLoaded(true);
@@ -1337,6 +1349,8 @@ export function GlobeView3D({
       const h = mount.clientHeight;
       if (w === 0 || h === 0) return;
       renderer.setSize(w, h);
+      composer?.setSize(w, h);
+      bloomPass?.setSize(w, h);
       camera.aspect = w / h;
       camera.updateProjectionMatrix();
     });
@@ -1518,7 +1532,11 @@ export function GlobeView3D({
         cullAndScale(routeGroupRef.current);
       }
 
-      renderer.render(scene, camera);
+      if (composer) {
+        composer.render();
+      } else {
+        renderer.render(scene, camera);
+      }
     };
     animate();
 
@@ -1761,6 +1779,8 @@ export function GlobeView3D({
       dom.removeEventListener('wheel', onWheel);
       cosmicEngine.dispose();
       globeTexture.dispose();
+      composer?.dispose();
+      bloomPass?.dispose();
       renderer.dispose();
       geometry.dispose();
       globeMaterial.dispose();
@@ -1768,8 +1788,6 @@ export function GlobeView3D({
       atmMat.dispose();
       cloudsGeo.dispose();
       cloudsMat.dispose();
-      starGeo.dispose();
-      starMat.dispose();
       windGeo.dispose();
       windMat.dispose();
       if (mount.contains(dom)) {
@@ -2437,7 +2455,7 @@ export function GlobeView3D({
       <div 
         onPointerDown={(e) => e.stopPropagation()}
         onClick={(e) => e.stopPropagation()}
-        className="pointer-events-auto absolute top-16 left-4 md:left-[25rem] lg:left-[29rem] z-20 flex items-center gap-2 px-3 py-1.5 rounded-2xl bg-slate-900/90 backdrop-blur-xl border border-white/10 shadow-2xl text-xs font-mono"
+        className="pointer-events-auto absolute top-[4.25rem] left-1/2 -translate-x-1/2 z-20 flex items-center gap-2 px-3 py-1.5 rounded-2xl bg-slate-900/90 backdrop-blur-xl border border-white/10 shadow-2xl text-xs font-mono"
       >
         <div className="flex items-center gap-1.5 text-sky-300 font-bold">
           <Orbit className="w-3.5 h-3.5 text-sky-400" />

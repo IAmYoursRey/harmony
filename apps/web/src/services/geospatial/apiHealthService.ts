@@ -11,14 +11,14 @@ interface HealthTarget {
 const HEALTH_TARGETS: HealthTarget[] = [
   {
     id: 'bmkg',
-    name: 'BMKG — API informasi gempa',
-    url: 'https://data.bmkg.go.id/DataMKG/TEWS/autogempa.json',
+    name: 'BMKG: API informasi gempa',
+    url: '/api/bmkg/autogempa',
     method: 'GET',
     timeoutMs: 4000,
   },
   {
     id: 'open_meteo_dem',
-    name: 'Open-Meteo — API elevasi',
+    name: 'Open-Meteo: API elevasi',
     url: 'https://api.open-meteo.com/v1/elevation?latitude=-7.25&longitude=112.75',
     method: 'GET',
     timeoutMs: 4000,
@@ -32,21 +32,21 @@ const HEALTH_TARGETS: HealthTarget[] = [
   },
   {
     id: 'harmony_backend',
-    name: 'Harmony Backend — ketersediaan layanan',
+    name: 'Harmony Backend: ketersediaan layanan',
     url: '/api/debug',
     method: 'GET',
     timeoutMs: 4000,
   },
   {
     id: 'bmkg_prakiraan_public',
-    name: 'BMKG API Terbuka — Prakiraan Cuaca ADM4 Live',
+    name: 'BMKG API Terbuka: Prakiraan Cuaca ADM4 Live',
     url: '/api/bmkg/prakiraan-cuaca?adm4=35.16.05.2008',
     method: 'GET',
     timeoutMs: 5000,
   },
   {
     id: 'nasa_gibs_himawari',
-    name: 'NASA GIBS — Citra Satelit Himawari-9 IR',
+    name: 'NASA GIBS: Citra Satelit Himawari-9 IR',
     url: '/api/spatial/gibs/latest',
     method: 'GET',
     timeoutMs: 5000,
@@ -116,6 +116,20 @@ class APIHealthService {
       const body = res.ok ? await res.json() : null;
       if (res.ok) {
         const valid = target.id === 'bmkg' ? (() => {
+            if (body?.success === true && body?.data) {
+              const d = body.data;
+              return (
+                typeof d.lat === 'number' &&
+                Number.isFinite(d.lat) &&
+                Math.abs(d.lat) <= 90 &&
+                typeof d.lng === 'number' &&
+                Number.isFinite(d.lng) &&
+                Math.abs(d.lng) <= 180 &&
+                typeof d.magnitude === 'number' &&
+                Number.isFinite(d.magnitude) &&
+                Boolean(d.datetime)
+              );
+            }
             const g = body?.Infogempa?.gempa;
             const dt = g?.DateTime;
             if (!dt || typeof dt !== 'string' || !Number.isFinite(Date.parse(dt))) return false;

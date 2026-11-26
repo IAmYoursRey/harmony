@@ -1,8 +1,8 @@
 import type { Viewer, Entity, PointPrimitiveCollection } from 'cesium';
 import { PLANETARY_CATALOG, CelestialBodyData } from '@/data/planetaryCatalog';
-import { 
+import {
   getCelestialCanvas,
-  getCelestialDataUrl, 
+  getCesiumSkyBoxDataUrls,
   getSaturnRingRadialDataUrl,
   getSolarCoronaDataUrl,
   getAtmosphereHaloDataUrl,
@@ -360,6 +360,13 @@ export class CesiumCosmicEngine {
   private animFrameCount: number = 0;
   private lastIsExploringEarthSurface: boolean = true;
   private removeInputListeners: (() => void) | null = null;
+  private saturnRingPrimitive: any = null;
+  private saturnRingMaterial: any = null;
+  private saturnRadiusMeters: number = 10760000;
+  private scratchSunLocal: any;
+  private scratchInvQuat: any;
+  private scratchInvMat3: any;
+  private scratchScaleVec: any;
 
   // Real-Time Sun Position (relative to Earth at 0, 0, 0 in Cesium world frame)
   public sunPosition: any = { x: 0, y: 0, z: 0 };
@@ -374,6 +381,10 @@ export class CesiumCosmicEngine {
     this.scratchQTotal = new C.Quaternion();
     this.scratchRotMat3 = new C.Matrix3();
     this.scratchModelMat4 = new C.Matrix4();
+    this.scratchSunLocal = new C.Cartesian3(1, 0, 0);
+    this.scratchInvQuat = new C.Quaternion();
+    this.scratchInvMat3 = new C.Matrix3();
+    this.scratchScaleVec = new C.Cartesian3(1, 1, 1);
 
     const scene = viewer.scene;
 
@@ -650,15 +661,21 @@ export class CesiumCosmicEngine {
   }
 
   private initCosmicBackground(): void {
+    const C = this.C;
     const scene = this.viewer.scene;
-    if (scene.skyBox) {
+    try {
+      const sources = getCesiumSkyBoxDataUrls();
+      scene.skyBox = new C.SkyBox({ sources });
       scene.skyBox.show = true;
+    } catch {
+      if (scene.skyBox) {
+        scene.skyBox.show = true;
+      }
     }
   }
 
   /**
-   * Create GPU-persistent textured sphere primitive with modelMatrix transform.
-   * Eliminates Cesium DynamicGeometryUpdater recreation loop and texture eviction.
+   * Create GPU-persistent textured sphere primitive with subtle Fresnel atmospheric rim glow.
    */
   private createTexturedSpherePrimitive(id: string, radiusMeters: number, entityId: any): any {
     const C = this.C;
@@ -666,6 +683,48 @@ export class CesiumCosmicEngine {
     const realUrl = REAL_PLANET_TEXTURE_URLS[id];
     const imageSource = realUrl || canvas;
     if (!imageSource) return null;
+
+    const rimPalette: Record<string, [number, number, number, number]> = {
+      venus: [0.98, 0.78, 0.28, 0.18],
+      mars: [0.96, 0.48, 0.22, 0.18],
+      jupiter: [0.98, 0.84, 0.68, 0.10],
+      saturn: [0.96, 0.86, 0.62, 0.09],
+      uranus: [0.42, 0.90, 0.96, 0.22],
+      neptune: [0.36, 0.64, 0.98, 0.24],
+    };
+    const rim = rimPalette[id];
+
+    const material = rim
+      ? new C.Material({
+          fabric: {
+            type: `PlanetAtmo_${id}`,
+            uniforms: {
+              image: imageSource,
+              rimColor: new C.Color(rim[0], rim[1], rim[2], rim[3]),
+            },
+            source: `
+              uniform sampler2D image;
+              uniform vec4 rimColor;
+              czm_material czm_getMaterial(czm_materialInput materialInput) {
+                czm_material material = czm_getDefaultMaterial(materialInput);
+                vec4 tex = texture(image, materialInput.st);
+                float ndotv = clamp(dot(normalize(materialInput.normalEC), normalize(materialInput.positionToEyeEC)), 0.0, 1.0);
+                float fresnel = pow(1.0 - ndotv, 3.4);
+                material.diffuse = tex.rgb;
+                material.emission = rimColor.rgb * fresnel * rimColor.a;
+                return material;
+              }
+            `,
+          },
+        })
+      : new C.Material({
+          fabric: {
+            type: 'Image',
+            uniforms: {
+              image: imageSource,
+            },
+          },
+        });
 
     return new C.Primitive({
       geometryInstances: new C.GeometryInstance({
@@ -676,14 +735,7 @@ export class CesiumCosmicEngine {
         }),
       }),
       appearance: new C.MaterialAppearance({
-        material: new C.Material({
-          fabric: {
-            type: 'Image',
-            uniforms: {
-              image: imageSource,
-            },
-          },
-        }),
+        material,
         faceForward: true,
         flat: id === 'sun',
       }),
@@ -923,16 +975,19 @@ export class CesiumCosmicEngine {
         },
         label: {
           text: data.name,
-          font: 'bold 12px Inter, sans-serif',
+          font: '600 11px Inter, sans-serif',
           fillColor: C.Color.WHITE,
           outlineColor: C.Color.BLACK,
           outlineWidth: 2.5,
           style: C.LabelStyle.FILL_AND_OUTLINE,
-          pixelOffset: new C.Cartesian2(cfg.id === 'mercury' ? -22 : 0, cfg.id === 'mars' ? -28 : -24),
-          scaleByDistance: new C.NearFarScalar(radiusMeters * 3.0, 0.0, radiusMeters * 25.0, 1.0),
+          pixelOffset: new C.Cartesian2(
+            cfg.id === 'mercury' ? -24 : cfg.id === 'venus' ? 24 : 0,
+            cfg.id === 'mercury' ? 18 : cfg.id === 'venus' ? -18 : cfg.id === 'mars' ? -26 : -22
+          ),
+          scaleByDistance: new C.NearFarScalar(radiusMeters * 4.5, 0.0, radiusMeters * 28.0, 1.0),
           distanceDisplayCondition: (cfg.id === 'mercury' || cfg.id === 'venus')
-            ? new C.DistanceDisplayCondition(radiusMeters * 3.0, 9.5e8)
-            : new C.DistanceDisplayCondition(radiusMeters * 3.0, 5e10),
+            ? new C.DistanceDisplayCondition(radiusMeters * 4.5, 1.2e9)
+            : new C.DistanceDisplayCondition(radiusMeters * 4.5, 5e10),
         },
         viewFrom: new C.Cartesian3(0.0, -radiusMeters * 3.2, radiusMeters * 1.0),
         properties: {
@@ -972,51 +1027,68 @@ export class CesiumCosmicEngine {
       }
 
       if (cfg.id === 'saturn') {
-        // Saturn calibrated radius: 10,760,000 meters
-        // Outer ring edge (A/F ring): 2.45 * radiusMeters = 26,362,000 meters
+        this.saturnRadiusMeters = radiusMeters;
         const ringOuterMeters = radiusMeters * 2.45;
         const ringDiameterMeters = ringOuterMeters * 2.0;
         const ringRadialUrl = getSaturnRingRadialDataUrl();
 
-        // 1. Top face of Saturn's Rings (Normal along +Z, locked to Saturn's equatorial plane)
-        const ringEntity = this.viewer.entities.add({
-          id: 'celestial-saturn-ring',
-          name: 'Cincin Saturnus (Cassini Division)',
-          position: new C.CallbackProperty((_time, result) => C.Cartesian3.clone(item.currentPosition, result), false) as any,
-          orientation: new C.CallbackProperty(() => {
-            const tiltRad = C.Math.toRadians(item.axialTiltDeg);
-            return C.Quaternion.fromAxisAngle(C.Cartesian3.UNIT_X, tiltRad, new C.Quaternion());
-          }, false) as any,
-          plane: {
-            plane: new C.Plane(C.Cartesian3.UNIT_Z, 0.0),
-            dimensions: new C.Cartesian2(ringDiameterMeters, ringDiameterMeters),
-            material: new C.ImageMaterialProperty({
+        const ringMaterial = new C.Material({
+          fabric: {
+            type: 'SaturnShadowRing',
+            uniforms: {
               image: ringRadialUrl,
-              transparent: true,
-            }),
+              uSunLocalDir: new C.Cartesian3(1, 0, 0),
+            },
+            source: `
+              uniform sampler2D image;
+              uniform vec3 uSunLocalDir;
+              czm_material czm_getMaterial(czm_materialInput materialInput) {
+                czm_material material = czm_getDefaultMaterial(materialInput);
+                vec4 tex = texture(image, materialInput.st);
+                vec3 localPos = vec3((materialInput.st.x - 0.5) * 4.9, (materialInput.st.y - 0.5) * 4.9, 0.0);
+                float proj = dot(localPos, uSunLocalDir);
+                float umbra = 1.0;
+                if (proj < 0.0) {
+                  vec3 perp = localPos - uSunLocalDir * proj;
+                  perp.z *= 1.11;
+                  umbra = mix(0.08, 1.0, smoothstep(0.92, 1.05, length(perp)));
+                }
+                material.diffuse = tex.rgb * umbra * 0.96;
+                material.alpha = tex.a;
+                return material;
+              }
+            `,
           },
         });
-        item.ringEntity = ringEntity;
+        this.saturnRingMaterial = ringMaterial;
 
-        // 2. Bottom face of Saturn's Rings (Normal along -Z, ensures full visibility when viewing from below)
-        const ringEntityBottom = this.viewer.entities.add({
-          id: 'celestial-saturn-ring-bottom',
-          name: 'Cincin Saturnus Sisi Bawah',
-          position: new C.CallbackProperty((_time, result) => C.Cartesian3.clone(item.currentPosition, result), false) as any,
-          orientation: new C.CallbackProperty(() => {
-            const tiltRad = C.Math.toRadians(item.axialTiltDeg);
-            return C.Quaternion.fromAxisAngle(C.Cartesian3.UNIT_X, tiltRad, new C.Quaternion());
-          }, false) as any,
-          plane: {
-            plane: new C.Plane(new C.Cartesian3(0, 0, -1), 0.0),
-            dimensions: new C.Cartesian2(ringDiameterMeters, ringDiameterMeters),
-            material: new C.ImageMaterialProperty({
-              image: ringRadialUrl,
-              transparent: true,
+        const ringPrimitive = new C.Primitive({
+          geometryInstances: new C.GeometryInstance({
+            geometry: new C.PlaneGeometry({
+              vertexFormat: C.MaterialAppearance.MaterialSupport.TEXTURED.vertexFormat,
             }),
-          },
+          }),
+          appearance: new C.MaterialAppearance({
+            material: ringMaterial,
+            flat: true,
+            translucent: true,
+            closed: false,
+            renderState: {
+              cull: { enabled: false },
+              depthMask: false,
+            },
+          }),
+          asynchronous: false,
         });
-        item.ringEntityBottom = ringEntityBottom;
+
+        const tiltRad = C.Math.toRadians(item.axialTiltDeg);
+        const qTilt = C.Quaternion.fromAxisAngle(C.Cartesian3.UNIT_X, tiltRad, new C.Quaternion());
+        const rotMat3 = C.Matrix3.fromQuaternion(qTilt, new C.Matrix3());
+        const ringModel = C.Matrix4.fromRotationTranslation(rotMat3, item.currentPosition, new C.Matrix4());
+        C.Matrix4.multiplyByScale(ringModel, new C.Cartesian3(ringDiameterMeters, ringDiameterMeters, 1.0), ringModel);
+        ringPrimitive.modelMatrix = ringModel;
+        this.viewer.scene.primitives.add(ringPrimitive);
+        this.saturnRingPrimitive = ringPrimitive;
       }
 
       this.celestialItems.set(cfg.id, item);
@@ -1136,14 +1208,14 @@ export class CesiumCosmicEngine {
 
       const randColor = Math.random();
       const color = randColor < 0.65
-        ? C.Color.fromCssColorString('#94a3b8').withAlpha(0.65)
+        ? C.Color.fromCssColorString('#94a3b8').withAlpha(0.38)
         : randColor < 0.88
-        ? C.Color.fromCssColorString('#d97706').withAlpha(0.70)
-        : C.Color.WHITE.withAlpha(0.80);
+        ? C.Color.fromCssColorString('#c29b70').withAlpha(0.42)
+        : C.Color.fromCssColorString('#cbd5e1').withAlpha(0.48);
 
       collection.add({
         position: new C.Cartesian3(x, y, z),
-        pixelSize: 2.0 + Math.random() * 2.2,
+        pixelSize: 1.0 + Math.random() * 1.1,
         color,
       });
     }
@@ -1345,6 +1417,30 @@ export class CesiumCosmicEngine {
           C.Matrix4.fromRotationTranslation(this.scratchRotMat3, item.currentPosition, this.scratchModelMat4);
           C.Matrix4.clone(this.scratchModelMat4, item.spherePrimitive.modelMatrix);
         }
+
+        if (item.id === 'saturn' && this.saturnRingPrimitive && this.saturnRingMaterial) {
+          const tiltRad = C.Math.toRadians(item.axialTiltDeg);
+          C.Quaternion.fromAxisAngle(C.Cartesian3.UNIT_X, tiltRad, this.scratchQTilt);
+          C.Matrix3.fromQuaternion(this.scratchQTilt, this.scratchRotMat3);
+          const ringDiam = this.saturnRadiusMeters * 4.9;
+          this.scratchScaleVec.x = ringDiam;
+          this.scratchScaleVec.y = ringDiam;
+          this.scratchScaleVec.z = 1.0;
+          C.Matrix4.fromTranslationQuaternionRotationScale(
+            item.currentPosition,
+            this.scratchQTilt,
+            this.scratchScaleVec,
+            this.saturnRingPrimitive.modelMatrix
+          );
+
+          // Compute Sun direction in Saturn's tilted equatorial plane for real-time umbra shadow
+          C.Cartesian3.subtract(this.sunPosition, item.currentPosition, this.scratchSunLocal);
+          const sunToPlanet = safeNormalize(C, this.scratchSunLocal, new C.Cartesian3(1, 0, 0));
+          C.Quaternion.conjugate(this.scratchQTilt, this.scratchInvQuat);
+          C.Matrix3.fromQuaternion(this.scratchInvQuat, this.scratchInvMat3);
+          C.Matrix3.multiplyByVector(this.scratchInvMat3, sunToPlanet, this.scratchSunLocal);
+          this.saturnRingMaterial.uniforms.uSunLocalDir = this.scratchSunLocal;
+        }
       });
 
       // 3. Update Sun axial rotation and position
@@ -1537,18 +1633,33 @@ export class CesiumCosmicEngine {
         };
       }
 
-      // 8. Dynamic Solar Illumination & Glare Management based on Camera Altitude
+      // 8. Dynamic Solar Illumination, HDR Bloom & HUD Space State
       const camera = this.viewer.camera;
       const camHeight = camera.positionCartographic?.height ?? 1e7;
-      const isExploringEarthSurface = camHeight < 8_500_000 && (!this.lockedTargetId || this.lockedTargetId === 'earth');
+      const isExploringEarthSurface =
+        camHeight < 8_500_000 &&
+        this.cameraState !== 'OVERVIEW' &&
+        (!this.lockedTargetId || this.lockedTargetId === 'earth') &&
+        (!this.focusedBodyId || this.focusedBodyId === 'earth');
 
       if (isExploringEarthSurface !== this.lastIsExploringEarthSurface) {
         this.lastIsExploringEarthSurface = isExploringEarthSurface;
+        if (typeof window !== 'undefined') {
+          window.dispatchEvent(
+            new CustomEvent('harmony:cosmic-space-mode', {
+              detail: {
+                active: !isExploringEarthSurface,
+                bodyId: this.focusedBodyId || this.requestedBodyId,
+              },
+            })
+          );
+        }
         if (isExploringEarthSurface) {
-          // Map Exploration Mode: Clear imagery while preserving subtle sky atmosphere rim
+          // Map Exploration Mode: Clear GIS imagery without bloom
           if (scene.globe.enableLighting) {
             scene.globe.enableLighting = false;
           }
+          scene.highDynamicRange = false;
           if (scene.postProcessStages?.bloom?.enabled) {
             scene.postProcessStages.bloom.enabled = false;
           }
@@ -1557,12 +1668,21 @@ export class CesiumCosmicEngine {
           }
           scene.globe.atmosphereLightIntensity = 12.0;
         } else {
-          // Deep Space Celestial Mode: Balanced directional solar illumination
+          // Deep Space Celestial Mode: Balanced directional light + gentle bloom (no overexposure)
           if (!scene.globe.enableLighting) {
             scene.globe.enableLighting = true;
           }
-          if (scene.postProcessStages?.bloom?.enabled) {
-            scene.postProcessStages.bloom.enabled = false;
+          scene.highDynamicRange = false;
+          if (scene.postProcessStages?.bloom) {
+            scene.postProcessStages.bloom.enabled = true;
+            try {
+              scene.postProcessStages.bloom.uniforms.contrast = 72;
+              scene.postProcessStages.bloom.uniforms.brightness = -0.58;
+              scene.postProcessStages.bloom.uniforms.glowOnly = false;
+              scene.postProcessStages.bloom.uniforms.delta = 1.0;
+              scene.postProcessStages.bloom.uniforms.sigma = 2.0;
+              scene.postProcessStages.bloom.uniforms.stepSize = 1.0;
+            } catch {}
           }
           if (scene.skyAtmosphere && !scene.skyAtmosphere.show) {
             scene.skyAtmosphere.show = true;
@@ -1576,6 +1696,11 @@ export class CesiumCosmicEngine {
       }
 
       if (!isExploringEarthSurface) {
+        // Apply bloom only in wide Solar System overview or Sun close-up so planetary cloud bands stay rich
+        const shouldBloom = this.cameraState === 'OVERVIEW' || this.focusedBodyId === 'sun';
+        if (scene.postProcessStages?.bloom && scene.postProcessStages.bloom.enabled !== shouldBloom) {
+          scene.postProcessStages.bloom.enabled = shouldBloom;
+        }
         let lightTargetPos: any;
         if (this.focusedBodyId && this.celestialItems.has(this.focusedBodyId)) {
           const tItem = this.celestialItems.get(this.focusedBodyId);
@@ -1591,12 +1716,12 @@ export class CesiumCosmicEngine {
           this.cachedDirectionalLight = new C.DirectionalLight({
             direction: sunRay,
             color: new C.Color(0.98, 0.96, 0.92, 1.0),
-            intensity: 2.1,
+            intensity: 1.15,
           });
           scene.light = this.cachedDirectionalLight;
         } else {
           this.cachedDirectionalLight.direction = sunRay;
-          this.cachedDirectionalLight.intensity = 2.1;
+          this.cachedDirectionalLight.intensity = 1.15;
           if (scene.light !== this.cachedDirectionalLight) {
             scene.light = this.cachedDirectionalLight;
           }
@@ -2124,6 +2249,16 @@ export class CesiumCosmicEngine {
     if (this.asteroidBeltPrimitives) {
       this.viewer.scene.primitives.remove(this.asteroidBeltPrimitives);
       this.asteroidBeltPrimitives = null;
+    }
+
+    if (this.saturnRingPrimitive && !this.viewer.isDestroyed()) {
+      this.viewer.scene.primitives.remove(this.saturnRingPrimitive);
+      this.saturnRingPrimitive = null;
+    }
+    this.saturnRingMaterial = null;
+
+    if (typeof window !== 'undefined') {
+      window.dispatchEvent(new CustomEvent('harmony:cosmic-space-mode', { detail: { active: false } }));
     }
 
     this.haloEntities.forEach((halo) => {

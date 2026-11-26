@@ -151,7 +151,7 @@ router.post("/login", async (req, res) => {
           (demoRole === "teacher"
             ? "Siti Nurhaliza, S.Pd."
             : demoRole === "developer"
-            ? "Raihan Ansari"
+            ? "My Princessa Z. M."
             : "Aditya Pratama"),
         role: demoRole,
         schoolId: SMAN1_NGORO_META.schoolId,
