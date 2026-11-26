@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { X, Clock, ShieldCheck, Activity, Radio, Wrench, AlertTriangle, CheckCircle2, Building2, Camera } from 'lucide-react';
+import { X, Clock, ShieldCheck, Activity, Radio, Wrench, AlertTriangle, CheckCircle2, Building2, Camera, ExternalLink } from 'lucide-react';
 import { TrafficSignalIntersection, trafficSignalsService } from '@/services/trafficSignalsService';
 import type { TrafficCctvCamera } from '@/services/trafficCctvService';
 
@@ -173,18 +173,32 @@ export const TrafficSignalModal: React.FC<TrafficSignalModalProps> = ({
               <span>•</span>
               <span className="text-sky-300">Estimasi Siklus Terkalibrasi (±{signal.telemetryDelaySec}s)</span>
             </div>
-            {nearbyCamera && onOpenCctv && (
-              <button
-                type="button"
-                onClick={() => onOpenCctv(nearbyCamera)}
-                className="mt-2.5 px-3 py-1.5 rounded-xl bg-cyan-600 hover:bg-cyan-500 text-white text-[11px] font-bold flex items-center gap-1.5 shadow-md transition-colors cursor-pointer"
+            <div className="mt-2.5 flex flex-wrap items-center justify-center gap-2 w-full">
+              {nearbyCamera && onOpenCctv && (
+                <button
+                  type="button"
+                  onClick={() => onOpenCctv(nearbyCamera)}
+                  className="px-3.5 py-2 rounded-xl bg-cyan-600 hover:bg-cyan-500 text-white text-[11px] font-bold flex items-center justify-center gap-1.5 shadow-md transition-colors cursor-pointer max-w-md"
+                  title={`Lihat Live CCTV Simpang Terdekat — ${nearbyCamera.name}`}
+                >
+                  <Camera className="w-3.5 h-3.5 shrink-0" />
+                  <span className="truncate">
+                    Lihat Live CCTV Terdekat ({nearbyCameraDistanceM != null ? (nearbyCameraDistanceM < 1000 ? `${Math.round(nearbyCameraDistanceM)} m` : `${(nearbyCameraDistanceM / 1000).toFixed(1)} km`) : 'Dekat'}) — {nearbyCamera.name}
+                  </span>
+                </button>
+              )}
+              <a
+                href={`https://www.google.com/maps/@${signal.lat},${signal.lng},17z/data=!5m1!1e1`}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="px-3 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 text-[11px] font-bold flex items-center gap-1.5 transition-colors"
+                title="Buka lapisan Google Live Traffic tepat di simpang ini"
               >
-                <Camera className="w-3.5 h-3.5 shrink-0" />
-                <span className="truncate max-w-[290px]">
-                  Lihat Live CCTV Simpang Terdekat ({nearbyCameraDistanceM != null ? (nearbyCameraDistanceM < 1000 ? `${Math.round(nearbyCameraDistanceM)} m` : `${(nearbyCameraDistanceM / 1000).toFixed(1)} km`) : 'Dekat'}) — {nearbyCamera.name}
-                </span>
-              </button>
-            )}
+                <Activity className="w-3.5 h-3.5 text-emerald-400 shrink-0" />
+                <span>Inspeksi Google Live Traffic</span>
+                <ExternalLink className="w-3 h-3 shrink-0 opacity-80" />
+              </a>
+            </div>
           </div>
         </div>
 

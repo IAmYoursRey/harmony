@@ -378,7 +378,7 @@ class CctvService {
     if (category === 'pengadilan') {
       return 'Stream Publik Terdaftar';
     }
-    return 'Stream CCTV Terdaftar (Tanpa Sensor Kecepatan)';
+    return 'Siaran Publik Aktif • Tanpa Sensor Laju';
   }
 
   calculateDensity() {

@@ -31,6 +31,7 @@ export const LiveCctvModal: React.FC<LiveCctvModalProps> = ({ camera, onClose, o
   const [streamMode, setStreamMode] = useState<'stream' | 'snapshot'>('stream');
   const [useDirectSnapshot, setUseDirectSnapshot] = useState<boolean>(true);
   const [capturedFrameDataUrl, setCapturedFrameDataUrl] = useState<string | null>(null);
+  const [streamRetryCount, setStreamRetryCount] = useState<number>(0);
 
   const videoRef = useRef<HTMLVideoElement | null>(null);
   const hlsRef = useRef<Hls | null>(null);
@@ -180,7 +181,7 @@ export const LiveCctvModal: React.FC<LiveCctvModalProps> = ({ camera, onClose, o
     }
   }, [camera]);
 
-  // Setup HLS video stream when streamMode === 'stream'
+  // Setup HLS video stream once per camera so Snapshot Realtime preserves warm buffer and captures crisp live frames
   useEffect(() => {
     if (!camera) return;
 
@@ -189,7 +190,7 @@ export const LiveCctvModal: React.FC<LiveCctvModalProps> = ({ camera, onClose, o
       hlsRef.current = null;
     }
 
-    if (camera.streamType === 'hls' && streamMode === 'stream') {
+    if (camera.streamType === 'hls') {
       const video = videoRef.current;
       if (!video) return;
 
@@ -244,12 +245,12 @@ export const LiveCctvModal: React.FC<LiveCctvModalProps> = ({ camera, onClose, o
             switch (data.type) {
               case Hls.ErrorTypes.NETWORK_ERROR:
                 networkErrorCount++;
-                if (networkErrorCount === 1) {
-                  hls.startLoad();
-                } else if (!usedProxyFallbackRef.current && proxyUrl && proxyUrl !== primaryUrl) {
+                if (!usedProxyFallbackRef.current && proxyUrl && proxyUrl !== primaryUrl && (networkErrorCount >= 2 || !data.response?.code)) {
                   usedProxyFallbackRef.current = true;
                   networkErrorCount = 0;
                   hls.loadSource(proxyUrl);
+                  hls.startLoad();
+                } else if (networkErrorCount === 1) {
                   hls.startLoad();
                 } else {
                   hls.destroy();
@@ -296,18 +297,7 @@ export const LiveCctvModal: React.FC<LiveCctvModalProps> = ({ camera, onClose, o
         }
       };
     }
-  }, [camera, streamMode]);
-
-  // Auto-refresh timer for snapshot mode
-  useEffect(() => {
-    if (!camera || autoRefreshSec === 0 || streamMode !== 'snapshot') return;
-
-    const interval = setInterval(() => {
-      setFrameCount((prev) => prev + 1);
-    }, autoRefreshSec * 1000);
-
-    return () => clearInterval(interval);
-  }, [camera, autoRefreshSec, streamMode]);
+  }, [camera, streamRetryCount]);
 
   const captureLiveVideoFrame = useCallback((): string | null => {
     const video = videoRef.current;
@@ -324,6 +314,21 @@ export const LiveCctvModal: React.FC<LiveCctvModalProps> = ({ camera, onClose, o
       return null;
     }
   }, []);
+
+  // Auto-refresh timer for snapshot mode (captures warm HLS canvas frame first when available)
+  useEffect(() => {
+    if (!camera || autoRefreshSec === 0 || streamMode !== 'snapshot') return;
+
+    const interval = setInterval(() => {
+      if (camera.streamType === 'hls') {
+        const snap = captureLiveVideoFrame();
+        if (snap) setCapturedFrameDataUrl(snap);
+      }
+      setFrameCount((prev) => prev + 1);
+    }, autoRefreshSec * 1000);
+
+    return () => clearInterval(interval);
+  }, [camera, autoRefreshSec, streamMode, captureLiveVideoFrame]);
 
   const handleManualRefresh = () => {
     setIsRefreshing(true);
@@ -507,11 +512,12 @@ export const LiveCctvModal: React.FC<LiveCctvModalProps> = ({ camera, onClose, o
             </div>
           )}
 
-          {/* 3. Live HLS Video Player (When active and playing) */}
-          {isHls && streamMode === 'stream' && !streamError && (
-            <div className="relative w-full h-full flex items-center justify-center">
+          {/* 3. Live HLS Video Player (Stays mounted while active so snapshot toggle preserves buffer & allows frame capture) */}
+          {isHls && !streamError && (
+            <div className={streamMode === 'stream' ? 'relative w-full h-full flex items-center justify-center' : 'hidden'}>
               <video
                 ref={videoRef}
+                crossOrigin="anonymous"
                 className="w-full h-full object-contain bg-black"
                 playsInline
                 autoPlay
@@ -650,7 +656,11 @@ export const LiveCctvModal: React.FC<LiveCctvModalProps> = ({ camera, onClose, o
                   type="button"
                   onClick={() => {
                     setStreamMode('stream');
-                    setStreamError(false);
+                    if (streamError) {
+                      setStreamError(false);
+                      setIsConnecting(true);
+                      setStreamRetryCount((n) => n + 1);
+                    }
                   }}
                   className={`px-2.5 py-1 rounded-md text-[10.5px] font-bold cursor-pointer transition-colors ${
                     streamMode === 'stream' && !streamError ? 'bg-cyan-600 text-white shadow-xs' : 'text-slate-400 hover:text-white'
@@ -682,7 +692,11 @@ export const LiveCctvModal: React.FC<LiveCctvModalProps> = ({ camera, onClose, o
                   type="button"
                   onClick={() => {
                     setStreamMode('stream');
-                    setStreamError(false);
+                    if (streamError) {
+                      setStreamError(false);
+                      setIsConnecting(true);
+                      setStreamRetryCount((n) => n + 1);
+                    }
                   }}
                   className={`px-2.5 py-1 rounded-md text-[10.5px] font-bold cursor-pointer transition-colors ${
                     streamMode === 'stream' && !streamError ? 'bg-cyan-600 text-white shadow-xs' : 'text-slate-400 hover:text-white'
@@ -817,7 +831,7 @@ export const LiveCctvModal: React.FC<LiveCctvModalProps> = ({ camera, onClose, o
             <span className="text-slate-400 block text-[9.5px]">Status Aliran</span>
             <div className="font-semibold text-emerald-400 mt-0.5 truncate flex items-center gap-1">
               <span className="h-2 w-2 rounded-full bg-emerald-500 animate-pulse" />
-              <span>{currentCamera.status} • {streamMode === 'stream' && isPlaying ? '30 FPS Video' : 'Snapshot Realtime'}</span>
+              <span>{currentCamera.status} • {streamMode === 'stream' && isPlaying ? `${currentCamera.fps || 25} FPS Video` : 'Snapshot Realtime'}</span>
             </div>
           </div>
 

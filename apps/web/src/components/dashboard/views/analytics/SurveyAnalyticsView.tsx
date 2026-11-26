@@ -731,7 +731,7 @@ export function SurveyAnalyticsView() {
                     type="button"
                     disabled={safePage <= 1}
                     onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
-                    className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 font-semibold text-ink-800 dark:text-slate-200 disabled:opacity-40 hover:bg-slate-50"
+                    className="inline-flex min-h-[38px] items-center gap-1 px-3 py-2 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 font-semibold text-ink-800 dark:text-slate-200 disabled:opacity-40 hover:bg-slate-50 cursor-pointer"
                   >
                     <ChevronLeft className="h-3.5 w-3.5" />
                     <span>Prev</span>
@@ -745,7 +745,7 @@ export function SurveyAnalyticsView() {
                     onClick={() =>
                       setCurrentPage((p) => Math.min(totalPages, p + 1))
                     }
-                    className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-brand-600 font-semibold text-white disabled:opacity-40 hover:bg-brand-700"
+                    className="inline-flex min-h-[38px] items-center gap-1 px-3 py-2 rounded-lg bg-brand-600 font-semibold text-white disabled:opacity-40 hover:bg-brand-700 cursor-pointer"
                   >
                     <span>Next</span>
                     <ChevronRight className="h-3.5 w-3.5" />

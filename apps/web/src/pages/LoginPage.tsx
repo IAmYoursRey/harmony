@@ -333,7 +333,7 @@ export default function LoginPage() {
         <div className="mb-4 sm:mb-6 flex items-center justify-between">
           <button
             onClick={() => navigate("/")}
-            className="inline-flex items-center gap-1.5 text-sm font-medium text-ink-600 hover:text-brand-600 dark:text-slate-400 dark:hover:text-brand-400"
+            className="inline-flex min-h-[40px] items-center gap-1.5 px-2.5 py-2 rounded-xl text-sm font-medium text-ink-600 hover:text-brand-600 hover:bg-white/60 dark:text-slate-400 dark:hover:text-brand-400 dark:hover:bg-slate-800/60 transition-colors cursor-pointer"
           >
             <ArrowLeft className="h-4 w-4" /> Beranda
           </button>
@@ -561,7 +561,7 @@ export default function LoginPage() {
                       <div className="pt-2 border-t border-slate-100 dark:border-slate-800 text-center">
                         <Link
                           to="/app/learning-gain"
-                          className="inline-flex items-center gap-1.5 text-xs font-semibold text-brand-600 hover:text-brand-700 dark:text-brand-400 dark:hover:text-brand-300 transition-colors"
+                          className="inline-flex min-h-[38px] items-center justify-center gap-1.5 px-3 py-2 rounded-xl text-xs font-semibold text-brand-600 hover:text-brand-700 hover:bg-brand-50/70 dark:text-brand-400 dark:hover:text-brand-300 dark:hover:bg-brand-950/30 transition-colors"
                         >
                           <TrendingUp className="h-3.5 w-3.5" />
                           <span>Validasi Empiris</span>

@@ -471,7 +471,7 @@ class TrafficCctvService {
                 ? 'Stream Terdeteksi Gangguan'
                 : status === 'OFFLINE'
                 ? 'Feed CCTV Offline'
-                : 'Stream CCTV Terdaftar (Tanpa Sensor Kecepatan)');
+                : 'Siaran Publik Aktif • Tanpa Sensor Laju');
 
             return {
               ...c,
