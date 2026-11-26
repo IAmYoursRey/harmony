@@ -105,6 +105,475 @@ function parseJSONFromText(text: string) {
   }
 }
 
+type FallbackTemplate = Omit<QuizQuestion, "id">;
+
+const CURATED_TOPIC_BANK: Record<string, FallbackTemplate[]> = {
+  gempa: [
+    {
+      type: "mcq",
+      subTopic: "perlindungan_diri_gempa",
+      question: "Saat guncangan gempa bumi kuat terjadi ketika Anda berada di dalam ruang kelas lantai dua, tindakan pertama yang paling aman sesuai standar SPAB adalah...",
+      options: [
+        "A. Merunduk, berlindung di bawah meja kokoh, dan berpegangan pada kaki meja menjauhi kaca",
+        "B. Segera berlari menuruni tangga sambil membawa seluruh tas buku",
+        "C. Berdiri di dekat jendela kaca untuk memantau kondisi halaman sekolah",
+        "D. Menggunakan lift gedung bila tersedia agar lebih cepat sampai halaman",
+        "E. Tetap duduk di kursi tanpa melindungi kepala",
+      ],
+      correctOption: "A",
+    },
+    {
+      type: "mcq",
+      subTopic: "evakuasi_pascagempa",
+      question: "Setelah guncangan gempa utama mereda, langkah evakuasi keluar gedung sekolah yang tepat adalah...",
+      options: [
+        "A. Berlari saling mendahului di koridor sempit agar cepat keluar",
+        "B. Berjalan tertib mengikuti rambu jalur evakuasi sambil melindungi kepala menuju titik kumpul terbuka",
+        "C. Menunggu di bawah balok kusen pintu sampai bel sekolah berbunyi",
+        "D. Kembali ke ruang kelas lain untuk mencari teman yang tertinggal tanpa melapor guru",
+        "E. Berkumpul tepat di samping tembok pagar beton tinggi",
+      ],
+      correctOption: "B",
+    },
+    {
+      type: "mcq",
+      subTopic: "kesiapsiagaan_nonstruktural",
+      question: "Contoh mitigasi non-struktural di ruang laboratorium atau kelas untuk mengurangi korban akibat benda jatuh saat gempa adalah...",
+      options: [
+        "A. Memasang lemari berat menempel dinding dengan pengait pengaman serta menjauhkan bahan mudah pecah dari rak atas",
+        "B. Memindahkan seluruh kursi siswa ke dekat panel kaca jendela",
+        "C. Menutup jalur pintu darurat dengan rak buku agar kelas lebih rapi",
+        "D. Mengunci seluruh pintu penghubung antar koridor saat pelajaran berlangsung",
+        "E. Mengganti lantai keramik dengan marmer licin",
+      ],
+      correctOption: "A",
+    },
+    {
+      type: "essay",
+      subTopic: "protokol_titik_kumpul",
+      question: "Jelaskan tiga langkah utama yang harus dilakukan guru dan siswa setelah berhasil tiba di titik kumpul evakuasi gempa bumi!",
+      keyPoints: ["absensi siswa", "periksa cedera P3K", "waspada gempa susulan menjauhi bangunan"],
+    },
+    {
+      type: "essay",
+      subTopic: "analisis_bahaya_kelas",
+      question: "Sebutkan potensi bahaya sekunder yang dapat muncul di gedung sekolah pascagempa dan cara mengantisipasinya!",
+      keyPoints: ["korsleting listrik", "kebocoran gas laboratorium", "reruntuhan kaca atau plafon"],
+    },
+  ],
+  tsunami: [
+    {
+      type: "mcq",
+      subTopic: "tanda_alami_tsunami",
+      question: "Ketika sekolah di pesisir diguncang gempa kuat selama lebih dari 30 detik diikuti air laut yang surut cepat secara tidak biasa, keputusan terbaik adalah...",
+      options: [
+        "A. Menunggu sirine resmi selama 30 menit di pinggir pantai sebelum bergerak",
+        "B. Segera mengevakuasi diri menuju tempat tinggi atau bukit evakuasi menjauhi garis pantai",
+        "C. Mendekati pantai untuk mengambil foto fenomena air surut",
+        "D. Memarkir kendaraan di dermaga untuk memblokir air",
+        "E. Berlindung di lantai dasar gedung tepat di tepi laut",
+      ],
+      correctOption: "B",
+    },
+    {
+      type: "mcq",
+      subTopic: "golden_time_evakuasi",
+      question: "Mengapa jalur evakuasi tsunami tidak disarankan menyeberangi jembatan panjang di atas muara sungai jika tersedia rute ke dataran tinggi lain?",
+      options: [
+        "A. Gelombang tsunami dapat merambat lebih cepat masuk melalui alur sungai dan merusak struktur jembatan",
+        "B. Jembatan tidak memiliki papan informasi wisata",
+        "C. Air sungai selalu menjadi lebih dingin saat gempa terjadi",
+        "D. Angin laut hanya bertiup di atas muara",
+        "E. Jalur sungai lebih jauh dari garis pantai secara geometris",
+      ],
+      correctOption: "A",
+    },
+    {
+      type: "mcq",
+      subTopic: "evakuasi_vertikal",
+      question: "Jika waktu tempuh menuju perbukitan sangat terbatas dan tidak memungkinkan evakuasi horizontal, pilihan evakuasi vertikal yang aman adalah...",
+      options: [
+        "A. Naik ke lantai 3 atau lebih pada bangunan beton bertulang khusus tempat evakuasi sementara",
+        "B. Memanjat pohon kelapa tunggal di pinggir pantai",
+        "C. Bersembunyi di ruang bawah tanah gedung agar tidak tersapu ombak",
+        "D. Masuk ke dalam kendaraan tertutup di jalan raya pesisir",
+        "E. Bertahan di rumah kayu satu lantai",
+      ],
+      correctOption: "A",
+    },
+    {
+      type: "essay",
+      subTopic: "sosialisasi_sirine_bmkg",
+      question: "Jelaskan peran sistem peringatan dini tsunami (InaTEWS) dan pentingnya prinsip 'gempa kuat adalah sirine alami'!",
+      keyPoints: ["gempa kuat sebagai peringatan langsung", "waktu emas evakuasi terbatas", "koordinasi sirine dan jalur daratan tinggi"],
+    },
+    {
+      type: "essay",
+      subTopic: "gelombang_susulan_tsunami",
+      question: "Mengapa warga sekolah dilarang langsung kembali ke area pesisir setelah gelombang tsunami pertama surut?",
+      keyPoints: ["gelombang datang bertahap", "gelombang kedua atau ketiga bisa lebih besar", "menunggu status aman resmi otoritas"],
+    },
+  ],
+  erupsi: [
+    {
+      type: "mcq",
+      subTopic: "perlindungan_abu_vulkanik",
+      question: "Saat terjadi hujan abu vulkanik akibat erupsi gunung api, alat pelindung diri wajib yang harus dikenakan siswa di luar ruangan adalah...",
+      options: [
+        "A. Masker pernapasan (N95 atau kain lembap), kacamata pelindung, dan pakaian lengan panjang",
+        "B. Payung pantai tanpa penutup mulut maupun hidung",
+        "C. Lensa kontak terbuka agar penglihatan lebih jelas",
+        "D. Sandal jepit tanpa penutup saluran napas",
+        "E. Kipas angin genggam untuk meniup abu",
+      ],
+      correctOption: "A",
+    },
+    {
+      type: "mcq",
+      subTopic: "status_level_gunungapi",
+      question: "Tingkatan status aktivitas gunung api tertinggi menurut PVMBG yang mewajibkan pengosongan wilayah zona bahaya (KRB) adalah...",
+      options: [
+        "A. Normal (Level I)",
+        "B. Waspada (Level II)",
+        "C. Siaga (Level III)",
+        "D. Awas (Level IV)",
+        "E. Siaga Darurat Lokal",
+      ],
+      correctOption: "D",
+    },
+    {
+      type: "mcq",
+      subTopic: "bahaya_lahar_hujan",
+      question: "Bahaya sekunder pascaerupsi yang mengancam sekolah di dekat aliran sungai berhulu gunung api saat turun hujan lebat adalah...",
+      options: [
+        "A. Banjir lahar dingin yang membawa material batuan dan lumpur panas/dingin",
+        "B. Kekeringan air tanah secara seketika",
+        "C. Gelombang pasang samudra dalam",
+        "D. Badai salju tropis",
+        "E. Kabut ozon stratosfer",
+      ],
+      correctOption: "A",
+    },
+    {
+      type: "essay",
+      subTopic: "rencana_evakuasi_erupsi",
+      question: "Jelaskan langkah kesiapsiagaan sekolah saat status gunung api di kabupaten sekitar naik dari Siaga menjadi Awas!",
+      keyPoints: ["tas siaga masker kacamata", "tutup ventilasi sumber air bersih", "evakuasi ke luar radius KRB sesuai peta PVMBG"],
+    },
+  ],
+  banjir: [
+    {
+      type: "mcq",
+      subTopic: "keselamatan_kelistrikan_banjir",
+      question: "Ketika air banjir mulai menggenangi koridor lantai dasar sekolah setinggi 20 cm, tindakan keamanan bangunan yang wajib segera dilakukan adalah...",
+      options: [
+        "A. Memutus aliran listrik melalui panel MCB utama sebelum air menyentuh stopkontak",
+        "B. Tetap menyalakan komputer laboratorium dan kipas angin lantai dasar",
+        "C. Membiarkan siswa bermain air di dekat tiang listrik taman sekolah",
+        "D. Menumpuk berkas penting di bawah meja lantai dasar",
+        "E. Mengalirkan genangan ke ruang genset aktif",
+      ],
+      correctOption: "A",
+    },
+    {
+      type: "mcq",
+      subTopic: "mitigasi_hidrologi_sekolah",
+      question: "Upaya mitigasi struktural jangka panjang yang efektif mengurangi genangan banjir di halaman sekolah adalah...",
+      options: [
+        "A. Membangun lubang resapan biopori, sumur resapan, dan membersihkan saluran drainase secara berkala",
+        "B. Menutup seluruh halaman tanah sekolah dengan aspal kedap air tanpa saluran",
+        "C. Membuang sampah daun ke selokan utama",
+        "D. Mempersempit gorong-gorong pembuangan air hujan",
+        "E. Menghilangkan seluruh ruang terbuka hijau sekolah",
+      ],
+      correctOption: "A",
+    },
+    {
+      type: "mcq",
+      subTopic: "evakuasi_arus_banjir",
+      question: "Mengapa pejalan kaki atau siswa tidak boleh menerobos genangan air banjir berarus deras di jalan raya meski terlihat dangkal?",
+      options: [
+        "A. Arus deras dan lubang jalan tersembunyi berisiko menghanyutkan serta menyebabkan cedera serius",
+        "B. Air hujan dapat membuat warna seragam luntur",
+        "C. Genangan memperlambat sinyal seluler sementara",
+        "D. Sepatu basah dilarang masuk ruang kelas",
+        "E. Kedalaman genangan selalu konstan sepanjang hari",
+      ],
+      correctOption: "A",
+    },
+    {
+      type: "essay",
+      subTopic: "kesehatan_pascabanjir",
+      question: "Jelaskan prosedur pembersihan ruang kelas dan pencegahan penyakit menular (seperti leptospirosis dan diare) setelah banjir surut!",
+      keyPoints: ["sarung tangan dan sepatu bot", "disinfeksi lantai lumpur", "air bersih higienis dan cuci tangan"],
+    },
+  ],
+  longsor: [
+    {
+      type: "mcq",
+      subTopic: "gejala_awal_longsor",
+      question: "Tanda awal potensi tanah longsor di lereng belakang bangunan sekolah saat hujan deras berkepanjangan adalah...",
+      options: [
+        "A. Muncul retakan tanah baru di lereng, pohon miring tiba-tiba, dan air mata air berubah keruh",
+        "B. Tanah halaman mengeras dan berwarna putih",
+        "C. Suhu udara turun 1 derajat pada siang hari",
+        "D. Burung-burung terbang lebih tinggi dari biasanya",
+        "E. Arah angin berhembus tetap dari barat ke timur",
+      ],
+      correctOption: "A",
+    },
+    {
+      type: "mcq",
+      subTopic: "arah_evakuasi_longsor",
+      question: "Jika terdengar suara gemuruh keras dari lereng bukit di belakang sekolah saat hujan lebat, arah evakuasi yang benar adalah...",
+      options: [
+        "A. Bergerak menjauhi arah lintasan luncuran lereng menuju area terbuka datar dan stabil",
+        "B. Berlari searah turunnya aliran material di lembah",
+        "C. Bertahan di ruangan yang dindingnya menempel langsung ke tebing",
+        "D. Mendekati tebing untuk memastikan sumber suara",
+        "E. Berdiri di bawah tiang listrik kaki lereng",
+      ],
+      correctOption: "A",
+    },
+    {
+      type: "essay",
+      subTopic: "mitigasi_lereng_vegetatif",
+      question: "Bandingkan fungsi bronjong/dinding penahan tanah dengan penanaman vegetasi berakar dalam dalam mencegah tanah longsor di sekitar sekolah!",
+      keyPoints: ["dinding penahan menahan beban lereng secara mekanik", "akar tanaman mengikat partikel tanah dan menyerap air", "sistem drainase lereng mencegah kejenuhan pori tanah"],
+    },
+  ],
+  kekeringan: [
+    {
+      type: "mcq",
+      subTopic: "konservasi_air_sekolah",
+      question: "Strategi paling efektif untuk menjaga ketersediaan air bersih sanitasi sekolah saat musim kemarau panjang El Nino adalah...",
+      options: [
+        "A. Pemanenan air hujan (rainwater harvesting), sumur resapan, dan efisiensi kran air otomatis",
+        "B. Menguras tandon cadangan setiap hari agar air terlihat jernih",
+        "C. Menyiram lapangan beton pada siang hari terik",
+        "D. Membiarkan pipa bocor tanpa perbaikan",
+        "E. Menghentikan fasilitas cuci tangan sepenuhnya",
+      ],
+      correctOption: "A",
+    },
+    {
+      type: "mcq",
+      subTopic: "dampak_kesehatan_kekeringan",
+      question: "Dampak langsung krisis air bersih berkepanjangan di lingkungan sekolah adalah...",
+      options: [
+        "A. Menurunnya higienitas sanitasi toilet dan meningkatnya risiko dehidrasi serta penyakit pencernaan",
+        "B. Meningkatnya debit sungai di hilir",
+        "C. Berkurangnya indeks radiasi ultraviolet matahari",
+        "D. Naiknya kelembapan relatif hingga 95%",
+        "E. Menguatnya daya dukung lahan gambut basah",
+      ],
+      correctOption: "A",
+    },
+    {
+      type: "essay",
+      subTopic: "mitigasi_kekeringan_dini",
+      question: "Jelaskan keterkaitan indeks curah hujan dasarian BMKG dengan rencana penampungan air bersih di tingkat sekolah!",
+      keyPoints: ["hari tanpa hujan berturut-turut", "kapasitas cadangan air tandon", "penghematan pemakaian air"],
+    },
+  ],
+  angin: [
+    {
+      type: "mcq",
+      subTopic: "perlindungan_puting_beliung",
+      question: "Ketika awan cumulonimbus gelap pekat disertai angin puting beliung mendekati kompleks sekolah, tindakan keselamatan terbaik adalah...",
+      options: [
+        "A. Masuk ke ruangan dalam gedung yang kokoh jauh dari jendela kaca, pohon tinggi, dan atap seng rapuh",
+        "B. Berteduh di bawah pohon besar di tengah lapangan upacara",
+        "C. Berdiri di koridor terbuka lantai teratas untuk merekam pusaran angin",
+        "D. Memegang tiang bendera logam saat petir menyambar",
+        "E. Membuka seluruh jendela menghadap arah angin kencang secara mendadak di dekat kaca",
+      ],
+      correctOption: "A",
+    },
+    {
+      type: "mcq",
+      subTopic: "pencegahan_kerusakan_angin",
+      question: "Langkah preventif sebelum musim peralihan (pancaroba) untuk mencegah korban akibat angin kencang di halaman sekolah adalah...",
+      options: [
+        "A. Memangkas dahan pohon tua yang rimbun dan memeriksa pengikat baut rangka atap secara berkala",
+        "B. Memasang papan reklame tinggi tanpa jangkar beton",
+        "C. Menumpuk seng bekas di atas atap kelas",
+        "D. Menanam pohon berakar dangkal tepat di depan pintu keluar",
+        "E. Mengunci seluruh ventilasi kelas permanen",
+      ],
+      correctOption: "A",
+    },
+    {
+      type: "essay",
+      subTopic: "ciri_awan_cumulonimbus",
+      question: "Sebutkan ciri-ciri atmosfer sebelum terjadinya angin puting beliung dan langkah cepat evakuasi siswa yang sedang berolahraga di lapangan!",
+      keyPoints: ["udara gerah dan awan gelap tinggi", "segera masuk ruang kelas kokoh", "jauhi pohon tiang listrik dan kaca"],
+    },
+  ],
+  abrasi: [
+    {
+      type: "mcq",
+      subTopic: "sabuk_hijau_pesisir",
+      question: "Fungsi utama penanaman sabuk hijau mangrove di garis pantai sekitar sekolah pesisir dalam mitigasi abrasi dan gelombang pasang adalah...",
+      options: [
+        "A. Meredam energi gelombang air laut dan memerangkap sedimen pantai agar garis pantai stabil",
+        "B. Mempercepat arus balik gelombang ke tengah samudra",
+        "C. Menghilangkan kadar garam air laut menjadi tawar secara langsung",
+        "D. Menghentikan seluruh pasang surut bulan",
+        "E. Meningkatkan erosi tebing batu",
+      ],
+      correctOption: "A",
+    },
+    {
+      type: "mcq",
+      subTopic: "prediksi_banjir_rob",
+      question: "Mengapa fenomena fase bulan purnama atau supermoon perlu diwaspadai oleh sekolah yang berada di kawasan pantai landai?",
+      options: [
+        "A. Gaya tarik gravitasi memicu pasang air laut maksimum (rob) terutama bila bersamaan dengan angin kencang",
+        "B. Menyebabkan penurunan permukaan air laut secara permanen",
+        "C. Menghambat pertumbuhan tanaman mangrove",
+        "D. Mengubah komposisi udara di ruang kelas",
+        "E. Memicu letusan gunung berapi di tengah benua",
+      ],
+      correctOption: "A",
+    },
+    {
+      type: "essay",
+      subTopic: "adaptasi_gelombang_pasang",
+      question: "Jelaskan kombinasi pendekatan struktural dan ekosistem yang efektif melindungi fasilitas pendidikan di wilayah pesisir rawan abrasi!",
+      keyPoints: ["tanggul atau pemecah gelombang", "rehabilitasi mangrove dan cemara laut", "penataan jarak aman sempadan pantai"],
+    },
+  ],
+  kebakaran: [
+    {
+      type: "mcq",
+      subTopic: "evakuasi_asap_kebakaran",
+      question: "Jika terjadi kebakaran di gedung sekolah dan koridor mulai dipenuhi asap tebal, posisi tubuh paling aman saat mengevakuasi diri keluar adalah...",
+      options: [
+        "A. Merangkak rendah di dekat lantai karena udara bersih berada di bawah lapisan asap serta menutup hidung dengan kain basah",
+        "B. Berlari tegak lurus ke lantai tertinggi sambil membuka setiap pintu kelas",
+        "C. Bersembunyi di dalam lemari atau kamar mandi tanpa jalur keluar",
+        "D. Menggunakan lift gedung untuk menghemat tenaga",
+        "E. Menyiram minyak jika sumber api berasal dari laboratorium kimia",
+      ],
+      correctOption: "A",
+    },
+    {
+      type: "mcq",
+      subTopic: "penggunaan_apar_pass",
+      question: "Urutan penggunaan Alat Pemadam Api Ringan (APAR) metode PASS untuk api awal berukuran kecil adalah...",
+      options: [
+        "A. Pull pin, Aim ke pangkal api, Squeeze tuas, Sweep menyapu ke kiri dan kanan",
+        "B. Push tuas ke bawah, Aim ke puncak asap, Spray vertikal ke langit-langit",
+        "C. Siram air terlebih dahulu ke panel listrik lalu tekan pin APAR",
+        "D. Kocok tabung di tempat tertutup tanpa mengarah ke sumber api",
+        "E. Lempar tabung ke tengah api dari jarak jauh",
+      ],
+      correctOption: "A",
+    },
+    {
+      type: "mcq",
+      subTopic: "kebakaran_hutan_kabut_asap",
+      question: "Saat wilayah sekitar sekolah terdampak kabut asap kebakaran hutan dan lahan (karhutla) dengan indeks ISPU kategori Sangat Tidak Sehat, langkah yang tepat adalah...",
+      options: [
+        "A. Meniadakan aktivitas olahraga luar ruang, menutup rapat celah ruang kelas, dan memakai masker respirator partikulat",
+        "B. Mengadakan lomba lari marathon siang hari di lapangan terbuka",
+        "C. Membakar sampah daun kering di halaman sekolah",
+        "D. Membuka seluruh jendela menghadap lahan gambut yang terbakar",
+        "E. Mengabaikan keluhan sesak napas siswa rentan",
+      ],
+      correctOption: "A",
+    },
+    {
+      type: "essay",
+      subTopic: "peta_titik_kumpul_karhutla",
+      question: "Jelaskan bagaimana sistem deteksi hotspot termal dan arah angin membantu sekolah mengantisipasi paparan asap kebakaran lahan serta kebakaran gedung!",
+      keyPoints: ["pantau hotspot angin dominan", "evakuasi menjauhi sumber api dan asap", "persiapkan APAR titik kumpul dan masker"],
+    },
+  ],
+};
+
+function resolveBankTopicKey(topicLabel: string): string {
+  const lower = topicLabel.toLowerCase();
+  if (lower.includes("tsunami")) return "tsunami";
+  if (lower.includes("meletus") || lower.includes("erupsi") || lower.includes("gunung")) return "erupsi";
+  if (lower.includes("banjir")) return "banjir";
+  if (lower.includes("longsor")) return "longsor";
+  if (lower.includes("kering")) return "kekeringan";
+  if (lower.includes("angin") || lower.includes("beliung")) return "angin";
+  if (lower.includes("abrasi") || lower.includes("pasang")) return "abrasi";
+  if (lower.includes("bakar") || lower.includes("api") || lower.includes("karhutla")) return "kebakaran";
+  return "gempa";
+}
+
+function buildCuratedFallbackQuiz(
+  topic: string,
+  difficulty: QuizDifficulty,
+  count: number,
+  mcqOnly = false,
+): QuizQuestion[] {
+  const key = resolveBankTopicKey(topic);
+  const primaryPool = CURATED_TOPIC_BANK[key] || CURATED_TOPIC_BANK.gempa;
+  const secondaryPool = Object.entries(CURATED_TOPIC_BANK)
+    .filter(([k]) => k !== key)
+    .flatMap(([, list]) => list);
+
+  const combined = [...primaryPool, ...secondaryPool].filter((item) =>
+    mcqOnly ? item.type === "mcq" : true,
+  );
+  const total = Math.max(1, count);
+  const output: QuizQuestion[] = [];
+
+  for (let i = 0; i < total; i++) {
+    const item = combined[i % combined.length];
+    output.push({
+      id: `q${i + 1}`,
+      type: item.type,
+      question:
+        difficulty === "mahir" && i === 0
+          ? `[Studi Kasus] ${item.question}`
+          : item.question,
+      options: item.options ? [...item.options] : undefined,
+      correctOption: item.correctOption,
+      keyPoints: item.keyPoints ? [...item.keyPoints] : undefined,
+      subTopic: item.subTopic,
+    });
+  }
+  return output;
+}
+
+function evaluateEssayLocally(payload: EssayEvaluationPayload): QuizEvaluation {
+  const normalized = (payload.studentAnswer || "").trim().toLowerCase();
+  if (!normalized) {
+    return {
+      questionId: payload.id,
+      score: 0,
+      feedback: "Jawaban masih kosong. Sertakan langkah atau kata kunci mitigasi yang relevan.",
+      isCorrect: false,
+    };
+  }
+  const keyPoints = payload.keyPoints || [];
+  const matched = keyPoints.filter((kp) => {
+    const tokens = kp.toLowerCase().split(/\s+/).filter((w) => w.length > 3);
+    return tokens.some((tok) => normalized.includes(tok));
+  });
+  const ratio = keyPoints.length > 0 ? matched.length / keyPoints.length : 0.6;
+  const lengthBonus = normalized.length >= 45 ? 0.25 : 0.1;
+  const score = Math.min(95, Math.max(35, Math.round((ratio * 0.75 + lengthBonus) * 100)));
+  const missing = keyPoints.filter((kp) => !matched.includes(kp));
+  const feedback =
+    missing.length === 0
+      ? `Jawaban sangat baik dan mencakup seluruh poin kunci (${keyPoints.join(", ")}).`
+      : `Poin tepat yang terdeteksi: ${matched.length > 0 ? matched.join(", ") : "konsep dasar"}. Lengkapi juga aspek: ${missing.join(", ")}.`;
+
+  return {
+    questionId: payload.id,
+    score,
+    feedback,
+    isCorrect: score >= 70,
+  };
+}
+
 export async function generateQuizQuestions(
   topic: string,
   difficulty: QuizDifficulty,
@@ -153,12 +622,13 @@ Format output HARUS berupa JSON array valid (boleh dibungkus markdown \`\`\`json
       true,
     );
     const parsed = parseJSONFromText(text);
-    if (!Array.isArray(parsed))
+    if (!Array.isArray(parsed) || parsed.length === 0) {
       throw new Error("Format balasan AI tidak sesuai ekspektasi");
+    }
     return parsed;
   } catch (err) {
-    console.error("QuizAI generation error:", err);
-    throw err;
+    console.warn("QuizAI fallback activated:", err);
+    return buildCuratedFallbackQuiz(topic, difficulty, count, false);
   }
 }
 
@@ -228,12 +698,19 @@ Format output HARUS berupa JSON array valid (boleh dibungkus markdown \`\`\`json
       true,
     );
     const parsed = parseJSONFromText(text);
-    if (!Array.isArray(parsed))
+    if (!Array.isArray(parsed) || parsed.length === 0) {
       throw new Error("Format balasan AI tidak sesuai ekspektasi");
+    }
     return parsed;
   } catch (err) {
-    console.error("SmartSim AI generation error:", err);
-    throw err;
+    console.warn("SmartSim AI fallback activated:", err);
+    const topHazard = Object.entries(params.schoolRisk).sort((a, b) => b[1] - a[1])[0]?.[0] || "gempa";
+    return buildCuratedFallbackQuiz(
+      topHazard,
+      params.mode === "test" ? "mahir" : "menengah",
+      params.count,
+      true,
+    );
   }
 }
 
@@ -303,15 +780,8 @@ Format output HARUS berupa JSON array valid (boleh dibungkus markdown \`\`\`json
       evals.push(...parsed);
     }
   } catch (err) {
-    console.error("QuizAI evaluation error:", err);
-    essayQuestions.forEach((q) =>
-      evals.push({
-        questionId: q.id,
-        score: 0,
-        feedback: "Gagal menghubungi AI evaluator.",
-        isCorrect: false,
-      }),
-    );
+    console.warn("QuizAI local essay evaluator fallback activated:", err);
+    essayQuestions.forEach((q) => evals.push(evaluateEssayLocally(q)));
   }
 
   return evals.sort((a, b) => {

@@ -218,7 +218,7 @@ export function TeacherSessionLobby() {
             )}
           </div>
 
-          <div className="flex justify-end gap-3">
+          <div className="flex flex-wrap justify-end gap-3">
             <button
               disabled={ending}
               onClick={handleEnd}
@@ -226,9 +226,16 @@ export function TeacherSessionLobby() {
             >
               Akhiri Sesi
             </button>
+            <button
+              type="button"
+              onClick={() => navigate(`/app/simulation/lobby/${session.id}`)}
+              className="flex items-center gap-2 px-6 py-3 rounded-xl font-bold text-indigo-700 bg-indigo-50 hover:bg-indigo-100 dark:bg-indigo-900/30 dark:text-indigo-200 transition-colors"
+            >
+              Buka Arena Simulasi
+            </button>
             {session.status === "LOBBY" && (
               <button
-                disabled={starting || participants.length === 0}
+                disabled={starting}
                 onClick={handleStart}
                 className="flex items-center gap-2 px-8 py-3 rounded-xl font-bold text-white bg-brand-600 hover:bg-brand-700 shadow-lg disabled:opacity-50 transition-all"
               >

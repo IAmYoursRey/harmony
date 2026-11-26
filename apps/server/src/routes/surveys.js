@@ -88,13 +88,13 @@ function generateSurveysForRegisteredCohort(db, targetSchoolId) {
   const profileMap = new Map(profiles.map((p) => [p.userId, p]));
   const classMap = new Map(classes.map((c) => [c.id, c]));
 
-  let registeredStudents = accounts.filter(
-    (a) => a.role === "student" && !String(a.id || "").startsWith("usr-demo-"),
+  const registeredStudents = accounts.filter(
+    (a) =>
+      a.role === "student" &&
+      !a.isDemo &&
+      !String(a.id || "").startsWith("usr-demo-") &&
+      !String(a.id || "").startsWith("demo-"),
   );
-
-  if (registeredStudents.length === 0) {
-    registeredStudents = accounts.filter((a) => a.role === "student");
-  }
 
   // Prefer students assigned to targetSchoolId if there are any
   const schoolSpecificStudents = registeredStudents.filter((a) => {
@@ -340,12 +340,20 @@ router.get("/", verifyOptionalToken, async (req, res) => {
   const schoolId = req.query.schoolId || SMAN1_NGORO_SCHOOL_ID;
   const classId = req.query.classId;
 
-  const accountIds = new Set((db.accounts || []).map((a) => a.id));
+  const accounts = db.accounts || [];
+  const nonDemoStudentAccounts = accounts.filter(
+    (a) =>
+      a.role === "student" &&
+      !a.isDemo &&
+      !String(a.id || "").startsWith("usr-demo-") &&
+      !String(a.id || "").startsWith("demo-"),
+  );
+  const accountIds = new Set(accounts.map((a) => a.id));
   const rawSurveys = db.surveys || [];
 
-  // Keep only surveys belonging to actual registered accounts if accounts exist
+  // Only prune rawSurveys by accountIds when a real student cohort exists; otherwise preserve all empirical & submitted surveys
   let validSurveys =
-    accountIds.size > 0
+    nonDemoStudentAccounts.length >= 10
       ? rawSurveys.filter((s) => accountIds.has(s.userId))
       : rawSurveys;
 

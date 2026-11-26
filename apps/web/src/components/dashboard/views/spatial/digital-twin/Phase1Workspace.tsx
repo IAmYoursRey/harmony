@@ -29,6 +29,7 @@ export function Phase1Workspace() {
 
   const activeSchool = selection?.school || null;
   const role = currentUser?.role;
+  const canAuthor = role === "teacher" || role === "developer";
 
   const [maps, setMaps] = useState<Phase1Map[]>([]);
   const [loading, setLoading] = useState(true);
@@ -194,14 +195,16 @@ export function Phase1Workspace() {
               <p className="text-slate-500 dark:text-slate-400 text-xs sm:text-sm line-clamp-2">{map.description}</p>
             </div>
           </div>
-          <div className="flex items-center gap-2 shrink-0">
-            <button
-              onClick={() => navigate(`/app/digital-twin/editor/${map.id}`)}
-              className="flex min-h-[42px] items-center justify-center gap-2 bg-slate-800 hover:bg-slate-900 text-white px-4 py-2 rounded-xl transition-colors font-medium shadow-sm text-sm whitespace-nowrap"
-            >
-              <Edit className="h-4 w-4" /> Edit Denah Dasar
-            </button>
-          </div>
+          {canAuthor && (
+            <div className="flex items-center gap-2 shrink-0">
+              <button
+                onClick={() => navigate(`/app/digital-twin/editor/${map.id}`)}
+                className="flex min-h-[42px] items-center justify-center gap-2 bg-slate-800 hover:bg-slate-900 text-white px-4 py-2 rounded-xl transition-colors font-medium shadow-sm text-sm whitespace-nowrap"
+              >
+                <Edit className="h-4 w-4" /> Edit Denah Dasar
+              </button>
+            </div>
+          )}
         </div>
 
         {/* Interactive Game Grid Sandbox with Visual Effects */}
@@ -233,12 +236,14 @@ export function Phase1Workspace() {
               <span className="sm:hidden">Sesi Bersama</span>
               <span className="hidden sm:inline">Sesi Bersama</span>
             </button>
-            <button
-              onClick={() => setShowCreateScenario(true)}
-              className="flex min-h-[42px] items-center justify-center gap-2 bg-brand-600 hover:bg-brand-700 text-white px-3.5 sm:px-4 py-2 rounded-xl transition-colors font-medium text-xs sm:text-sm whitespace-nowrap"
-            >
-              <Plus className="h-4 w-4 shrink-0" /> Buat Skenario
-            </button>
+            {canAuthor && (
+              <button
+                onClick={() => setShowCreateScenario(true)}
+                className="flex min-h-[42px] items-center justify-center gap-2 bg-brand-600 hover:bg-brand-700 text-white px-3.5 sm:px-4 py-2 rounded-xl transition-colors font-medium text-xs sm:text-sm whitespace-nowrap"
+              >
+                <Plus className="h-4 w-4 shrink-0" /> Buat Skenario
+              </button>
+            )}
           </div>
         </div>
 
@@ -377,16 +382,18 @@ export function Phase1Workspace() {
                     >
                       {isSandboxActive ? "Aktif" : "Pratinjau"}
                     </button>
-                    <button
-                      onClick={() =>
-                        navigate(
-                          `/app/digital-twin/scenario-editor/${map.id}/${scen.id}`,
-                        )
-                      }
-                      className="px-3 py-1.5 text-xs bg-brand-50 hover:bg-brand-100 text-brand-700 dark:bg-brand-900/30 dark:text-brand-300 rounded-lg font-medium transition-colors"
-                    >
-                      Edit
-                    </button>
+                    {canAuthor && (
+                      <button
+                        onClick={() =>
+                          navigate(
+                            `/app/digital-twin/scenario-editor/${map.id}/${scen.id}`,
+                          )
+                        }
+                        className="px-3 py-1.5 text-xs bg-brand-50 hover:bg-brand-100 text-brand-700 dark:bg-brand-900/30 dark:text-brand-300 rounded-lg font-medium transition-colors"
+                      >
+                        Edit
+                      </button>
+                    )}
                     {scen.status === "published" && (
                       <>
                         <button
@@ -408,18 +415,22 @@ export function Phase1Workspace() {
                         </button>
                       </>
                     )}
-                    <button
-                      onClick={() => handleDuplicateScenario(scen.id)}
-                      className="px-3 py-1.5 text-xs bg-slate-100 hover:bg-slate-200 text-slate-700 dark:bg-slate-800 dark:text-slate-300 rounded-lg font-medium transition-colors"
-                    >
-                      Duplikat
-                    </button>
-                    <button
-                      onClick={() => handlePublishScenario(scen.id, scen.status)}
-                      className={`px-3 py-1.5 text-xs rounded-lg font-medium transition-colors ${scen.status === "draft" ? "bg-emerald-50 text-emerald-700 hover:bg-emerald-100" : "bg-amber-50 text-amber-700 hover:bg-amber-100"}`}
-                    >
-                      {scen.status === "draft" ? "Publikasikan" : "Tarik Draft"}
-                    </button>
+                    {canAuthor && (
+                      <>
+                        <button
+                          onClick={() => handleDuplicateScenario(scen.id)}
+                          className="px-3 py-1.5 text-xs bg-slate-100 hover:bg-slate-200 text-slate-700 dark:bg-slate-800 dark:text-slate-300 rounded-lg font-medium transition-colors"
+                        >
+                          Duplikat
+                        </button>
+                        <button
+                          onClick={() => handlePublishScenario(scen.id, scen.status)}
+                          className={`px-3 py-1.5 text-xs rounded-lg font-medium transition-colors ${scen.status === "draft" ? "bg-emerald-50 text-emerald-700 hover:bg-emerald-100" : "bg-amber-50 text-amber-700 hover:bg-amber-100"}`}
+                        >
+                          {scen.status === "draft" ? "Publikasikan" : "Tarik Draft"}
+                        </button>
+                      </>
+                    )}
                   </div>
                 </div>
               );

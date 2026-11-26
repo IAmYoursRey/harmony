@@ -10,9 +10,13 @@ import {
 } from "../repositories/repository.js";
 import { verifyToken } from "../middleware/authMiddleware.js";
 import { getBaseSchools } from "./schools.js";
+import {
+  SMAN1_NGORO_SCHOOL_ID,
+  isEphemeralDemoId,
+  buildNgoroFallbackData,
+} from "../data/ngoroCohortFallback.js";
 
 const router = express.Router();
-const SMAN1_NGORO_SCHOOL_ID = "ffdcdf34-fc99-4209-913e-5a6042e957ad";
 
 function isFixedDemoUser(user, account) {
   const email = (account?.email || user?.email || "").toLowerCase();
@@ -45,7 +49,11 @@ router.get("/", verifyToken, async (req, res) => {
         name: account?.name || req.user.name || "Pengguna SMAN 1 Ngoro",
         role: normalizedRole,
         gender: "other",
-        grade: normalizedRole === "teacher" || normalizedRole === "developer" ? "-" : "X",
+        grade: normalizedRole === "teacher" || normalizedRole === "developer" ? "-" : "XI",
+        classId:
+          normalizedRole === "student" && isNgoroUser
+            ? "class_sman1ngoro_XI_1"
+            : undefined,
         section: "1",
         classSection: "1",
         schoolId: isNgoroUser ? SMAN1_NGORO_SCHOOL_ID : null,
@@ -53,6 +61,7 @@ router.get("/", verifyToken, async (req, res) => {
         province: isNgoroUser ? "Jawa Timur" : null,
         regency: isNgoroUser ? "Kabupaten Mojokerto" : null,
         xp: 1200,
+        totalPoints: 1200,
         level: 2,
         achievements: [],
         joinedAt: new Date().toISOString(),
@@ -125,8 +134,27 @@ router.post("/", verifyToken, async (req, res) => {
 router.get("/all", verifyToken, async (req, res) => {
   const db = await readDB();
   const schools = await getBaseSchools();
+  const fallback = buildNgoroFallbackData();
+  const hasRealNgoroCohort = (db.profiles || []).some(
+    (p) =>
+      p.schoolId === SMAN1_NGORO_SCHOOL_ID &&
+      p.role !== "teacher" &&
+      !isEphemeralDemoId(p.userId),
+  );
 
-  const enrichedProfiles = db.profiles.map((p) => {
+  const mergedRawProfiles = hasRealNgoroCohort
+    ? db.profiles || []
+    : [
+        ...(db.profiles || []),
+        ...fallback.studentProfiles.filter(
+          (fp) => !(db.profiles || []).some((dp) => dp.userId === fp.userId),
+        ),
+        ...fallback.teacherProfiles.filter(
+          (fp) => !(db.profiles || []).some((dp) => dp.userId === fp.userId),
+        ),
+      ];
+
+  const enrichedProfiles = mergedRawProfiles.map((p) => {
     const dbSchool = (db.schools || []).find((s) => s.id === p.schoolId);
     const school =
       p.schoolId && p.schoolId !== "unknown"
@@ -137,7 +165,7 @@ router.get("/all", verifyToken, async (req, res) => {
       ...p,
       schoolName: p.schoolName || (school ? school.name || school.school_name : p.schoolId),
       province: p.province || (school ? school.province : "Jawa Timur"),
-      regency: p.regency || (school ? school.regency : "Mojokerto"),
+      regency: p.regency || (school ? school.regency : "Kabupaten Mojokerto"),
     };
   });
 
@@ -159,11 +187,14 @@ router.get("/all", verifyToken, async (req, res) => {
     );
   }
 
-  const requesterAccount = db.accounts.find((a) => a.id === req.user.id);
-  const isTeacher = requesterAccount && requesterAccount.role === "teacher";
+  const requesterAccount = (db.accounts || []).find((a) => a.id === req.user.id);
+  const callerRole = requesterAccount?.role || req.user?.role;
+  const isStaff =
+    callerRole === "teacher" ||
+    callerRole === "developer" ||
+    callerRole === "dev";
 
-  if (!isTeacher) {
-    // For non-teachers, only show profiles that are public (isPublic is true or undefined/default true)
+  if (!isStaff) {
     filteredProfiles = filteredProfiles.filter((p) => p.isPublic !== false);
   }
 
@@ -173,28 +204,45 @@ router.get("/all", verifyToken, async (req, res) => {
 router.get("/gss", verifyToken, async (req, res) => {
   const db = await readDB();
   const schoolId = req.query.schoolId;
+  const fallback = buildNgoroFallbackData();
+  const hasRealNgoroCohort = (db.profiles || []).some(
+    (p) =>
+      p.schoolId === SMAN1_NGORO_SCHOOL_ID &&
+      p.role !== "teacher" &&
+      !isEphemeralDemoId(p.userId),
+  );
+  const mergedProfiles = hasRealNgoroCohort
+    ? db.profiles || []
+    : [
+        ...(db.profiles || []),
+        ...fallback.studentProfiles.filter(
+          (fp) => !(db.profiles || []).some((dp) => dp.userId === fp.userId),
+        ),
+      ];
+  const mergedAccounts = hasRealNgoroCohort
+    ? db.accounts || []
+    : [...(db.accounts || []), ...fallback.studentAccounts];
 
   let targetProfiles = [];
   let userIds = [];
   if (schoolId) {
-    targetProfiles = db.profiles.filter(
+    targetProfiles = mergedProfiles.filter(
       (p) =>
         p.schoolId === schoolId &&
-        db.accounts.find((a) => a.id === p.userId)?.role === "student",
+        (p.role === "student" ||
+          mergedAccounts.find((a) => a.id === p.userId)?.role === "student"),
     );
     userIds = targetProfiles.map((p) => p.userId);
   } else {
-    targetProfiles = [db.profiles.find((p) => p.userId === req.user.id)].filter(
-      Boolean,
-    );
+    targetProfiles = [
+      mergedProfiles.find((p) => p.userId === req.user.id),
+    ].filter(Boolean);
     userIds = [req.user.id];
   }
 
-  // If no profiles found, the logic below will safely calculate 0 for all metrics
-
-  const dtResults = (db.dtResults || []).filter((r) =>
-    userIds.includes(r.userId),
-  );
+  const rawDtResults =
+    (db.dtResults || []).length > 0 ? db.dtResults : fallback.dtResults;
+  const dtResults = rawDtResults.filter((r) => userIds.includes(r.userId));
 
   dtResults.sort(
     (a, b) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime(),
@@ -297,10 +345,32 @@ router.get("/gss", verifyToken, async (req, res) => {
 
 router.get("/accounts", verifyToken, async (req, res) => {
   const db = await readDB();
-  const safeAccounts = db.accounts.map((a) => ({
+  const fallback = buildNgoroFallbackData();
+  const dbAccounts = db.accounts || [];
+  const hasRealCohort =
+    dbAccounts.filter((a) => a.role === "student" && !isEphemeralDemoId(a.id))
+      .length >= 10;
+
+  const existingIds = new Set(dbAccounts.map((a) => a.id));
+  const merged = hasRealCohort
+    ? dbAccounts
+    : [
+        ...dbAccounts,
+        ...[...fallback.studentAccounts, ...fallback.teacherAccounts].filter(
+          (a) => !existingIds.has(a.id),
+        ),
+      ];
+
+  const isPrivileged =
+    req.user.role === "teacher" ||
+    req.user.role === "developer" ||
+    req.user.role === "dev";
+
+  const safeAccounts = merged.map((a) => ({
     id: a.id,
     name: a.name,
     role: a.role,
+    ...(isPrivileged ? { email: a.email, createdAt: a.createdAt } : {}),
   }));
   res.json({ accounts: safeAccounts });
 });

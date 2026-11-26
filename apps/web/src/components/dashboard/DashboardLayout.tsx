@@ -55,13 +55,19 @@ export function DashboardLayout() {
     }
   }, [authRequiredParam, currentUser, setSearchParams]);
 
-  // If unauthenticated and accessing a protected education feature, redirect to maps with auth prompt
+  const publicOpenRoutes = new Set([
+    "maps",
+    "geospatial",
+    "field-telemetry",
+    "learning-gain",
+    "survey",
+  ]);
+
+  // Redirect unauthenticated visitors only from protected school workspace routes
   if (
     !isLoading &&
     !currentUser &&
-    activeId !== "maps" &&
-    activeId !== "geospatial" &&
-    activeId !== "field-telemetry"
+    !publicOpenRoutes.has(activeId)
   ) {
     return <Navigate to={`/app/maps?authRequired=${activeId}`} replace />;
   }
@@ -93,7 +99,7 @@ export function DashboardLayout() {
     });
   };
 
-  if (isLoading && activeId !== "maps") {
+  if (isLoading && !publicOpenRoutes.has(activeId)) {
     return (
       <div className="h-viewport overflow-hidden bg-gradient-to-b from-brand-50/40 via-white to-white dark:from-slate-900 dark:via-slate-950 dark:to-slate-950">
         <div className="flex h-viewport">

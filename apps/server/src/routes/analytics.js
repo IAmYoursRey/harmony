@@ -9,9 +9,13 @@ import {
   maskIdPrivacy,
 } from "../data/learningGainData.js";
 
-const router = express.Router();
+import {
+  SMAN1_NGORO_SCHOOL_ID,
+  isEphemeralDemoId,
+  buildNgoroFallbackData,
+} from "../data/ngoroCohortFallback.js";
 
-const SMAN1_NGORO_SCHOOL_ID = "ffdcdf34-fc99-4209-913e-5a6042e957ad";
+const router = express.Router();
 
 function getCallerSchoolId(db, userId, reqUser = null) {
   const profile = db.profiles.find((p) => p.userId === userId);
@@ -31,17 +35,40 @@ router.get("/system", verifyToken, async (req, res) => {
   }
 
   const db = await readDB();
+  const fallback = buildNgoroFallbackData();
+  const dbAccounts = db.accounts || [];
+  const hasRealCohort =
+    dbAccounts.filter((a) => a.role === "student" && !isEphemeralDemoId(a.id))
+      .length >= 10;
 
-  const totalUsers = db.accounts?.length || 0;
-  const teachers = db.accounts?.filter((a) => a.role === "teacher").length || 0;
-  const students = db.accounts?.filter((a) => a.role === "student").length || 0;
+  const accountIds = new Set(dbAccounts.map((a) => a.id));
+  const extraFallbackAccounts = hasRealCohort
+    ? []
+    : [...fallback.studentAccounts, ...fallback.teacherAccounts].filter(
+        (a) => !accountIds.has(a.id),
+      );
+  const mergedAccounts = [...dbAccounts, ...extraFallbackAccounts];
+
+  const totalUsers = mergedAccounts.length;
+  const teachers = mergedAccounts.filter((a) => a.role === "teacher").length;
+  const students = mergedAccounts.filter((a) => a.role === "student").length;
 
   const schoolsList = await getBaseSchools();
   const schools = schoolsList?.length || 0;
 
-  const totalSimulations = Object.keys(db.simulations || {}).length;
+  const scenarioCountFromMaps = (db.dtMaps || []).reduce(
+    (sum, m) => sum + ((m.scenarios || []).length || 0),
+    0,
+  );
+  const totalSimulations = Math.max(
+    Object.keys(db.simulations || {}).length,
+    scenarioCountFromMaps,
+  );
   const totalRooms = Object.keys(db.dtRooms || {}).length;
-  const totalAttempts = db.dtResults?.length || 0;
+  const totalAttempts =
+    (db.dtResults?.length || 0) > 0
+      ? db.dtResults.length
+      : fallback.dtResults.length;
 
   res.json({
     success: true,
@@ -73,16 +100,52 @@ router.get("/class", verifyToken, async (req, res) => {
   const classSection = req.query.classSection || "";
   const grade = req.query.grade || "";
 
-  const classProfiles = db.profiles.filter(
+  const fallback = buildNgoroFallbackData();
+  const dbProfiles = db.profiles || [];
+  const hasRealNgoroStudents = dbProfiles.some(
+    (p) =>
+      p.schoolId === SMAN1_NGORO_SCHOOL_ID &&
+      p.role !== "teacher" &&
+      !isEphemeralDemoId(p.userId),
+  );
+
+  const mergedProfiles =
+    callerSchoolId === SMAN1_NGORO_SCHOOL_ID && !hasRealNgoroStudents
+      ? [
+          ...dbProfiles,
+          ...fallback.studentProfiles.filter(
+            (fp) => !dbProfiles.some((dp) => dp.userId === fp.userId),
+          ),
+        ]
+      : dbProfiles;
+
+  const mergedAccounts =
+    callerSchoolId === SMAN1_NGORO_SCHOOL_ID && !hasRealNgoroStudents
+      ? [
+          ...(db.accounts || []),
+          ...fallback.studentAccounts.filter(
+            (fa) => !(db.accounts || []).some((da) => da.id === fa.id),
+          ),
+        ]
+      : db.accounts || [];
+
+  const mergedResults =
+    callerSchoolId === SMAN1_NGORO_SCHOOL_ID && !hasRealNgoroStudents
+      ? [...(db.dtResults || []), ...fallback.dtResults]
+      : db.dtResults || [];
+
+  const classProfiles = mergedProfiles.filter(
     (p) =>
       p.schoolId === callerSchoolId &&
+      p.role !== "teacher" &&
+      p.role !== "developer" &&
       (classId ? p.classId === classId : grade ? p.grade === grade : true) &&
       (classSection ? p.classSection === classSection : true),
   );
 
   const studentIds = classProfiles.map((p) => p.userId);
 
-  const studentAccounts = db.accounts
+  const studentAccounts = mergedAccounts
     .filter((a) => studentIds.includes(a.id))
     .map((a) => ({
       id: a.id,
@@ -90,9 +153,7 @@ router.get("/class", verifyToken, async (req, res) => {
       email: a.email,
     }));
 
-  const results = (db.dtResults || []).filter((r) =>
-    studentIds.includes(r.userId),
-  );
+  const results = mergedResults.filter((r) => studentIds.includes(r.userId));
 
   let completed = 0;
   let failed = 0;
@@ -218,9 +279,30 @@ router.get("/sri", verifyToken, async (req, res) => {
       .json({ error: "School ID required or not assigned to a school" });
   }
 
-  const schoolProfiles = db.profiles.filter(
+  const fallback = buildNgoroFallbackData();
+  const dbSchoolProfiles = (db.profiles || []).filter(
     (p) => p.schoolId === targetSchoolId,
   );
+  const hasRealNgoroCohort =
+    dbSchoolProfiles.filter(
+      (p) => p.role !== "teacher" && !isEphemeralDemoId(p.userId),
+    ).length >= 10;
+
+  const useNgoroFallback =
+    targetSchoolId === SMAN1_NGORO_SCHOOL_ID && !hasRealNgoroCohort;
+
+  const schoolProfiles = useNgoroFallback
+    ? [
+        ...dbSchoolProfiles,
+        ...fallback.studentProfiles.filter(
+          (fp) => !dbSchoolProfiles.some((dp) => dp.userId === fp.userId),
+        ),
+        ...fallback.teacherProfiles.filter(
+          (fp) => !dbSchoolProfiles.some((dp) => dp.userId === fp.userId),
+        ),
+      ]
+    : dbSchoolProfiles;
+
   if (schoolProfiles.length === 0) {
     return res.json({
       success: true,
@@ -233,9 +315,24 @@ router.get("/sri", verifyToken, async (req, res) => {
   }
 
   const studentIds = schoolProfiles.map((p) => p.userId);
-  const schoolResults = (db.dtResults || []).filter((r) =>
-    studentIds.includes(r.userId),
+  const rawResults = useNgoroFallback
+    ? [...(db.dtResults || []), ...fallback.dtResults]
+    : db.dtResults || [];
+  const schoolResults = rawResults.filter((r) => studentIds.includes(r.userId));
+  const mergedAccounts = useNgoroFallback
+    ? [
+        ...(db.accounts || []),
+        ...fallback.studentAccounts,
+        ...fallback.teacherAccounts,
+      ]
+    : db.accounts || [];
+  const rawSchoolClasses = (db.classes || []).filter(
+    (c) => c.schoolId === targetSchoolId,
   );
+  const effectiveClasses =
+    rawSchoolClasses.length > 0 || !useNgoroFallback
+      ? rawSchoolClasses
+      : fallback.classes;
 
   let pointsTotal = 0,
     topicScoresSum = 0,
@@ -355,14 +452,14 @@ router.get("/sri", verifyToken, async (req, res) => {
     });
   }
 
-  const studentProfiles = schoolProfiles.filter((p) => p.role !== "teacher");
+  const studentProfiles = schoolProfiles.filter((p) => p.role !== "teacher" && p.role !== "developer");
   const teacherProfiles = schoolProfiles.filter((p) => p.role === "teacher");
-  const schoolClasses = (db.classes || []).filter((c) => c.schoolId === targetSchoolId);
+  const schoolClasses = effectiveClasses;
 
   const sampleStudents = studentProfiles
     .slice(0, 8)
     .map((sp) => {
-      const acc = db.accounts.find((a) => a.id === sp.userId);
+      const acc = mergedAccounts.find((a) => a.id === sp.userId);
       const studentSims = schoolResults.filter((r) => r.userId === sp.userId);
       const latestSim = studentSims[studentSims.length - 1];
       const displayGrade =
@@ -402,7 +499,7 @@ router.get("/sri", verifyToken, async (req, res) => {
       },
       classes: schoolClasses
         .map((c) => {
-          const teacherAcc = db.accounts.find((a) => a.id === c.teacherId);
+          const teacherAcc = mergedAccounts.find((a) => a.id === c.teacherId);
           const classStudents = studentProfiles.filter(
             (sp) => sp.classId === c.id || sp.classSection === c.section
           );

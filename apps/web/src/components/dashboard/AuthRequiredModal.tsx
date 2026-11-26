@@ -38,15 +38,31 @@ export function AuthRequiredModal({
 
   if (!isOpen) return null;
 
+  const demoRole: "student" | "teacher" | "developer" =
+    targetPath.includes("dev-dashboard")
+      ? "developer"
+      : targetPath.includes("/teacher") || targetPath.endsWith("teacher")
+        ? "teacher"
+        : "student";
+
+  const demoButtonLabel =
+    demoRole === "developer"
+      ? "Demo Pengembang"
+      : demoRole === "teacher"
+        ? "Demo Guru SMAN 1"
+        : "Demo SMAN 1";
+
   const handleProceedLogin = () => {
     onClose();
-    navigate(`/login?redirect=${encodeURIComponent(targetPath)}`);
+    navigate(
+      `/login?role=${demoRole}&redirect=${encodeURIComponent(targetPath)}`,
+    );
   };
 
   const handleQuickLogin = async () => {
     setIsLoadingDemo(true);
     try {
-      const demoPayload = generateRandomDemoPayload("student");
+      const demoPayload = generateRandomDemoPayload(demoRole);
 
       const result = await login(JSON.stringify(demoPayload));
       if (result.success && result.account) {
@@ -140,7 +156,7 @@ export function AuthRequiredModal({
               ) : (
                 <ShieldCheck className="h-3.5 w-3.5 text-brand-600 dark:text-brand-400" />
               )}
-              <span>Demo SMAN 1</span>
+              <span>{demoButtonLabel}</span>
             </button>
 
             <button

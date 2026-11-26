@@ -130,7 +130,7 @@ export function getPersonaNavGroups(role?: UserNavRole | string | null): Persona
         title: "Instrumen Pemantauan Lanjut",
         collapsible: true,
         defaultCollapsed: true,
-        items: pickNavItems(["field-telemetry"]),
+        items: pickNavItems(["field-telemetry", "learning-gain", "survey"]),
       },
     ];
   }
@@ -146,14 +146,14 @@ export function getPersonaNavGroups(role?: UserNavRole | string | null): Persona
       {
         id: "student-explore",
         title: "Peta Sekolah & Pencapaian",
-        items: pickNavItems(["maps", "gss", "events", "survey", "profile"]),
+        items: pickNavItems(["maps", "gss", "resilience", "events", "survey", "profile"]),
       },
       {
         id: "student-advanced",
         title: "Eksplorasi Sains Lanjut",
         collapsible: true,
         defaultCollapsed: true,
-        items: pickNavItems(["geospatial", "field-telemetry"]),
+        items: pickNavItems(["geospatial", "field-telemetry", "learning-gain"]),
       },
     ];
   }

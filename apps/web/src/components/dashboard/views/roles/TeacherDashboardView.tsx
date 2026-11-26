@@ -486,6 +486,7 @@ function TeacherStudentDetailModal({
 
 export function TeacherDashboardView() {
   const { t } = useI18n();
+  const { show } = useToast();
   const { currentUser, currentProfile, refreshProfile } = useAuth();
   const [exporting, setExporting] = useState(false);
 
@@ -619,9 +620,58 @@ export function TeacherDashboardView() {
   };
 
   const handleExport = (type: "pdf" | "excel") => {
+    if (!dashboardData || !selectedClass) return;
     setExporting(true);
-    setTimeout(() => setExporting(false), 1200);
-    void type;
+    try {
+      if (type === "excel") {
+        const escapeCsv = (val: unknown) => {
+          const s = String(val ?? "");
+          return /[",\n]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s;
+        };
+        const header = [
+          "No",
+          "Nama Siswa",
+          "Kelas",
+          "Simulasi Selesai",
+          "Rata-rata Skor",
+          "Rata-rata Waktu (detik)",
+        ];
+        const rows = (dashboardData.students || []).map((s: any, idx: number) => [
+          idx + 1,
+          s.name,
+          selectedClass.name,
+          s.totalPoints ?? 0,
+          s.averageScore ?? 0,
+          s.averageTime ?? 0,
+        ]);
+        const csvContent =
+          "\uFEFF" +
+          [header, ...rows].map((row) => row.map(escapeCsv).join(",")).join("\n");
+        const blob = new Blob([csvContent], {
+          type: "text/csv;charset=utf-8;",
+        });
+        const url = URL.createObjectURL(blob);
+        const link = document.createElement("a");
+        const safeClass = String(selectedClass.name || "SMAN_1_Ngoro").replace(
+          /[^a-zA-Z0-9_-]+/g,
+          "_",
+        );
+        link.href = url;
+        link.download = `Rekap_Kelas_${safeClass}.csv`;
+        document.body.appendChild(link);
+        link.click();
+        link.remove();
+        URL.revokeObjectURL(url);
+        show(`Rekap kelas ${selectedClass.name} diunduh (CSV).`, "success");
+      } else {
+        window.print();
+        show(`Dialog cetak / simpan PDF kelas ${selectedClass.name} dibuka.`, "success");
+      }
+    } catch {
+      show("Gagal mengekspor laporan kelas.", "error");
+    } finally {
+      setTimeout(() => setExporting(false), 300);
+    }
   };
 
   const dashboardData = useMemo(() => {
@@ -683,7 +733,14 @@ export function TeacherDashboardView() {
               {t("teacher.header.desc")}
             </p>
           </div>
-          <div className="flex gap-2.5">
+          <div className="flex flex-wrap gap-2.5">
+            <button
+              onClick={() => handleExport("excel")}
+              disabled={exporting || !dashboardData}
+              className="inline-flex items-center gap-2 rounded-full bg-white/15 border border-white/25 px-4 py-2.5 text-sm font-semibold text-white backdrop-blur-sm transition-all hover:bg-white/25 disabled:opacity-60"
+            >
+              <Download className="h-4 w-4" /> Export CSV
+            </button>
             <button
               onClick={() => handleExport("pdf")}
               disabled={exporting || !dashboardData}

@@ -27,6 +27,7 @@ export default function LoginPage() {
   const [searchParams] = useSearchParams();
   const explicitRedirect = searchParams.get("redirect");
   const roleHint = searchParams.get("role");
+  const forceSwitch = searchParams.get("switch") === "1";
   const resolveTargetRoute = (role?: string | null) => {
     if (explicitRedirect) return explicitRedirect;
     if (role === "teacher") return "/app/teacher";
@@ -35,7 +36,7 @@ export default function LoginPage() {
   };
   const redirectUrl = resolveTargetRoute(roleHint);
   const { show } = useToast();
-  const { login, finalizeLogin, registerGoogle, currentUser } = useAuth();
+  const { login, finalizeLogin, registerGoogle, currentUser, logout } = useAuth();
   const { setSelection } = useSchool();
 
   const [authStatus, setAuthStatus] = useState<AuthStatus>("initial");
@@ -122,10 +123,14 @@ export default function LoginPage() {
   }, [schools, regLevel]);
 
   useEffect(() => {
-    if (currentUser && authStatus === "initial" && !manualRedirectRef.current) {
+    if (!currentUser || authStatus !== "initial" || manualRedirectRef.current) {
+      return;
+    }
+    const roleMatchesHint = !roleHint || roleHint === currentUser.role;
+    if (!forceSwitch && roleMatchesHint) {
       navigate(resolveTargetRoute(currentUser.role), { replace: true });
     }
-  }, [currentUser, navigate, authStatus]);
+  }, [currentUser, navigate, authStatus, roleHint, forceSwitch]);
 
   const handleGoogleSuccess = async (credentialResponse: any) => {
     if (!credentialResponse.credential) {
@@ -364,6 +369,42 @@ export default function LoginPage() {
                 <p className="text-center text-xs sm:text-sm font-medium text-ink-500 dark:text-slate-400">
                   Masuk menggunakan akun Google atau akses Demo SMAN 1 Ngoro
                 </p>
+                {currentUser && (
+                  <div className="w-full rounded-2xl border border-indigo-200/80 bg-indigo-50/80 p-3.5 dark:border-indigo-800/60 dark:bg-indigo-950/40">
+                    <div className="flex flex-col gap-2.5 sm:flex-row sm:items-center sm:justify-between">
+                      <div className="min-w-0">
+                        <p className="text-xs font-bold text-slate-900 dark:text-white truncate">
+                          Sesi aktif: {currentUser.name} ({currentUser.role})
+                        </p>
+                        <p className="text-[11px] text-slate-600 dark:text-slate-300">
+                          {roleHint && roleHint !== currentUser.role
+                            ? `Anda diminta masuk sebagai ${roleHint}. Keluar dulu atau pilih mode demo di bawah.`
+                            : "Lanjutkan ke dasbor saat ini atau ganti peran akun."}
+                        </p>
+                      </div>
+                      <div className="flex items-center gap-2 shrink-0">
+                        <button
+                          type="button"
+                          onClick={() => navigate(resolveTargetRoute(currentUser.role))}
+                          className="rounded-xl bg-brand-600 px-3 py-1.5 text-xs font-bold text-white hover:bg-brand-700"
+                        >
+                          Lanjut ke Dasbor
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            logout();
+                            show("Sesi sebelumnya ditutup. Silakan pilih akun atau peran baru.", "info");
+                          }}
+                          className="inline-flex items-center gap-1 rounded-xl border border-slate-300 bg-white px-3 py-1.5 text-xs font-semibold text-slate-700 hover:bg-slate-50 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-200"
+                        >
+                          <LogOut className="h-3.5 w-3.5" />
+                          Keluar &amp; Ganti Peran
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                )}
                 {loading ? (
                   <div className="flex flex-col items-center justify-center gap-3 py-6">
                     <Loader2 className="h-10 w-10 animate-spin text-brand-600" />

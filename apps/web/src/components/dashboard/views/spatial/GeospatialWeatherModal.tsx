@@ -324,12 +324,8 @@ export const GeospatialWeatherModal: React.FC<GeospatialWeatherModalProps> = ({
   const { currentUser } = useAuth();
   // Group Studio domains by role so Public/Students/Teachers start cleanly on Weather & BMKG while Experts see full stack
   const [activeDomain, setActiveDomain] = useState<StudioDomain>(initialDomain || 'weather');
-  const [domainPillarFilter, setDomainPillarFilter] = useState<'all' | 'observasi' | 'atmosfer' | 'analitik'>(() => {
-    const startDomain = initialDomain || 'weather';
-    if (currentUser?.role === 'developer') return 'all';
-    const def = STUDIO_DOMAINS.find((d) => d.id === startDomain);
-    return def?.pillar || 'atmosfer';
-  });
+  // Show every domain tab by default so users do not miss 11 of 15 modules behind a single pillar
+  const [domainPillarFilter, setDomainPillarFilter] = useState<'all' | 'observasi' | 'atmosfer' | 'analitik'>('all');
   const domainTabsScrollRef = useRef<HTMLDivElement>(null);
 
   const isInitializedRef = useRef(false);
@@ -1437,6 +1433,10 @@ export const GeospatialWeatherModal: React.FC<GeospatialWeatherModalProps> = ({
       setSelectedPointKey(null);
       if (initialDomain) {
         setActiveDomain(initialDomain);
+        const def = STUDIO_DOMAINS.find((d) => d.id === initialDomain);
+        if (def && domainPillarFilter !== 'all' && def.pillar !== domainPillarFilter) {
+          setDomainPillarFilter('all');
+        }
       }
       lastLoadedCoordsRef.current = { lat, lng };
       loadWeather(lat, lng, resolvedName);
@@ -1446,6 +1446,10 @@ export const GeospatialWeatherModal: React.FC<GeospatialWeatherModalProps> = ({
     if (initialDomain && initialDomain !== prevInitialDomainRef.current) {
       prevInitialDomainRef.current = initialDomain;
       setActiveDomain(initialDomain);
+      const def = STUDIO_DOMAINS.find((d) => d.id === initialDomain);
+      if (def && domainPillarFilter !== 'all' && def.pillar !== domainPillarFilter) {
+        setDomainPillarFilter('all');
+      }
     }
 
     if (selectedRegionId === 'user') {

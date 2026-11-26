@@ -196,7 +196,7 @@ export function ProfileView() {
   const { show } = useToast();
   const navigate = useNavigate();
   const { t, locale } = useI18n();
-  const { currentUser, currentProfile, updateUserAccount, updateUserProfile } =
+  const { currentUser, currentProfile, updateUserAccount, updateUserProfile, logout } =
     useAuth();
   const [editing, setEditing] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
@@ -1005,12 +1005,14 @@ export function ProfileView() {
           </h3>
           <div className="space-y-3">
             <button
-              onClick={() =>
+              onClick={() => {
+                startEdit();
                 show(
-                  "Pengaturan privasi dan keamanan dikelola oleh administrator sekolah.",
+                  "Anda dapat memperbarui kata sandi dan informasi kontak pada formulir di atas.",
                   "info",
-                )
-              }
+                );
+                window.scrollTo({ top: 0, behavior: "smooth" });
+              }}
               className="flex w-full items-center gap-3 rounded-xl border border-brand-50 p-3 text-left transition-colors hover:bg-brand-50/60 dark:border-slate-800 dark:hover:bg-slate-800/60"
             >
               <span className="flex h-9 w-9 items-center justify-center rounded-lg bg-brand-100 text-brand-600 dark:bg-slate-800 dark:text-brand-400">
@@ -1027,7 +1029,11 @@ export function ProfileView() {
             </button>
 
             <button
-              onClick={() => navigate("/")}
+              onClick={() => {
+                logout();
+                show("Anda telah keluar dari sesi.", "info");
+                navigate("/login");
+              }}
               className="flex w-full items-center gap-3 rounded-xl border border-brand-100 p-3 text-left transition-colors hover:bg-brand-50 dark:border-brand-900/40 dark:hover:bg-brand-950/30"
             >
               <span className="flex h-9 w-9 items-center justify-center rounded-lg bg-brand-100 text-brand-600 dark:bg-brand-900/40 dark:text-brand-400">
@@ -1038,7 +1044,7 @@ export function ProfileView() {
                   Keluar
                 </p>
                 <p className="text-xs text-ink-500 dark:text-slate-400">
-                  Kembali ke beranda
+                  Akhiri sesi &amp; kembali ke login
                 </p>
               </div>
             </button>

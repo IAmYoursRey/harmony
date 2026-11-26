@@ -28,6 +28,13 @@ export function TeacherSessionCreatorModal({
       try {
         const mapsData = await phase1Api.getMaps(classData.schoolId);
         setMaps(mapsData);
+        if (mapsData.length > 0) {
+          const preferred =
+            mapsData.find((m: any) =>
+              String(m.name || "").toLowerCase().includes("sman 1 ngoro"),
+            ) || mapsData[0];
+          setSelectedMap((prev) => prev || preferred.id);
+        }
       } catch (err) {
         console.error(err);
       } finally {
@@ -35,23 +42,24 @@ export function TeacherSessionCreatorModal({
       }
     }
     loadMaps();
-  }, []);
+  }, [classData.schoolId]);
 
   useEffect(() => {
     if (!selectedMap) {
       setScenarios([]);
+      setSelectedScenario("");
       return;
     }
     async function loadScenarios() {
       try {
         const mapDetails = await phase1Api.getMapDetails(selectedMap);
         const scens = mapDetails.scenarios || [];
-
-        setScenarios(
-          scens.filter(
-            (s) => s.status && s.status.toLowerCase() === "published",
-          ),
+        const published = scens.filter(
+          (s) => s.status && s.status.toLowerCase() === "published",
         );
+        const usable = published.length > 0 ? published : scens;
+        setScenarios(usable);
+        setSelectedScenario(usable[0]?.id || "");
       } catch (err) {
         console.error(err);
       }
@@ -68,7 +76,12 @@ export function TeacherSessionCreatorModal({
         classId: classData.id,
         mapId: selectedMap,
         scenarioId: selectedScenario,
-        settings: { capacity: 40 },
+        settings: {
+          capacity: 40,
+          isPublic: true,
+          mode: "race",
+          roomName: `Sesi ${classData.name || "Kelas"}`,
+        },
       });
 
       const sessionId = res.data?.id || res.id;
@@ -170,7 +183,7 @@ export function TeacherSessionCreatorModal({
                       <option value="">-- Pilih Skenario --</option>
                       {scenarios.map((s) => (
                         <option key={s.id} value={s.id}>
-                          {s.name} ({s.disasterType})
+                          {s.name} ({s.disaster_type || s.disasterType || "Evakuasi"})
                         </option>
                       ))}
                     </select>

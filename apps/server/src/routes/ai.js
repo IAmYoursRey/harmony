@@ -39,14 +39,26 @@ function getGeminiKeys() {
   const weather = isValidKey(process.env.GEMINI_WEATHER_KEY)
     ? process.env.GEMINI_WEATHER_KEY.trim()
     : (chatbot || chat);
-  return { quiz, chat, chatbot, weather };
+  const general = isValidKey(process.env.GEMINI_API_KEY) ? process.env.GEMINI_API_KEY.trim() : null;
+  return { quiz, chat, chatbot, weather, general };
+}
+
+function getAiCandidates(purpose = 'weather') {
+  const keys = getGeminiKeys();
+  const orderedKeys = [
+    keys[purpose],
+    keys.quiz,
+    keys.chat,
+    keys.chatbot,
+    keys.weather,
+    keys.general,
+  ].filter(Boolean);
+  const uniqueKeys = [...new Set(orderedKeys)];
+  return uniqueKeys.map((apiKey) => new GoogleGenAI({ apiKey }));
 }
 
 function getAiInstance(purpose = 'weather') {
-  const keys = getGeminiKeys();
-  const key = keys[purpose] || keys.weather || keys.chatbot || keys.chat;
-  if (!key) return null;
-  return new GoogleGenAI({ apiKey: key });
+  return getAiCandidates(purpose)[0] || null;
 }
 
 const CANDIDATE_MODELS = [
@@ -85,32 +97,35 @@ router.post("/weather-nwp-verify", verifyOptionalToken, async (req, res) => {
   } catch (error) {
     return res.status(400).json({ success: false, error: error.message });
   }
-  const ai = getAiInstance('weather');
-  if (!ai || Date.now() < geminiQuotaCooldownUntil) {
-    return res.json({ success: false, data: diagnostic, source: 'local-diagnostic', reason: { code: ai ? 'AI_COOLDOWN' : 'AI_NOT_CONFIGURED', message: 'AI eksternal belum tersedia; hanya diagnostik lokal.' } });
+  const aiCandidates = getAiCandidates('weather');
+  if (aiCandidates.length === 0 || Date.now() < geminiQuotaCooldownUntil) {
+    return res.json({ success: false, data: diagnostic, source: 'local-diagnostic', reason: { code: aiCandidates.length > 0 ? 'AI_COOLDOWN' : 'AI_NOT_CONFIGURED', message: 'AI eksternal belum tersedia; hanya diagnostik lokal.' } });
   }
   try {
     let responseText = '';
     let resolvedModel = MODEL_NAME;
     let lastErr = null;
 
-    for (const m of CANDIDATE_MODELS) {
-      try {
-        const response = await ai.models.generateContent({
-          model: m,
-          contents: [{ role: 'user', parts: [{ text: JSON.stringify({ locationName, lat, lng, current, modelComparison, diagnostic }) }] }],
-          config: {
-            temperature: 0.2, responseMimeType: 'application/json',
-            systemInstruction: 'Jelaskan data prakiraan dan konsensus model cuaca yang diberikan dalam Bahasa Indonesia. Analisis data mentah masukan dan nilai fisika atmosfer yang telah dihitung (parameter Coriolis, kerapatan udara, ensemble spread). Buat kesimpulan saintifik apakah kondisi atmosfer konsisten dan masuk akal secara meteorologi. Kembalikan JSON dengan format { "scientificBriefing": "kesimpulan AI...", "confidence": "TINGGI" | "SEDANG" | "RENDAH" }.',
-          },
-        });
-        if (response?.text) {
-          responseText = response.text;
-          resolvedModel = m;
-          break;
+    outerWeather: for (const aiClient of aiCandidates) {
+      for (const m of CANDIDATE_MODELS) {
+        try {
+          const response = await aiClient.models.generateContent({
+            model: m,
+            contents: [{ role: 'user', parts: [{ text: JSON.stringify({ locationName, lat, lng, current, modelComparison, diagnostic }) }] }],
+            config: {
+              temperature: 0.2, responseMimeType: 'application/json',
+              systemInstruction: 'Jelaskan data prakiraan dan konsensus model cuaca yang diberikan dalam Bahasa Indonesia. Analisis data mentah masukan dan nilai fisika atmosfer yang telah dihitung (parameter Coriolis, kerapatan udara, ensemble spread). Buat kesimpulan saintifik apakah kondisi atmosfer konsisten dan masuk akal secara meteorologi. Kembalikan JSON dengan format { "scientificBriefing": "kesimpulan AI...", "confidence": "TINGGI" | "SEDANG" | "RENDAH" }.',
+            },
+          });
+          if (response?.text) {
+            responseText = response.text;
+            resolvedModel = m;
+            break outerWeather;
+          }
+        } catch (mErr) {
+          lastErr = mErr;
+          if (mErr?.name === 'AbortError') break outerWeather;
         }
-      } catch (mErr) {
-        lastErr = mErr;
       }
     }
 
@@ -215,9 +230,9 @@ router.post("/generate", verifyOptionalToken, async (req, res) => {
     });
   }
 
-  const ai = getAiInstance(type);
+  const aiCandidates = getAiCandidates(type);
 
-  if (!ai) {
+  if (aiCandidates.length === 0) {
     return res.status(503).json({
       success: false,
       error: `AI service is temporarily unavailable (Missing Configuration for ${type})`,
@@ -278,18 +293,21 @@ router.post("/generate", verifyOptionalToken, async (req, res) => {
 
     let response = null;
     let lastError = null;
-    for (const modelCandidate of CANDIDATE_MODELS) {
-      try {
-        response = await ai.models.generateContent({
-          model: modelCandidate,
-          contents: boundedContents,
-          config,
-        });
-        break;
-      } catch (modelErr) {
-        lastError = modelErr;
-        if (modelErr?.status === 429 || modelErr?.name === "AbortError") {
-          throw modelErr;
+    outerGenerate: for (const aiClient of aiCandidates) {
+      for (const modelCandidate of CANDIDATE_MODELS) {
+        try {
+          response = await aiClient.models.generateContent({
+            model: modelCandidate,
+            contents: boundedContents,
+            config,
+          });
+          if (response) break outerGenerate;
+        } catch (modelErr) {
+          lastError = modelErr;
+          if (modelErr?.name === "AbortError") {
+            throw modelErr;
+          }
+          // Try remaining models and secondary API keys before surfacing 429/5xx
         }
       }
     }

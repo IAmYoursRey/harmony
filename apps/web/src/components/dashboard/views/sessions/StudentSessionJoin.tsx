@@ -194,8 +194,8 @@ export function StudentSessionJoin() {
         </div>
 
         {rooms.length === 0 ? (
-          <p className="text-xs text-slate-500 text-center py-6">
-            Belum ada ruang aktif saat ini. Buat ruang baru untuk memulai sesi bersama.
+          <p className="text-xs text-slate-500 text-center py-4">
+            Belum ada ruang aktif saat ini. Buat ruang baru atau mulai latihan mandiri pada denah sekolah.
           </p>
         ) : (
           <div className="space-y-2">
@@ -239,6 +239,19 @@ export function StudentSessionJoin() {
             ))}
           </div>
         )}
+
+        <div className="pt-2 border-t border-slate-200/70 dark:border-slate-700/70 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
+          <p className="text-[11px] text-slate-500 dark:text-slate-400">
+            Ingin berlatih evakuasi sendiri tanpa menunggu kode guru?
+          </p>
+          <button
+            type="button"
+            onClick={() => navigate("/app/digital-twin")}
+            className="shrink-0 px-3.5 py-2 rounded-xl border border-brand-200 bg-brand-50 text-brand-700 hover:bg-brand-100 dark:border-brand-800/60 dark:bg-brand-950/40 dark:text-brand-300 text-xs font-bold transition-colors"
+          >
+            Latihan Mandiri Denah SMAN 1 Ngoro
+          </button>
+        </div>
       </div>
     </div>
   );

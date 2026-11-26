@@ -1,4 +1,4 @@
-import { lazy, Suspense } from "react";
+import { lazy, Suspense, type ReactNode } from "react";
 import { Routes, Route, Navigate } from "react-router-dom";
 import { Navbar } from "@/components/Navbar";
 import { Footer } from "@/components/Footer";
@@ -6,6 +6,20 @@ import { DashboardLayout } from "@/components/dashboard/DashboardLayout";
 import { PageSkeleton } from "@/components/Skeletons";
 import { AuthProvider } from "@/context/AuthContext";
 import { FloatingAICopilot } from "@/components/dashboard/FloatingAICopilot";
+import { useAuth } from "@/hooks/useAuth";
+
+function RequireAuthorRole({ children }: { children: ReactNode }) {
+  const { currentUser, isLoading } = useAuth();
+  if (isLoading) return <PageSkeleton />;
+  if (
+    currentUser &&
+    currentUser.role !== "teacher" &&
+    currentUser.role !== "developer"
+  ) {
+    return <Navigate to="/app/digital-twin" replace />;
+  }
+  return <>{children}</>;
+}
 
 const LandingPage = lazy(() => import("@/pages/LandingPage"));
 const LoginPage = lazy(() => import("@/pages/LoginPage"));
@@ -172,7 +186,7 @@ export default function App() {
           />
           <Route
             path="geo-risk-map"
-            element={<Navigate to="/app/maps" replace />}
+            element={<Navigate to="/app/maps?panel=true" replace />}
           />
           <Route
             path="geospatial"
@@ -201,17 +215,21 @@ export default function App() {
           <Route
             path="digital-twin/editor/:mapId"
             element={
-              <Suspense fallback={<PageSkeleton />}>
-                <Phase1MapEditorRoute />
-              </Suspense>
+              <RequireAuthorRole>
+                <Suspense fallback={<PageSkeleton />}>
+                  <Phase1MapEditorRoute />
+                </Suspense>
+              </RequireAuthorRole>
             }
           />
           <Route
             path="digital-twin/scenario-editor/:mapId/:scenarioId"
             element={
-              <Suspense fallback={<PageSkeleton />}>
-                <Phase2ScenarioEditorRoute />
-              </Suspense>
+              <RequireAuthorRole>
+                <Suspense fallback={<PageSkeleton />}>
+                  <Phase2ScenarioEditorRoute />
+                </Suspense>
+              </RequireAuthorRole>
             }
           />
           <Route

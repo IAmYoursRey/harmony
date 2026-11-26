@@ -683,7 +683,7 @@ export function MapsView() {
   const [trafficDrawerTab, setTrafficDrawerTab] = useState<'corridors' | 'probes' | 'cctv' | 'signals' | 'byok'>('corridors');
   const [customTomTomKeyInput, setCustomTomTomKeyInput] = useState<string>(() => liveTrafficFlowService.getCustomTomTomApiKey() || '');
   const [customTomTomKeyStatus, setCustomTomTomKeyStatus] = useState<string>('');
-  const [searchParams] = useSearchParams();
+  const [searchParams, setSearchParams] = useSearchParams();
   const [uiExperienceMode, setUiExperienceMode] = useState<'education' | 'expert'>(() => {
     const paramMode = searchParams.get('mode');
     if (paramMode === 'expert' || paramMode === 'education') return paramMode;
@@ -1892,25 +1892,46 @@ export function MapsView() {
     window.addEventListener('harmony:open-layers', handleOpenLayers);
     window.addEventListener('harmony:locate-user', handleLocateUserEvent);
 
-    // Cek query param jika dibuka via URL: /app/maps?open=weather atau ?locate=true
-    const params = new URLSearchParams(window.location.search);
-    if (params.get('open') === 'weather') {
-      openStudioDomain('weather');
-      const newUrl = window.location.pathname;
-      window.history.replaceState({}, '', newUrl);
-    }
-    if (params.get('locate') === 'true') {
-      setTimeout(() => handleFindUserLocation(), 400);
-      const newUrl = window.location.pathname;
-      window.history.replaceState({}, '', newUrl);
-    }
-
     return () => {
       window.removeEventListener('harmony:open-weather', handleOpenWeather);
       window.removeEventListener('harmony:open-layers', handleOpenLayers);
       window.removeEventListener('harmony:locate-user', handleLocateUserEvent);
     };
   }, []);
+
+  useEffect(() => {
+    const openParam = searchParams.get('open');
+    const panelParam = searchParams.get('panel');
+    const layersParam = searchParams.get('layers');
+    const locateParam = searchParams.get('locate');
+
+    if (!openParam && panelParam !== 'true' && layersParam !== 'true' && locateParam !== 'true') {
+      return;
+    }
+
+    if (openParam === 'risk' || panelParam === 'true') {
+      closeMapDrawers();
+      setShowDisasterRiskCenter(true);
+    } else if (openParam && STUDIO_DOMAINS.some((d) => d.id === openParam)) {
+      openStudioDomain(openParam as StudioDomain);
+    }
+
+    if (layersParam === 'true') {
+      closeMapDrawers();
+      setShowPanel(true);
+    }
+
+    if (locateParam === 'true') {
+      setTimeout(() => handleFindUserLocationRef.current(), 400);
+    }
+
+    const nextParams = new URLSearchParams(searchParams);
+    nextParams.delete('open');
+    nextParams.delete('panel');
+    nextParams.delete('layers');
+    nextParams.delete('locate');
+    setSearchParams(nextParams, { replace: true });
+  }, [searchParams, setSearchParams]);
 
   // Safety Watchdog: Auto-clear layer loading spinner if stalled
   useEffect(() => {
