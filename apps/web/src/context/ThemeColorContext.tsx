@@ -29,29 +29,45 @@ function applyColorsToCSS(colors: ThemeColors, preset: ThemePreset | "custom") {
   }
 }
 
+function readInitialThemeColor(): {
+  preset: ThemePreset;
+  isCustom: boolean;
+  customColors: ThemeColors | null;
+} {
+  if (typeof window === "undefined") {
+    return { preset: "blue", isCustom: false, customColors: null };
+  }
+  try {
+    const savedCustom = window.localStorage.getItem("theme-custom");
+    if (savedCustom) {
+      const parsed = JSON.parse(savedCustom) as ThemeColors;
+      return { preset: "blue", isCustom: true, customColors: parsed };
+    }
+    const savedPreset = window.localStorage.getItem("theme-preset") as ThemePreset | null;
+    if (savedPreset && presets[savedPreset]) {
+      return { preset: savedPreset, isCustom: false, customColors: null };
+    }
+  } catch {
+    // Ignore storage/parse errors
+  }
+  return { preset: "blue", isCustom: false, customColors: null };
+}
+
 export function ThemeColorProvider({ children }: { children: ReactNode }) {
-  const [preset, setPresetState] = useState<ThemePreset>("blue");
-  const [isCustom, setIsCustom] = useState(false);
+  const initial = readInitialThemeColor();
+  const [preset, setPresetState] = useState<ThemePreset>(initial.preset);
+  const [isCustom, setIsCustom] = useState(initial.isCustom);
   const [customColors, setCustomColorsState] = useState<ThemeColors | null>(
-    null,
+    initial.customColors,
   );
 
   useEffect(() => {
-    const savedPreset = window.localStorage.getItem(
-      "theme-preset",
-    ) as ThemePreset | null;
-    const savedCustom = window.localStorage.getItem("theme-custom");
-
-    if (savedCustom) {
-      setIsCustom(true);
-      const parsed = JSON.parse(savedCustom);
-      setCustomColorsState(parsed);
-      applyColorsToCSS(parsed, "custom");
-    } else if (savedPreset && presets[savedPreset]) {
-      setPresetState(savedPreset);
-      applyColorsToCSS(presets[savedPreset], savedPreset);
+    if (isCustom && customColors) {
+      applyColorsToCSS(customColors, "custom");
+    } else {
+      applyColorsToCSS(presets[preset], preset);
     }
-  }, []);
+  }, [isCustom, customColors, preset]);
 
   const setPreset = (newPreset: ThemePreset) => {
     setPresetState(newPreset);

@@ -658,6 +658,9 @@ export function GlobeView3D({
 
   const [zoom, setZoom] = useState(initialCenter ? 1.45 : 2.3);
   const [activeLayerPanel, setActiveLayerPanel] = useState(false);
+  const [isOpticsExpanded, setIsOpticsExpanded] = useState(() =>
+    typeof window !== 'undefined' ? window.innerWidth >= 640 : true
+  );
   const [selectedMarker, setSelectedMarker] = useState<GlobeMarker | null>(null);
 
   // Cosmic Solar System & Celestial State
@@ -2455,21 +2458,21 @@ export function GlobeView3D({
       <div 
         onPointerDown={(e) => e.stopPropagation()}
         onClick={(e) => e.stopPropagation()}
-        className="pointer-events-auto absolute top-[4.25rem] left-1/2 -translate-x-1/2 z-20 flex items-center gap-2 px-3 py-1.5 rounded-2xl bg-slate-900/90 backdrop-blur-xl border border-white/10 shadow-2xl text-xs font-mono"
+        className="pointer-events-auto absolute top-[calc(4.15rem+env(safe-area-inset-top))] left-1/2 -translate-x-1/2 z-20 flex items-center gap-1.5 sm:gap-2 px-2.5 sm:px-3 py-1.5 rounded-2xl bg-slate-900/90 backdrop-blur-xl border border-white/10 shadow-2xl text-xs font-mono max-w-[calc(100vw-1.5rem)] overflow-x-auto no-scrollbar whitespace-nowrap"
       >
-        <div className="flex items-center gap-1.5 text-sky-300 font-bold">
-          <Orbit className="w-3.5 h-3.5 text-sky-400" />
-          <span className="uppercase text-[11px]">
+        <div className="flex items-center gap-1.5 text-sky-300 font-bold shrink-0">
+          <Orbit className="w-3.5 h-3.5 text-sky-400 shrink-0" />
+          <span className="uppercase text-[10px] sm:text-[11px]">
             {activeCelestialId === 'earth' 
-              ? 'Fokus: Bumi' 
-              : `Fokus: ${PLANETARY_CATALOG[activeCelestialId]?.name || activeCelestialId}`}
+              ? 'Bumi' 
+              : PLANETARY_CATALOG[activeCelestialId]?.name || activeCelestialId}
           </span>
         </div>
 
-        <span className="text-slate-600">|</span>
+        <span className="text-slate-600 shrink-0">|</span>
 
         {/* Speed Multipliers */}
-        <div className="flex items-center gap-1">
+        <div className="flex items-center gap-1 shrink-0">
           <button
             type="button"
             onClick={() => setIsOrbitPaused(!isOrbitPaused)}
@@ -2501,21 +2504,22 @@ export function GlobeView3D({
           ))}
         </div>
 
-        <span className="text-slate-600">|</span>
+        <span className="text-slate-600 shrink-0">|</span>
 
         {/* Toggle Info HUD */}
         <button
           type="button"
           onClick={() => setShowCelestialPanel(!showCelestialPanel)}
-          className={`flex items-center gap-1 px-2 py-0.5 rounded-lg text-[10px] font-bold transition-all ${
+          className={`flex items-center gap-1 px-2 py-0.5 rounded-lg text-[10px] font-bold transition-all shrink-0 ${
             showCelestialPanel 
               ? 'bg-sky-500/20 text-sky-300 border border-sky-500/40' 
               : 'text-slate-400 hover:text-white hover:bg-white/10'
           }`}
           title="Buka Panel Data Sains NASA"
         >
-          <Info className="w-3 h-3" />
-          <span>Data NASA</span>
+          <Info className="w-3 h-3 shrink-0" />
+          <span className="sm:hidden">NASA</span>
+          <span className="hidden sm:inline">Data NASA</span>
         </button>
 
         {/* Ambient Sci-Fi Music Toggle */}
@@ -2525,14 +2529,14 @@ export function GlobeView3D({
             const isPlaying = await cosmicAudio.toggle();
             setIsAudioPlaying(isPlaying);
           }}
-          className={`flex items-center gap-1 px-2 py-0.5 rounded-lg text-[10px] font-bold transition-all ${
+          className={`flex items-center gap-1 px-2 py-0.5 rounded-lg text-[10px] font-bold transition-all shrink-0 ${
             isAudioPlaying
               ? 'bg-purple-500/20 text-purple-300 border border-purple-500/40 shadow-xs'
               : 'text-slate-400 hover:text-white hover:bg-white/10'
           }`}
           title={isAudioPlaying ? 'Matikan Musik Kosmik Ambient' : 'Putar Musik Kosmik Ambient (Sci-Fi)'}
         >
-          {isAudioPlaying ? <Volume2 className="w-3 h-3 text-purple-400" /> : <VolumeX className="w-3 h-3" />}
+          {isAudioPlaying ? <Volume2 className="w-3 h-3 text-purple-400 shrink-0" /> : <VolumeX className="w-3 h-3 shrink-0" />}
           <span className="hidden sm:inline">Audio Kosmik</span>
         </button>
 
@@ -2544,11 +2548,12 @@ export function GlobeView3D({
             setPlanetaryExplorerMode('surface');
             setIsPlanetaryExplorerOpen(true);
           }}
-          className="flex items-center gap-1 px-2.5 py-0.5 rounded-lg bg-gradient-to-r from-amber-600 to-rose-600 hover:from-amber-500 hover:to-rose-500 text-white text-[10px] font-bold transition-all shadow-sm cursor-pointer"
+          className="flex items-center gap-1 px-2 sm:px-2.5 py-0.5 rounded-lg bg-gradient-to-r from-amber-600 to-rose-600 hover:from-amber-500 hover:to-rose-500 text-white text-[10px] font-bold transition-all shadow-sm cursor-pointer shrink-0"
           title={`Buka Peta & Masuk ke Permukaan ${PLANETARY_CATALOG[activeCelestialId]?.name || activeCelestialId} (3D)`}
         >
-          <Navigation className="w-3 h-3" />
-          <span>Peta & Masuk Planet</span>
+          <Navigation className="w-3 h-3 shrink-0" />
+          <span className="sm:hidden">Masuk 3D</span>
+          <span className="hidden sm:inline">Peta &amp; Masuk Planet</span>
         </button>
 
         {/* Quick Return to Earth button */}
@@ -2556,11 +2561,12 @@ export function GlobeView3D({
           <button
             type="button"
             onClick={returnToEarth}
-            className="flex items-center gap-1 px-2 py-0.5 rounded-lg bg-sky-600 hover:bg-sky-500 text-white text-[10px] font-bold transition-all"
+            className="flex items-center gap-1 px-2 py-0.5 rounded-lg bg-sky-600 hover:bg-sky-500 text-white text-[10px] font-bold transition-all shrink-0"
             title="Kembali ke tampilan Bumi"
           >
-            <Globe className="w-3 h-3" />
-            <span>Kembali ke Bumi</span>
+            <Globe className="w-3 h-3 shrink-0" />
+            <span className="sm:hidden">Bumi</span>
+            <span className="hidden sm:inline">Kembali ke Bumi</span>
           </button>
         )}
       </div>
@@ -2578,14 +2584,39 @@ export function GlobeView3D({
       )}
 
       {/* ================= OPTICS & SENSOR CONTROLS (BOTTOM LEFT) ================= */}
+      {!isOpticsExpanded ? (
+        <button
+          type="button"
+          onPointerDown={(e) => e.stopPropagation()}
+          onClick={(e) => {
+            e.stopPropagation();
+            setIsOpticsExpanded(true);
+          }}
+          className="pointer-events-auto absolute bottom-[calc(4.75rem+env(safe-area-inset-bottom))] left-3 z-20 flex items-center gap-1.5 px-3 py-2 rounded-2xl bg-slate-900/90 backdrop-blur-2xl border border-white/15 shadow-2xl text-[11px] font-mono font-bold text-slate-100 cursor-pointer"
+          title="Buka Pengaturan Optik Sensor 3D"
+        >
+          <Eye className="w-3.5 h-3.5 text-sky-400" />
+          <span>Optik: {sensorMode === 'normal' ? 'Satelit' : sensorMode.toUpperCase()}</span>
+        </button>
+      ) : (
       <div 
         onPointerDown={(e) => e.stopPropagation()}
         onClick={(e) => e.stopPropagation()}
-        className="absolute bottom-32 sm:bottom-36 left-4 z-20 flex flex-col gap-1.5 p-2 rounded-2xl bg-slate-900/90 backdrop-blur-2xl border border-white/15 shadow-2xl"
+        className="absolute bottom-[calc(4.75rem+env(safe-area-inset-bottom))] sm:bottom-36 left-3 sm:left-4 z-20 flex flex-col gap-1.5 p-2 rounded-2xl bg-slate-900/90 backdrop-blur-2xl border border-white/15 shadow-2xl"
       >
-        <span className="text-[10px] font-mono font-bold text-slate-400 px-2 uppercase tracking-wider">
-          Optik Sensor 3D
-        </span>
+        <div className="flex items-center justify-between gap-2 px-2">
+          <span className="text-[10px] font-mono font-bold text-slate-400 uppercase tracking-wider">
+            Optik Sensor 3D
+          </span>
+          <button
+            type="button"
+            onClick={() => setIsOpticsExpanded(false)}
+            className="sm:hidden p-0.5 rounded text-slate-400 hover:text-white"
+            aria-label="Tutup panel optik"
+          >
+            <X className="w-3.5 h-3.5" />
+          </button>
+        </div>
         <div className="grid grid-cols-2 gap-1">
           <button
             onClick={() => setSensorMode('normal')}
@@ -2661,6 +2692,7 @@ export function GlobeView3D({
           </button>
         </div>
       </div>
+      )}
 
       {/* ================= RICH TARGET INSPECTION MODAL ================= */}
       {selectedMarker && (
@@ -2960,7 +2992,7 @@ export function GlobeView3D({
       <div 
         onPointerDown={(e) => e.stopPropagation()}
         onClick={(e) => e.stopPropagation()}
-        className="absolute bottom-8 left-1/2 -translate-x-1/2 z-20 flex items-center gap-1.5 p-1.5 rounded-2xl bg-slate-900/85 backdrop-blur-2xl border border-white/15 shadow-2xl"
+        className="absolute bottom-[calc(1.25rem+env(safe-area-inset-bottom))] left-1/2 -translate-x-1/2 z-20 flex items-center gap-1 sm:gap-1.5 p-1.5 rounded-2xl bg-slate-900/85 backdrop-blur-2xl border border-white/15 shadow-2xl max-w-[calc(100vw-1.5rem)] overflow-x-auto no-scrollbar"
       >
         <button
           type="button"

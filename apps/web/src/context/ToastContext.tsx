@@ -27,7 +27,7 @@ export function ToastProvider({ children }: { children: ReactNode }) {
   return (
     <ToastContext.Provider value={{ show }}>
       {children}
-      <div className="fixed top-5 right-5 z-[100050] flex flex-col gap-2.5 pointer-events-auto">
+      <div className="fixed top-[calc(0.75rem+env(safe-area-inset-top))] left-3 right-3 sm:left-auto sm:right-5 z-[100050] flex flex-col items-end gap-2.5 pointer-events-none">
         <AnimatePresence>
           {toasts.map((toast) => {
             const style = toastStyles[toast.type];
@@ -35,11 +35,11 @@ export function ToastProvider({ children }: { children: ReactNode }) {
             return (
               <motion.div
                 key={toast.id}
-                initial={{ opacity: 0, x: 100, scale: 0.9 }}
+                initial={{ opacity: 0, x: 40, scale: 0.95 }}
                 animate={{ opacity: 1, x: 0, scale: 1 }}
-                exit={{ opacity: 0, x: 100, scale: 0.9 }}
-                transition={{ duration: 0.3, ease: "easeOut" }}
-                className={`flex items-center gap-3 rounded-xl ${style.bg} px-5 py-3.5 text-sm font-semibold text-white shadow-glass-lg`}
+                exit={{ opacity: 0, x: 40, scale: 0.95 }}
+                transition={{ duration: 0.2, ease: "easeOut" }}
+                className={`pointer-events-auto flex items-center gap-2.5 sm:gap-3 rounded-xl ${style.bg} px-4 sm:px-5 py-3 text-xs sm:text-sm font-semibold text-white shadow-glass-lg max-w-full sm:max-w-sm`}
               >
                 <Icon className="h-5 w-5 shrink-0" />
                 <span className="max-w-xs">{toast.message}</span>

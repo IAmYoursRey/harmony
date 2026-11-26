@@ -1,5 +1,6 @@
 import * as THREE from 'three';
 import { PLANETARY_CATALOG, CelestialBodyData } from '@/data/planetaryCatalog';
+import { hardwarePerformanceService } from '../../../../../services/hardwarePerformanceService';
 
 // Texture Cache
 const textureCache: Record<string, THREE.Texture> = {};
@@ -1261,9 +1262,75 @@ function sampleMilkyWayPixel(dx: number, dy: number, dz: number): [number, numbe
   ];
 }
 
+const MW_LUT_W = 320;
+const MW_LUT_H = 160;
+let milkyWayLutCache: Uint8Array | null = null;
+
+function getMilkyWayLut(): Uint8Array {
+  if (milkyWayLutCache) return milkyWayLutCache;
+  const buf = new Uint8Array(MW_LUT_W * MW_LUT_H * 3);
+  for (let y = 0; y < MW_LUT_H; y++) {
+    const phi = (y / (MW_LUT_H - 1)) * Math.PI;
+    const sinPhi = Math.sin(phi);
+    const cosPhi = Math.cos(phi);
+    for (let x = 0; x < MW_LUT_W; x++) {
+      const theta = (x / MW_LUT_W) * Math.PI * 2;
+      const dx = sinPhi * Math.cos(theta);
+      const dy = cosPhi;
+      const dz = sinPhi * Math.sin(theta);
+      const [r, g, b] = sampleMilkyWayPixel(dx, dy, dz);
+      const i = (y * MW_LUT_W + x) * 3;
+      buf[i] = r;
+      buf[i + 1] = g;
+      buf[i + 2] = b;
+    }
+  }
+  milkyWayLutCache = buf;
+  return buf;
+}
+
+function sampleMilkyWayLut(lut: Uint8Array, dx: number, dy: number, dz: number, ditherSeed: number): [number, number, number] {
+  const clampedY = Math.max(-1, Math.min(1, dy));
+  const phi = Math.acos(clampedY);
+  let theta = Math.atan2(dz, dx);
+  if (theta < 0) theta += Math.PI * 2;
+
+  const fx = (theta / (Math.PI * 2)) * MW_LUT_W;
+  const fy = (phi / Math.PI) * (MW_LUT_H - 1);
+
+  const x0 = Math.floor(fx) % MW_LUT_W;
+  const x1 = (x0 + 1) % MW_LUT_W;
+  const y0 = Math.min(MW_LUT_H - 1, Math.floor(fy));
+  const y1 = Math.min(MW_LUT_H - 1, y0 + 1);
+  const tx = fx - Math.floor(fx);
+  const ty = fy - y0;
+
+  const i00 = (y0 * MW_LUT_W + x0) * 3;
+  const i10 = (y0 * MW_LUT_W + x1) * 3;
+  const i01 = (y1 * MW_LUT_W + x0) * 3;
+  const i11 = (y1 * MW_LUT_W + x1) * 3;
+
+  const w00 = (1 - tx) * (1 - ty);
+  const w10 = tx * (1 - ty);
+  const w01 = (1 - tx) * ty;
+  const w11 = tx * ty;
+
+  const dither = (((ditherSeed * 1664525 + 1013904223) >>> 24) / 255 - 0.5) * 1.4;
+  const r = lut[i00] * w00 + lut[i10] * w10 + lut[i01] * w01 + lut[i11] * w11 + dither;
+  const g = lut[i00 + 1] * w00 + lut[i10 + 1] * w10 + lut[i01 + 1] * w01 + lut[i11 + 1] * w11 + dither;
+  const b = lut[i00 + 2] * w00 + lut[i10 + 2] * w10 + lut[i01 + 2] * w01 + lut[i11 + 2] * w11 + dither;
+
+  return [
+    Math.min(255, Math.max(0, Math.round(r))),
+    Math.min(255, Math.max(0, Math.round(g))),
+    Math.min(255, Math.max(0, Math.round(b))),
+  ];
+}
+
 function paintStarsIntoCubeFace(
   ctx: CanvasRenderingContext2D,
   size: number,
+  lut: Uint8Array,
   faceFn: (u: number, v: number) => [number, number, number]
 ): void {
   const img = ctx.createImageData(size, size);
@@ -1274,8 +1341,8 @@ function paintStarsIntoCubeFace(
       const u = (x / (size - 1)) * 2 - 1;
       const [vx, vy, vz] = faceFn(u, v);
       const invLen = 1 / Math.hypot(vx, vy, vz);
-      const [r, g, b] = sampleMilkyWayPixel(vx * invLen, vy * invLen, vz * invLen);
       const idx = (y * size + x) * 4;
+      const [r, g, b] = sampleMilkyWayLut(lut, vx * invLen, vy * invLen, vz * invLen, idx);
       data[idx] = r;
       data[idx + 1] = g;
       data[idx + 2] = b;
@@ -1298,17 +1365,21 @@ export function getCesiumSkyBoxDataUrls(): {
 } {
   if (cesiumSkyBoxCache) return cesiumSkyBoxCache;
 
-  const size = 1024;
+  const perf = hardwarePerformanceService.getProfile();
+  const isCompactPhone = typeof window !== 'undefined' && window.innerWidth < 768;
+  const size = perf.effectiveMode === 'lite' ? 640 : isCompactPhone ? 768 : 1024;
+  const lut = getMilkyWayLut();
+  // Match Cesium WebGL CubeMap loadCubeMap(flipY: true) vertical orientation
   const faces: Array<{
     key: 'positiveX' | 'negativeX' | 'positiveY' | 'negativeY' | 'positiveZ' | 'negativeZ';
     dir: (u: number, v: number) => [number, number, number];
   }> = [
-    { key: 'positiveX', dir: (u, v) => [1, -v, -u] },
-    { key: 'negativeX', dir: (u, v) => [-1, -v, u] },
-    { key: 'positiveY', dir: (u, v) => [u, 1, v] },
-    { key: 'negativeY', dir: (u, v) => [u, -1, -v] },
-    { key: 'positiveZ', dir: (u, v) => [u, -v, 1] },
-    { key: 'negativeZ', dir: (u, v) => [-u, -v, -1] },
+    { key: 'positiveX', dir: (u, v) => [1, v, -u] },
+    { key: 'negativeX', dir: (u, v) => [-1, v, u] },
+    { key: 'positiveY', dir: (u, v) => [u, 1, -v] },
+    { key: 'negativeY', dir: (u, v) => [u, -1, v] },
+    { key: 'positiveZ', dir: (u, v) => [u, v, 1] },
+    { key: 'negativeZ', dir: (u, v) => [-u, v, -1] },
   ];
 
   const canvases: Record<string, HTMLCanvasElement> = {};
@@ -1319,7 +1390,7 @@ export function getCesiumSkyBoxDataUrls(): {
     c.width = size;
     c.height = size;
     const ctx = c.getContext('2d')!;
-    paintStarsIntoCubeFace(ctx, size, f.dir);
+    paintStarsIntoCubeFace(ctx, size, lut, f.dir);
     canvases[f.key] = c;
     ctxs[f.key] = ctx;
   }
@@ -1353,21 +1424,21 @@ export function getCesiumSkyBoxDataUrls(): {
     if (ax >= ay && ax >= az) {
       faceKey = dx > 0 ? 'positiveX' : 'negativeX';
       u = dx > 0 ? -dz / ax : dz / ax;
-      v = -dy / ax;
+      v = dy / ax;
     } else if (ay >= ax && ay >= az) {
       faceKey = dy > 0 ? 'positiveY' : 'negativeY';
       u = dx / ay;
-      v = dy > 0 ? dz / ay : -dz / ay;
+      v = dy > 0 ? -dz / ay : dz / ay;
     } else {
       faceKey = dz > 0 ? 'positiveZ' : 'negativeZ';
       u = dz > 0 ? dx / az : -dx / az;
-      v = -dy / az;
+      v = dy / az;
     }
 
     const px = ((u + 1) * 0.5) * (size - 1);
     const py = ((v + 1) * 0.5) * (size - 1);
     const mag = Math.pow(rng(), 5.2);
-    const radius = 0.5 + mag * 1.1;
+    const radius = 0.36 + mag * 0.78;
     const huePick = rng();
     const starColor = huePick < 0.35
       ? '210, 232, 255'
@@ -1379,13 +1450,13 @@ export function getCesiumSkyBoxDataUrls(): {
 
     const ctx = ctxs[faceKey];
     if (mag > 0.74) {
-      const glow = ctx.createRadialGradient(px, py, 0, px, py, radius * 2.4);
+      const glow = ctx.createRadialGradient(px, py, 0, px, py, radius * 2.0);
       glow.addColorStop(0.0, 'rgba(255,255,255,0.98)');
       glow.addColorStop(0.32, `rgba(${starColor},0.55)`);
       glow.addColorStop(1.0, `rgba(${starColor},0)`);
       ctx.fillStyle = glow;
       ctx.beginPath();
-      ctx.arc(px, py, radius * 2.4, 0, Math.PI * 2);
+      ctx.arc(px, py, radius * 2.0, 0, Math.PI * 2);
       ctx.fill();
     } else {
       ctx.fillStyle = `rgba(${starColor}, ${0.38 + mag * 0.6})`;
@@ -1396,12 +1467,12 @@ export function getCesiumSkyBoxDataUrls(): {
   }
 
   cesiumSkyBoxCache = {
-    positiveX: canvases.positiveX.toDataURL('image/jpeg', 0.9),
-    negativeX: canvases.negativeX.toDataURL('image/jpeg', 0.9),
-    positiveY: canvases.positiveY.toDataURL('image/jpeg', 0.9),
-    negativeY: canvases.negativeY.toDataURL('image/jpeg', 0.9),
-    positiveZ: canvases.positiveZ.toDataURL('image/jpeg', 0.9),
-    negativeZ: canvases.negativeZ.toDataURL('image/jpeg', 0.9),
+    positiveX: canvases.positiveX.toDataURL('image/jpeg', 0.94),
+    negativeX: canvases.negativeX.toDataURL('image/jpeg', 0.94),
+    positiveY: canvases.positiveY.toDataURL('image/jpeg', 0.94),
+    negativeY: canvases.negativeY.toDataURL('image/jpeg', 0.94),
+    positiveZ: canvases.positiveZ.toDataURL('image/jpeg', 0.94),
+    negativeZ: canvases.negativeZ.toDataURL('image/jpeg', 0.94),
   };
   return cesiumSkyBoxCache;
 }
@@ -1414,13 +1485,16 @@ export function getCircularStarTexture(size: number = 64): THREE.CanvasTexture {
 }
 
 /**
- * Generates seamless 2K equirectangular Milky Way & Deep-Space Nebula texture for Three.js sky domes
+ * Generates seamless equirectangular Milky Way & Deep-Space Nebula texture for Three.js sky domes
  */
 export function getMilkyWayDomeTexture(): THREE.CanvasTexture {
   if (milkyWayDomeTexCache) return milkyWayDomeTexCache;
 
-  const w = 2048;
-  const h = 1024;
+  const perf = hardwarePerformanceService.getProfile();
+  const isCompact = perf.effectiveMode === 'lite' || perf.diagnostics.isMobile;
+  const w = isCompact ? 1024 : 2048;
+  const h = isCompact ? 512 : 1024;
+  const lut = getMilkyWayLut();
   const canvas = document.createElement('canvas');
   canvas.width = w;
   canvas.height = h;
@@ -1437,8 +1511,8 @@ export function getMilkyWayDomeTexture(): THREE.CanvasTexture {
       const dx = sinPhi * Math.cos(theta);
       const dy = cosPhi;
       const dz = sinPhi * Math.sin(theta);
-      const [r, g, b] = sampleMilkyWayPixel(dx, dy, dz);
       const idx = (y * w + x) * 4;
+      const [r, g, b] = sampleMilkyWayLut(lut, dx, dy, dz, idx);
       data[idx] = r;
       data[idx + 1] = g;
       data[idx + 2] = b;

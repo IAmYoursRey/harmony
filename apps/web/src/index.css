@@ -284,13 +284,13 @@ html {
   transform: translateY(0);
 }
 
-/* Page transition */
+/* Page transition without transform so fixed overlays remain anchored to viewport */
 .page-enter {
-  animation: page-enter 0.4s cubic-bezier(0.16, 1, 0.3, 1) both;
+  animation: page-enter 0.14s ease-out both;
 }
 @keyframes page-enter {
-  0% { opacity: 0; transform: translateY(12px); }
-  100% { opacity: 1; transform: translateY(0); }
+  0% { opacity: 0.9; }
+  100% { opacity: 1; }
 }
 
 /* Staggered fade-up for cards */

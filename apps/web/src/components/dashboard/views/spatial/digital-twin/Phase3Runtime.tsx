@@ -318,16 +318,23 @@ export function Phase3Runtime({
   useEffect(() => {
     if (!sessionId || !user) return;
 
-    const isLocalHost =
-      typeof window !== "undefined" &&
-      ["localhost", "127.0.0.1"].includes(window.location.hostname);
-    const socketUrl =
+    const hostname = typeof window !== "undefined" ? window.location.hostname : "";
+    const isLocalOrLanHost =
+      /^(localhost|127\.0\.0\.1|10\.\d{1,3}\.\d{1,3}\.\d{1,3}|192\.168\.\d{1,3}\.\d{1,3}|172\.(1[6-9]|2\d|3[01])\.\d{1,3}\.\d{1,3})$/.test(
+        hostname,
+      );
+    const configuredApiUrl =
       typeof import.meta !== "undefined" && import.meta.env
         ? import.meta.env.VITE_API_URL
         : undefined;
 
-    if (isLocalHost || socketUrl) {
-      socketRef.current = io(socketUrl || "http://localhost:3001", {
+    if (isLocalOrLanHost || configuredApiUrl) {
+      const targetSocketUrl = configuredApiUrl
+        ? configuredApiUrl
+        : window.location.port === "5173"
+          ? window.location.origin
+          : `${window.location.protocol}//${hostname}:3001`;
+      socketRef.current = io(targetSocketUrl, {
         withCredentials: true,
         reconnectionAttempts: 2,
       });

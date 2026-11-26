@@ -12,6 +12,40 @@
     <meta name="format-detection" content="telephone=no" />
     <meta name="theme-color" content="#2563eb" />
     <meta name="color-scheme" content="light dark" />
+    <style>
+      html { background-color: #f8fafc; }
+      html.dark { background-color: #020617; color: #f8fafc; }
+    </style>
+    <script>
+      (function () {
+        try {
+          var root = document.documentElement;
+          var theme = localStorage.getItem("theme");
+          var isDark = theme === "dark" || (!theme && window.matchMedia && window.matchMedia("(prefers-color-scheme: dark)").matches);
+          if (isDark) {
+            root.classList.add("dark");
+            root.style.colorScheme = "dark";
+          } else {
+            root.style.colorScheme = "light";
+          }
+          var custom = localStorage.getItem("theme-custom");
+          var preset = localStorage.getItem("theme-preset");
+          if (custom) {
+            var parsed = JSON.parse(custom);
+            if (parsed && typeof parsed === "object") {
+              Object.keys(parsed).forEach(function (shade) {
+                root.style.setProperty("--brand-" + shade, parsed[shade]);
+              });
+            }
+          } else if (preset && preset !== "blue" && /^[a-z0-9-]+$/i.test(preset)) {
+            root.classList.add("theme-" + preset);
+          }
+          if (localStorage.getItem("harmony_perf_mode") === "lite") {
+            root.classList.add("harmony-perf-lite");
+          }
+        } catch (e) {}
+      })();
+    </script>
     <title>Harmony — Platform Geospasial &amp; SPAB</title>
     <meta name="description" content="Platform edukasi kebencanaan, pemetaan geospasial, dan simulasi evakuasi sekolah terpadu." />
     <meta name="keywords" content="edukasi bencana, geospasial, digital twin, simulasi evakuasi, SPAB, Indonesia" />

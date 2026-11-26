@@ -49,12 +49,10 @@ import { motion, AnimatePresence } from "framer-motion";
 const CesiumGlobe3D = lazy(() => import("./CesiumGlobe3D").then(module => ({ default: module.CesiumGlobe3D })));
 const GlobeView3D = lazy(() => import("./GlobeView3D").then(module => ({ default: module.GlobeView3D })));
 import { volcanoService, type VolcanoLiveStatus } from "@/services/volcanoService";
-import { GeospatialWeatherModal, STUDIO_DOMAINS, type StudioDomain } from "./GeospatialWeatherModal";
-import { RouteNavigatorModal } from "./RouteNavigatorModal";
+import { STUDIO_DOMAINS, type StudioDomain } from "./studioDomainsData";
 import { gnssElevationService, type GnssElevationReport } from "@/services/geospatial/gnssElevationService";
 import { RouteResult, routingService } from "@/services/routingService";
-import { WebGISTutorialModal } from "./WebGISTutorialModal";
-import { DisasterRiskCenterModal, LANDSLIDE_SUSCEPTIBILITY_ZONES, TSUNAMI_HAZARD_ZONES } from "./DisasterRiskCenterModal";
+import { LANDSLIDE_SUSCEPTIBILITY_ZONES, TSUNAMI_HAZARD_ZONES } from "./disasterHazardZonesData";
 import { preciseGeocodingService, type PreciseLocationInfo, type LocationSearchResult } from "@/services/preciseGeocodingService";
 import { geospatialAnalysisService } from "@/services/geospatialAnalysisService";
 import { weatherAggregatorService } from "@/services/weatherAggregatorService";
@@ -84,9 +82,6 @@ import {
   SENSOR_FAMILY_META, 
   getSensorRegistryStats 
 } from "@/services/earthSensorRegistry";
-import { SensorInspectorModal } from "./SensorInspectorModal";
-import { MasterSensorTaxonomyModal } from "./MasterSensorTaxonomyModal";
-import { DataSourceProvenanceModal } from "@/components/common/DataSourceProvenanceModal";
 import {
   BMKG_DOPPLER_RADAR_NETWORK,
   BMKG_BLANK_SPOT_ZONES,
@@ -94,23 +89,33 @@ import {
   type BlankSpotZone,
 } from "@/services/observationCoverageService";
 import { MapGISToolbar } from "./map/MapGISToolbar";
-import { MapAttributeTable, AttributeTableLayer } from "./map/MapAttributeTable";
+import type { AttributeTableLayer } from "./map/MapAttributeTable";
 import { MapIdentifyPanel } from "./map/MapIdentifyPanel";
 import { MapLayerManager, ManagedLayer } from "./map/MapLayerManager";
-import { MapGeoprocessingModal, PointDataset } from "./map/MapGeoprocessingModal";
+import type { PointDataset } from "./map/MapGeoprocessingModal";
 import { MapWeatherObservationCard } from "./map/MapWeatherObservationCard";
 import { SchoolRiskSynthesisCard } from "./SchoolRiskSynthesisCard";
-import { GroundedScenarioModal } from "./GroundedScenarioModal";
 import { aoiService, AreaOfInterest } from "@/services/geospatial/aoiService";
 import { trafficCctvService, type TrafficCctvCamera } from "@/services/trafficCctvService";
 import { trafficSignalsService, type TrafficSignalIntersection } from "@/services/trafficSignalsService";
 import { liveTrafficFlowService, type LiveTrafficNetworkSummary } from "@/services/liveTrafficFlowService";
 import { trafficGpsDensityService, computeTypicalTraffic, type TrafficCrowdsourceSummary } from "@/services/trafficGpsDensityService";
-import { LiveCctvModal } from "./map/LiveCctvModal";
-import { TrafficSignalModal } from "./map/TrafficSignalModal";
-import { VolcanoDetailModal } from "./map/VolcanoDetailModal";
-import { EarthquakeDetailModal } from "./map/EarthquakeDetailModal";
-import { ThermalAnomalyDetailModal } from "./map/ThermalAnomalyDetailModal";
+
+const GeospatialWeatherModal = lazy(() => import("./GeospatialWeatherModal").then(m => ({ default: m.GeospatialWeatherModal })));
+const RouteNavigatorModal = lazy(() => import("./RouteNavigatorModal").then(m => ({ default: m.RouteNavigatorModal })));
+const WebGISTutorialModal = lazy(() => import("./WebGISTutorialModal").then(m => ({ default: m.WebGISTutorialModal })));
+const DisasterRiskCenterModal = lazy(() => import("./DisasterRiskCenterModal").then(m => ({ default: m.DisasterRiskCenterModal })));
+const SensorInspectorModal = lazy(() => import("./SensorInspectorModal").then(m => ({ default: m.SensorInspectorModal })));
+const MasterSensorTaxonomyModal = lazy(() => import("./MasterSensorTaxonomyModal").then(m => ({ default: m.MasterSensorTaxonomyModal })));
+const DataSourceProvenanceModal = lazy(() => import("@/components/common/DataSourceProvenanceModal").then(m => ({ default: m.DataSourceProvenanceModal })));
+const MapAttributeTable = lazy(() => import("./map/MapAttributeTable").then(m => ({ default: m.MapAttributeTable })));
+const MapGeoprocessingModal = lazy(() => import("./map/MapGeoprocessingModal").then(m => ({ default: m.MapGeoprocessingModal })));
+const GroundedScenarioModal = lazy(() => import("./GroundedScenarioModal").then(m => ({ default: m.GroundedScenarioModal })));
+const LiveCctvModal = lazy(() => import("./map/LiveCctvModal").then(m => ({ default: m.LiveCctvModal })));
+const TrafficSignalModal = lazy(() => import("./map/TrafficSignalModal").then(m => ({ default: m.TrafficSignalModal })));
+const VolcanoDetailModal = lazy(() => import("./map/VolcanoDetailModal").then(m => ({ default: m.VolcanoDetailModal })));
+const EarthquakeDetailModal = lazy(() => import("./map/EarthquakeDetailModal").then(m => ({ default: m.EarthquakeDetailModal })));
+const ThermalAnomalyDetailModal = lazy(() => import("./map/ThermalAnomalyDetailModal").then(m => ({ default: m.ThermalAnomalyDetailModal })));
 
 // Basemap Types & Provenance Metadata (>2020 High-Accuracy Datasets)
 export type MapBasemapType = 'osm' | 'satellite' | 'elevation' | 'thermal' | 'traffic' | 'dark';
@@ -2108,6 +2113,54 @@ export function MapsView() {
           elevationReport: userElevationReport,
         });
       }
+      return;
+    }
+
+    const hostname = typeof window !== 'undefined' ? window.location.hostname : '';
+    const isLocalhostOrigin = hostname === 'localhost' || hostname === '127.0.0.1';
+    if (typeof window !== 'undefined' && !window.isSecureContext && !isLocalhostOrigin) {
+      setIsLocatingUser(true);
+      setLocationStatusToast({
+        type: 'success',
+        title: 'Akses HTTP Jaringan Lokal Terdeteksi',
+        message: 'GPS browser dikunci pada HTTP IP LAN. Mengestimasi lokasi wilayah Anda...',
+      });
+      (async () => {
+        let fallbackLat = selection?.school?.lat ?? activeSchoolLat;
+        let fallbackLng = selection?.school?.lng ?? activeSchoolLng;
+        let resolvedLabel = currentUser
+          ? (selection?.school?.name || activeSchoolName)
+          : 'Area Sekolah & Sekitarnya';
+        try {
+          const controller = new AbortController();
+          const timer = setTimeout(() => controller.abort(), 3000);
+          const res = await fetch('https://get.geojs.io/v1/ip/geo.json', { signal: controller.signal });
+          clearTimeout(timer);
+          if (res.ok) {
+            const ipGeo = await res.json();
+            const parsedLat = Number(ipGeo.latitude);
+            const parsedLng = Number(ipGeo.longitude);
+            if (Number.isFinite(parsedLat) && Number.isFinite(parsedLng)) {
+              fallbackLat = parsedLat;
+              fallbackLng = parsedLng;
+              resolvedLabel = [ipGeo.city, ipGeo.region, ipGeo.country].filter(Boolean).join(', ') || resolvedLabel;
+            }
+          }
+        } catch {
+          // Fallback silently to active school area on offline LAN
+        } finally {
+          setIsLocatingUser(false);
+          setUserCoords({ lat: fallbackLat, lng: fallbackLng });
+          setUserAccuracy(5000);
+          flyCameraToCoords(fallbackLat, fallbackLng, 12);
+          setLocationStatusToast({
+            type: 'success',
+            title: `Lokasi Estimasi (${resolvedLabel})`,
+            message: 'GPS presisi memerlukan HTTPS atau localhost. Menampilkan estimasi wilayah pada IP LAN.',
+            accuracy: 5000,
+          });
+        }
+      })();
       return;
     }
 
@@ -6510,7 +6563,7 @@ export function MapsView() {
 
       {/* Top Quick Actions: Zona Rawan & Mode Tampilan */}
       {!isDeepSpaceMode && (
-      <div className="absolute top-[calc(1rem+env(safe-area-inset-top))] left-[calc(4rem+18rem)] lg:left-[calc(4rem+22rem)] xl:left-[calc(4rem+25.5rem)] z-20 hidden md:flex items-center gap-2">
+      <div className="absolute top-[calc(1rem+env(safe-area-inset-top))] left-[calc(4rem+18rem)] lg:left-[calc(4rem+22rem)] xl:left-[calc(4rem+25.5rem)] z-20 hidden xl:flex items-center gap-2">
         <button
           type="button"
           onClick={() => setShowDisasterRiskCenter(true)}
@@ -6606,15 +6659,19 @@ export function MapsView() {
         )}
       </div>
 
-      {/* Spatial Attribute Table */}
-      <MapAttributeTable
-        isOpen={showAttributeTable}
-        onClose={() => setShowAttributeTable(false)}
-        map={mapRef.current}
-        layers={attributeLayers}
-        selectedFeatureId={selectedFeatureId}
-        onSelectFeatureId={setSelectedFeatureId}
-      />
+      {/* Spatial Attribute Table (lazy mounted) */}
+      <Suspense fallback={null}>
+        {showAttributeTable && (
+          <MapAttributeTable
+            isOpen={showAttributeTable}
+            onClose={() => setShowAttributeTable(false)}
+            map={mapRef.current}
+            layers={attributeLayers}
+            selectedFeatureId={selectedFeatureId}
+            onSelectFeatureId={setSelectedFeatureId}
+          />
+        )}
+      </Suspense>
 
       {/* Spatial Identify Panel */}
       <MapIdentifyPanel
@@ -6647,16 +6704,20 @@ export function MapsView() {
         layers={managedLayers}
       />
 
-      {/* Geoprocessing & Spatial Analysis Modal */}
-      <MapGeoprocessingModal
-        isOpen={showGeoprocessModal}
-        onClose={() => setShowGeoprocessModal(false)}
-        activeAOI={activeAOI}
-        pointDatasets={geoprocessPointDatasets}
-        onAddAnalysisFeature={(feature, _label) => {
-          analysisSourceRef.current.addFeature(feature);
-        }}
-      />
+      {/* Geoprocessing & Spatial Analysis Modal (lazy mounted) */}
+      <Suspense fallback={null}>
+        {showGeoprocessModal && (
+          <MapGeoprocessingModal
+            isOpen={showGeoprocessModal}
+            onClose={() => setShowGeoprocessModal(false)}
+            activeAOI={activeAOI}
+            pointDatasets={geoprocessPointDatasets}
+            onAddAnalysisFeature={(feature, _label) => {
+              analysisSourceRef.current.addFeature(feature);
+            }}
+          />
+        )}
+      </Suspense>
 
       {/* Realtime GPS Status Toast / Card */}
       {locationStatusToast && (
@@ -9849,47 +9910,71 @@ export function MapsView() {
       {/* Floating Panel Trigger Button (Ketika Tertutup dan tidak di Deep Space) */}
       <AnimatePresence>
         {!isDeepSpaceMode && !showPanel && !showLayerManager && !showBasemapMenu && !showTrafficCorridors && !showObservationCoverage && !(weatherMapOverlay !== 'none' && showWindyMenu) && (
-          <motion.button 
-            key="panel-trigger-button"
-            type="button"
-            initial={{ opacity: 0, scale: 0.92, y: 12 }}
+          <motion.div
+            key="panel-trigger-dock"
+            initial={{ opacity: 0, scale: 0.94, y: 10 }}
             animate={{ opacity: 1, scale: 1, y: 0 }}
-            exit={{ opacity: 0, scale: 0.92, y: 12 }}
-            transition={{ duration: 0.2 }}
-            onClick={() => {
-              closeMapDrawers();
-              setShowPanel(true);
-            }}
-            className="absolute bottom-[calc(1rem+env(safe-area-inset-bottom))] sm:bottom-[calc(1.25rem+env(safe-area-inset-bottom))] right-16 sm:right-20 z-20 flex items-center gap-2.5 sm:gap-3 rounded-2xl bg-white/95 dark:bg-slate-900/95 px-3.5 sm:px-4 py-2.5 sm:py-3 shadow-2xl backdrop-blur-xl border border-slate-200/90 dark:border-slate-800 text-slate-800 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-800/90 transition-all hover:scale-[1.02] active:scale-95 group cursor-pointer shadow-brand-500/10"
-            title="Klik untuk membuka Pengaturan Lapisan Peta (Harmony Maps)"
+            exit={{ opacity: 0, scale: 0.94, y: 10 }}
+            transition={{ duration: 0.16 }}
+            className="absolute bottom-[calc(1rem+env(safe-area-inset-bottom))] sm:bottom-[calc(1.25rem+env(safe-area-inset-bottom))] right-3 sm:right-6 z-20 flex items-center gap-2 max-w-[calc(100vw-4.5rem)]"
           >
-            <div className="relative flex h-8 w-8 items-center justify-center rounded-xl bg-brand-50 dark:bg-brand-950/60 border border-brand-200/60 dark:border-brand-800/60 text-brand-600 dark:text-brand-400 shadow-xs">
-              <Settings className="h-4 w-4 group-hover:rotate-90 transition-transform duration-500" />
-              {activeLayersCount > 0 && (
-                <span className="absolute -top-1 -right-1 flex h-3 w-3">
-                  <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-brand-400 opacity-75"></span>
-                  <span className="relative inline-flex rounded-full h-3 w-3 bg-brand-500"></span>
+            {!is3D && (
+              <button
+                type="button"
+                onClick={() => {
+                  closeMapDrawers();
+                  handleToggle3D(true);
+                  handleSetGlobeType('cesium');
+                }}
+                className="flex items-center gap-1.5 rounded-2xl bg-slate-900/95 hover:bg-slate-800 px-3 sm:px-3.5 py-2.5 sm:py-3 text-white shadow-2xl backdrop-blur-xl border border-indigo-400/40 transition-all hover:scale-[1.02] active:scale-95 cursor-pointer shrink-0"
+                title="Masuk Globe Bumi 3D & Eksplorasi Tata Surya"
+              >
+                <Globe className="h-4 w-4 text-sky-400 shrink-0" />
+                <span className="font-display font-bold text-xs leading-tight whitespace-nowrap">
+                  <span className="sm:hidden">3D</span>
+                  <span className="hidden sm:inline">3D &amp; Semesta</span>
                 </span>
-              )}
-            </div>
-            <div className="flex flex-col items-start text-left pr-0.5">
-              <div className="flex items-center gap-1.5">
-                <span className="font-display font-bold text-xs sm:text-sm text-slate-900 dark:text-white leading-tight">
-                  Harmony Maps
-                </span>
-                {activeLayersCount > 0 ? (
-                  <span className="inline-flex items-center px-1.5 py-0.2 rounded-full text-[9px] font-black bg-brand-500 text-white shadow-xs">
-                    {activeLayersCount}
+              </button>
+            )}
+
+            <button
+              key="panel-trigger-button"
+              type="button"
+              onClick={() => {
+                closeMapDrawers();
+                setShowPanel(true);
+              }}
+              className="flex items-center gap-2 sm:gap-3 rounded-2xl bg-white/95 dark:bg-slate-900/95 px-3 sm:px-4 py-2.5 sm:py-3 shadow-2xl backdrop-blur-xl border border-slate-200/90 dark:border-slate-800 text-slate-800 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-800/90 transition-all hover:scale-[1.02] active:scale-95 group cursor-pointer shadow-brand-500/10"
+              title="Klik untuk membuka Pengaturan Lapisan Peta (Harmony Maps)"
+            >
+              <div className="relative flex h-8 w-8 items-center justify-center rounded-xl bg-brand-50 dark:bg-brand-950/60 border border-brand-200/60 dark:border-brand-800/60 text-brand-600 dark:text-brand-400 shadow-xs shrink-0">
+                <Settings className="h-4 w-4 group-hover:rotate-90 transition-transform duration-500" />
+                {activeLayersCount > 0 && (
+                  <span className="absolute -top-1 -right-1 flex h-3 w-3">
+                    <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-brand-400 opacity-75"></span>
+                    <span className="relative inline-flex rounded-full h-3 w-3 bg-brand-500"></span>
                   </span>
-                ) : (
-                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
                 )}
               </div>
-              <span className="text-[10px] text-slate-400 dark:text-slate-500 font-medium">
-                {activeLayersCount > 0 ? `${activeLayersCount} layer aktif` : 'Lapisan & Mode Peta'}
-              </span>
-            </div>
-          </motion.button>
+              <div className="flex flex-col items-start text-left pr-0.5 min-w-0">
+                <div className="flex items-center gap-1.5">
+                  <span className="font-display font-bold text-xs sm:text-sm text-slate-900 dark:text-white leading-tight truncate">
+                    Harmony Maps
+                  </span>
+                  {activeLayersCount > 0 ? (
+                    <span className="inline-flex items-center px-1.5 py-0.2 rounded-full text-[9px] font-black bg-brand-500 text-white shadow-xs">
+                      {activeLayersCount}
+                    </span>
+                  ) : (
+                    <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 shrink-0" />
+                  )}
+                </div>
+                <span className="text-[10px] text-slate-400 dark:text-slate-500 font-medium truncate">
+                  {activeLayersCount > 0 ? `${activeLayersCount} layer aktif` : 'Lapisan & Mode Peta'}
+                </span>
+              </div>
+            </button>
+          </motion.div>
         )}
 
 
@@ -11212,294 +11297,308 @@ export function MapsView() {
         />
       </div>
 
-      {/* Geospatial Earth Intelligence Studio Modal (Cloud Button) */}
-      <GeospatialWeatherModal
-        isOpen={showGeospatialModal}
-        onClose={() => setShowGeospatialModal(false)}
-        initialDomain={geospatialModalDomain}
-        lat={userCoords?.lat ?? selection?.school?.lat ?? activeSchoolLat}
-        lng={userCoords?.lng ?? selection?.school?.lng ?? activeSchoolLng}
-        locationName={userPreciseLocation?.shortDisplay || (currentUser ? (selection?.school?.name || activeSchoolName) : null) || (userCoords ? `Koordinat (${userCoords.lat.toFixed(3)}°, ${userCoords.lng.toFixed(3)}°)` : 'Wilayah Geospasial')}
-        userPreciseLocation={userPreciseLocation}
-        mountains={mountains}
-        earthquakes={earthquakes}
-        schools={schools}
-        onApplyFeaturesToMap={(features: any[], _layerName?: string) => {
-          if (!analysisSourceRef.current) return;
-          try {
-            const olGeoJSON = new GeoJSON();
-            const olFeatures = olGeoJSON.readFeatures(
-              { type: 'FeatureCollection', features },
-              { featureProjection: 'EPSG:3857', dataProjection: 'EPSG:4326' }
-            );
+      <Suspense fallback={null}>
+        {showGeospatialModal && (
+          <GeospatialWeatherModal
+            isOpen={showGeospatialModal}
+            onClose={() => setShowGeospatialModal(false)}
+            initialDomain={geospatialModalDomain}
+            lat={userCoords?.lat ?? selection?.school?.lat ?? activeSchoolLat}
+            lng={userCoords?.lng ?? selection?.school?.lng ?? activeSchoolLng}
+            locationName={userPreciseLocation?.shortDisplay || (currentUser ? (selection?.school?.name || activeSchoolName) : null) || (userCoords ? `Koordinat (${userCoords.lat.toFixed(3)}°, ${userCoords.lng.toFixed(3)}°)` : 'Wilayah Geospasial')}
+            userPreciseLocation={userPreciseLocation}
+            mountains={mountains}
+            earthquakes={earthquakes}
+            schools={schools}
+            onApplyFeaturesToMap={(features: any[], _layerName?: string) => {
+              if (!analysisSourceRef.current) return;
+              try {
+                const olGeoJSON = new GeoJSON();
+                const olFeatures = olGeoJSON.readFeatures(
+                  { type: 'FeatureCollection', features },
+                  { featureProjection: 'EPSG:3857', dataProjection: 'EPSG:4326' }
+                );
 
-            const layerType = features[0]?.properties?.layerType;
-            const group = ['isochrone', 'facility', 'candidate_facility'].includes(layerType)
-              ? 'studio-accessibility'
-              : `studio-${layerType || 'analysis'}`;
-            // Replacing a result must update its geometry, not retain features with old IDs.
-            analysisSourceRef.current.getFeatures()
-              .filter(feature => feature.get('studioGroup') === group)
-              .forEach(feature => analysisSourceRef.current.removeFeature(feature));
+                const layerType = features[0]?.properties?.layerType;
+                const group = ['isochrone', 'facility', 'candidate_facility'].includes(layerType)
+                  ? 'studio-accessibility'
+                  : `studio-${layerType || 'analysis'}`;
+                analysisSourceRef.current.getFeatures()
+                  .filter(feature => feature.get('studioGroup') === group)
+                  .forEach(feature => analysisSourceRef.current.removeFeature(feature));
 
-            olFeatures.forEach((feat) => {
-              feat.set('studioGroup', group);
-              const props = feat.getProperties();
-              if (props.layerType === 'isochrone') {
-                feat.setStyle(new Style({
-                  fill: new Fill({ color: props.color ? `${props.color}35` : 'rgba(59, 130, 246, 0.25)' }),
-                  stroke: new Stroke({ color: props.color || '#3b82f6', width: 2.5 }),
-                }));
-              } else if (props.layerType === 'hotspot') {
-                const geomType = feat.getGeometry()?.getType();
-                if (geomType === 'Polygon') {
-                  feat.setStyle(new Style({
-                    fill: new Fill({ color: props.color ? `${props.color}55` : 'rgba(239, 68, 68, 0.45)' }),
-                    stroke: new Stroke({ color: props.color || '#ef4444', width: 1.5 }),
-                  }));
-                } else {
-                  feat.setStyle(new Style({
-                    image: new CircleStyle({
-                      radius: 3.5,
-                      fill: new Fill({ color: props.color || '#ef4444' }),
-                      stroke: new Stroke({ color: '#ffffff', width: 1 }),
-                    }),
-                  }));
+                olFeatures.forEach((feat) => {
+                  feat.set('studioGroup', group);
+                  const props = feat.getProperties();
+                  if (props.layerType === 'isochrone') {
+                    feat.setStyle(new Style({
+                      fill: new Fill({ color: props.color ? `${props.color}35` : 'rgba(59, 130, 246, 0.25)' }),
+                      stroke: new Stroke({ color: props.color || '#3b82f6', width: 2.5 }),
+                    }));
+                  } else if (props.layerType === 'hotspot') {
+                    const geomType = feat.getGeometry()?.getType();
+                    if (geomType === 'Polygon') {
+                      feat.setStyle(new Style({
+                        fill: new Fill({ color: props.color ? `${props.color}55` : 'rgba(239, 68, 68, 0.45)' }),
+                        stroke: new Stroke({ color: props.color || '#ef4444', width: 1.5 }),
+                      }));
+                    } else {
+                      feat.setStyle(new Style({
+                        image: new CircleStyle({
+                          radius: 3.5,
+                          fill: new Fill({ color: props.color || '#ef4444' }),
+                          stroke: new Stroke({ color: '#ffffff', width: 1 }),
+                        }),
+                      }));
+                    }
+                  } else if (props.layerType === 'facility' || props.layerType === 'candidate_facility') {
+                    feat.setStyle(new Style({
+                      image: new CircleStyle({
+                        radius: props.isPlanCandidate ? 8 : 6,
+                        fill: new Fill({ color: props.isPlanCandidate ? '#8b5cf6' : '#10b981' }),
+                        stroke: new Stroke({ color: '#ffffff', width: 2 }),
+                      }),
+                    }));
+                  } else if (props.layerType === 'remote_sensing_scene') {
+                    feat.setStyle(new Style({
+                      fill: new Fill({ color: props.color ? `${props.color}25` : 'rgba(2, 132, 199, 0.2)' }),
+                      stroke: new Stroke({ color: props.color || '#0284c7', width: 2.5, lineDash: [8, 5] }),
+                      text: new Text({
+                        text: props.name || 'Scene Satelit STAC',
+                        font: 'bold 11px monospace',
+                        fill: new Fill({ color: '#ffffff' }),
+                        stroke: new Stroke({ color: '#0f172a', width: 3 }),
+                      }),
+                    }));
+                  }
+                  analysisSourceRef.current.addFeature(feat);
+                });
+
+                setShowAnalysisLayer(true);
+                if (analysisLayerRef.current) {
+                  analysisLayerRef.current.setVisible(true);
                 }
-              } else if (props.layerType === 'facility' || props.layerType === 'candidate_facility') {
-                feat.setStyle(new Style({
-                  image: new CircleStyle({
-                    radius: props.isPlanCandidate ? 8 : 6,
-                    fill: new Fill({ color: props.isPlanCandidate ? '#8b5cf6' : '#10b981' }),
-                    stroke: new Stroke({ color: '#ffffff', width: 2 }),
-                  }),
-                }));
-              } else if (props.layerType === 'remote_sensing_scene') {
-                feat.setStyle(new Style({
-                  fill: new Fill({ color: props.color ? `${props.color}25` : 'rgba(2, 132, 199, 0.2)' }),
-                  stroke: new Stroke({ color: props.color || '#0284c7', width: 2.5, lineDash: [8, 5] }),
-                  text: new Text({
-                    text: props.name || 'Scene Satelit STAC',
-                    font: 'bold 11px monospace',
-                    fill: new Fill({ color: '#ffffff' }),
-                    stroke: new Stroke({ color: '#0f172a', width: 3 }),
-                  }),
-                }));
+                if (olFeatures.length && mapRef.current) {
+                  const resultSource = new VectorSource({ features: olFeatures });
+                  const extent = resultSource.getExtent();
+                  if (extent && extent.every(Number.isFinite)) {
+                    mapRef.current.getView().fit(extent, {
+                      padding: [70, 60, 90, 60], maxZoom: 12, duration: 400,
+                    });
+                  }
+                }
+                setShowGeospatialModal(false);
+              } catch (e) {
+                console.error('Failed to apply features to OpenLayers map:', e);
               }
-              analysisSourceRef.current.addFeature(feat);
-            });
+            }}
+          />
+        )}
 
-            setShowAnalysisLayer(true);
-            if (analysisLayerRef.current) {
-              analysisLayerRef.current.setVisible(true);
-            }
-            if (olFeatures.length && mapRef.current) {
-              const resultSource = new VectorSource({ features: olFeatures });
-              const extent = resultSource.getExtent();
-              if (extent && extent.every(Number.isFinite)) {
-                mapRef.current.getView().fit(extent, {
-                  padding: [70, 60, 90, 60], maxZoom: 12, duration: 400,
+        {(showRouteModal || isPickingRouteLocation) && (
+          <RouteNavigatorModal
+            isOpen={showRouteModal}
+            onClose={() => {
+              setShowRouteModal(false);
+              setIsPickingRouteLocation(false);
+            }}
+            userCoords={userCoords}
+            onApplyRoute={(route) => setActiveRoute(route)}
+            onClearRoute={() => {
+              setActiveRoute(null);
+              setPickedRouteDestination(null);
+            }}
+            activeRoute={activeRoute}
+            schools={schools}
+            isPickingOnMap={isPickingRouteLocation}
+            onTogglePickOnMap={(active) => setIsPickingRouteLocation(active)}
+            pickedCoords={pickedRouteDestination}
+          />
+        )}
+
+        {selectedSensorForInspection && (
+          <SensorInspectorModal
+            sensor={selectedSensorForInspection}
+            onClose={() => setSelectedSensorForInspection(null)}
+            onCenterMap={(lng, lat) => {
+              if (mapRef.current) {
+                mapRef.current.getView().animate({
+                  center: fromLonLat([lng, lat]),
+                  zoom: 8.5,
+                  duration: 700,
                 });
               }
-            }
-            setShowGeospatialModal(false);
-          } catch (e) {
-            console.error('Failed to apply features to OpenLayers map:', e);
-          }
-        }}
-      />
+            }}
+          />
+        )}
 
-      {/* AI Route & Weather Copilot Modal (Find Button) */}
-      <RouteNavigatorModal
-        isOpen={showRouteModal}
-        onClose={() => {
-          setShowRouteModal(false);
-          setIsPickingRouteLocation(false);
-        }}
-        userCoords={userCoords}
-        onApplyRoute={(route) => setActiveRoute(route)}
-        onClearRoute={() => {
-          setActiveRoute(null);
-          setPickedRouteDestination(null);
-        }}
-        activeRoute={activeRoute}
-        schools={schools}
-        isPickingOnMap={isPickingRouteLocation}
-        onTogglePickOnMap={(active) => setIsPickingRouteLocation(active)}
-        pickedCoords={pickedRouteDestination}
-      />
+        {showMasterTaxonomyModal && (
+          <MasterSensorTaxonomyModal
+            isOpen={showMasterTaxonomyModal}
+            onClose={() => setShowMasterTaxonomyModal(false)}
+          />
+        )}
 
-      {/* Earth Sensor Detailed Inspector Modal */}
-      <SensorInspectorModal
-        sensor={selectedSensorForInspection}
-        onClose={() => setSelectedSensorForInspection(null)}
-        onCenterMap={(lng, lat) => {
-          if (mapRef.current) {
-            mapRef.current.getView().animate({
-              center: fromLonLat([lng, lat]),
-              zoom: 8.5,
-              duration: 700,
-            });
-          }
-        }}
-      />
+        {showDataProvenanceModal && (
+          <DataSourceProvenanceModal
+            isOpen={showDataProvenanceModal}
+            onClose={() => setShowDataProvenanceModal(false)}
+          />
+        )}
 
-      {/* Earth Sensor Master Taxonomy Modal */}
-      <MasterSensorTaxonomyModal
-        isOpen={showMasterTaxonomyModal}
-        onClose={() => setShowMasterTaxonomyModal(false)}
-      />
+        {showWebGisTutorial && (
+          <WebGISTutorialModal
+            isOpen={showWebGisTutorial}
+            onClose={() => {
+              setShowWebGisTutorial(false);
+              try {
+                window.localStorage.setItem('hm_webgis_tutorial_seen', 'true');
+              } catch (e) {}
+            }}
+            onOpenDisasterCenter={() => {
+              setShowWebGisTutorial(false);
+              closeMapDrawers();
+              setShowDisasterRiskCenter(true);
+            }}
+            onOpenWeather={() => {
+              setShowWebGisTutorial(false);
+              closeMapDrawers();
+              openStudioDomain('weather');
+            }}
+            onOpenRouteNavigator={() => {
+              setShowWebGisTutorial(false);
+              closeMapDrawers();
+              setShowRouteModal(true);
+            }}
+            onOpenCctv={() => {
+              setShowWebGisTutorial(false);
+              closeMapDrawers();
+              setTrafficDrawerTab('cctv');
+              setShowTrafficCorridors(true);
+              setShowTrafficCctv(true);
+            }}
+            onLocateUser={() => {
+              setShowWebGisTutorial(false);
+              handleFindUserLocation();
+            }}
+            onOpenGeospatialStudio={() => {
+              setShowWebGisTutorial(false);
+              closeMapDrawers();
+              openStudioDomain('remote_sensing');
+            }}
+            onOpenCopilot={() => {
+              setShowWebGisTutorial(false);
+              window.dispatchEvent(new CustomEvent('harmony:open-copilot'));
+            }}
+          />
+        )}
 
-      {/* Full Transparency Data Provenance Modal */}
-      <DataSourceProvenanceModal
-        isOpen={showDataProvenanceModal}
-        onClose={() => setShowDataProvenanceModal(false)}
-      />
+        {showDisasterRiskCenter && (
+          <DisasterRiskCenterModal
+            isOpen={showDisasterRiskCenter}
+            onClose={() => setShowDisasterRiskCenter(false)}
+            showTectonic={showTectonic}
+            onToggleTectonic={setShowTectonic}
+            showEarthquakes={showEarthquakes}
+            onToggleEarthquakes={setShowEarthquakes}
+            showVolcanoes={showActive}
+            onToggleVolcanoes={setShowActive}
+            showLandslideZones={showLandslideZones}
+            onToggleLandslideZones={setShowLandslideZones}
+            showTsunamiZones={showTsunamiZones}
+            onToggleTsunamiZones={setShowTsunamiZones}
+            selectedSchool={selectedSchoolData}
+            onTriggerEvacuationRoute={async (school, scenario) => {
+              try {
+                const plan = await routingService.calculateEmergencyEvacuationRoute(
+                  { lat: school.lat, lng: school.lng, label: school.name },
+                  scenario
+                );
+                setActiveRoute(plan);
+                setShowRouteModal(true);
+                if (mapRef.current) {
+                  mapRef.current.getView().animate({
+                    center: fromLonLat([school.lng, school.lat]),
+                    zoom: 13,
+                    duration: 600,
+                  });
+                }
+              } catch (err) {
+                console.error('Failed to trigger emergency evacuation route:', err);
+              }
+            }}
+          />
+        )}
 
-      {/* Interactive WebGIS Tutorial Onboarding Modal (Ahli Validasi Masukan UI) */}
-      <WebGISTutorialModal
-        isOpen={showWebGisTutorial}
-        onClose={() => {
-          setShowWebGisTutorial(false);
-          try {
-            window.localStorage.setItem('hm_webgis_tutorial_seen', 'true');
-          } catch (e) {}
-        }}
-        onOpenDisasterCenter={() => {
-          setShowWebGisTutorial(false);
-          closeMapDrawers();
-          setShowDisasterRiskCenter(true);
-        }}
-        onOpenWeather={() => {
-          setShowWebGisTutorial(false);
-          closeMapDrawers();
-          openStudioDomain('weather');
-        }}
-        onOpenRouteNavigator={() => {
-          setShowWebGisTutorial(false);
-          closeMapDrawers();
-          setShowRouteModal(true);
-        }}
-        onOpenCctv={() => {
-          setShowWebGisTutorial(false);
-          closeMapDrawers();
-          setTrafficDrawerTab('cctv');
-          setShowTrafficCorridors(true);
-          setShowTrafficCctv(true);
-        }}
-        onLocateUser={() => {
-          setShowWebGisTutorial(false);
-          handleFindUserLocation();
-        }}
-        onOpenGeospatialStudio={() => {
-          setShowWebGisTutorial(false);
-          closeMapDrawers();
-          openStudioDomain('remote_sensing');
-        }}
-        onOpenCopilot={() => {
-          setShowWebGisTutorial(false);
-          window.dispatchEvent(new CustomEvent('harmony:open-copilot'));
-        }}
-      />
+        {showGroundedScenarioModal && (
+          <GroundedScenarioModal
+            isOpen={showGroundedScenarioModal}
+            onClose={() => setShowGroundedScenarioModal(false)}
+            schoolId={activeSchoolId}
+            schoolName={activeSchoolName}
+            lat={activeSchoolLat}
+            lng={activeSchoolLng}
+          />
+        )}
 
-      {/* Disaster Hazard & School Risk Profiler Modal (Sekolah Tangguh Bencana) */}
-      <DisasterRiskCenterModal
-        isOpen={showDisasterRiskCenter}
-        onClose={() => setShowDisasterRiskCenter(false)}
-        showTectonic={showTectonic}
-        onToggleTectonic={setShowTectonic}
-        showEarthquakes={showEarthquakes}
-        onToggleEarthquakes={setShowEarthquakes}
-        showVolcanoes={showActive}
-        onToggleVolcanoes={setShowActive}
-        showLandslideZones={showLandslideZones}
-        onToggleLandslideZones={setShowLandslideZones}
-        showTsunamiZones={showTsunamiZones}
-        onToggleTsunamiZones={setShowTsunamiZones}
-        selectedSchool={selectedSchoolData}
-        onTriggerEvacuationRoute={async (school, scenario) => {
-          try {
-            const plan = await routingService.calculateEmergencyEvacuationRoute(
-              { lat: school.lat, lng: school.lng, label: school.name },
-              scenario
-            );
-            setActiveRoute(plan);
-            setShowRouteModal(true);
-            if (mapRef.current) {
-              mapRef.current.getView().animate({
-                center: fromLonLat([school.lng, school.lat]),
-                zoom: 13,
-                duration: 600,
+        {selectedCctvCamera && (
+          <LiveCctvModal
+            camera={selectedCctvCamera}
+            onClose={() => setSelectedCctvCamera(null)}
+            onSelectCamera={setSelectedCctvCamera}
+          />
+        )}
+
+        {selectedTrafficSignalId && (
+          <TrafficSignalModal
+            signalId={selectedTrafficSignalId}
+            onClose={() => setSelectedTrafficSignalId(null)}
+          />
+        )}
+
+        {selectedVolcanoForModal && (
+          <VolcanoDetailModal
+            volcano={selectedVolcanoForModal}
+            onClose={() => setSelectedVolcanoForModal(null)}
+            onFocusOnMap={(coords, zoom = 12) => {
+              mapRef.current?.getView().animate({
+                center: fromLonLat(coords),
+                zoom,
+                duration: 700,
               });
-            }
-          } catch (err) {
-            console.error('Failed to trigger emergency evacuation route:', err);
-          }
-        }}
-      />
+            }}
+          />
+        )}
 
-      {/* Grounded Disaster AI Scenario Simulation Modal */}
-      <GroundedScenarioModal
-        isOpen={showGroundedScenarioModal}
-        onClose={() => setShowGroundedScenarioModal(false)}
-        schoolId={activeSchoolId}
-        schoolName={activeSchoolName}
-        lat={activeSchoolLat}
-        lng={activeSchoolLng}
-      />
+        {selectedEarthquakeForModal && (
+          <EarthquakeDetailModal
+            earthquake={selectedEarthquakeForModal}
+            onClose={() => setSelectedEarthquakeForModal(null)}
+            onFocusOnMap={(coords, zoom = 10) => {
+              mapRef.current?.getView().animate({
+                center: fromLonLat(coords),
+                zoom,
+                duration: 700,
+              });
+            }}
+            onOpenEvacuation={() => setShowDisasterRiskCenter(true)}
+          />
+        )}
 
-      {/* Realtime Live Public CCTV Camera Modal */}
-      <LiveCctvModal
-        camera={selectedCctvCamera}
-        onClose={() => setSelectedCctvCamera(null)}
-        onSelectCamera={setSelectedCctvCamera}
-      />
-
-      {/* Realtime ATCS Smart Traffic Signal Modal */}
-      <TrafficSignalModal
-        signalId={selectedTrafficSignalId}
-        onClose={() => setSelectedTrafficSignalId(null)}
-      />
-
-      {/* Realtime & Geological Volcano Detail Modal */}
-      <VolcanoDetailModal
-        volcano={selectedVolcanoForModal}
-        onClose={() => setSelectedVolcanoForModal(null)}
-        onFocusOnMap={(coords, zoom = 12) => {
-          mapRef.current?.getView().animate({
-            center: fromLonLat(coords),
-            zoom,
-            duration: 700,
-          });
-        }}
-      />
-
-      {/* Realtime Earthquake & Seismic Impact Detail Modal */}
-      <EarthquakeDetailModal
-        earthquake={selectedEarthquakeForModal}
-        onClose={() => setSelectedEarthquakeForModal(null)}
-        onFocusOnMap={(coords, zoom = 10) => {
-          mapRef.current?.getView().animate({
-            center: fromLonLat(coords),
-            zoom,
-            duration: 700,
-          });
-        }}
-        onOpenEvacuation={() => setShowDisasterRiskCenter(true)}
-      />
-
-      {/* Realtime Satellite Thermal Anomaly & Fire Hotspot Detail Modal (God's Eye View) */}
-      <ThermalAnomalyDetailModal
-        hotspot={selectedHotspotForModal}
-        onClose={() => setSelectedHotspotForModal(null)}
-        onCenterOnMap={(lat, lng) => {
-          mapRef.current?.getView().animate({
-            center: fromLonLat([lng, lat]),
-            zoom: 14,
-            duration: 700,
-          });
-        }}
-      />
+        {selectedHotspotForModal && (
+          <ThermalAnomalyDetailModal
+            hotspot={selectedHotspotForModal}
+            onClose={() => setSelectedHotspotForModal(null)}
+            onCenterOnMap={(lat, lng) => {
+              mapRef.current?.getView().animate({
+                center: fromLonLat([lng, lat]),
+                zoom: 14,
+                duration: 700,
+              });
+            }}
+          />
+        )}
+      </Suspense>
 
       {/* Fullscreen Weather Mode */}
       {showWindyModal && (

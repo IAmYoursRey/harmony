@@ -1,10 +1,11 @@
-import React, { useState, useEffect, useRef, useCallback } from 'react';
+import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import { createPortal } from 'react-dom';
 import * as THREE from 'three';
 import { EffectComposer } from 'three/examples/jsm/postprocessing/EffectComposer.js';
 import { RenderPass } from 'three/examples/jsm/postprocessing/RenderPass.js';
 import { UnrealBloomPass } from 'three/examples/jsm/postprocessing/UnrealBloomPass.js';
 import { OutputPass } from 'three/examples/jsm/postprocessing/OutputPass.js';
+import { hardwarePerformanceService } from '@/services/hardwarePerformanceService';
 import {
   X,
   Globe,
@@ -18,6 +19,8 @@ import {
   Maximize2,
   Minimize2,
   ChevronRight,
+  ChevronUp,
+  ChevronDown,
   Info,
   Thermometer,
   Wind,
@@ -87,6 +90,7 @@ export function PlanetarySurfaceExplorerModal({
   const [showLandmarkLabels, setShowLandmarkLabels] = useState<boolean>(true);
   const [isAudioActive, setIsAudioActive] = useState<boolean>(false);
   const [hoveredCoords, setHoveredCoords] = useState<{ lat: number; lng: number } | null>(null);
+  const [isMobileTelemetryOpen, setIsMobileTelemetryOpen] = useState<boolean>(initialMode === 'map');
 
   // Surface mode descent state
   const [landingAltitudeKm, setLandingAltitudeKm] = useState<number>(0);
@@ -252,9 +256,10 @@ export function PlanetarySurfaceExplorerModal({
     camera.position.set(0, isSaturn ? 1.25 : 0.35, isSaturn ? 4.45 : isSun ? 3.55 : 3.15);
     camera.lookAt(0, 0, 0);
 
-    const renderer = new THREE.WebGLRenderer({ antialias: true, powerPreference: 'high-performance' });
+    const perf = hardwarePerformanceService.getProfile();
+    const renderer = new THREE.WebGLRenderer({ antialias: perf.effectiveMode !== 'lite', powerPreference: 'high-performance' });
     renderer.setSize(width, height);
-    renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+    renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, perf.threePixelRatio));
     renderer.toneMapping = THREE.ACESFilmicToneMapping;
     renderer.toneMappingExposure = 1.08;
     container.innerHTML = '';
@@ -262,19 +267,21 @@ export function PlanetarySurfaceExplorerModal({
 
     let composer: EffectComposer | null = null;
     let bloomPass: UnrealBloomPass | null = null;
-    try {
-      composer = new EffectComposer(renderer);
-      composer.addPass(new RenderPass(scene, camera));
-      bloomPass = new UnrealBloomPass(
-        new THREE.Vector2(width, height),
-        isSun ? 0.32 : 0.34,
-        0.5,
-        isSun ? 0.88 : 0.90
-      );
-      composer.addPass(bloomPass);
-      composer.addPass(new OutputPass());
-    } catch {
-      composer = null;
+    if (perf.effectiveMode !== 'lite' && !perf.diagnostics.isMobile) {
+      try {
+        composer = new EffectComposer(renderer);
+        composer.addPass(new RenderPass(scene, camera));
+        bloomPass = new UnrealBloomPass(
+          new THREE.Vector2(Math.round(width * 0.5), Math.round(height * 0.5)),
+          isSun ? 0.32 : 0.34,
+          0.5,
+          isSun ? 0.88 : 0.90
+        );
+        composer.addPass(bloomPass);
+        composer.addPass(new OutputPass());
+      } catch {
+        composer = null;
+      }
     }
 
     // 360 Milky Way & Deep Space Nebula Backdrop
@@ -528,9 +535,11 @@ export function PlanetarySurfaceExplorerModal({
     const camera = new THREE.PerspectiveCamera(65, width / height, 0.1, 1200);
     camera.position.set(0, 2.2, 0);
 
-    const renderer = new THREE.WebGLRenderer({ antialias: true, powerPreference: 'high-performance' });
+    const perf = hardwarePerformanceService.getProfile();
+    const isMobileOrLite = perf.effectiveMode === 'lite' || perf.diagnostics.isMobile;
+    const renderer = new THREE.WebGLRenderer({ antialias: perf.effectiveMode !== 'lite', powerPreference: 'high-performance' });
     renderer.setSize(width, height);
-    renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+    renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, perf.threePixelRatio));
     renderer.toneMapping = THREE.ACESFilmicToneMapping;
     renderer.toneMappingExposure = 1.08;
     container.innerHTML = '';
@@ -538,19 +547,21 @@ export function PlanetarySurfaceExplorerModal({
 
     let composer: EffectComposer | null = null;
     let bloomPass: UnrealBloomPass | null = null;
-    try {
-      composer = new EffectComposer(renderer);
-      composer.addPass(new RenderPass(scene, camera));
-      bloomPass = new UnrealBloomPass(
-        new THREE.Vector2(width, height),
-        isSunBody ? 0.65 : 0.42,
-        0.6,
-        0.82
-      );
-      composer.addPass(bloomPass);
-      composer.addPass(new OutputPass());
-    } catch {
-      composer = null;
+    if (!isMobileOrLite) {
+      try {
+        composer = new EffectComposer(renderer);
+        composer.addPass(new RenderPass(scene, camera));
+        bloomPass = new UnrealBloomPass(
+          new THREE.Vector2(Math.round(width * 0.5), Math.round(height * 0.5)),
+          isSunBody ? 0.65 : 0.42,
+          0.6,
+          0.82
+        );
+        composer.addPass(bloomPass);
+        composer.addPass(new OutputPass());
+      } catch {
+        composer = null;
+      }
     }
 
     scene.fog = new THREE.FogExp2(
@@ -758,17 +769,18 @@ export function PlanetarySurfaceExplorerModal({
     };
 
     // Synthesize tile-seamless micro-detail terrain texture via periodic sinusoidal wrap
+    const texRes = isMobileOrLite ? 256 : 512;
     const groundDetailCanvas = document.createElement('canvas');
-    groundDetailCanvas.width = 512;
-    groundDetailCanvas.height = 512;
+    groundDetailCanvas.width = texRes;
+    groundDetailCanvas.height = texRes;
     const gdCtx = groundDetailCanvas.getContext('2d')!;
     const baseCol = new THREE.Color(surfaceEnv.groundBaseColor);
     const detCol = new THREE.Color(surfaceEnv.groundDetailColor);
-    const gdImg = gdCtx.createImageData(512, 512);
-    for (let y = 0; y < 512; y++) {
-      const ay = (y / 512) * Math.PI * 2;
-      for (let x = 0; x < 512; x++) {
-        const ax = (x / 512) * Math.PI * 2;
+    const gdImg = gdCtx.createImageData(texRes, texRes);
+    for (let y = 0; y < texRes; y++) {
+      const ay = (y / texRes) * Math.PI * 2;
+      for (let x = 0; x < texRes; x++) {
+        const ax = (x / texRes) * Math.PI * 2;
         const nx = Math.cos(ax) * 3.0 + Math.sin(ay) * 1.4;
         const nz = Math.sin(ax) * 3.0 + Math.cos(ay) * 1.4;
         const n = fbmTerrain(nx + 7.1, nz + 3.7);
@@ -776,7 +788,7 @@ export function PlanetarySurfaceExplorerModal({
         const r = Math.round((baseCol.r * (1 - mixT) + detCol.r * mixT) * 255);
         const g = Math.round((baseCol.g * (1 - mixT) + detCol.g * mixT) * 255);
         const b = Math.round((baseCol.b * (1 - mixT) + detCol.b * mixT) * 255);
-        const idx = (y * 512 + x) * 4;
+        const idx = (y * texRes + x) * 4;
         gdImg.data[idx] = r;
         gdImg.data[idx + 1] = g;
         gdImg.data[idx + 2] = b;
@@ -790,7 +802,8 @@ export function PlanetarySurfaceExplorerModal({
     groundDetailTex.repeat.set(16, 16);
     groundDetailTex.colorSpace = THREE.SRGBColorSpace;
 
-    const groundGeo = new THREE.PlaneGeometry(660, 660, 140, 140);
+    const terrainSegs = isMobileOrLite ? 88 : 140;
+    const groundGeo = new THREE.PlaneGeometry(660, 660, terrainSegs, terrainSegs);
     groundGeo.rotateX(-Math.PI / 2);
 
     const posAttr = groundGeo.attributes.position;
@@ -1028,12 +1041,14 @@ export function PlanetarySurfaceExplorerModal({
     };
   }, [isOpen, viewMode, activeBodyId, surfaceEnv, isGasGiant, isSunBody]);
 
-  if (!isOpen || typeof document === 'undefined') return null;
-
-  const mapCanvas = getCelestialCanvas(activeBodyId);
-  const mapDataUrl = mapCanvas.toDataURL('image/png');
   const mapMetadata = getPlanetaryMapMetadata(activeBodyId);
   const realMapUrl = REAL_PLANET_TEXTURE_URLS[activeBodyId];
+  const fallbackMapDataUrl = useMemo(() => {
+    if (!isOpen || viewMode !== 'map' || realMapUrl) return '';
+    return getCelestialCanvas(activeBodyId).toDataURL('image/png');
+  }, [isOpen, viewMode, realMapUrl, activeBodyId]);
+
+  if (!isOpen || typeof document === 'undefined') return null;
 
   return createPortal(
     <div 
@@ -1042,10 +1057,10 @@ export function PlanetarySurfaceExplorerModal({
       className="fixed inset-0 z-[100040] flex flex-col bg-slate-950/95 backdrop-blur-2xl text-slate-100 overflow-hidden animate-in fade-in duration-300"
     >
       {/* ================= TOP NAV HEADER ================= */}
-      <div className="p-3 sm:p-4 border-b border-white/10 bg-slate-900/90 flex items-center justify-between gap-3 shrink-0">
-        <div className="flex items-center gap-3 min-w-0">
+      <div className="px-2.5 py-2 sm:p-4 border-b border-white/10 bg-slate-900/90 flex flex-wrap sm:flex-nowrap items-center justify-between gap-2 sm:gap-3 shrink-0">
+        <div className="flex items-center gap-2 sm:gap-3 min-w-0 flex-1">
           <div 
-            className="w-10 h-10 rounded-xl flex items-center justify-center font-bold text-lg shadow-inner shrink-0"
+            className="w-8 h-8 sm:w-10 sm:h-10 rounded-xl flex items-center justify-center font-bold text-sm sm:text-lg shadow-inner shrink-0"
             style={{ 
               background: `radial-gradient(circle at 35% 35%, #ffffff 0%, ${bodyData.visual.color} 70%, #000000 100%)`,
               boxShadow: `0 0 15px ${bodyData.visual.color}80`
@@ -1054,15 +1069,15 @@ export function PlanetarySurfaceExplorerModal({
             {bodyData.name.charAt(0)}
           </div>
           <div className="min-w-0">
-            <div className="flex items-center gap-2 flex-wrap">
-              <h2 className="font-extrabold text-base sm:text-lg text-white truncate tracking-wide">
+            <div className="flex items-center gap-1.5 sm:gap-2 flex-wrap">
+              <h2 className="font-extrabold text-sm sm:text-lg text-white truncate tracking-wide">
                 {bodyData.name}
               </h2>
-              <span className="px-2 py-0.5 rounded-full text-[10px] font-mono font-semibold bg-sky-500/20 text-sky-300 border border-sky-400/30">
+              <span className="px-2 py-0.5 rounded-full text-[9px] sm:text-[10px] font-mono font-semibold bg-sky-500/20 text-sky-300 border border-sky-400/30">
                 {bodyData.typeLabel}
               </span>
             </div>
-            <p className="text-xs text-slate-400 truncate flex items-center gap-2">
+            <p className="hidden sm:flex text-xs text-slate-400 truncate items-center gap-2">
               <span>Dia: {bodyData.diameterKm.toLocaleString()} km</span>
               <span>•</span>
               <span>Gravitasi: {bodyData.gravity}</span>
@@ -1072,50 +1087,8 @@ export function PlanetarySurfaceExplorerModal({
           </div>
         </div>
 
-        {/* View Mode Switcher Pill */}
-        <div className="flex items-center gap-1 bg-black/40 p-1 rounded-xl border border-white/10 text-xs font-semibold shrink-0">
-          <button
-            type="button"
-            onClick={() => setViewMode('map')}
-            className={`px-3 py-1.5 rounded-lg flex items-center gap-1.5 transition-all cursor-pointer ${
-              viewMode === 'map'
-                ? 'bg-sky-600 text-white shadow-md font-bold'
-                : 'text-slate-400 hover:text-white hover:bg-white/5'
-            }`}
-          >
-            <MapIcon className="w-3.5 h-3.5" />
-            <span className="hidden sm:inline">Peta 2D</span>
-          </button>
-
-          <button
-            type="button"
-            onClick={() => setViewMode('globe3d')}
-            className={`px-3 py-1.5 rounded-lg flex items-center gap-1.5 transition-all cursor-pointer ${
-              viewMode === 'globe3d'
-                ? 'bg-sky-600 text-white shadow-md font-bold'
-                : 'text-slate-400 hover:text-white hover:bg-white/5'
-            }`}
-          >
-            <Globe className="w-3.5 h-3.5" />
-            <span className="hidden sm:inline">Bola 3D</span>
-          </button>
-
-          <button
-            type="button"
-            onClick={() => triggerDescent(selectedLandmark || landmarks[0])}
-            className={`px-3 py-1.5 rounded-lg flex items-center gap-1.5 transition-all cursor-pointer ${
-              viewMode === 'surface'
-                ? 'bg-gradient-to-r from-amber-600 to-rose-600 text-white shadow-md font-bold'
-                : 'text-slate-400 hover:text-white hover:bg-white/5'
-            }`}
-          >
-            <Navigation className="w-3.5 h-3.5" />
-            <span>{isSunBody ? 'Korona 360°' : isGasGiant ? 'Atmosfer 360°' : 'Permukaan 360°'}</span>
-          </button>
-        </div>
-
-        {/* Right Action Icons */}
-        <div className="flex items-center gap-2 shrink-0">
+        {/* Right Action Icons (first on mobile row 1, pushed right on desktop) */}
+        <div className="flex items-center gap-1.5 sm:gap-2 shrink-0 sm:order-3">
           <button
             type="button"
             onClick={toggleAmbientAudio}
@@ -1136,6 +1109,48 @@ export function PlanetarySurfaceExplorerModal({
             aria-label="Tutup Eksplorasi Planet"
           >
             <X className="w-4 h-4" />
+          </button>
+        </div>
+
+        {/* View Mode Switcher Pill */}
+        <div className="w-full sm:w-auto sm:order-2 flex items-center justify-center gap-1 bg-black/40 p-1 rounded-xl border border-white/10 text-[11px] sm:text-xs font-semibold shrink-0">
+          <button
+            type="button"
+            onClick={() => setViewMode('map')}
+            className={`flex-1 sm:flex-initial justify-center px-2.5 sm:px-3 py-1.5 rounded-lg flex items-center gap-1.5 transition-all cursor-pointer ${
+              viewMode === 'map'
+                ? 'bg-sky-600 text-white shadow-md font-bold'
+                : 'text-slate-400 hover:text-white hover:bg-white/5'
+            }`}
+          >
+            <MapIcon className="w-3.5 h-3.5 shrink-0" />
+            <span>Peta 2D</span>
+          </button>
+
+          <button
+            type="button"
+            onClick={() => setViewMode('globe3d')}
+            className={`flex-1 sm:flex-initial justify-center px-2.5 sm:px-3 py-1.5 rounded-lg flex items-center gap-1.5 transition-all cursor-pointer ${
+              viewMode === 'globe3d'
+                ? 'bg-sky-600 text-white shadow-md font-bold'
+                : 'text-slate-400 hover:text-white hover:bg-white/5'
+            }`}
+          >
+            <Globe className="w-3.5 h-3.5 shrink-0" />
+            <span>Bola 3D</span>
+          </button>
+
+          <button
+            type="button"
+            onClick={() => triggerDescent(selectedLandmark || landmarks[0])}
+            className={`flex-1 sm:flex-initial justify-center px-2.5 sm:px-3 py-1.5 rounded-lg flex items-center gap-1.5 transition-all cursor-pointer ${
+              viewMode === 'surface'
+                ? 'bg-gradient-to-r from-amber-600 to-rose-600 text-white shadow-md font-bold'
+                : 'text-slate-400 hover:text-white hover:bg-white/5'
+            }`}
+          >
+            <Navigation className="w-3.5 h-3.5 shrink-0" />
+            <span className="truncate">{isSunBody ? 'Korona 360°' : isGasGiant ? 'Atmosfer 360°' : '360° Darat'}</span>
           </button>
         </div>
       </div>
@@ -1192,7 +1207,7 @@ export function PlanetarySurfaceExplorerModal({
               >
                 {/* High-Resolution Authentic Planetary Map Image */}
                 <img 
-                  src={realMapUrl || mapDataUrl} 
+                  src={realMapUrl || fallbackMapDataUrl} 
                   alt={`Peta Nyata Autentik ${bodyData.name}`}
                   loading="lazy"
                   decoding="async"
@@ -1373,31 +1388,52 @@ export function PlanetarySurfaceExplorerModal({
               )}
 
               {/* Surface Cockpit / Rover HUD Overlay */}
-              <div className="absolute top-4 left-4 z-20 bg-slate-950/80 backdrop-blur-md px-4 py-2.5 rounded-2xl border border-white/15 text-xs text-slate-200 space-y-1 shadow-2xl pointer-events-none">
-                <div className="flex items-center gap-2 font-mono text-sky-400 font-bold">
-                  <Compass className="w-4 h-4" />
+              <div className="absolute top-2.5 left-2.5 sm:top-4 sm:left-4 z-20 bg-slate-950/80 backdrop-blur-md px-2.5 py-1.5 sm:px-4 sm:py-2.5 rounded-xl sm:rounded-2xl border border-white/15 text-[10px] sm:text-xs text-slate-200 space-y-0.5 sm:space-y-1 shadow-2xl pointer-events-none max-w-[calc(100vw-1.25rem)]">
+                <div className="flex items-center gap-1.5 sm:gap-2 font-mono text-sky-400 font-bold">
+                  <Compass className="w-3.5 h-3.5 sm:w-4 sm:h-4 shrink-0" />
                   <span>AZIMUTH: {surfaceLookAzimuth}° | ELEV: {surfaceLookPitch}°</span>
                 </div>
-                <div className="text-[11px] text-slate-300">
+                <div className="text-[10px] sm:text-[11px] text-slate-300 truncate">
                   <span className="font-bold text-white">LOKASI: </span>
                   {selectedLandmark?.name || 'Permukaan Datum Standar'}
                 </div>
-                <div className="text-[10px] text-slate-400 font-mono">
+                <div className="hidden sm:block text-[10px] text-slate-400 font-mono">
                   KOORDINAT: {selectedLandmark?.lat}° LAT, {selectedLandmark?.lng}° LNG
                 </div>
               </div>
 
               {/* Bottom Horizon Navigation Tip */}
-              <div className="absolute bottom-4 left-4 z-20 bg-slate-950/80 backdrop-blur-md px-3.5 py-2 rounded-xl border border-white/10 text-xs text-slate-300 pointer-events-none flex items-center gap-2">
-                <Eye className="w-4 h-4 text-amber-400 shrink-0" />
-                <span>Tarik pandangan untuk melihat panorama cakrawala 360°</span>
+              <div className="absolute bottom-2.5 left-2.5 sm:bottom-4 sm:left-4 z-20 bg-slate-950/80 backdrop-blur-md px-2.5 py-1.5 sm:px-3.5 sm:py-2 rounded-xl border border-white/10 text-[10px] sm:text-xs text-slate-300 pointer-events-none flex items-center gap-1.5 sm:gap-2 max-w-[calc(100vw-1.25rem)]">
+                <Eye className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-amber-400 shrink-0" />
+                <span className="truncate">Geser layar untuk melihat cakrawala 360°</span>
               </div>
             </div>
           )}
         </div>
 
         {/* ================= RIGHT DETAIL & TELEMETRY PANEL ================= */}
-        <div className="w-full md:w-80 lg:w-96 bg-slate-900/95 border-t md:border-t-0 md:border-l border-white/10 flex flex-col max-h-72 md:max-h-full overflow-y-auto p-4 space-y-4 shrink-0">
+        <div className="w-full md:w-80 lg:w-96 bg-slate-900/95 border-t md:border-t-0 md:border-l border-white/10 flex flex-col shrink-0">
+          {/* Mobile Collapsible Bar */}
+          <button
+            type="button"
+            onClick={() => setIsMobileTelemetryOpen((prev) => !prev)}
+            className="md:hidden w-full px-3.5 py-2.5 flex items-center justify-between gap-2 text-left bg-slate-900 border-b border-white/10 cursor-pointer"
+          >
+            <div className="min-w-0">
+              <span className="text-[10px] font-mono font-bold text-sky-400 uppercase block">
+                Telemetri &amp; Landmark
+              </span>
+              <span className="text-xs font-bold text-white truncate block">
+                {selectedLandmark?.name || bodyData.name} • {surfaceEnv.surfaceTempAvg}
+              </span>
+            </div>
+            <span className="flex items-center gap-1 px-2.5 py-1 rounded-lg bg-white/10 text-[11px] font-semibold text-slate-200 shrink-0">
+              <span>{isMobileTelemetryOpen ? 'Tutup' : 'Detail'}</span>
+              {isMobileTelemetryOpen ? <ChevronDown className="w-3.5 h-3.5" /> : <ChevronUp className="w-3.5 h-3.5" />}
+            </span>
+          </button>
+
+          <div className={`${isMobileTelemetryOpen ? 'flex max-h-60 sm:max-h-72' : 'hidden'} md:flex md:max-h-full flex-1 flex-col overflow-y-auto p-3.5 sm:p-4 space-y-4`}>
           
           {/* Selected Landmark Detail Card */}
           {selectedLandmark ? (
@@ -1532,7 +1568,7 @@ export function PlanetarySurfaceExplorerModal({
               })}
             </div>
           </div>
-
+        </div>
         </div>
       </div>
     </div>,

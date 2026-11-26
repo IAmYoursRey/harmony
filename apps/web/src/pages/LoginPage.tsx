@@ -233,8 +233,12 @@ export default function LoginPage() {
     }
   };
 
+  const isRawIpOrigin =
+    typeof window !== "undefined" &&
+    /^(?:\d{1,3}\.){3}\d{1,3}$/.test(window.location.hostname);
+
   return (
-    <div className="relative flex min-h-viewport items-center justify-center overflow-hidden bg-slate-50 dark:bg-slate-950 px-4 py-10">
+    <div className="relative flex min-h-viewport items-center justify-center overflow-hidden bg-slate-50 dark:bg-slate-950 px-3 sm:px-4 py-6 sm:py-10">
       {/* Background */}
       <div className="absolute inset-0 -z-10 overflow-hidden">
         <div className="absolute inset-0 bg-gradient-to-br from-brand-50/50 via-white to-sky-50/50 dark:from-slate-900 dark:via-slate-950 dark:to-slate-900" />
@@ -252,7 +256,7 @@ export default function LoginPage() {
       </div>
 
       <div className="w-full max-w-xl">
-        <div className="mb-6 flex items-center justify-between">
+        <div className="mb-4 sm:mb-6 flex items-center justify-between">
           <button
             onClick={() => navigate("/")}
             className="inline-flex items-center gap-1.5 text-sm font-medium text-ink-600 hover:text-brand-600 dark:text-slate-400 dark:hover:text-brand-400"
@@ -263,12 +267,12 @@ export default function LoginPage() {
         </div>
 
         {/* Logo */}
-        <div className="mb-6 flex flex-col items-center text-center">
-          <Logo variant="icon" size={48} />
-          <h1 className="mt-3 font-display text-2xl font-extrabold tracking-tight text-ink-900 dark:text-white">
+        <div className="mb-4 sm:mb-6 flex flex-col items-center text-center">
+          <Logo variant="icon" size={44} />
+          <h1 className="mt-2.5 sm:mt-3 font-display text-2xl font-extrabold tracking-tight text-ink-900 dark:text-white">
             Harmony
           </h1>
-          <p className="mt-1 text-sm text-ink-500 dark:text-slate-400">
+          <p className="mt-1 text-xs sm:text-sm text-ink-500 dark:text-slate-400">
             Sistem Mitigasi Bencana & Geospasial Sekolah
           </p>
         </div>
@@ -277,7 +281,7 @@ export default function LoginPage() {
           initial={{ opacity: 0, y: 24 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.4 }}
-          className="glass rounded-3xl p-7 shadow-glass-lg sm:p-9"
+          className="glass rounded-3xl p-5 sm:p-9 shadow-glass-lg"
         >
           <AnimatePresence mode="wait">
             {authStatus === "initial" && (
@@ -286,9 +290,9 @@ export default function LoginPage() {
                 initial={{ opacity: 0, x: -20 }}
                 animate={{ opacity: 1, x: 0 }}
                 exit={{ opacity: 0, x: 20 }}
-                className="flex flex-col items-center justify-center gap-6"
+                className="flex flex-col items-center justify-center gap-4 sm:gap-6"
               >
-                <p className="text-sm font-medium text-ink-500 dark:text-slate-400">
+                <p className="text-center text-xs sm:text-sm font-medium text-ink-500 dark:text-slate-400">
                   Masuk menggunakan akun Google atau akses Demo SMAN 1 Ngoro
                 </p>
                 {loading ? (
@@ -304,16 +308,22 @@ export default function LoginPage() {
                     </div>
                   </div>
                 ) : (
-                  <div className="w-full flex flex-col items-center gap-4">
-                    <div className="flex justify-center w-full">
-                      <GoogleLogin
-                        onSuccess={handleGoogleSuccess}
-                        onError={() => {
-                          show("Login Google tidak tersedia pada origin ini. Gunakan Mode Demo SMAN 1 Ngoro.", "info");
-                        }}
-                        shape="pill"
-                      />
-                    </div>
+                  <div className="w-full flex flex-col items-center gap-3.5 sm:gap-4">
+                    {isRawIpOrigin ? (
+                      <div className="w-full rounded-xl border border-amber-200/80 bg-amber-50/80 px-3 py-2 text-center text-[11px] font-medium text-amber-800 dark:border-amber-800/50 dark:bg-amber-950/30 dark:text-amber-300">
+                        Akses via IP Jaringan Lokal ({window.location.hostname}) — login Google dinonaktifkan, silakan pilih Mode Demo di bawah.
+                      </div>
+                    ) : (
+                      <div className="flex justify-center w-full">
+                        <GoogleLogin
+                          onSuccess={handleGoogleSuccess}
+                          onError={() => {
+                            show("Login Google tidak tersedia pada origin ini. Gunakan Mode Demo SMAN 1 Ngoro.", "info");
+                          }}
+                          shape="pill"
+                        />
+                      </div>
+                    )}
 
                     <div className="relative flex w-full items-center justify-center py-1">
                       <div className="absolute inset-0 flex items-center">

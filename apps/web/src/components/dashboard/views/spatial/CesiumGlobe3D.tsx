@@ -1600,15 +1600,15 @@ export function CesiumGlobe3D({
         <div
           onPointerDown={(e) => e.stopPropagation()}
           onClick={(e) => e.stopPropagation()}
-          className="pointer-events-auto fixed top-4 left-1/2 -translate-x-1/2 z-[9995] flex items-center gap-2 px-3.5 py-2 rounded-2xl bg-slate-950/85 backdrop-blur-2xl border border-white/15 shadow-2xl text-xs text-slate-100"
+          className="pointer-events-auto fixed top-[calc(1rem+env(safe-area-inset-top))] left-[4.25rem] right-3 sm:left-1/2 sm:right-auto sm:-translate-x-1/2 z-[9995] flex items-center justify-between sm:justify-start gap-1 sm:gap-2 px-2 sm:px-3.5 py-1.5 sm:py-2 rounded-2xl bg-slate-950/85 backdrop-blur-2xl border border-white/15 shadow-2xl text-[10px] sm:text-xs text-slate-100 sm:max-w-[calc(100vw-8rem)] overflow-x-auto no-scrollbar whitespace-nowrap"
         >
-          <Orbit className="w-4 h-4 text-sky-400 shrink-0" />
-          <span className="font-bold whitespace-nowrap">
+          <Orbit className="hidden sm:block w-4 h-4 text-sky-400 shrink-0" />
+          <span className="font-bold whitespace-nowrap pl-0.5 sm:pl-0">
             {activeCelestialId === 'overview'
               ? 'Tata Surya'
               : PLANETARY_CATALOG[activeCelestialId]?.name || activeCelestialId}
           </span>
-          <span className="h-3.5 w-px bg-white/15" />
+          <span className="h-3.5 w-px bg-white/15 shrink-0" />
           <button
             type="button"
             onClick={() => {
@@ -1616,13 +1616,14 @@ export function CesiumGlobe3D({
               setActiveCelestialId('overview');
               cosmicEngineRef.current?.viewSolarSystemOverview();
             }}
-            className={`px-2.5 py-1 rounded-xl text-[11px] font-semibold transition-all cursor-pointer ${
+            className={`px-1.5 sm:px-2.5 py-1 rounded-xl text-[10px] sm:text-[11px] font-semibold transition-all cursor-pointer shrink-0 ${
               activeCelestialId === 'overview'
                 ? 'bg-sky-500 text-white shadow-sm'
                 : 'bg-white/5 text-slate-300 hover:bg-white/15 hover:text-white'
             }`}
           >
-            Semua Planet
+            <span className="sm:hidden">Semua</span>
+            <span className="hidden sm:inline">Semua Planet</span>
           </button>
           {activeCelestialId !== 'overview' && (
             <button
@@ -1632,19 +1633,21 @@ export function CesiumGlobe3D({
                 setPlanetaryExplorerMode('surface');
                 setIsPlanetaryExplorerOpen(true);
               }}
-              className="px-2.5 py-1 rounded-xl bg-gradient-to-r from-amber-600 to-rose-600 hover:from-amber-500 hover:to-rose-500 text-white text-[11px] font-bold flex items-center gap-1 cursor-pointer"
+              className="px-1.5 sm:px-2.5 py-1 rounded-xl bg-gradient-to-r from-amber-600 to-rose-600 hover:from-amber-500 hover:to-rose-500 text-white text-[10px] sm:text-[11px] font-bold flex items-center gap-1 cursor-pointer shrink-0"
             >
-              <Navigation className="w-3 h-3" />
-              <span>Masuk Planet</span>
+              <Navigation className="w-3 h-3 shrink-0" />
+              <span className="sm:hidden">Masuk 3D</span>
+              <span className="hidden sm:inline">Masuk Planet</span>
             </button>
           )}
           <button
             type="button"
             onClick={handleReturnToEarth}
-            className="px-2.5 py-1 rounded-xl bg-sky-600 hover:bg-sky-500 text-white text-[11px] font-bold flex items-center gap-1 cursor-pointer"
+            className="px-1.5 sm:px-2.5 py-1 rounded-xl bg-sky-600 hover:bg-sky-500 text-white text-[10px] sm:text-[11px] font-bold flex items-center gap-1 cursor-pointer shrink-0"
           >
-            <Globe className="w-3 h-3" />
-            <span>Kembali ke Bumi</span>
+            <Globe className="w-3 h-3 shrink-0" />
+            <span className="sm:hidden">Bumi</span>
+            <span className="hidden sm:inline">Kembali ke Bumi</span>
           </button>
         </div>
       )}

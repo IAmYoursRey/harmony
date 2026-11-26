@@ -13,6 +13,35 @@ import { useI18n } from "@/hooks/useI18n";
 import { useAuth } from "@/hooks/useAuth";
 import { isDemoNgoroUser } from "@/utils/demoSchool";
 
+const preloadedRoutes = new Set<string>();
+const routePreloaders: Record<string, () => Promise<unknown>> = {
+  maps: () => import("@/components/dashboard/views/spatial/MapsView"),
+  geospatial: () => import("@/components/dashboard/views/spatial/GeospatialStudioView"),
+  "field-telemetry": () => import("@/components/dashboard/views/telemetry/FieldTelemetryView"),
+  dashboard: () => import("@/components/dashboard/DashboardView"),
+  events: () => import("@/components/dashboard/views/events/EventsView"),
+  "ai-learning": () => import("@/components/dashboard/views/LearningViews"),
+  simulation: () => import("@/components/dashboard/views/LearningViews"),
+  "digital-twin": () => import("@/components/dashboard/views/spatial/DigitalTwinView"),
+  gss: () => import("@/components/dashboard/views/AnalyticsViews"),
+  resilience: () => import("@/components/dashboard/views/AnalyticsViews"),
+  survey: () => import("@/components/dashboard/views/AnalyticsViews"),
+  leaderboard: () => import("@/components/dashboard/views/AnalyticsViews"),
+  profile: () => import("@/components/dashboard/views/RoleDashboards"),
+  teacher: () => import("@/components/dashboard/views/RoleDashboards"),
+  "learning-gain": () => import("@/components/dashboard/views/RoleDashboards"),
+  "dev-dashboard": () => import("@/components/dashboard/views/RoleDashboards"),
+};
+
+function preloadRouteChunk(routeId: string) {
+  if (preloadedRoutes.has(routeId)) return;
+  const loader = routePreloaders[routeId];
+  if (loader) {
+    preloadedRoutes.add(routeId);
+    void loader();
+  }
+}
+
 interface SidebarProps {
   active: string;
   onSelect: () => void;
@@ -50,6 +79,8 @@ export function Sidebar({
           key="maps"
           to="/app/maps"
           onClick={onSelect}
+          onMouseEnter={() => preloadRouteChunk("maps")}
+          onTouchStart={() => preloadRouteChunk("maps")}
           className={`group press-bounce relative flex items-center gap-3 overflow-hidden rounded-2xl p-3 transition-all duration-300 ${
             isMapsActive
               ? "bg-gradient-to-r from-indigo-600 via-indigo-700 to-brand-600 text-white shadow-glass shadow-indigo-500/25 ring-2 ring-indigo-400/50"
@@ -93,6 +124,8 @@ export function Sidebar({
           key="geospatial"
           to="/app/geospatial"
           onClick={onSelect}
+          onMouseEnter={() => preloadRouteChunk("geospatial")}
+          onTouchStart={() => preloadRouteChunk("geospatial")}
           className={`group press-bounce relative flex items-center gap-3 overflow-hidden rounded-2xl p-3 transition-all duration-300 ${
             isGeospatialActive
               ? "bg-gradient-to-r from-teal-600 via-teal-700 to-cyan-700 text-white shadow-glass shadow-teal-500/25 ring-2 ring-teal-400/50"
@@ -267,6 +300,8 @@ export function Sidebar({
                           <Link
                             to={targetPath}
                             onClick={onSelect}
+                            onMouseEnter={() => preloadRouteChunk(item.id)}
+                            onTouchStart={() => preloadRouteChunk(item.id)}
                             className={`group press-bounce flex w-full min-h-[40px] items-center gap-3 rounded-xl px-3 py-2 text-sm font-medium transition-all ${
                               isActive
                                 ? "bg-brand-600 text-white shadow-glass"

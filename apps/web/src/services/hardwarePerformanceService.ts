@@ -121,12 +121,11 @@ function detectHardware(): HardwareDiagnostics {
   const reasons: string[] = [];
   if (isTV) reasons.push('Smart TV / Android TV terdeteksi');
   if (!hasWebGL) reasons.push('Tidak ada akselerasi hardware WebGL GPU');
-  if (cores <= 4) reasons.push(`CPU terbatas (${cores} threads)`);
-  if (memoryGB !== null && memoryGB <= 4) reasons.push(`RAM terbatas (${memoryGB} GB)`);
+  if (cores <= 2) reasons.push(`CPU terbatas (${cores} threads)`);
+  if (memoryGB !== null && memoryGB <= 3) reasons.push(`RAM terbatas (${memoryGB} GB)`);
   if (isLowEndGpu) reasons.push('GPU terintegrasi / daya rendah terdeteksi');
-  if (isMobile && (window.devicePixelRatio || 1) >= 2) reasons.push('Perangkat mobile high-DPI');
 
-  const isLowSpecDetected = isTV || !hasWebGL || reasons.length > 0;
+  const isLowSpecDetected = isTV || !hasWebGL || isLowEndGpu || cores <= 2 || (memoryGB !== null && memoryGB <= 3);
 
   cachedDiagnostics = {
     cores,

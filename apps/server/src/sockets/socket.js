@@ -3,10 +3,28 @@ import { updatePlayerMovement, removePlayer } from "../game/gameManager.js";
 
 let io;
 
+const LOCAL_LAN_ORIGIN_RE =
+  /^https?:\/\/(localhost|127\.0\.0\.1|10\.\d{1,3}\.\d{1,3}\.\d{1,3}|192\.168\.\d{1,3}\.\d{1,3}|172\.(1[6-9]|2\d|3[01])\.\d{1,3}\.\d{1,3})(:\d+)?$/i;
+
 export function initSocket(server) {
+  const configuredOrigins = (process.env.CORS_ORIGIN || "")
+    .split(",")
+    .map((o) => o.trim())
+    .filter(Boolean);
+
   io = new Server(server, {
     cors: {
-      origin: ["http://localhost:5173", "http://127.0.0.1:5173"],
+      origin(origin, callback) {
+        if (!origin) return callback(null, true);
+        if (
+          LOCAL_LAN_ORIGIN_RE.test(origin) ||
+          origin.endsWith(".vercel.app") ||
+          configuredOrigins.includes(origin)
+        ) {
+          return callback(null, true);
+        }
+        return callback(new Error("Origin not allowed by Socket CORS"));
+      },
       methods: ["GET", "POST"],
       credentials: true,
     },
