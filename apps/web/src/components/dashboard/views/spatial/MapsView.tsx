@@ -8724,20 +8724,20 @@ export function MapsView() {
                           </button>
                         )}
                       </div>
-                      <div className="flex items-center gap-1.5">
+                      <div className="flex items-center gap-1.5 overflow-x-auto pb-0.5 no-scrollbar">
                         <button
                           type="button"
                           onClick={() => {
                             setSignalViewportOnly((v) => !v);
                             setSignalsDisplayLimit(40);
                           }}
-                          className={`px-2.5 py-1 rounded-lg text-[9.5px] font-bold transition-colors cursor-pointer border ${
+                          className={`px-2.5 py-1 rounded-lg text-[9.5px] font-bold whitespace-nowrap shrink-0 transition-colors cursor-pointer border ${
                             signalViewportOnly
                               ? 'bg-emerald-600 text-white border-emerald-500'
                               : 'bg-white dark:bg-slate-900 text-emerald-700 dark:text-emerald-300 border-emerald-200 dark:border-emerald-800'
                           }`}
                         >
-                          {signalViewportOnly ? 'Filter Area Peta: AKTIF' : 'Filter Area Peta Saat Ini'}
+                          {signalViewportOnly ? 'Area Peta: AKTIF' : 'Area Peta'}
                         </button>
                         {['Jakarta', 'Surabaya', 'Mojokerto', 'Bandung', 'Semarang'].map((cName) => (
                           <button
@@ -8747,7 +8747,7 @@ export function MapsView() {
                               setSignalSearchQuery(cName);
                               setSignalsDisplayLimit(40);
                             }}
-                            className="px-2 py-1 rounded-lg text-[9px] font-bold bg-white/80 dark:bg-slate-900/80 text-slate-600 dark:text-slate-300 border border-slate-200 dark:border-slate-700 hover:bg-emerald-100 dark:hover:bg-emerald-950/60 cursor-pointer"
+                            className="px-2 py-1 rounded-lg text-[9px] font-bold whitespace-nowrap shrink-0 bg-white/80 dark:bg-slate-900/80 text-slate-600 dark:text-slate-300 border border-slate-200 dark:border-slate-700 hover:bg-emerald-100 dark:hover:bg-emerald-950/60 cursor-pointer"
                           >
                             {cName}
                           </button>
